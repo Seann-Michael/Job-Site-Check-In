@@ -27,19 +27,7 @@ export const getGoogleMapsApiKey = (): string => {
   try {
     console.log("🗝️ Getting Google Maps API key...");
 
-    // Check if we're in Builder.io editor environment
-    const isBuilderIoEditor =
-      typeof window !== 'undefined' &&
-      (window.location.href.includes('builder.io') ||
-       window.parent !== window ||
-       document.referrer.includes('builder.io'));
-
-    if (isBuilderIoEditor) {
-      console.log("🚫 Builder.io editor detected - Google Maps API disabled");
-      return "";
-    }
-
-    // TEMPORARY: Hardcoded API key for testing
+    // TEMPORARY: Hardcoded API key for testing (works everywhere including Builder.io)
     // TODO: Remove this and use environment variables in production
     const testApiKey = "REDACTED_GOOGLE_MAPS_API_KEY";
     console.log("⚠️ Using hardcoded API key for testing");
