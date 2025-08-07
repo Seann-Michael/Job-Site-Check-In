@@ -24,65 +24,14 @@ export interface AddressComponent {
 
 // Google Maps API Key Management
 export const getGoogleMapsApiKey = (): string => {
-  try {
-    console.log("🗝️ Getting Google Maps API key...");
+  console.log("🗝️ Getting Google Maps API key...");
 
-    // TEMPORARY: Hardcoded API key for testing (works everywhere including Builder.io)
-    // TODO: Remove this and use environment variables in production
-    const testApiKey = "REDACTED_GOOGLE_MAPS_API_KEY";
-    console.log("⚠️ Using hardcoded API key for testing");
-    return testApiKey;
-
-    // First check environment variable (Netlify/production)
-    const envApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (envApiKey) {
-      console.log("✅ Using environment variable API key");
-      return envApiKey;
-    }
-
-    console.log("⚙️ Environment variable not found, checking localStorage...");
-    const stored = localStorage.getItem("third_party_integrations");
-    console.log("📦 Raw localStorage data:", stored);
-
-    const integrations = JSON.parse(stored || "[]");
-    console.log("🔍 Parsed integrations:", integrations);
-    console.log("🔢 Number of integrations:", integrations.length);
-
-    const googleMapsIntegration = integrations.find((int: any) => {
-      console.log(
-        `🔎 Checking integration: ${int.service}, active: ${int.isActive}`,
-      );
-      return int.service === "Google Maps" && int.isActive;
-    });
-    console.log("🗺️ Google Maps integration found:", googleMapsIntegration);
-
-    if (googleMapsIntegration?.apiKey) {
-      let apiKey = googleMapsIntegration.apiKey;
-      console.log("🔑 API key found, length:", apiKey.length);
-      console.log("🔑 API key starts with:", apiKey.substring(0, 10));
-      console.log("🔑 API key ends with:", apiKey.substring(apiKey.length - 6));
-
-      // If it's a masked key, warn and return empty (will fall back to iframe)
-      if (apiKey.includes("•")) {
-        console.warn(
-          "⚠️ Google Maps API key is masked. Interactive maps disabled, falling back to iframe.",
-        );
-        return "";
-      }
-
-      console.log("✅ Using Google Maps API key for interactive maps");
-      return apiKey;
-    } else {
-      console.warn("❌ No API key found in Google Maps integration");
-    }
-  } catch (error) {
-    console.error("💥 Error retrieving Google Maps API key:", error);
-  }
-
-  console.warn(
-    "⚠️ No Google Maps API key configured. Interactive maps disabled.",
-  );
-  return "";
+  // HARDCODED FOR TESTING - Always return the test key
+  const testApiKey = "REDACTED_GOOGLE_MAPS_API_KEY";
+  console.log("⚠️ TESTING MODE: Using hardcoded API key");
+  console.log("🔑 Key starts with:", testApiKey.substring(0, 10));
+  console.log("🔑 Key length:", testApiKey.length);
+  return testApiKey;
 };
 
 // Load Google Maps API
