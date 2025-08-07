@@ -367,19 +367,6 @@ export const testGoogleMapsConnection = async (): Promise<boolean> => {
   try {
     console.log("🧪 Starting Google Maps API connection test...");
 
-    // Check if we're in Builder.io editor environment
-    const isBuilderIoEditor =
-      typeof window !== 'undefined' &&
-      (window.location.href.includes('builder.io') ||
-       window.parent !== window ||
-       document.referrer.includes('builder.io'));
-
-    if (isBuilderIoEditor) {
-      console.log("🚫 Builder.io editor detected - Google Maps API testing disabled");
-      toast.error("Google Maps API testing disabled in Builder.io editor");
-      return false;
-    }
-
     const apiKey = getGoogleMapsApiKey();
     if (!apiKey) {
       console.error("❌ No API key available for testing");
