@@ -41,7 +41,14 @@ export default function AddProject() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    address: "",
+    // Address search field
+    addressSearch: "",
+    // Structured address fields
+    streetAddress: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "United States",
     placeId: "",
     gpsLat: "",
     gpsLng: "",
