@@ -48,16 +48,23 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   // Check if Google Maps API key is available
   useEffect(() => {
-    const apiKey = getGoogleMapsApiKey();
-    console.log("🔍 AddressAutocomplete: API key check result:", apiKey ? "FOUND" : "NOT_FOUND");
-    setApiKeyAvailable(!!apiKey);
-    if (!apiKey) {
-      console.warn(
-        "Google Maps API key not configured. Address autocomplete disabled.",
-      );
-    } else {
-      console.log("✅ AddressAutocomplete: API key available, autocomplete enabled");
-    }
+    const checkApiKey = () => {
+      const apiKey = getGoogleMapsApiKey();
+      console.log("🔍 AddressAutocomplete: API key check result:", apiKey ? "FOUND" : "NOT_FOUND");
+      console.log("🔍 AddressAutocomplete: API key value:", apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}` : "NONE");
+      setApiKeyAvailable(!!apiKey);
+      if (!apiKey) {
+        console.warn("❌ AddressAutocomplete: Google Maps API key not configured. Address autocomplete disabled.");
+      } else {
+        console.log("✅ AddressAutocomplete: API key available, autocomplete enabled");
+      }
+    };
+
+    checkApiKey();
+
+    // Recheck periodically in case of delayed initialization
+    const interval = setInterval(checkApiKey, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
