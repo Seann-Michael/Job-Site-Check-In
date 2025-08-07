@@ -390,20 +390,12 @@ export default function AddProject() {
                   placeholder="Start typing address..."
                   value={formData.address}
                   onChange={(address, placeResult) => {
-                    handleInputChange("address", address);
-                    if (placeResult) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        gpsLat: placeResult.lat,
-                        gpsLng: placeResult.lng,
-                      }));
-                    }
-                  }}
-                  onCoordinatesChange={(lat, lng) => {
                     setFormData((prev) => ({
                       ...prev,
-                      gpsLat: lat,
-                      gpsLng: lng,
+                      address: address,
+                      placeId: placeResult?.placeId || "",
+                      gpsLat: placeResult?.lat.toString() || "",
+                      gpsLng: placeResult?.lng.toString() || "",
                     }));
                   }}
                 />
