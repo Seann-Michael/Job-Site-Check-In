@@ -120,10 +120,60 @@ export default function AddProject() {
   const clearAddressData = () => {
     setFormData((prev) => ({
       ...prev,
-      address: "",
+      addressSearch: "",
+      streetAddress: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "United States",
       placeId: "",
       gpsLat: "",
       gpsLng: "",
+    }));
+  };
+
+  const handleAddressSelect = (selectedPlace: any) => {
+    console.log("🏠 Selected place:", selectedPlace);
+
+    // Parse Google Places address components
+    const addressComponents = selectedPlace.address_components || [];
+    let streetNumber = "";
+    let route = "";
+    let city = "";
+    let state = "";
+    let zipCode = "";
+    let country = "";
+
+    addressComponents.forEach((component: any) => {
+      const types = component.types;
+      if (types.includes("street_number")) {
+        streetNumber = component.long_name;
+      } else if (types.includes("route")) {
+        route = component.long_name;
+      } else if (types.includes("locality")) {
+        city = component.long_name;
+      } else if (types.includes("administrative_area_level_1")) {
+        state = component.short_name;
+      } else if (types.includes("postal_code")) {
+        zipCode = component.long_name;
+      } else if (types.includes("country")) {
+        country = component.long_name;
+      }
+    });
+
+    const streetAddress = `${streetNumber} ${route}`.trim();
+
+    setFormData((prev) => ({
+      ...prev,
+      addressSearch: selectedPlace.formattedAddress || selectedPlace.description,
+      streetAddress: streetAddress,
+      city: city,
+      state: state,
+      zipCode: zipCode,
+      country: country || "United States",
+      placeId: selectedPlace.place_id || selectedPlace.placeId || "",
+      gpsLat: selectedPlace.geometry?.location?.lat?.toString() || selectedPlace.lat?.toString() || "",
+      gpsLng: selectedPlace.geometry?.location?.lng?.toString() || selectedPlace.lng?.toString() || "",
     }));
   };
 
