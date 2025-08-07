@@ -147,6 +147,27 @@ export const useAddressSearch = () => {
   const [suggestions, setSuggestions] = useState<PlaceResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  // Get user's location for proximity bias
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(location);
+          console.log("📍 User location obtained for address search bias:", location);
+        },
+        (error) => {
+          console.log("🌍 Geolocation not available, using default bias");
+        },
+        { timeout: 5000, maximumAge: 300000 } // 5 min cache
+      );
+    }
+  }, []);
 
   const searchAddress = useCallback(async (query: string) => {
     console.log("🔍 Starting address search for:", query);
