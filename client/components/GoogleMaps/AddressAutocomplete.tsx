@@ -319,11 +319,17 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               </button>
             ))}
 
-            {/* Manual entry option */}
+            {/* Manual entry and location info */}
             <div className="border-t border-gray-200 bg-gray-50">
-              <div className="px-4 py-2 text-xs text-gray-600 flex items-center gap-2">
-                <Search className="h-3 w-3" />
-                Can't find your address? You can type it manually above.
+              <div className="px-4 py-2 text-xs text-gray-600 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Navigation className="h-3 w-3" />
+                  <span>Results sorted by proximity and relevance</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Search className="h-3 w-3" />
+                  <span>Can't find your address? You can type it manually above.</span>
+                </div>
               </div>
             </div>
           </div>
