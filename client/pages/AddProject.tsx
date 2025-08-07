@@ -110,6 +110,16 @@ export default function AddProject() {
     }));
   };
 
+  const clearAddressData = () => {
+    setFormData((prev) => ({
+      ...prev,
+      address: "",
+      placeId: "",
+      gpsLat: "",
+      gpsLng: "",
+    }));
+  };
+
   const handleAdditionalPhoneChange = (index: number, value: string) => {
     setFormData((prev) => {
       const newPhones = [...prev.additionalPhones];
