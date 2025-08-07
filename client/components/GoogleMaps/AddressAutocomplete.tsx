@@ -303,7 +303,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           >
             {suggestions.map((place, index) => (
               <button
-                key={place.placeId || index}
+                key={`${place.placeId || 'unknown'}-${index}`}
                 type="button"
                 className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
                 onClick={() => handleSuggestionSelect(place)}
