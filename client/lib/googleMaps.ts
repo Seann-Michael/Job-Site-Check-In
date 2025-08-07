@@ -39,6 +39,12 @@ export const getGoogleMapsApiKey = (): string => {
       return "";
     }
 
+    // TEMPORARY: Hardcoded API key for testing
+    // TODO: Remove this and use environment variables in production
+    const testApiKey = "REDACTED_GOOGLE_MAPS_API_KEY";
+    console.log("⚠️ Using hardcoded API key for testing");
+    return testApiKey;
+
     // First check environment variable (Netlify/production)
     const envApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     if (envApiKey) {
@@ -394,7 +400,7 @@ export const testGoogleMapsConnection = async (): Promise<boolean> => {
        document.referrer.includes('builder.io'));
 
     if (isBuilderIoEditor) {
-      console.log("�� Builder.io editor detected - Google Maps API testing disabled");
+      console.log("🚫 Builder.io editor detected - Google Maps API testing disabled");
       toast.error("Google Maps API testing disabled in Builder.io editor");
       return false;
     }
