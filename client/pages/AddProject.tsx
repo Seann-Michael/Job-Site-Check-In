@@ -203,14 +203,6 @@ export default function AddProject() {
     }));
   };
 
-  const handleAddressSelect = (address: string, lat?: number, lng?: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      address,
-      gpsLat: lat ? lat.toString() : "",
-      gpsLng: lng ? lng.toString() : "",
-    }));
-  };
 
   // Simulate Google Places API (in production, use actual Google Places API)
   const simulateGooglePlaces = (input: string) => {
