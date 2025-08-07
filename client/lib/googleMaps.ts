@@ -88,19 +88,6 @@ export const getGoogleMapsApiKey = (): string => {
 // Load Google Maps API
 export const loadGoogleMapsAPI = (): Promise<typeof google> => {
   return new Promise((resolve, reject) => {
-    // Check if we're in Builder.io editor environment
-    const isBuilderIoEditor =
-      typeof window !== 'undefined' &&
-      (window.location.href.includes('builder.io') ||
-       window.parent !== window ||
-       document.referrer.includes('builder.io'));
-
-    if (isBuilderIoEditor) {
-      console.log("🚫 Builder.io editor detected - Google Maps API loading disabled");
-      reject(new Error("Google Maps API disabled in Builder.io editor"));
-      return;
-    }
-
     if (typeof google !== "undefined" && google.maps) {
       resolve(google);
       return;
