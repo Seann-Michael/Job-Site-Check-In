@@ -452,100 +452,144 @@ export default function AddProject() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex justify-between items-end gap-4">
-                  <div className="flex-1">
-                    <AddressAutocomplete
-                      label="Address"
-                      placeholder="Start typing address..."
-                      value={formData.address}
-                      onChange={(address, placeResult) => {
+              <div className="space-y-6">
+                {/* Address Search */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Address Lookup</Label>
+                    {formData.addressSearch && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAddressData}
+                        title="Clear address and start over"
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+                  <AddressAutocomplete
+                    placeholder="Search for address..."
+                    value={formData.addressSearch}
+                    onChange={(address, placeResult) => {
+                      if (placeResult) {
+                        handleAddressSelect(placeResult);
+                      } else {
                         setFormData((prev) => ({
                           ...prev,
-                          address: address,
-                          placeId: placeResult?.placeId || "",
-                          gpsLat: placeResult?.lat.toString() || "",
-                          gpsLng: placeResult?.lng.toString() || "",
+                          addressSearch: address,
                         }));
-                      }}
-                    />
-                  </div>
-                  {formData.address && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={clearAddressData}
-                      className="mb-0"
-                      title="Clear address and start over"
-                    >
-                      Clear
-                    </Button>
+                      }
+                    }}
+                  />
+                  {formData.placeId && (
+                    <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                      <CheckCircle className="h-3 w-3" />
+                      Address verified with Google Maps
+                    </div>
                   )}
                 </div>
 
-                {/* Manual Address Entry Fallback */}
-                {!formData.placeId && formData.address && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <h4 className="text-sm font-medium text-yellow-800">Manual Address Entry</h4>
-                        <p className="text-sm text-yellow-700 mt-1">
-                          This address wasn't found in Google Places. You can continue with manual entry,
-                          but location features may be limited.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Address Fields */}
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">Address Details</Label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {formData.placeId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="streetAddress">Street Address</Label>
+                    <Input
+                      id="streetAddress"
+                      placeholder="123 Main Street"
+                      value={formData.streetAddress}
+                      onChange={(e) => handleInputChange("streetAddress", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="placeId">Place ID</Label>
+                      <Label htmlFor="city">City</Label>
                       <Input
-                        id="placeId"
-                        value={formData.placeId}
-                        className="bg-muted font-mono text-xs"
-                        readOnly
-                        title="Google Places unique identifier"
+                        id="city"
+                        placeholder="City"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange("city", e.target.value)}
                       />
                     </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label htmlFor="gpsLat">
-                      GPS Latitude
-                      {!formData.placeId && <span className="text-muted-foreground"> (Optional)</span>}
-                    </Label>
-                    <Input
-                      id="gpsLat"
-                      placeholder="40.7128"
-                      value={formData.gpsLat}
-                      onChange={(e) =>
-                        handleInputChange("gpsLat", e.target.value)
-                      }
-                      className={formData.placeId ? "bg-muted" : ""}
-                      readOnly={!!formData.placeId}
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State/Province</Label>
+                      <Input
+                        id="state"
+                        placeholder="State"
+                        value={formData.state}
+                        onChange={(e) => handleInputChange("state", e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="gpsLng">
-                      GPS Longitude
-                      {!formData.placeId && <span className="text-muted-foreground"> (Optional)</span>}
-                    </Label>
-                    <Input
-                      id="gpsLng"
-                      placeholder="-74.0060"
-                      value={formData.gpsLng}
-                      onChange={(e) =>
-                        handleInputChange("gpsLng", e.target.value)
-                      }
-                      className={formData.placeId ? "bg-muted" : ""}
-                      readOnly={!!formData.placeId}
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="zipCode">ZIP/Postal Code</Label>
+                      <Input
+                        id="zipCode"
+                        placeholder="12345"
+                        value={formData.zipCode}
+                        onChange={(e) => handleInputChange("zipCode", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="country">Country</Label>
+                      <Input
+                        id="country"
+                        placeholder="United States"
+                        value={formData.country}
+                        onChange={(e) => handleInputChange("country", e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Technical Details (Collapsible) */}
+                <details className="space-y-4">
+                  <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                    Technical Details
+                  </summary>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                    {formData.placeId && (
+                      <div className="space-y-2">
+                        <Label htmlFor="placeId">Place ID</Label>
+                        <Input
+                          id="placeId"
+                          value={formData.placeId}
+                          className="bg-muted font-mono text-xs"
+                          readOnly
+                          title="Google Places unique identifier"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="gpsLat">GPS Latitude</Label>
+                      <Input
+                        id="gpsLat"
+                        placeholder="40.7128"
+                        value={formData.gpsLat}
+                        onChange={(e) => handleInputChange("gpsLat", e.target.value)}
+                        className={formData.placeId ? "bg-muted" : ""}
+                        readOnly={!!formData.placeId}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gpsLng">GPS Longitude</Label>
+                      <Input
+                        id="gpsLng"
+                        placeholder="-74.0060"
+                        value={formData.gpsLng}
+                        onChange={(e) => handleInputChange("gpsLng", e.target.value)}
+                        className={formData.placeId ? "bg-muted" : ""}
+                        readOnly={!!formData.placeId}
+                      />
+                    </div>
+                  </div>
+                </details>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
