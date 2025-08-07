@@ -329,18 +329,35 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         )}
       </div>
 
-      {/* Coordinates Display */}
+      {/* Address Details */}
       {selectedPlace && (
-        <div className="mt-2 p-2 bg-muted rounded-md">
-          <div className="text-xs text-muted-foreground">
-            <strong>Coordinates:</strong> {selectedPlace.lat.toFixed(6)},{" "}
-            {selectedPlace.lng.toFixed(6)}
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+            <CheckCircle className="h-3 w-3" />
+            Address verified with Google Maps
           </div>
+
           {selectedPlace.placeId && (
-            <div className="text-xs text-muted-foreground mt-1">
-              <strong>Place ID:</strong> {selectedPlace.placeId}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Place ID</Label>
+              <Input
+                value={selectedPlace.placeId}
+                readOnly
+                className="text-xs font-mono bg-muted h-8"
+                title="Google Places unique identifier"
+              />
             </div>
           )}
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Technical Details
+            </summary>
+            <div className="mt-1 p-2 bg-muted rounded text-muted-foreground space-y-1">
+              <div><strong>Coordinates:</strong> {selectedPlace.lat.toFixed(6)}, {selectedPlace.lng.toFixed(6)}</div>
+              <div><strong>Formatted:</strong> {selectedPlace.formattedAddress}</div>
+            </div>
+          </details>
         </div>
       )}
     </div>
