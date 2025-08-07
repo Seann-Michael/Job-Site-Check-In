@@ -73,17 +73,19 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (inputValue !== value && apiKeyAvailable) {
+      if (inputValue && inputValue.length >= 3 && apiKeyAvailable) {
         console.log("🔍 AddressAutocomplete: Searching for address:", inputValue);
         searchAddress(inputValue);
         setShowSuggestions(true);
       } else if (!apiKeyAvailable) {
         console.log("❌ AddressAutocomplete: Search skipped - API key not available");
+      } else if (inputValue && inputValue.length < 3) {
+        console.log("⚠️ AddressAutocomplete: Input too short for search:", inputValue);
       }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [inputValue, searchAddress, value, apiKeyAvailable]);
+  }, [inputValue, searchAddress, apiKeyAvailable]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
