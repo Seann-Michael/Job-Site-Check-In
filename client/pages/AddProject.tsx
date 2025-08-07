@@ -41,6 +41,7 @@ export default function AddProject() {
     name: "",
     description: "",
     address: "",
+    placeId: "",
     gpsLat: "",
     gpsLng: "",
     customerName: "",
