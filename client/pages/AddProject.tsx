@@ -14,6 +14,7 @@ import {
   Lightbulb,
   Plus,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
