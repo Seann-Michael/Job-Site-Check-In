@@ -396,20 +396,36 @@ export default function AddProject() {
               </div>
 
               <div className="space-y-4">
-                <AddressAutocomplete
-                  label="Address"
-                  placeholder="Start typing address..."
-                  value={formData.address}
-                  onChange={(address, placeResult) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      address: address,
-                      placeId: placeResult?.placeId || "",
-                      gpsLat: placeResult?.lat.toString() || "",
-                      gpsLng: placeResult?.lng.toString() || "",
-                    }));
-                  }}
-                />
+                <div className="flex justify-between items-end gap-4">
+                  <div className="flex-1">
+                    <AddressAutocomplete
+                      label="Address"
+                      placeholder="Start typing address..."
+                      value={formData.address}
+                      onChange={(address, placeResult) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          address: address,
+                          placeId: placeResult?.placeId || "",
+                          gpsLat: placeResult?.lat.toString() || "",
+                          gpsLng: placeResult?.lng.toString() || "",
+                        }));
+                      }}
+                    />
+                  </div>
+                  {formData.address && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAddressData}
+                      className="mb-0"
+                      title="Clear address and start over"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
 
                 {/* Manual Address Entry Fallback */}
                 {!formData.placeId && formData.address && (
