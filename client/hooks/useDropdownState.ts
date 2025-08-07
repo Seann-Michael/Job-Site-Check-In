@@ -14,9 +14,18 @@ let globalDropdownHistory: DropdownHistory = {};
 
 // Load from localStorage on startup
 try {
-  const stored = localStorage.getItem("globalDropdownHistory");
-  if (stored) {
-    globalDropdownHistory = JSON.parse(stored);
+  // Check if we're in Builder.io editor environment
+  const isBuilderIoEditor =
+    typeof window !== 'undefined' &&
+    (window.location.href.includes('builder.io') ||
+     window.parent !== window ||
+     document.referrer.includes('builder.io'));
+
+  if (!isBuilderIoEditor) {
+    const stored = localStorage.getItem("globalDropdownHistory");
+    if (stored) {
+      globalDropdownHistory = JSON.parse(stored);
+    }
   }
 } catch (error) {
   console.warn("Failed to load dropdown history from localStorage");
