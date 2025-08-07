@@ -207,6 +207,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/address-test"
+                  element={
+                    <ProtectedRoute>
+                      <AddressTest />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/project/:id"
                   element={
                     <ProtectedRoute>
