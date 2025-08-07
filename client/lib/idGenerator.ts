@@ -33,6 +33,17 @@ function generateRandomString(length: number): string {
 // Get sub account ID from business settings
 function getSubAccountId(): string {
   try {
+    // Check if we're in Builder.io editor environment
+    const isBuilderIoEditor =
+      typeof window !== 'undefined' &&
+      (window.location.href.includes('builder.io') ||
+       window.parent !== window ||
+       document.referrer.includes('builder.io'));
+
+    if (isBuilderIoEditor) {
+      return "BUILDER_IO_DEFAULT";
+    }
+
     const saved = localStorage.getItem("business_settings");
     if (saved) {
       const settings = JSON.parse(saved);
