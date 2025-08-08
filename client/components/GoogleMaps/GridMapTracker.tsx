@@ -6,6 +6,8 @@ interface GridMapTrackerProps {
   center?: { lat: number; lng: number };
   gridSize?: number;
   gridRadius?: number; // in meters
+  pattern?: 'grid' | 'circle' | 'line';
+  pointCount?: number;
   rankings?: Record<string, number | null>;
   onGridChange?: (gridPoints: any[]) => void;
   height?: string;
