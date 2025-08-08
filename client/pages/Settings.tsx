@@ -828,6 +828,11 @@ export default function Settings() {
                             <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
+                        {settings.googlePlaceId && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Auto-detected from Google Business Profile
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="contactName">Contact Name</Label>
