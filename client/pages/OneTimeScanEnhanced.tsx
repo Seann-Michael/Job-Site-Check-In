@@ -699,7 +699,7 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="5-2">5 Pins | ⌀2</SelectItem>
                         <SelectItem value="8-0.5">8 Pins | ⌀0.5</SelectItem>
                         <SelectItem value="8-1">8 Pins | ⌀1</SelectItem>
-                        <SelectItem value="8-2">8 Pins | ⌀2</SelectItem>
+                        <SelectItem value="8-2">8 Pins | ���2</SelectItem>
                         <SelectItem value="10-0.5">10 Pins | ⌀0.5</SelectItem>
                         <SelectItem value="10-1">10 Pins | ⌀1</SelectItem>
                         <SelectItem value="10-2">10 Pins | ⌀2</SelectItem>
@@ -718,7 +718,7 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="40-3">40 Pins | ⌀3</SelectItem>
                         <SelectItem value="50-2">50 Pins | ⌀2</SelectItem>
                         <SelectItem value="50-3">50 Pins | ⌀3</SelectItem>
-                        <SelectItem value="50-5">50 Pins | ���5</SelectItem>
+                        <SelectItem value="50-5">50 Pins | ⌀5</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -980,6 +980,58 @@ export default function OneTimeScanEnhanced() {
             </div>
           </div>
         </div>
+
+        {/* Waypoint Map Display */}
+        {(selectedBusiness?.coordinates || waypoints.length > 0) && (
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Map className="h-5 w-5" />
+                  Waypoints Map
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GoogleMapComponent
+                  center={selectedBusiness?.coordinates}
+                  zoom={12}
+                  height="400px"
+                  waypoints={waypoints.map((waypoint) => ({
+                    id: waypoint.id,
+                    position: waypoint.coordinates,
+                    rank: waypoint.isCenter ? 0 : parseInt(waypoint.id.replace('waypoint-', '')) + 1
+                  }))}
+                  onWaypointClick={(waypointId) => {
+                    console.log('Waypoint clicked:', waypointId);
+                    // Could add waypoint selection logic here
+                  }}
+                  className="mb-4"
+                />
+                <div className="text-sm text-gray-600">
+                  {waypoints.length > 0 && (
+                    <p className="mb-2">
+                      Showing {waypoints.length} generated waypoints ({enabledWaypointsCount} enabled)
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      <span>Ranks 1-3</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                      <span>Ranks 4-10</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      <span>Ranks 11+</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
