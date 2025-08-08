@@ -913,21 +913,21 @@ export default function OneTimeScanEnhanced() {
                 <div className="text-sm text-gray-600">
                   {waypoints.length > 0 && (
                     <p className="mb-2">
-                      Showing {waypoints.length} generated waypoints ({enabledWaypointsCount} enabled)
+                      Showing {waypoints.length} search locations ({enabledWaypointsCount} enabled for scan)
                     </p>
                   )}
                   <div className="flex items-center gap-4 text-xs">
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      <span>Ranks 1-3</span>
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      <span>Enabled Search Locations</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                      <span>Ranks 4-10</span>
+                      <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                      <span>Disabled Search Locations</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                      <span>Ranks 11+</span>
+                      <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                      <span>Business Center</span>
                     </div>
                   </div>
                 </div>
