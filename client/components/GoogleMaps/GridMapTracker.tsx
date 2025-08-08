@@ -352,14 +352,17 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
 
 
-  // Toggle waypoint disabled state
+  // Toggle waypoint disabled state (except center pin)
   const toggleWaypointDisabled = useCallback((markerId: string) => {
     setMarkers((prevMarkers) => {
-      const updatedMarkers = prevMarkers.map((marker: any) =>
-        marker.id === markerId
+      const updatedMarkers = prevMarkers.map((marker: any) => {
+        // Don't allow toggling the center pin
+        if (marker.isCenter) return marker;
+
+        return marker.id === markerId
           ? { ...marker, disabled: !marker.disabled }
-          : marker,
-      );
+          : marker;
+      });
       // Defer onGridChange to prevent setState during render
       setTimeout(() => onGridChangeRef.current(updatedMarkers), 0);
       return updatedMarkers;
