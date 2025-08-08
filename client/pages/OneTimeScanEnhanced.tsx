@@ -873,7 +873,7 @@ export default function OneTimeScanEnhanced() {
                           <li>• Add at least one keyword</li>
                         )}
                         {waypoints.length === 0 && (
-                          <li>• Configure waypoints</li>
+                          <li>��� Configure waypoints</li>
                         )}
                       </ul>
                     </div>
@@ -894,22 +894,29 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <GoogleMapComponent
-                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }} // Default to center of US
-                zoom={selectedBusiness?.coordinates ? 12 : 4}
-                height="400px"
-                markers={waypoints.map((waypoint, index) => ({
-                  id: waypoint.id,
-                  position: waypoint.coordinates,
-                  title: waypoint.isCenter ? 'Business Center' : `Search Location ${index}`,
-                  color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
-                  icon: waypoint.isCenter ? 'business' : undefined,
-                  content: waypoint.isCenter
-                    ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
-                    : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
-                }))}
-                className="mb-4"
-              />
+              <div className="space-y-2">
+                <GoogleMapComponent
+                  center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }} // Default to center of US
+                  zoom={selectedBusiness?.coordinates ? 12 : 4}
+                  height="400px"
+                  markers={waypoints.map((waypoint, index) => ({
+                    id: waypoint.id,
+                    position: waypoint.coordinates,
+                    title: waypoint.isCenter ? 'Business Center' : `Search Location ${index}`,
+                    color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
+                    icon: waypoint.isCenter ? 'business' : undefined,
+                    content: waypoint.isCenter
+                      ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
+                      : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
+                  }))}
+                  className="mb-2"
+                />
+
+                {/* Debug info */}
+                <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                  Map Status: Loading... | Center: {selectedBusiness?.coordinates ? `${selectedBusiness.coordinates.lat.toFixed(4)}, ${selectedBusiness.coordinates.lng.toFixed(4)}` : '39.8283, -98.5795'} | Markers: {waypoints.length}
+                </div>
+              </div>
               <div className="text-sm text-gray-600">
                 {waypoints.length > 0 ? (
                   <p className="mb-2">
