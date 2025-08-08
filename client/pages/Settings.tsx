@@ -947,6 +947,94 @@ export default function Settings() {
 
                 <Card>
                   <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Google Business Profile Details
+                    </CardTitle>
+                    <CardDescription>
+                      Google-specific business information and identifiers
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="googlePlaceId">Google Places ID</Label>
+                        <Input
+                          id="googlePlaceId"
+                          value={settings.googlePlaceId || ""}
+                          onChange={(e) =>
+                            updateSetting("googlePlaceId", e.target.value)
+                          }
+                          placeholder="ChIJdQzM4UKvhYAR-A7s..."
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Unique identifier from Google Places API
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="googleCid">Google Customer ID (CID)</Label>
+                        <Input
+                          id="googleCid"
+                          value={settings.googleCid || ""}
+                          onChange={(e) =>
+                            updateSetting("googleCid", e.target.value)
+                          }
+                          placeholder="123456789012345"
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Google My Business customer identifier
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="latitude">Latitude</Label>
+                        <Input
+                          id="latitude"
+                          type="number"
+                          step="any"
+                          value={settings.latitude || ""}
+                          onChange={(e) =>
+                            updateSetting("latitude", parseFloat(e.target.value) || undefined)
+                          }
+                          placeholder="40.7128"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="longitude">Longitude</Label>
+                        <Input
+                          id="longitude"
+                          type="number"
+                          step="any"
+                          value={settings.longitude || ""}
+                          onChange={(e) =>
+                            updateSetting("longitude", parseFloat(e.target.value) || undefined)
+                          }
+                          placeholder="-74.0060"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {settings.googlePlaceId && (
+                      <div className="p-3 border rounded-lg bg-green-50">
+                        <div className="flex items-center gap-2 text-green-700">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="font-medium">Google Business Profile Connected</span>
+                        </div>
+                        {settings.businessRating && (
+                          <div className="mt-2 text-sm text-green-600">
+                            Rating: {settings.businessRating} stars ({settings.businessReviewsTotal} reviews)
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
                     <CardTitle>Regional Settings</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
