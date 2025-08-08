@@ -1385,6 +1385,14 @@ export default function ProjectDetail() {
                       </CardContent>
                     </Card>
 
+                    {/* Street View Section */}
+                    <StreetView
+                      streetViewUrl={project.streetViewUrl}
+                      hasStreetView={project.hasStreetView}
+                      address={project.address || `${project.streetAddress}, ${project.city}, ${project.state} ${project.zipCode}`}
+                      className="w-full"
+                    />
+
                     {/* Notes Section */}
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between">
