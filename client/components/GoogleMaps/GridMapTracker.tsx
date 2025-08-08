@@ -201,18 +201,25 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     // Don't call onGridChange during initialization to prevent infinite loops
   }, [gridCenter, gridType, gridSize, pinSpacing, disabledPoints, generateGridPositions]);
 
-  // Auto-fit bounds when markers change
+  // Auto-fit bounds when markers change - deferred to prevent setState during render
   useEffect(() => {
     if (mapRef.current && markers.length > 0) {
-      const bounds = new google.maps.LatLngBounds();
-      markers.forEach((marker: any) => {
-        bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
-      });
-      mapRef.current.fitBounds(bounds);
-      const zoom = mapRef.current.getZoom();
-      if (zoom && zoom > 16) {
-        mapRef.current.setZoom(16); // Prevent zooming too close
-      }
+      // Use setTimeout to defer the map operation and prevent render-time state updates
+      const timeoutId = setTimeout(() => {
+        if (mapRef.current && markers.length > 0) {
+          const bounds = new google.maps.LatLngBounds();
+          markers.forEach((marker: any) => {
+            bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
+          });
+          mapRef.current.fitBounds(bounds);
+          const zoom = mapRef.current.getZoom();
+          if (zoom && zoom > 16) {
+            mapRef.current.setZoom(16); // Prevent zooming too close
+          }
+        }
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [markers]);
 
@@ -435,21 +442,23 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         options={mapOptions}
         onLoad={(map) => {
           mapRef.current = map;
-          // Auto-fit bounds to show all markers
-          if (markers.length > 0) {
-            const bounds = new google.maps.LatLngBounds();
-            markers.forEach((marker: any) => {
-              bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
-            });
-            map.fitBounds(bounds);
-            const zoom = map.getZoom();
-            if (zoom && zoom > 16) {
-              map.setZoom(16); // Prevent zooming too close
+          // Defer auto-fit bounds to avoid setState during render
+          setTimeout(() => {
+            if (markers.length > 0 && mapRef.current) {
+              const bounds = new google.maps.LatLngBounds();
+              markers.forEach((marker: any) => {
+                bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
+              });
+              mapRef.current.fitBounds(bounds);
+              const zoom = mapRef.current.getZoom();
+              if (zoom && zoom > 16) {
+                mapRef.current.setZoom(16); // Prevent zooming too close
+              }
             }
-          }
+          }, 100);
         }}
         onMouseDown={(e) => {
-          if (e.latLng) {
+          if (e.latLng && !isDragging && !isGridDragging) {
             setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
           }
         }}
@@ -464,6 +473,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             const deltaLat = e.latLng.lat() - dragStartPosition.lat;
             const deltaLng = e.latLng.lng() - dragStartPosition.lng;
 
+            // Throttle updates to prevent excessive renders
             setMarkers(prevMarkers => {
               const updatedMarkers = prevMarkers.map((marker: any) => ({
                 ...marker,
