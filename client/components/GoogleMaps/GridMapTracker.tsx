@@ -127,10 +127,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           : marker
       );
 
-      // Call onGridChange after state update is complete
-      setTimeout(() => {
-        onGridChange(updatedMarkers);
-      }, 0);
+      // Call onGridChange - parent handles timing
+      onGridChange(updatedMarkers);
 
       return updatedMarkers;
     });
