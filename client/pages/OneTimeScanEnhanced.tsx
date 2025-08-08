@@ -999,7 +999,10 @@ export default function OneTimeScanEnhanced() {
                 }
                 pinSpacing={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
                 rankings={{}}
-                disabledPoints={waypoints.filter(w => !w.enabled).map(w => w.id)}
+                disabledPoints={useMemo(() =>
+                  waypoints.filter(w => !w.enabled).map(w => w.id),
+                  [waypoints]
+                )}
                 onGridChange={useCallback((gridPoints) => {
                   // Prevent setState during render by using requestAnimationFrame
                   requestAnimationFrame(() => {
