@@ -1028,6 +1028,20 @@ export default function Settings() {
                       </div>
                     </div>
 
+                    <div className="space-y-4">
+                      <BusinessTypesSelect
+                        values={settings.businessTypes || []}
+                        onValuesChange={(values) => updateSetting("businessTypes", values)}
+                        label="Business Categories"
+                        placeholder="Select business categories"
+                      />
+                      {settings.googlePlaceId && (
+                        <p className="text-xs text-green-600">
+                          ✓ Categories detected from Google Business Profile
+                        </p>
+                      )}
+                    </div>
+
                     {settings.googlePlaceId && (
                       <div className="p-3 border rounded-lg bg-green-50">
                         <div className="flex items-center gap-2 text-green-700">
