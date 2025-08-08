@@ -744,6 +744,7 @@ export default function Settings() {
 
                               // Store Google-specific data
                               updateSetting("googlePlaceId", placeResult.placeId);
+                              updateSetting("googleCid", placeResult.cid || "");
                               updateSetting("googleBusinessUrl", placeResult.url || "");
                               updateSetting("businessRating", placeResult.rating || 0);
                               updateSetting("businessReviewsTotal", placeResult.userRatingsTotal || 0);
