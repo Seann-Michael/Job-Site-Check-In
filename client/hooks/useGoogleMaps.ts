@@ -215,7 +215,7 @@ export const useAddressSearch = () => {
         console.log("🌍 Permissions API not supported, skipping geolocation to avoid prompts");
       });
     } else {
-      console.log("�� Geolocation not supported or permissions API not available");
+      console.log("🌍 Geolocation not supported or permissions API not available");
     }
   }, []);
 
@@ -434,5 +434,129 @@ export const useGeolocation = () => {
     error,
     isLoading,
     getCurrentPosition,
+  };
+};
+
+// Hook for business places search
+export const useBusinessPlacesSearch = () => {
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const searchBusinesses = useCallback(async (query: string) => {
+    console.log("🏢 Starting business search for:", query);
+
+    if (!query || query.length < 3) {
+      console.log("❌ Query too short, clearing suggestions");
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Check if API key is available
+      console.log("🔑 Checking API key availability...");
+      const { getGoogleMapsApiKey } = await import("@/lib/googleMaps");
+      const apiKey = getGoogleMapsApiKey();
+      if (!apiKey) {
+        console.error("❌ No API key available for business search");
+        setError("Google Maps API key not configured");
+        setSuggestions([]);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("✅ API key available, loading Google Maps API...");
+      await loadGoogleMapsAPI();
+      console.log("✅ Google Maps API loaded successfully");
+
+      const service = new google.maps.places.PlacesService(
+        document.createElement('div')
+      );
+      console.log("🏢 PlacesService created, making text search request...");
+
+      const request: google.maps.places.TextSearchRequest = {
+        query: query,
+        type: 'establishment',
+        fields: [
+          'place_id',
+          'name',
+          'formatted_address',
+          'business_status',
+          'types',
+          'rating',
+          'user_ratings_total',
+          'formatted_phone_number',
+          'website',
+          'opening_hours',
+          'geometry',
+          'photos',
+          'url'
+        ]
+      };
+
+      service.textSearch(request, (results, status) => {
+        console.log(
+          "🏢 Business search callback - Status:",
+          status,
+          "Results:",
+          results?.length,
+        );
+
+        if (
+          status === google.maps.places.PlacesServiceStatus.OK &&
+          results
+        ) {
+          console.log("✅ Business results received, processing...");
+
+          const businessResults = results
+            .filter(place => place.business_status === 'OPERATIONAL')
+            .slice(0, 8)
+            .map(place => ({
+              placeId: place.place_id || '',
+              name: place.name || '',
+              formattedAddress: place.formatted_address || '',
+              businessStatus: place.business_status || '',
+              types: place.types || [],
+              rating: place.rating,
+              userRatingsTotal: place.user_ratings_total,
+              phoneNumber: place.formatted_phone_number,
+              website: place.website,
+              openingHours: place.opening_hours?.weekday_text,
+              lat: place.geometry?.location?.lat() || 0,
+              lng: place.geometry?.location?.lng() || 0,
+              photos: place.photos?.slice(0, 1).map(photo =>
+                photo.getUrl({ maxWidth: 200, maxHeight: 200 })
+              ),
+              url: place.url
+            }));
+
+          console.log("📍 Final business results:", businessResults.length, "businesses");
+          setSuggestions(businessResults);
+        } else {
+          console.log("❌ No business results or bad status:", status);
+          setSuggestions([]);
+        }
+        setIsLoading(false);
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Business search failed");
+      setSuggestions([]);
+      setIsLoading(false);
+    }
+  }, []);
+
+  const clearSuggestions = useCallback(() => {
+    setSuggestions([]);
+  }, []);
+
+  return {
+    suggestions,
+    isLoading,
+    error,
+    searchBusinesses,
+    clearSuggestions,
   };
 };
