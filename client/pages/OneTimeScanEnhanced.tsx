@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/AppLayout";
 import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponent";
+import { GridOverlayMap } from "@/components/GoogleMaps/GridOverlayMap";
 import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
 import {
   MapPin,
