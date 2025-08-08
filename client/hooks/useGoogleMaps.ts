@@ -186,22 +186,12 @@ export const useAddressSearch = () => {
         "🏢 AutocompleteService created, making prediction request...",
       );
 
-      // Build request options with location bias
+      // Build request options without location bias (rely on IP-based detection)
       const requestOptions: google.maps.places.AutocompletionRequest = {
         input: query,
         types: ["address"],
         componentRestrictions: { country: "us" },
       };
-
-      // Add location bias if user location is available
-      if (userLocation) {
-        requestOptions.location = new google.maps.LatLng(
-          userLocation.lat,
-          userLocation.lng,
-        );
-        requestOptions.radius = 50000; // 50km radius for bias
-        console.log("📍 Using location bias:", userLocation);
-      }
 
       // Try to detect if user is typing a specific city/state and bias accordingly
       const cityStateMatch = query.match(/,\s*([A-Z]{2})\s*$/i);
