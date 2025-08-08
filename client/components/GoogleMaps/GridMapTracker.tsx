@@ -578,6 +578,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           if (isDraggingAllPins && dragStartPosition) {
             setIsDraggingAllPins(false);
             setDragStartPosition(null);
+            // Notify parent of final positions after drag-all operation completes
+            setTimeout(() => onGridChangeRef.current(markers), 0);
           }
         }}
         onMouseMove={(e) => {
