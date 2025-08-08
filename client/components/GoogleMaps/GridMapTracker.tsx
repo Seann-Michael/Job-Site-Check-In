@@ -183,7 +183,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     } else {
       return generateSquarePositions(centerPoint, size, spacing);
     }
-  }, []);
+  }, [generateCirclePositions, generateSquarePositions]);
 
   // Initialize markers when any grid configuration changes
   useEffect(() => {
