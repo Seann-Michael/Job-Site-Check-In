@@ -34,9 +34,7 @@ export default function Index() {
   // Check if we're in Builder.io editor
   const isBuilderIoEditor =
     typeof window !== "undefined" &&
-    (window.location.href.includes("builder.io") ||
-      window.parent !== window ||
-      document.referrer.includes("builder.io"));
+    window.location.hostname.includes("builder.io");
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
