@@ -691,17 +691,90 @@ export default function Settings() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <Label htmlFor="businessName">Business Name</Label>
-                        <Input
-                          id="businessName"
+                      <div className="sm:col-span-2">
+                        <BusinessPlacesSearch
+                          label="Business Name"
                           value={settings.businessName || ""}
-                          onChange={(e) =>
-                            updateSetting("businessName", e.target.value)
-                          }
+                          onChange={(businessName, placeResult) => {
+                            updateSetting("businessName", businessName);
+
+                            // Auto-populate fields from Google Business Profile
+                            if (placeResult) {
+                              console.log("🏢 Auto-populating from Google Business Profile:", placeResult);
+
+                              // Update business information
+                              if (placeResult.formattedAddress) {
+                                const addressParts = placeResult.formattedAddress.split(", ");
+                                const fullAddress = addressParts.slice(0, -2).join(", ");
+                                const city = addressParts[addressParts.length - 2];
+                                const stateZip = addressParts[addressParts.length - 1];
+                                const [state, zipCode] = stateZip ? stateZip.split(" ") : ["", ""];
+
+                                updateSetting("address", fullAddress || "");
+                                updateSetting("city", city || "");
+                                updateSetting("state", state || "");
+                                updateSetting("zipCode", zipCode || "");
+                              }
+
+                              if (placeResult.phoneNumber) {
+                                updateSetting("phone", placeResult.phoneNumber);
+                              }
+
+                              if (placeResult.website) {
+                                updateSetting("website", placeResult.website);
+                              }
+
+                              // Store Google-specific data
+                              updateSetting("googlePlaceId", placeResult.placeId);
+                              updateSetting("googleBusinessUrl", placeResult.url || "");
+                              updateSetting("businessRating", placeResult.rating || 0);
+                              updateSetting("businessReviewsTotal", placeResult.userRatingsTotal || 0);
+                              updateSetting("businessHours", placeResult.openingHours || []);
+
+                              // Auto-detect business type from Google Places types
+                              if (placeResult.types && placeResult.types.length > 0) {
+                                const typeMapping: { [key: string]: string } = {
+                                  'restaurant': 'restaurant',
+                                  'food': 'restaurant',
+                                  'store': 'retail',
+                                  'clothing_store': 'retail',
+                                  'car_dealer': 'automotive',
+                                  'car_repair': 'automotive',
+                                  'gas_station': 'automotive',
+                                  'hospital': 'healthcare',
+                                  'dentist': 'healthcare',
+                                  'doctor': 'healthcare',
+                                  'beauty_salon': 'beauty',
+                                  'spa': 'beauty',
+                                  'hair_care': 'beauty',
+                                  'gym': 'fitness',
+                                  'health': 'fitness',
+                                  'real_estate_agency': 'real-estate',
+                                  'lawyer': 'legal',
+                                  'accounting': 'financial',
+                                  'bank': 'financial',
+                                  'insurance_agency': 'financial',
+                                  'plumber': 'home-services',
+                                  'electrician': 'home-services',
+                                  'general_contractor': 'home-services',
+                                  'school': 'education',
+                                  'university': 'education'
+                                };
+
+                                for (const type of placeResult.types) {
+                                  if (typeMapping[type]) {
+                                    updateSetting("businessType", typeMapping[type]);
+                                    break;
+                                  }
+                                }
+                              }
+                            }
+                          }}
+                          placeholder="Search for your business on Google..."
+                          required
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          This name will appear in the business selector
+                          Search and select your Google Business Profile to auto-populate information
                         </p>
                       </div>
                       <div>
@@ -1427,7 +1500,7 @@ export default function Settings() {
                                     label: "Project Updated",
                                     description:
                                       "When project details are modified",
-                                    icon: "📝",
+                                    icon: "��",
                                   },
                                   {
                                     id: "project.archived",
