@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AppLayout } from "@/components/AppLayout";
 import { GoogleMapComponent } from "@/components/GoogleMaps";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
+import { StreetView } from "@/components/StreetView";
 import { PhotoActionMenu } from "@/components/PhotoActionMenu";
 import {
   ArrowLeft,
