@@ -235,20 +235,22 @@ const generateMockProjects = (): MockProject[] => {
         "finishing",
       ];
 
-      // Use simple SVG data URLs that will always work
+      // Create more realistic and varied photo URLs
       const colors = [
-        "4f46e5",
-        "059669",
-        "dc2626",
-        "ea580c",
-        "7c2d12",
-        "6366f1",
+        "4f46e5", "059669", "dc2626", "ea580c", "7c2d12", "6366f1",
+        "8b5cf6", "f59e0b", "10b981", "3b82f6", "ef4444", "84cc16"
       ];
-      const color = colors[j % colors.length];
+      const color = colors[(i * photoCount + j) % colors.length];
+      const photoId = (i * photoCount + j + 1); // Unique ID for each photo across all projects
+
+      // Create varied photo content based on project type and photo index
+      const projectType = projectNames[i].split(" - ")[0];
+      const photoStage = j === 0 ? "Before" : "After";
+
       const imageUrls = [
-        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="%23${color}"/><text x="400" y="300" font-family="Arial" font-size="48" fill="white" text-anchor="middle" dominant-baseline="middle">Photo ${j + 1}</text></svg>`,
-        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="%23666666"/><text x="400" y="300" font-family="Arial" font-size="32" fill="white" text-anchor="middle" dominant-baseline="middle">Project Photo ${j + 1}</text></svg>`,
-        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="%23cccccc"/><text x="400" y="300" font-family="Arial" font-size="40" fill="%23333333" text-anchor="middle" dominant-baseline="middle">Image ${j + 1}</text></svg>`,
+        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><defs><linearGradient id="grad${photoId}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23${color};stop-opacity:1" /><stop offset="100%" style="stop-color:%23${color}88;stop-opacity:1" /></linearGradient></defs><rect width="800" height="600" fill="url(%23grad${photoId})"/><circle cx="200" cy="150" r="50" fill="white" opacity="0.3"/><circle cx="600" cy="450" r="70" fill="white" opacity="0.2"/><text x="400" y="280" font-family="Arial" font-size="32" fill="white" text-anchor="middle" font-weight="bold">${projectType}</text><text x="400" y="320" font-family="Arial" font-size="24" fill="white" text-anchor="middle">${photoStage} Photo</text><text x="400" y="360" font-family="Arial" font-size="18" fill="white" text-anchor="middle" opacity="0.8">Gallery Image ${photoId}</text></svg>`,
+        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="%23f3f4f6"/><rect x="50" y="50" width="700" height="500" fill="%23${color}" opacity="0.8"/><rect x="100" y="100" width="600" height="400" fill="white" opacity="0.9"/><text x="400" y="280" font-family="Arial" font-size="28" fill="%23374151" text-anchor="middle" font-weight="bold">${projectType}</text><text x="400" y="320" font-family="Arial" font-size="20" fill="%23374151" text-anchor="middle">${photoStage} - Photo ${photoId}</text></svg>`,
+        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="%23${color}"/><polygon points="0,600 800,400 800,600" fill="white" opacity="0.1"/><polygon points="0,0 400,200 0,400" fill="white" opacity="0.1"/><text x="400" y="300" font-family="Arial" font-size="36" fill="white" text-anchor="middle" font-weight="bold">📸 ${photoId}</text><text x="400" y="350" font-family="Arial" font-size="20" fill="white" text-anchor="middle">${projectType} - ${photoStage}</text></svg>`,
       ];
 
       photos.push({
