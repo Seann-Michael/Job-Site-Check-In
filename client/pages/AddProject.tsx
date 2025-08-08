@@ -137,7 +137,7 @@ export default function AddProject() {
     }));
   };
 
-  const handleAddressSelect = (selectedPlace: any) => {
+  const handleAddressSelect = async (selectedPlace: any) => {
     console.log("🏠 Selected place:", selectedPlace);
 
     // Parse Google Places address components
@@ -168,6 +168,34 @@ export default function AddProject() {
 
     const streetAddress = `${streetNumber} ${route}`.trim();
 
+    // Get coordinates for Street View
+    const lat = selectedPlace.geometry?.location?.lat?.() ||
+               selectedPlace.geometry?.location?.lat ||
+               selectedPlace.lat;
+    const lng = selectedPlace.geometry?.location?.lng?.() ||
+               selectedPlace.geometry?.location?.lng ||
+               selectedPlace.lng;
+
+    let streetViewUrl = "";
+    let hasStreetView = false;
+
+    // Generate Street View URL if coordinates are available
+    if (lat && lng) {
+      try {
+        // Check if Street View is available
+        hasStreetView = await checkStreetViewAvailability({ lat, lng });
+
+        if (hasStreetView) {
+          streetViewUrl = createStreetViewEmbedUrl({ lat, lng });
+          console.log("📷 Street View URL generated:", streetViewUrl);
+        } else {
+          console.log("📷 Street View not available for this location");
+        }
+      } catch (error) {
+        console.error("📷 Failed to check Street View availability:", error);
+      }
+    }
+
     setFormData((prev) => ({
       ...prev,
       addressSearch:
@@ -178,14 +206,10 @@ export default function AddProject() {
       zipCode: zipCode,
       country: country || "United States",
       placeId: selectedPlace.place_id || selectedPlace.placeId || "",
-      gpsLat:
-        selectedPlace.geometry?.location?.lat?.toString() ||
-        selectedPlace.lat?.toString() ||
-        "",
-      gpsLng:
-        selectedPlace.geometry?.location?.lng?.toString() ||
-        selectedPlace.lng?.toString() ||
-        "",
+      gpsLat: lat?.toString() || "",
+      gpsLng: lng?.toString() || "",
+      streetViewUrl: streetViewUrl,
+      hasStreetView: hasStreetView,
     }));
   };
 
