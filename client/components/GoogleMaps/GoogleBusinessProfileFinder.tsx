@@ -328,52 +328,6 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
     });
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      toast.error("Please enter a search query");
-      return;
-    }
-
-    if (!apiKeyAvailable) {
-      toast.error("Google Maps API key not configured");
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchError(null);
-    setFoundProfile(null);
-
-    try {
-      let profile: BusinessProfile | null = null;
-
-      switch (searchMode) {
-        case "name":
-          profile = await searchByBusinessName(searchQuery);
-          break;
-        case "cid":
-          profile = await searchByCid(searchQuery);
-          break;
-        case "url":
-          profile = await searchByUrl(searchQuery);
-          break;
-      }
-
-      if (profile) {
-        setFoundProfile(profile);
-        if (onProfileFound) {
-          onProfileFound(profile);
-        }
-        toast.success("Business profile found!");
-      } else {
-        setSearchError("No business profile found. Please try a different search term.");
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      setSearchError("Search failed. Please try again.");
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const handleManualAddressChange = (field: string, value: string) => {
     const updated = { ...manualAddress, [field]: value };
