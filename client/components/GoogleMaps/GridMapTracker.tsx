@@ -314,7 +314,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     (marker: any) => {
       const color = getMarkerColor(marker);
       const isDisabled = marker.disabled;
-      const opacity = isDisabled ? 0.5 : 1;
+      const opacity = 1; // Always solid, no transparency
 
       const svg = `
       <svg width="32" height="48" viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
