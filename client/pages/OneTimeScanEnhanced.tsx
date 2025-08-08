@@ -613,7 +613,7 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="20-1">20 Pins | ⌀1</SelectItem>
                         <SelectItem value="20-2">20 Pins | ⌀2</SelectItem>
                         <SelectItem value="25-1">25 Pins | ⌀1</SelectItem>
-                        <SelectItem value="25-2">25 Pins | ��2</SelectItem>
+                        <SelectItem value="25-2">25 Pins | ⌀2</SelectItem>
                         <SelectItem value="30-1">30 Pins | ⌀1</SelectItem>
                         <SelectItem value="30-2">30 Pins | ⌀2</SelectItem>
                         <SelectItem value="30-3">30 Pins | ⌀3</SelectItem>
@@ -894,23 +894,24 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <GoogleMapComponent
-                  center={{ lat: 37.7749, lng: -122.4194 }} // San Francisco for testing
-                  zoom={10}
-                  height="400px"
-                  showControls={true}
-                  className="mb-2"
-                />
-
-                {/* Debug info */}
-                <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
-                  <strong>Map Debug:</strong> Testing basic map load |
-                  Business: {selectedBusiness?.name || 'None'} |
-                  Waypoints: {waypoints.length} |
-                  Test at: <a href="/admin/maps/test" className="text-blue-600 underline">/admin/maps/test</a>
-                </div>
-              </div>
+              <GoogleMapComponent
+                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
+                zoom={selectedBusiness?.coordinates ? 12 : 4}
+                height="400px"
+                showControls={true}
+                showDirectionsButton={false}
+                markers={waypoints.map((waypoint, index) => ({
+                  id: waypoint.id,
+                  position: waypoint.coordinates,
+                  title: waypoint.isCenter ? 'Business Center' : `Search Location ${index + 1}`,
+                  color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
+                  icon: waypoint.isCenter ? 'business' : undefined,
+                  content: waypoint.isCenter
+                    ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
+                    : `<div><strong>Search Location ${index + 1}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
+                }))}
+                className="border border-gray-200 rounded-lg"
+              />
               <div className="text-sm text-gray-600">
                 {waypoints.length > 0 ? (
                   <p className="mb-2">
