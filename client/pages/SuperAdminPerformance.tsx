@@ -733,7 +733,7 @@ export default function SuperAdminPerformance() {
                             <div className="space-y-2">
                               <Progress value={job.progress} className="h-2" />
                               <div className="text-sm text-muted-foreground">
-                                {job.progress.toFixed(0)}% complete
+                                {(job.progress || 0).toFixed(0)}% complete
                               </div>
                             </div>
                           )}
