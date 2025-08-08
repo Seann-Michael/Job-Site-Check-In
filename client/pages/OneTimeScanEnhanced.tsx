@@ -608,7 +608,7 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="10-2">10 Pins | ⌀2</SelectItem>
                         <SelectItem value="15-0.5">15 Pins | ⌀0.5</SelectItem>
                         <SelectItem value="15-1">15 Pins | ⌀1</SelectItem>
-                        <SelectItem value="15-2">15 Pins | ⌀2</SelectItem>
+                        <SelectItem value="15-2">15 Pins | ���2</SelectItem>
                         <SelectItem value="20-0.5">20 Pins | ⌀0.5</SelectItem>
                         <SelectItem value="20-1">20 Pins | ⌀1</SelectItem>
                         <SelectItem value="20-2">20 Pins | ⌀2</SelectItem>
@@ -894,26 +894,44 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Simple iframe test first */}
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3179676.4675463075!2d-98.5795!3d39.8283!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDDCsDIzJzI3LjAiTiA5OMKwMzQnNDcuMCJX!5e0!3m2!1sen!2sus!4v1234567890"
-                width="100%"
-                height="400"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="rounded-lg"
+              <GoogleMapComponent
+                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
+                zoom={selectedBusiness?.coordinates ? 12 : 4}
+                height="400px"
+                showControls={true}
+                showDirectionsButton={false}
+                markers={waypoints.filter(w => w.enabled).map((waypoint, index) => ({
+                  id: waypoint.id,
+                  position: waypoint.coordinates,
+                  title: waypoint.isCenter ? 'Business Center' : `Search Location ${index + 1}`,
+                  color: waypoint.isCenter ? '#059669' : '#3B82F6',
+                  icon: waypoint.isCenter ? 'business' : undefined,
+                  content: waypoint.isCenter
+                    ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
+                    : `<div><strong>Search Location ${index + 1}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}</div>`
+                }))}
+                className="w-full rounded-lg border"
               />
               <div className="text-sm text-gray-600 mt-4">
-                <p className="mb-2">
-                  {selectedBusiness ? `Business: ${selectedBusiness.name}` : 'Basic map test - if this shows, iframe embedding works'}
-                </p>
-                {waypoints.length > 0 && (
-                  <p>
-                    {waypoints.length} waypoints generated ({enabledWaypointsCount} enabled)
+                {waypoints.length > 0 ? (
+                  <p className="mb-2">
+                    Showing {waypoints.filter(w => w.enabled).length} enabled search locations out of {waypoints.length} total
+                  </p>
+                ) : (
+                  <p className="mb-2">
+                    {selectedBusiness ? 'Configure waypoints to see search locations' : 'Select a business to see search locations'}
                   </p>
                 )}
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span>Search Locations</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                    <span>Business Center</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
