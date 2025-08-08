@@ -164,7 +164,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       }
     }
     return positions;
-  }, [disabledPoints]);
+  }, []);
 
   // Generate positions based on grid type
   const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, type: string, size: number, spacing: number) => {
