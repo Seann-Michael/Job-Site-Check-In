@@ -134,6 +134,8 @@ export default function AddProject() {
       placeId: "",
       gpsLat: "",
       gpsLng: "",
+      streetViewUrl: "",
+      hasStreetView: false,
     }));
   };
 
