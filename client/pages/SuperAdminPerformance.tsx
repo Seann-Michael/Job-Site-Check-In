@@ -511,9 +511,12 @@ export default function SuperAdminPerformance() {
 
   const getMetricColor = (
     value: number,
-    threshold: { warning: number; critical: number },
+    threshold: { warning: number; critical: number } | null | undefined,
     category: string,
   ) => {
+    // Return default color if threshold is not provided
+    if (!threshold) return "text-gray-600";
+
     const isInverted = category === "response_time" || category === "database";
 
     if (isInverted) {
