@@ -547,109 +547,203 @@ export default function OneTimeScanEnhanced() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <Label className="text-base font-medium">Map Grid</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                  <Label className="text-base font-medium">Pattern Type</Label>
+                  <Select
+                    value={waypointConfig.pattern}
+                    onValueChange={(value) =>
+                      setWaypointConfig({
+                        ...waypointConfig,
+                        pattern: value as "circle" | "grid" | "line",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="grid">
+                        <div className="flex items-center gap-2">
+                          <Grid3X3 className="h-4 w-4" />
+                          Square Grid
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="circle">
+                        <div className="flex items-center gap-2">
+                          <Circle className="h-4 w-4" />
+                          Circular Pattern
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="line">
+                        <div className="flex items-center gap-2">
+                          <Crosshair className="h-4 w-4" />
+                          Linear Pattern
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {waypointConfig.pattern === "grid" && (
+                  <div>
+                    <Label className="text-base font-medium">Grid Size</Label>
                     <Select
-                      value={waypointConfig.pattern}
+                      value={waypointConfig.count.toString()}
                       onValueChange={(value) =>
                         setWaypointConfig({
                           ...waypointConfig,
-                          pattern: value as "circle" | "grid" | "line",
+                          count: parseInt(value),
                         })
                       }
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="circle">
-                          <div className="flex items-center gap-2">
-                            <Circle className="h-4 w-4" />
-                            Circle
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="grid">
-                          <div className="flex items-center gap-2">
-                            <Grid3X3 className="h-4 w-4" />
-                            Grid
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="line">
-                          <div className="flex items-center gap-2">
-                            <Crosshair className="h-4 w-4" />
-                            Linear
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Select
-                      value={`${waypointConfig.count}-${waypointConfig.distanceBetween}`}
-                      onValueChange={(value) => {
-                        const [count, distance] = value.split('-');
-                        setWaypointConfig({
-                          ...waypointConfig,
-                          count: parseInt(count),
-                          distanceBetween: parseFloat(distance)
-                        });
-                      }}
-                    >
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
-                        <SelectItem value="5-0.5">5 Pins | ⌀0.5</SelectItem>
-                        <SelectItem value="5-1">5 Pins | ⌀1</SelectItem>
-                        <SelectItem value="5-2">5 Pins | ⌀2</SelectItem>
-                        <SelectItem value="8-0.5">8 Pins | ⌀0.5</SelectItem>
-                        <SelectItem value="8-1">8 Pins | ⌀1</SelectItem>
-                        <SelectItem value="8-2">8 Pins | ⌀2</SelectItem>
-                        <SelectItem value="10-0.5">10 Pins | ⌀0.5</SelectItem>
-                        <SelectItem value="10-1">10 Pins | ⌀1</SelectItem>
-                        <SelectItem value="10-2">10 Pins | ⌀2</SelectItem>
-                        <SelectItem value="15-0.5">15 Pins | ⌀0.5</SelectItem>
-                        <SelectItem value="15-1">15 Pins | ⌀1</SelectItem>
-                        <SelectItem value="15-2">15 Pins | ⌀2</SelectItem>
-                        <SelectItem value="20-0.5">20 Pins | ⌀0.5</SelectItem>
-                        <SelectItem value="20-1">20 Pins | ⌀1</SelectItem>
-                        <SelectItem value="20-2">20 Pins | ⌀2</SelectItem>
-                        <SelectItem value="25-1">25 Pins | ⌀1</SelectItem>
-                        <SelectItem value="25-2">25 Pins | ⌀2</SelectItem>
-                        <SelectItem value="30-1">30 Pins | ⌀1</SelectItem>
-                        <SelectItem value="30-2">30 Pins | ⌀2</SelectItem>
-                        <SelectItem value="30-3">30 Pins | ⌀3</SelectItem>
-                        <SelectItem value="40-2">40 Pins | ⌀2</SelectItem>
-                        <SelectItem value="40-3">40 Pins | ⌀3</SelectItem>
-                        <SelectItem value="50-2">50 Pins | ⌀2</SelectItem>
-                        <SelectItem value="50-3">50 Pins | ⌀3</SelectItem>
-                        <SelectItem value="50-5">50 Pins | ⌀5</SelectItem>
+                        <SelectItem value="9">3×3 Grid (9 pins)</SelectItem>
+                        <SelectItem value="16">4×4 Grid (16 pins)</SelectItem>
+                        <SelectItem value="25">5×5 Grid (25 pins)</SelectItem>
+                        <SelectItem value="36">6×6 Grid (36 pins)</SelectItem>
+                        <SelectItem value="49">7×7 Grid (49 pins)</SelectItem>
+                        <SelectItem value="64">8×8 Grid (64 pins)</SelectItem>
+                        <SelectItem value="81">9×9 Grid (81 pins)</SelectItem>
+                        <SelectItem value="100">10×10 Grid (100 pins)</SelectItem>
+                        <SelectItem value="121">11×11 Grid (121 pins)</SelectItem>
+                        <SelectItem value="144">12×12 Grid (144 pins)</SelectItem>
+                        <SelectItem value="169">13×13 Grid (169 pins)</SelectItem>
+                        <SelectItem value="196">14×14 Grid (196 pins)</SelectItem>
+                        <SelectItem value="225">15×15 Grid (225 pins)</SelectItem>
+                        <SelectItem value="256">16×16 Grid (256 pins)</SelectItem>
+                        <SelectItem value="289">17×17 Grid (289 pins)</SelectItem>
+                        <SelectItem value="324">18×18 Grid (324 pins)</SelectItem>
+                        <SelectItem value="361">19×19 Grid (361 pins)</SelectItem>
+                        <SelectItem value="400">20×20 Grid (400 pins)</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
 
-                    <div className="flex rounded-md border overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setWaypointConfig({ ...waypointConfig, unit: "kilometers" })}
-                        className={`flex-1 px-3 py-2 text-sm font-medium border-r transition-colors ${
-                          waypointConfig.unit === "kilometers"
-                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                            : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        km
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setWaypointConfig({ ...waypointConfig, unit: "miles" })}
-                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-                          waypointConfig.unit === "miles"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        mi
-                      </button>
-                    </div>
+                {waypointConfig.pattern === "circle" && (
+                  <div>
+                    <Label className="text-base font-medium">Circle Configuration</Label>
+                    <Select
+                      value={waypointConfig.count.toString()}
+                      onValueChange={(value) =>
+                        setWaypointConfig({
+                          ...waypointConfig,
+                          count: parseInt(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="8">8 Points Circle</SelectItem>
+                        <SelectItem value="12">12 Points Circle</SelectItem>
+                        <SelectItem value="16">16 Points Circle</SelectItem>
+                        <SelectItem value="20">20 Points Circle</SelectItem>
+                        <SelectItem value="24">24 Points Circle</SelectItem>
+                        <SelectItem value="28">28 Points Circle</SelectItem>
+                        <SelectItem value="32">32 Points Circle</SelectItem>
+                        <SelectItem value="36">36 Points Circle</SelectItem>
+                        <SelectItem value="40">40 Points Circle</SelectItem>
+                        <SelectItem value="44">44 Points Circle</SelectItem>
+                        <SelectItem value="48">48 Points Circle</SelectItem>
+                        <SelectItem value="52">52 Points Circle</SelectItem>
+                        <SelectItem value="56">56 Points Circle</SelectItem>
+                        <SelectItem value="60">60 Points Circle</SelectItem>
+                        <SelectItem value="64">64 Points Circle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {waypointConfig.pattern === "line" && (
+                  <div>
+                    <Label className="text-base font-medium">Linear Points</Label>
+                    <Select
+                      value={waypointConfig.count.toString()}
+                      onValueChange={(value) =>
+                        setWaypointConfig({
+                          ...waypointConfig,
+                          count: parseInt(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 Points Line</SelectItem>
+                        <SelectItem value="10">10 Points Line</SelectItem>
+                        <SelectItem value="15">15 Points Line</SelectItem>
+                        <SelectItem value="20">20 Points Line</SelectItem>
+                        <SelectItem value="25">25 Points Line</SelectItem>
+                        <SelectItem value="30">30 Points Line</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-base font-medium">Distance Between Pins</Label>
+                  <Select
+                    value={waypointConfig.distanceBetween.toString()}
+                    onValueChange={(value) =>
+                      setWaypointConfig({
+                        ...waypointConfig,
+                        distanceBetween: parseFloat(value),
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0.1">0.1 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="0.25">0.25 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="0.5">0.5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="0.75">0.75 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="1">1 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="1.5">1.5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="2">2 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="2.5">2.5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="3">3 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="4">4 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="5">5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="7.5">7.5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="10">10 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="15">15 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="20">20 {waypointConfig.unit}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-base font-medium">Distance Unit</Label>
+                  <div className="flex rounded-md border overflow-hidden mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setWaypointConfig({ ...waypointConfig, unit: "kilometers" })}
+                      className={`flex-1 px-3 py-2 text-sm font-medium border-r transition-colors ${
+                        waypointConfig.unit === "kilometers"
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Kilometers
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWaypointConfig({ ...waypointConfig, unit: "miles" })}
+                      className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                        waypointConfig.unit === "miles"
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Miles
+                    </button>
                   </div>
                 </div>
 
