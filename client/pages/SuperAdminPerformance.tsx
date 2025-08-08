@@ -1065,7 +1065,9 @@ export default function SuperAdminPerformance() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {new Date(job.startTime).toLocaleString()}
+                          {job.startTime
+                            ? new Date(job.startTime).toLocaleString()
+                            : "Unknown"}
                         </TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm">
