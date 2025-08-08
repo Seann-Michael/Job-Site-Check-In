@@ -608,6 +608,11 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Legacy redirect for old AddAgencyAdminUser path */}
+                <Route
+                  path="/AddAgencyAdminUser"
+                  element={<Navigate to="/agency/admin/admin-users/add" replace />}
+                />
                 <Route
                   path="/agency/admin/admin-users/:id"
                   element={
