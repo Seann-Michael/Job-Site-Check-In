@@ -628,7 +628,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             <Marker
               key={marker.id}
               position={marker.position}
-              draggable={isCenter} // Only center pin is draggable
+              draggable={false} // No individual dragging - all pins move together
               icon={createWaypointIcon(marker)}
               label={
                 marker.disabled
@@ -640,11 +640,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
                     }
                   : undefined
               }
-              onDragStart={() => isCenter && setIsGridDragging(true)}
-              onDragEnd={(e) => isCenter && handleCenterDragEnd(e)}
-              onMouseDown={(e) =>
-                !isCenter && handleMarkerMouseDown(marker.id, e)
-              }
+              // No individual drag handlers - using mouseDown for unified behavior
+              onMouseDown={(e) => handleMarkerMouseDown(marker.id, e)}
               onClick={() => !isDraggingAllPins && setSelectedMarker(marker)}
               opacity={1} // Always solid, color change handles disabled state
               zIndex={isCenter ? 1000 : marker.disabled ? 1 : 100}
