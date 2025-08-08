@@ -25,6 +25,7 @@ import { SmartDropdownInput } from "@/components/SmartDropdownInput";
 import { DROPDOWN_FIELDS } from "@/hooks/useDropdownState";
 import { generateProjectId } from "@/lib/idGenerator";
 import { AddressAutocomplete } from "@/components/GoogleMaps";
+import { USStatesSelect } from "@/components/ui/us-states-select";
 import {
   getGoogleMapsApiKey,
   validateGoogleMapsApiKey,
@@ -566,13 +567,10 @@ export default function AddProject() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="state">State/Province</Label>
-                      <Input
-                        id="state"
-                        placeholder="State"
+                      <USStatesSelect
                         value={formData.state}
-                        onChange={(e) =>
-                          handleInputChange("state", e.target.value)
-                        }
+                        onValueChange={(value) => handleInputChange("state", value)}
+                        placeholder="Select state"
                       />
                     </div>
                   </div>
