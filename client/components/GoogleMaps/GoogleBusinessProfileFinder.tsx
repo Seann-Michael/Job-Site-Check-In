@@ -119,58 +119,40 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
     return null;
   };
 
-  const searchByBusinessName = async (businessName: string): Promise<BusinessProfile | null> => {
-    await loadGoogleMapsAPI();
-    
-    return new Promise((resolve) => {
-      const service = new google.maps.places.PlacesService(document.createElement('div'));
-      
-      const request: google.maps.places.TextSearchRequest = {
-        query: businessName,
-        type: 'establishment',
-        fields: [
-          'place_id', 'name', 'formatted_address', 'business_status', 'types',
-          'rating', 'user_ratings_total', 'formatted_phone_number', 'website',
-          'opening_hours', 'geometry', 'photos', 'url', 'price_level'
-        ]
+  const handleBusinessNameSelect = (businessName: string, placeResult?: any) => {
+    if (placeResult) {
+      // Convert the placeResult to BusinessProfile format
+      let cid = '';
+      if (placeResult.url) {
+        cid = extractCidFromUrl(placeResult.url) || '';
+      }
+
+      const profile: BusinessProfile = {
+        placeId: placeResult.placeId || '',
+        name: placeResult.name || businessName,
+        formattedAddress: placeResult.formattedAddress || '',
+        businessStatus: placeResult.businessStatus || '',
+        types: placeResult.types || [],
+        rating: placeResult.rating,
+        userRatingsTotal: placeResult.userRatingsTotal,
+        phoneNumber: placeResult.phoneNumber,
+        website: placeResult.website,
+        openingHours: placeResult.openingHours,
+        lat: placeResult.lat || 0,
+        lng: placeResult.lng || 0,
+        photos: placeResult.photos,
+        url: placeResult.url,
+        cid: cid,
+        priceLevel: placeResult.priceLevel,
       };
 
-      service.textSearch(request, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-          const place = results[0]; // Take the first result
-          
-          let cid = '';
-          if (place.url) {
-            cid = extractCidFromUrl(place.url) || '';
-          }
-
-          const profile: BusinessProfile = {
-            placeId: place.place_id || '',
-            name: place.name || '',
-            formattedAddress: place.formatted_address || '',
-            businessStatus: place.business_status || '',
-            types: place.types || [],
-            rating: place.rating,
-            userRatingsTotal: place.user_ratings_total,
-            phoneNumber: place.formatted_phone_number,
-            website: place.website,
-            openingHours: place.opening_hours?.weekday_text,
-            lat: place.geometry?.location?.lat() || 0,
-            lng: place.geometry?.location?.lng() || 0,
-            photos: place.photos?.slice(0, 3).map(photo => 
-              photo.getUrl({ maxWidth: 400, maxHeight: 300 })
-            ),
-            url: place.url,
-            cid: cid,
-            priceLevel: place.price_level,
-          };
-
-          resolve(profile);
-        } else {
-          resolve(null);
-        }
-      });
-    });
+      setFoundProfile(profile);
+      setSearchError(null);
+      if (onProfileFound) {
+        onProfileFound(profile);
+      }
+      toast.success("Business profile found!");
+    }
   };
 
   const searchByCid = async (cid: string): Promise<BusinessProfile | null> => {
