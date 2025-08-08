@@ -1016,7 +1016,7 @@ export default function OneTimeScanEnhanced() {
                   }));
                   setWaypoints(updatedWaypoints);
                 }, [])}
-                height="400px"
+                height="800px"
                 className="w-full"
               />
 
