@@ -225,7 +225,11 @@ export default function SuperAdminUsers() {
       viewer: { variant: "outline" as const, label: "Viewer" },
     };
 
-    const config = roleConfig[role as keyof typeof roleConfig];
+    const config = roleConfig[role as keyof typeof roleConfig] || {
+      variant: "secondary" as const,
+      label: role || "Unknown"
+    };
+
     return (
       <Badge variant={config.variant} className="capitalize">
         {config.label}
