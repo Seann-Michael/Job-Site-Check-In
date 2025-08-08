@@ -991,25 +991,23 @@ export default function OneTimeScanEnhanced() {
             <CardContent>
               <GridMapTracker
                 center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
+                gridType={waypointConfig.pattern === "grid" ? "square" : "circle"}
                 gridSize={
                   waypointConfig.pattern === "grid"
                     ? Math.sqrt(waypointConfig.count) // For square grids
-                    : waypointConfig.pattern === "circle"
-                    ? Math.ceil(Math.sqrt(waypointConfig.count)) // Approximate for circles
-                    : waypointConfig.count // For linear
+                    : waypointConfig.count // For circle grids, use exact count
                 }
-                pattern={waypointConfig.pattern}
-                pointCount={waypointConfig.count}
-                gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
+                pinSpacing={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
                 rankings={{}}
+                disabledPoints={waypoints.filter(w => !w.enabled).map(w => w.id)}
                 onGridChange={useCallback((gridPoints) => {
                   // Prevent setState during render by using requestAnimationFrame
                   requestAnimationFrame(() => {
                     const updatedWaypoints = gridPoints.map((point, index) => ({
-                      id: `waypoint-${index}`,
+                      id: point.id || `waypoint-${index}`,
                       coordinates: point.position,
-                      enabled: true,
-                      isCenter: index === Math.floor(gridPoints.length / 2), // Center point
+                      enabled: !point.disabled,
+                      isCenter: point.isCenter || false,
                       distance: 0,
                       bearing: 0,
                     }));
