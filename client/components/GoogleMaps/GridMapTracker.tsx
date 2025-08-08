@@ -75,18 +75,18 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     height: height,
   };
 
-  const mapOptions = {
+  const mapOptions = useMemo(() => ({
     disableDefaultUI: false,
     zoomControl: true,
     mapTypeControl: true,
     scaleControl: true,
-    scaleControlOptions: {
+    scaleControlOptions: isLoaded ? {
       style: google.maps.ScaleControlStyle.DEFAULT,
-    },
+    } : undefined,
     streetViewControl: false,
     rotateControl: false,
     fullscreenControl: true,
-  };
+  }), [isLoaded]);
 
   // Circle grid configurations (10-15 options)
   const circleConfigs: Record<number, { rings: number; pattern: number[] }> = {
