@@ -396,6 +396,51 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         center={center}
         zoom={13}
         options={mapOptions}
+        onLoad={(map) => {
+          mapRef.current = map;
+          // Auto-fit bounds to show all markers
+          if (markers.length > 0) {
+            const bounds = new google.maps.LatLngBounds();
+            markers.forEach((marker: any) => {
+              bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
+            });
+            map.fitBounds(bounds);
+            const zoom = map.getZoom();
+            if (zoom && zoom > 16) {
+              map.setZoom(16); // Prevent zooming too close
+            }
+          }
+        }}
+        onMouseDown={(e) => {
+          if (e.latLng) {
+            setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+          }
+        }}
+        onMouseUp={() => {
+          if (isDraggingAllPins && dragStartPosition) {
+            setIsDraggingAllPins(false);
+            setDragStartPosition(null);
+          }
+        }}
+        onMouseMove={(e) => {
+          if (isDraggingAllPins && dragStartPosition && e.latLng) {
+            const deltaLat = e.latLng.lat() - dragStartPosition.lat;
+            const deltaLng = e.latLng.lng() - dragStartPosition.lng;
+
+            setMarkers(prevMarkers => {
+              const updatedMarkers = prevMarkers.map((marker: any) => ({
+                ...marker,
+                position: {
+                  lat: marker.position.lat + deltaLat,
+                  lng: marker.position.lng + deltaLng
+                }
+              }));
+              return updatedMarkers;
+            });
+
+            setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+          }
+        }}
       >
         {/* Grid lines */}
         {gridLines.map((line: any) => (
