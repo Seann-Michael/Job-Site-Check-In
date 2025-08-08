@@ -1038,7 +1038,7 @@ export default function Settings() {
                     <CardTitle>Regional Settings</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <Label htmlFor="timezone">Timezone</Label>
                         <Select
@@ -1063,6 +1063,23 @@ export default function Settings() {
                             <SelectItem value="America/Los_Angeles">
                               Pacific Time
                             </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="timeFormat">Time Format</Label>
+                        <Select
+                          value={settings.timeFormat || "12h"}
+                          onValueChange={(value) =>
+                            updateSetting("timeFormat", value)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="12h">12-hour (1:30 PM)</SelectItem>
+                            <SelectItem value="24h">24-hour (13:30)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
