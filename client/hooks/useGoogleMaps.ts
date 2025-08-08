@@ -142,102 +142,14 @@ export const useGooglePlacesAutocomplete = (
   };
 };
 
-// Global location cache to avoid repeated permission requests
-let globalLocationCache: { lat: number; lng: number } | null = null;
-let locationRequestAttempted = false;
-
 // Hook for address search with suggestions
 export const useAddressSearch = () => {
   const [suggestions, setSuggestions] = useState<PlaceResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(globalLocationCache);
 
-  // Subtle location detection - only attempts once globally
-  useEffect(() => {
-    // If we already have a cached location, use it
-    if (globalLocationCache) {
-      setUserLocation(globalLocationCache);
-      return;
-    }
-
-    // If we already attempted to get location, don't try again
-    if (locationRequestAttempted) {
-      return;
-    }
-
-    // Try to get location only if geolocation is available and we haven't tried yet
-    if (navigator.geolocation && navigator.permissions) {
-      locationRequestAttempted = true;
-
-      // First check permission status to avoid prompt if already denied
-      navigator.permissions
-        .query({ name: "geolocation" })
-        .then((result) => {
-          if (result.state === "granted") {
-            // Permission already granted, get location
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const location = {
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude,
-                };
-                globalLocationCache = location;
-                setUserLocation(location);
-                console.log(
-                  "📍 User location obtained for address search bias:",
-                  location,
-                );
-              },
-              (error) => {
-                console.log(
-                  "🌍 Geolocation failed silently, using default bias",
-                );
-              },
-              { timeout: 5000, maximumAge: 600000 }, // 10 min cache
-            );
-          } else if (result.state === "prompt") {
-            // Only request if state is prompt (not denied)
-            // This is the first time, so it's reasonable to ask
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const location = {
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude,
-                };
-                globalLocationCache = location;
-                setUserLocation(location);
-                console.log(
-                  "📍 User location obtained for address search bias:",
-                  location,
-                );
-              },
-              (error) => {
-                console.log(
-                  "🌍 Geolocation permission denied or failed, using default bias",
-                );
-              },
-              { timeout: 5000, maximumAge: 600000 }, // 10 min cache
-            );
-          } else {
-            console.log("🌍 Geolocation permission denied, using default bias");
-          }
-        })
-        .catch(() => {
-          // Fallback for browsers that don't support permissions API
-          console.log(
-            "🌍 Permissions API not supported, skipping geolocation to avoid prompts",
-          );
-        });
-    } else {
-      console.log(
-        "🌍 Geolocation not supported or permissions API not available",
-      );
-    }
-  }, []);
+  // Use IP-based location detection instead of geolocation API
+  // This is more reliable and doesn't require user permission
 
   const searchAddress = useCallback(async (query: string) => {
     console.log("🔍 Starting address search for:", query);
