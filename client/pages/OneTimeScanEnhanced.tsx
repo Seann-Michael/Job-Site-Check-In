@@ -900,18 +900,20 @@ export default function OneTimeScanEnhanced() {
                 gridSize={waypointConfig.count === 5 ? 3 : waypointConfig.count === 8 ? 3 : waypointConfig.count <= 25 ? 5 : 7}
                 gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
                 rankings={{}}
-                onGridChange={(gridPoints) => {
-                  // Update waypoints when grid changes
-                  const updatedWaypoints = gridPoints.map((point, index) => ({
-                    id: `waypoint-${index}`,
-                    coordinates: point.position,
-                    enabled: true,
-                    isCenter: index === Math.floor(gridPoints.length / 2), // Center point
-                    distance: 0,
-                    bearing: 0,
-                  }));
-                  setWaypoints(updatedWaypoints);
-                }}
+                onGridChange={useCallback((gridPoints) => {
+                  // Prevent setState during render by using requestAnimationFrame
+                  requestAnimationFrame(() => {
+                    const updatedWaypoints = gridPoints.map((point, index) => ({
+                      id: `waypoint-${index}`,
+                      coordinates: point.position,
+                      enabled: true,
+                      isCenter: index === Math.floor(gridPoints.length / 2), // Center point
+                      distance: 0,
+                      bearing: 0,
+                    }));
+                    setWaypoints(updatedWaypoints);
+                  });
+                }, [])}
                 height="400px"
                 className="w-full"
               />
