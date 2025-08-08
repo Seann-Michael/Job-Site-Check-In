@@ -587,7 +587,7 @@ export default function SuperAdminPerformance() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {systemHealth.api.toFixed(1)}%
+                {(systemHealth.api || 0).toFixed(1)}%
               </div>
               <Progress value={systemHealth.api} className="h-2 mt-2" />
             </CardContent>
