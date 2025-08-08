@@ -129,7 +129,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     }
 
     return positions;
-  }, [disabledPoints]);
+  }, []);
 
   // Generate square grid positions
   const generateSquarePositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, spacing: number) => {
