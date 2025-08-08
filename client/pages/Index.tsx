@@ -130,9 +130,22 @@ export default function Index() {
         }
 
         // Load projects from mock data service
+        console.log("Loading projects from mock data service...");
+        mockDataService.initialize(); // Ensure it's initialized
         const mockProjects = mockDataService.getProjects();
-        setProjects(mockProjects);
-        setFilteredProjects(mockProjects.filter((p) => !p.archived));
+        console.log("Loaded projects:", mockProjects.length, "projects");
+
+        if (mockProjects.length === 0) {
+          console.warn("No projects found, forcing regeneration...");
+          mockDataService.forceReinitialize();
+          const newProjects = mockDataService.getProjects();
+          console.log("After force regeneration:", newProjects.length, "projects");
+          setProjects(newProjects);
+          setFilteredProjects(newProjects.filter((p) => !p.archived));
+        } else {
+          setProjects(mockProjects);
+          setFilteredProjects(mockProjects.filter((p) => !p.archived));
+        }
       } catch (error) {
         console.error("Error loading projects:", error);
         toast.error("Failed to load projects");
