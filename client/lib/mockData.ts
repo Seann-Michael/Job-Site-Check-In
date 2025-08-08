@@ -817,10 +817,6 @@ export const mockDataService = MockDataService.getInstance();
 // Expose on window for debugging (only in development)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).mockDataService = mockDataService;
-  (window as any).regenerateMockData = () => {
-    mockDataService.forceRegenerateProjects();
-    console.log("Mock data regenerated! Refresh the page to see changes.");
-  };
 }
 
 // Export types
