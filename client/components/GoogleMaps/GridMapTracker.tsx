@@ -668,7 +668,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
                 !isCenter && handleMarkerMouseDown(marker.id, e)
               }
               onClick={() => !isDraggingAllPins && setSelectedMarker(marker)}
-              opacity={marker.disabled ? 0.5 : 1}
+              opacity={1} // Always solid, color change handles disabled state
               zIndex={isCenter ? 1000 : marker.disabled ? 1 : 100}
             />
           );
