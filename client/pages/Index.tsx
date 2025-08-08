@@ -131,23 +131,10 @@ export default function Index() {
           return;
         }
 
-        // Force fresh data generation
-        mockDataService.resetData();
+        // Load projects from mock data service
         const mockProjects = mockDataService.getProjects();
-        console.log("Loaded projects:", mockProjects.length, mockProjects);
-
-        if (mockProjects.length < 10) {
-          console.warn("Few projects found, regenerating mock data...");
-          // Force regenerate mock data if too few
-          mockDataService.resetData();
-          const newProjects = mockDataService.getProjects();
-          console.log("Generated new projects:", newProjects.length);
-          setProjects(newProjects);
-          setFilteredProjects(newProjects.filter((p) => !p.archived));
-        } else {
-          setProjects(mockProjects);
-          setFilteredProjects(mockProjects.filter((p) => !p.archived));
-        }
+        setProjects(mockProjects);
+        setFilteredProjects(mockProjects.filter((p) => !p.archived));
       } catch (error) {
         console.error("Error loading projects:", error);
         toast.error("Failed to load projects");
