@@ -138,8 +138,14 @@ interface Project {
   name: string;
   description: string;
   address: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
   gpsLat?: string;
   gpsLng?: string;
+  streetViewUrl?: string; // Store Street View URL to avoid repeated API calls
+  hasStreetView?: boolean; // Track if Street View is available
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
