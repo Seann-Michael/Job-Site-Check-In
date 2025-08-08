@@ -263,7 +263,7 @@ const createDefaultSettings = (): SettingsData => ({
   // Business Info
   businessName: "Joe's Pizza",
   businessTypes: ["restaurant"], // Changed to array
-  subAccountId: "102-456-789", // Business Account ID
+  subAccountId: "123456789", // 9-digit Business Account ID
   businessLogo: "",
   firstName: "Joe", // Split contact name
   lastName: "Smith",
@@ -647,30 +647,7 @@ export default function Settings() {
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Business Information</span>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>Business Account ID:</span>
-                        <code className="bg-muted px-3 py-1.5 rounded font-mono text-sm border">
-                          {settings.subAccountId}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(
-                              settings.subAccountId,
-                            );
-                            toast.success(
-                              "Business Account ID copied to clipboard",
-                            );
-                          }}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </CardTitle>
+                    <CardTitle>Business Information</CardTitle>
                     <CardDescription>
                       Basic information about your business
                     </CardDescription>
@@ -805,17 +782,37 @@ export default function Settings() {
                         </p>
                       </div>
                       <div>
-                        <BusinessTypesSelect
-                          values={settings.businessTypes || []}
-                          onValuesChange={(values) => updateSetting("businessTypes", values)}
-                          label="Business Categories"
-                          placeholder="Select business categories"
+                        <Label htmlFor="subAccountId">Business Account ID</Label>
+                        <Input
+                          id="subAccountId"
+                          value={settings.subAccountId || ""}
+                          onChange={(e) => {
+                            // Only allow 9 digits
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 9);
+                            updateSetting("subAccountId", value);
+                          }}
+                          placeholder="123456789"
+                          className="font-mono"
+                          maxLength={9}
                         />
-                        {settings.googlePlaceId && (
-                          <p className="text-xs text-green-600 mt-1">
-                            ✓ Categories detected from Google Business Profile
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            9-digit ID that appears in the business selector
                           </p>
-                        )}
+                          {settings.subAccountId && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(settings.subAccountId);
+                                toast.success("Business Account ID copied to clipboard");
+                              }}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <Label htmlFor="firstName">First Name</Label>
