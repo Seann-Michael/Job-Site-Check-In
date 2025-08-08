@@ -24,6 +24,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   const [markers, setMarkers] = useState<any[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const apiKey = getGoogleMapsApiKey();
 
