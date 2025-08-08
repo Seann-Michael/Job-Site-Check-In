@@ -208,6 +208,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/app-pages"
+                  element={
+                    <ProtectedRoute>
+                      <AppPages />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/project/:id"
                   element={
                     <ProtectedRoute>
