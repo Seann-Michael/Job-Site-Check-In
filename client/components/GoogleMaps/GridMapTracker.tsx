@@ -167,7 +167,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   }, []);
 
   // Generate positions based on grid type
-  const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, type: string, size: number, spacing: number) => {
+  const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, type: string, size: number, spacing: number, disabledPointsList: string[]) => {
     if (type === 'circle') {
       const config = circleConfigs[size];
       if (!config) {
@@ -175,13 +175,13 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         // Fallback to a valid circle configuration
         const fallbackConfig = circleConfigs[25];
         if (fallbackConfig) {
-          return generateCirclePositions(centerPoint, fallbackConfig, spacing);
+          return generateCirclePositions(centerPoint, fallbackConfig, spacing, disabledPointsList);
         }
         return [];
       }
-      return generateCirclePositions(centerPoint, config, spacing);
+      return generateCirclePositions(centerPoint, config, spacing, disabledPointsList);
     } else {
-      return generateSquarePositions(centerPoint, size, spacing);
+      return generateSquarePositions(centerPoint, size, spacing, disabledPointsList);
     }
   }, [generateCirclePositions, generateSquarePositions]);
 
