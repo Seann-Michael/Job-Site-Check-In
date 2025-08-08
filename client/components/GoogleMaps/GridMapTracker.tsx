@@ -299,18 +299,14 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     }
   }, [markers]);
 
-  // Get color based on ranking and disabled state
+  // Get color based on marker state
   const getMarkerColor = useCallback(
     (marker: any) => {
-      if (marker.disabled) return "#CCCCCC";
-      const ranking = rankings[marker.id];
-      if (!ranking) return "#4285F4";
-      if (ranking <= 3) return "#0F9D58";
-      if (ranking <= 10) return "#F4B400";
-      if (ranking <= 20) return "#FF6D00";
-      return "#EA4335";
+      if (marker.disabled) return "#808080"; // Solid grey for disabled pins
+      if (marker.isCenter) return "#DC2626"; // Red for center pin
+      return "#4285F4"; // Blue for regular pins
     },
-    [rankings],
+    [],
   );
 
   // Create waypoint-style SVG icon
