@@ -92,7 +92,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       position: { ...centerPoint },
       label: 'C',
       isCenter: true,
-      disabled: disabledPoints.includes('center'),
+      disabled: disabledPointsList.includes('center'),
       ring: 0,
       index: pointIndex++
     });
