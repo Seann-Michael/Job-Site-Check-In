@@ -347,6 +347,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/grid-demo"
+                  element={
+                    <ProtectedRoute>
+                      <GridOverlayDemo />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/audits/recurring-scans"
                   element={
                     <ProtectedRoute>
