@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/AppLayout";
 import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponent";
+import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
 import {
   MapPin,
   Target,
@@ -50,9 +51,6 @@ import {
   type BusinessLocation,
 } from "@/lib/creditSystem";
 import {
-  searchPlaces,
-  getPlaceDetails,
-  getPlaceByCid,
   validateBusinessInput,
   type PlaceResult,
 } from "@/lib/googlePlaces";
@@ -107,77 +105,20 @@ export default function OneTimeScanEnhanced() {
 
   const [isRunning, setIsRunning] = useState(false);
 
-  // Handle business search
-  const handleBusinessSearch = async () => {
-    if (!businessInput.trim()) return;
-
-    setIsSearching(true);
-    try {
-      const validation = validateBusinessInput(businessInput);
-
-      switch (validation.type) {
-        case "name":
-          const results = await searchPlaces({ query: validation.value });
-          setSearchResults(results);
-          break;
-
-        case "cid":
-          const placeFromCid = await getPlaceByCid(validation.value);
-          if (placeFromCid) {
-            setSelectedBusiness({
-              name: placeFromCid.name,
-              address: placeFromCid.formattedAddress,
-              coordinates: placeFromCid.coordinates,
-              placeId: placeFromCid.placeId,
-              cid: placeFromCid.cid,
-            });
-            setSearchResults([]);
-          }
-          break;
-
-        case "url":
-          if (validation.extractedData?.cid) {
-            const placeFromUrlCid = await getPlaceByCid(
-              validation.extractedData.cid,
-            );
-            if (placeFromUrlCid) {
-              setSelectedBusiness({
-                name: placeFromUrlCid.name,
-                address: placeFromUrlCid.formattedAddress,
-                coordinates: placeFromUrlCid.coordinates,
-                placeId: placeFromUrlCid.placeId,
-                cid: placeFromUrlCid.cid,
-                mapUrl: validation.value,
-              });
-            }
-          }
-          setSearchResults([]);
-          break;
-
-        default:
-          toast.error(
-            "Invalid input. Please enter a business name, CID, or Google Maps URL.",
-          );
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      toast.error("Search failed. Please try again.");
-    } finally {
-      setIsSearching(false);
+  // Handle business selection from BusinessPlacesSearch component
+  const handleBusinessSelect = (businessName: string, placeResult?: any) => {
+    if (placeResult) {
+      setSelectedBusiness({
+        name: placeResult.name,
+        address: placeResult.formattedAddress,
+        coordinates: { lat: placeResult.lat, lng: placeResult.lng },
+        placeId: placeResult.placeId,
+        cid: placeResult.cid,
+      });
+      setBusinessInput(businessName);
     }
   };
 
-  // Handle business selection from search results
-  const handleBusinessSelect = (place: PlaceResult) => {
-    setSelectedBusiness({
-      name: place.name,
-      address: place.formattedAddress,
-      coordinates: place.coordinates,
-      placeId: place.placeId,
-      cid: place.cid,
-    });
-    setSearchResults([]);
-  };
 
   // Generate waypoints when configuration changes
   useEffect(() => {
@@ -361,59 +302,21 @@ export default function OneTimeScanEnhanced() {
                   </TabsList>
 
                   <TabsContent value="search" className="space-y-4">
-                    <div>
-                      <Label>Business Name, CID, or Google Maps URL</Label>
-                      <div className="flex gap-2 mt-1">
-                        <Input
-                          value={businessInput}
-                          onChange={(e) => setBusinessInput(e.target.value)}
-                          placeholder="e.g., Pizza Palace, 1234567890123456, or maps.google.com/..."
-                          onKeyPress={(e) =>
-                            e.key === "Enter" && handleBusinessSearch()
-                          }
-                        />
-                        <Button
-                          onClick={handleBusinessSearch}
-                          disabled={isSearching || !businessInput.trim()}
-                        >
-                          {isSearching ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Search className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {searchResults.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Search Results</Label>
-                        {searchResults.map((place) => (
-                          <div
-                            key={place.placeId}
-                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                            onClick={() => handleBusinessSelect(place)}
-                          >
-                            <div>
-                              <p className="font-medium">{place.name}</p>
-                              <p className="text-sm text-gray-600">
-                                {place.formattedAddress}
-                              </p>
-                              {place.rating && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Star className="h-3 w-3 text-yellow-500" />
-                                  <span className="text-xs">
-                                    {place.rating} ({place.userRatingsTotal}{" "}
-                                    reviews)
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <Button size="sm">Select</Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <BusinessPlacesSearch
+                      value={businessInput}
+                      onChange={handleBusinessSelect}
+                      onPlaceSelect={(place) => {
+                        setSelectedBusiness({
+                          name: place.name,
+                          address: place.formattedAddress,
+                          coordinates: { lat: place.lat, lng: place.lng },
+                          placeId: place.placeId,
+                          cid: place.cid,
+                        });
+                      }}
+                      placeholder="Search for your business name, CID, or Google Maps URL"
+                      label="Business Search"
+                    />
 
                     {selectedBusiness && (
                       <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -699,7 +602,7 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="5-2">5 Pins | ⌀2</SelectItem>
                         <SelectItem value="8-0.5">8 Pins | ⌀0.5</SelectItem>
                         <SelectItem value="8-1">8 Pins | ⌀1</SelectItem>
-                        <SelectItem value="8-2">8 Pins | ���2</SelectItem>
+                        <SelectItem value="8-2">8 Pins | ⌀2</SelectItem>
                         <SelectItem value="10-0.5">10 Pins | ⌀0.5</SelectItem>
                         <SelectItem value="10-1">10 Pins | ⌀1</SelectItem>
                         <SelectItem value="10-2">10 Pins | ⌀2</SelectItem>
@@ -996,15 +899,15 @@ export default function OneTimeScanEnhanced() {
                   center={selectedBusiness?.coordinates}
                   zoom={12}
                   height="400px"
-                  waypoints={waypoints.map((waypoint) => ({
+                  markers={waypoints.map((waypoint, index) => ({
                     id: waypoint.id,
                     position: waypoint.coordinates,
-                    rank: waypoint.isCenter ? 0 : parseInt(waypoint.id.replace('waypoint-', '')) + 1
+                    title: waypoint.isCenter ? 'Business Center' : `Search Location ${index}`,
+                    color: waypoint.enabled ? '#3B82F6' : '#9CA3AF',
+                    content: waypoint.isCenter
+                      ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
+                      : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}</div>`
                   }))}
-                  onWaypointClick={(waypointId) => {
-                    console.log('Waypoint clicked:', waypointId);
-                    // Could add waypoint selection logic here
-                  }}
                   className="mb-4"
                 />
                 <div className="text-sm text-gray-600">
