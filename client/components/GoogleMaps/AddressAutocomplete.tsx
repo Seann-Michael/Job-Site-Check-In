@@ -312,8 +312,8 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             !isLoading &&
             apiKeyAvailable && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Navigation className="h-3 w-3" />
-                <span>Showing closest and most relevant addresses</span>
+                <Search className="h-3 w-3" />
+                <span>Showing most relevant addresses</span>
               </div>
             )}
         </div>
