@@ -822,7 +822,9 @@ export default function SuperAdminPerformance() {
                         <TableCell>{cache.size}</TableCell>
                         <TableCell>{(cache.requests || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-sm">
-                          {new Date(cache.lastCleared).toLocaleDateString()}
+                          {cache.lastCleared
+                            ? new Date(cache.lastCleared).toLocaleDateString()
+                            : "Never"}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
