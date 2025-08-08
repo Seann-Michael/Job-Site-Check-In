@@ -172,12 +172,14 @@ export default function AddProject() {
     const streetAddress = `${streetNumber} ${route}`.trim();
 
     // Get coordinates for Street View
-    const lat = selectedPlace.geometry?.location?.lat?.() ||
-               selectedPlace.geometry?.location?.lat ||
-               selectedPlace.lat;
-    const lng = selectedPlace.geometry?.location?.lng?.() ||
-               selectedPlace.geometry?.location?.lng ||
-               selectedPlace.lng;
+    const lat =
+      selectedPlace.geometry?.location?.lat?.() ||
+      selectedPlace.geometry?.location?.lat ||
+      selectedPlace.lat;
+    const lng =
+      selectedPlace.geometry?.location?.lng?.() ||
+      selectedPlace.geometry?.location?.lng ||
+      selectedPlace.lng;
 
     let streetViewUrl = "";
     let hasStreetView = false;
@@ -525,12 +527,14 @@ export default function AddProject() {
                           Street View available for this location
                         </div>
                       )}
-                      {formData.gpsLat && formData.gpsLng && !formData.hasStreetView && (
-                        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                          <AlertCircle className="h-3 w-3" />
-                          Street View not available for this location
-                        </div>
-                      )}
+                      {formData.gpsLat &&
+                        formData.gpsLng &&
+                        !formData.hasStreetView && (
+                          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                            <AlertCircle className="h-3 w-3" />
+                            Street View not available for this location
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
@@ -569,7 +573,9 @@ export default function AddProject() {
                       <Label htmlFor="state">State/Province</Label>
                       <USStatesSelect
                         value={formData.state}
-                        onValueChange={(value) => handleInputChange("state", value)}
+                        onValueChange={(value) =>
+                          handleInputChange("state", value)
+                        }
                         placeholder="Select state"
                       />
                     </div>

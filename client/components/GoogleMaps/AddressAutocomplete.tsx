@@ -152,7 +152,10 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     clearSuggestions(); // Clear suggestions to prevent re-selection
 
     // Only call onChange if place is different from current selection
-    if (onChange && (!selectedPlace || selectedPlace.placeId !== place.placeId)) {
+    if (
+      onChange &&
+      (!selectedPlace || selectedPlace.placeId !== place.placeId)
+    ) {
       onChange(place.formattedAddress, place);
     }
 

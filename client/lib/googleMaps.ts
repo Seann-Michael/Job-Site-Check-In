@@ -296,7 +296,7 @@ export const createStreetViewEmbedUrl = (
 
   const params = new URLSearchParams({
     key: apiKey,
-    [locationParam.split('=')[0]]: locationParam.split('=')[1],
+    [locationParam.split("=")[0]]: locationParam.split("=")[1],
     heading: (options.heading || 0).toString(),
     pitch: (options.pitch || 0).toString(),
     fov: (options.fov || 90).toString(),
@@ -306,21 +306,25 @@ export const createStreetViewEmbedUrl = (
 };
 
 // Check if Street View is available for a location
-export const checkStreetViewAvailability = async (
-  location: { lat: number; lng: number }
-): Promise<boolean> => {
+export const checkStreetViewAvailability = async (location: {
+  lat: number;
+  lng: number;
+}): Promise<boolean> => {
   try {
     await loadGoogleMapsAPI();
 
     return new Promise((resolve) => {
       const streetViewService = new google.maps.StreetViewService();
 
-      streetViewService.getPanorama({
-        location: new google.maps.LatLng(location.lat, location.lng),
-        radius: 50, // Search within 50 meters
-      }, (data, status) => {
-        resolve(status === google.maps.StreetViewStatus.OK);
-      });
+      streetViewService.getPanorama(
+        {
+          location: new google.maps.LatLng(location.lat, location.lng),
+          radius: 50, // Search within 50 meters
+        },
+        (data, status) => {
+          resolve(status === google.maps.StreetViewStatus.OK);
+        },
+      );
     });
   } catch (error) {
     console.error("Failed to check Street View availability:", error);

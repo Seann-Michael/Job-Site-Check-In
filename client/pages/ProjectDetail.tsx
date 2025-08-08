@@ -857,14 +857,14 @@ export default function ProjectDetail() {
   const handlePhotoDelete = (photo: any) => {
     if (!project || confirm("Are you sure you want to delete this photo?")) {
       try {
-        const photoUrl = typeof photo === 'string' ? photo : photo.url;
+        const photoUrl = typeof photo === "string" ? photo : photo.url;
         const updatedPhotos = project.photos.filter(
-          (p: any) => (typeof p === 'string' ? p : p.url) !== photoUrl
+          (p: any) => (typeof p === "string" ? p : p.url) !== photoUrl,
         );
 
         const updatedProject = {
           ...project,
-          photos: updatedPhotos
+          photos: updatedPhotos,
         };
 
         updateProject(updatedProject);
@@ -881,10 +881,10 @@ export default function ProjectDetail() {
     if (!project) return;
 
     try {
-      const photoUrl = typeof photo === 'string' ? photo : photo.url;
+      const photoUrl = typeof photo === "string" ? photo : photo.url;
       const updatedPhotos = project.photos.map((p: any) => {
-        if ((typeof p === 'string' ? p : p.url) === photoUrl) {
-          if (typeof p === 'object') {
+        if ((typeof p === "string" ? p : p.url) === photoUrl) {
+          if (typeof p === "object") {
             return { ...p, isPrimary: !p.isPrimary };
           }
           // Convert string to object with isPrimary
@@ -893,7 +893,7 @@ export default function ProjectDetail() {
             isPrimary: true,
             uploadedAt: new Date().toISOString(),
             uploadedBy: "Current User",
-            tags: []
+            tags: [],
           };
         }
         return p;
@@ -901,21 +901,24 @@ export default function ProjectDetail() {
 
       const updatedProject = {
         ...project,
-        photos: updatedPhotos
+        photos: updatedPhotos,
       };
 
       updateProject(updatedProject);
 
-      const photoObj = updatedPhotos.find((p: any) =>
-        (typeof p === 'string' ? p : p.url) === photoUrl
+      const photoObj = updatedPhotos.find(
+        (p: any) => (typeof p === "string" ? p : p.url) === photoUrl,
       );
-      const isFavorite = typeof photoObj === 'object' ? photoObj.isPrimary : false;
+      const isFavorite =
+        typeof photoObj === "object" ? photoObj.isPrimary : false;
 
       addActivityLogEntry(
         isFavorite ? "photo_favorited" : "photo_unfavorited",
-        `Photo ${isFavorite ? "added to" : "removed from"} favorites`
+        `Photo ${isFavorite ? "added to" : "removed from"} favorites`,
       );
-      toast.success(isFavorite ? "Added to favorites" : "Removed from favorites");
+      toast.success(
+        isFavorite ? "Added to favorites" : "Removed from favorites",
+      );
     } catch (error) {
       console.error("Error toggling favorite:", error);
       toast.error("Failed to update favorite status");
@@ -923,15 +926,15 @@ export default function ProjectDetail() {
   };
 
   const handlePhotoDownload = (photo: any) => {
-    const photoUrl = typeof photo === 'string' ? photo : photo.url;
+    const photoUrl = typeof photo === "string" ? photo : photo.url;
     const a = document.createElement("a");
     a.href = photoUrl;
-    a.download = `${project?.name || 'project'}-photo.jpg`;
+    a.download = `${project?.name || "project"}-photo.jpg`;
     a.click();
   };
 
   const handlePhotoViewDetails = (photo: any) => {
-    const photoUrl = typeof photo === 'string' ? photo : photo.url;
+    const photoUrl = typeof photo === "string" ? photo : photo.url;
     setSelectedPhoto(photoUrl);
   };
 
@@ -978,7 +981,10 @@ export default function ProjectDetail() {
           key={`project-detail-${project.id}`}
         >
           <div key="project-detail-content">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6" key="header-nav">
+            <div
+              className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6"
+              key="header-nav"
+            >
               <div className="flex items-center gap-4 flex-1">
                 <Link to="/admin/projects" key="back-link">
                   <Button variant="ghost" size="icon">
@@ -986,7 +992,9 @@ export default function ProjectDetail() {
                   </Button>
                 </Link>
                 <div className="flex-1 min-w-0" key="title-section">
-                  <h1 className="text-xl sm:text-2xl font-bold truncate">{project.name}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold truncate">
+                    {project.name}
+                  </h1>
                   <div
                     className="flex items-center gap-2 text-muted-foreground mt-1"
                     key="address-display"
@@ -996,7 +1004,10 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0" key="action-buttons">
+              <div
+                className="flex items-center gap-2 flex-shrink-0"
+                key="action-buttons"
+              >
                 <Link to={`/project/${id}/edit`} key="edit-link">
                   <Button variant="ghost" size="icon" className="h-8 w-8">
                     <Edit className="h-4 w-4" />
@@ -1318,10 +1329,16 @@ export default function ProjectDetail() {
                                       projectName={project.name}
                                       onEdit={handlePhotoEdit}
                                       onDelete={handlePhotoDelete}
-                                      onToggleFavorite={handlePhotoToggleFavorite}
+                                      onToggleFavorite={
+                                        handlePhotoToggleFavorite
+                                      }
                                       onDownload={handlePhotoDownload}
                                       onViewDetails={handlePhotoViewDetails}
-                                      isFavorite={typeof photo === 'object' ? photo.isPrimary : false}
+                                      isFavorite={
+                                        typeof photo === "object"
+                                          ? photo.isPrimary
+                                          : false
+                                      }
                                       className="h-6 w-6"
                                     />
                                   </div>
@@ -1395,7 +1412,10 @@ export default function ProjectDetail() {
                     <StreetView
                       streetViewUrl={project.streetViewUrl}
                       hasStreetView={project.hasStreetView}
-                      address={project.address || `${project.streetAddress}, ${project.city}, ${project.state} ${project.zipCode}`}
+                      address={
+                        project.address ||
+                        `${project.streetAddress}, ${project.city}, ${project.state} ${project.zipCode}`
+                      }
                       className="w-full"
                     />
 

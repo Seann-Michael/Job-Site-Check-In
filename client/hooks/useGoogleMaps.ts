@@ -236,11 +236,7 @@ export const useAddressSearch = () => {
               }
             }
 
-            console.log(
-              "📍 Final results:",
-              results.length,
-              "suggestions",
-            );
+            console.log("📍 Final results:", results.length, "suggestions");
             setSuggestions(results);
           } else {
             console.log("❌ No predictions or bad status:", status);

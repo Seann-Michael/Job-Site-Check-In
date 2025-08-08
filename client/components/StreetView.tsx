@@ -88,7 +88,8 @@ export const StreetView: React.FC<StreetViewProps> = ({
                 Street View Not Available
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Street View imagery is not available for this location. This could be due to privacy restrictions or limited coverage.
+                Street View imagery is not available for this location. This
+                could be due to privacy restrictions or limited coverage.
               </p>
             </div>
             {address && (
@@ -109,11 +110,7 @@ export const StreetView: React.FC<StreetViewProps> = ({
   );
 
   if (showCard) {
-    return (
-      <Card className={className}>
-        {content}
-      </Card>
-    );
+    return <Card className={className}>{content}</Card>;
   }
 
   return <div className={className}>{content}</div>;
