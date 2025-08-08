@@ -650,7 +650,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             <Marker
               key={marker.id}
               position={marker.position}
-              draggable={isCenter || (!marker.disabled && !isGridDragging)}
+              draggable={isCenter} // Only center pin is draggable
               icon={createWaypointIcon(marker)}
               label={
                 marker.disabled
