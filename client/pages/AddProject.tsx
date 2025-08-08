@@ -61,6 +61,8 @@ export default function AddProject() {
     keywords: "",
     startDate: new Date().toISOString().split("T")[0], // Auto-populated with today
     completionDate: "",
+    streetViewUrl: "", // Store Street View URL to avoid repeated API calls
+    hasStreetView: false, // Track if Street View is available
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
