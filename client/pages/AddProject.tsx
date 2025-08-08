@@ -513,9 +513,23 @@ export default function AddProject() {
                     }}
                   />
                   {formData.placeId && (
-                    <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
-                      <CheckCircle className="h-3 w-3" />
-                      Address verified with Google Maps
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                        <CheckCircle className="h-3 w-3" />
+                        Address verified with Google Maps
+                      </div>
+                      {formData.hasStreetView && (
+                        <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                          <CheckCircle className="h-3 w-3" />
+                          Street View available for this location
+                        </div>
+                      )}
+                      {formData.gpsLat && formData.gpsLng && !formData.hasStreetView && (
+                        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                          <AlertCircle className="h-3 w-3" />
+                          Street View not available for this location
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
