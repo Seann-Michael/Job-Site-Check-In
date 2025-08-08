@@ -894,48 +894,23 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <GoogleMapComponent
-                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
-                zoom={selectedBusiness?.coordinates ? 12 : 4}
-                height="400px"
-                showControls={true}
-                showDirectionsButton={false}
-                markers={waypoints.map((waypoint, index) => ({
-                  id: waypoint.id,
-                  position: waypoint.coordinates,
-                  title: waypoint.isCenter ? 'Business Center' : `Search Location ${index + 1}`,
-                  color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
-                  icon: waypoint.isCenter ? 'business' : undefined,
-                  content: waypoint.isCenter
-                    ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
-                    : `<div><strong>Search Location ${index + 1}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
-                }))}
-                className="border border-gray-200 rounded-lg"
-              />
-              <div className="text-sm text-gray-600">
-                {waypoints.length > 0 ? (
-                  <p className="mb-2">
-                    Showing {waypoints.length} search locations ({enabledWaypointsCount} enabled for scan)
-                  </p>
-                ) : (
-                  <p className="mb-2">
-                    {selectedBusiness ? 'Search locations will appear when waypoints are configured' : 'Select a business to see search locations'}
+              <div style={{ height: '400px', width: '100%' }}>
+                <GoogleMapComponent
+                  lat={39.8283}
+                  lng={-98.5795}
+                  zoom={4}
+                  height="400px"
+                />
+              </div>
+              <div className="text-sm text-gray-600 mt-4">
+                <p className="mb-2">
+                  {selectedBusiness ? `Business: ${selectedBusiness.name}` : 'Select a business to see search locations'}
+                </p>
+                {waypoints.length > 0 && (
+                  <p>
+                    {waypoints.length} waypoints generated ({enabledWaypointsCount} enabled)
                   </p>
                 )}
-                <div className="flex items-center gap-4 text-xs">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span>Enabled Search Locations</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                    <span>Disabled Search Locations</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-green-600"></div>
-                    <span>Business Center</span>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
