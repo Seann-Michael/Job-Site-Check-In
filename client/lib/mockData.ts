@@ -557,12 +557,10 @@ class MockDataService {
   public initialize() {
     if (this.initialized) return;
 
-    // Use more specific Builder.io detection
+    // Only use minimal data in actual Builder.io editor
     const isBuilderIoEditor =
       typeof window !== "undefined" &&
-      (window.location.href.includes("builder.io") ||
-        window.location.hostname.includes("builder.io") ||
-        (document.referrer.includes("builder.io") && window.parent !== window));
+      window.location.hostname.includes("builder.io");
 
     if (isBuilderIoEditor) {
       // Use minimal mock data for Builder.io to prevent rendering issues
@@ -571,15 +569,6 @@ class MockDataService {
       this.clients = this.getMinimalMockClients();
       this.initialized = true;
       return;
-    }
-
-    // Force reinitialization to ensure we have full mock data
-    const forceReinit = true; // Always force for now to ensure data is available
-    if (forceReinit) {
-      console.log("🔄 Force reinitializing mock data...");
-      localStorage.removeItem("projects");
-      localStorage.removeItem("users");
-      localStorage.removeItem("clients");
     }
 
     // Check if data already exists in localStorage
