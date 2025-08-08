@@ -205,7 +205,11 @@ export default function SuperAdminUsers() {
       suspended: { variant: "destructive" as const, label: "Suspended" },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig];
+    const config = statusConfig[status as keyof typeof statusConfig] || {
+      variant: "secondary" as const,
+      label: status || "Unknown"
+    };
+
     return (
       <Badge variant={config.variant} className="capitalize">
         {config.label}
