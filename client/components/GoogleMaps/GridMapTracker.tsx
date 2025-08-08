@@ -30,6 +30,12 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isGridDragging, setIsGridDragging] = useState(false);
   const [gridCenter, setGridCenter] = useState(center);
+  const onGridChangeRef = useRef(onGridChange);
+
+  // Update ref when callback changes
+  useEffect(() => {
+    onGridChangeRef.current = onGridChange;
+  }, [onGridChange]);
 
   // Update gridCenter when center prop changes, but only if not dragging
   useEffect(() => {
