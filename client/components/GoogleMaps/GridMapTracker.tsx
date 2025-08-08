@@ -345,7 +345,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         labelOrigin: new google.maps.Point(16, -8),
       };
     },
-    [getMarkerColor, rankings, gridType],
+    [getMarkerColor, gridType],
   );
 
   // Handle individual marker drag
