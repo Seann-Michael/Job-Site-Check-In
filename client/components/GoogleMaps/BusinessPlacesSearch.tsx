@@ -159,24 +159,37 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
           const businessResults: BusinessPlaceResult[] = results
             .filter(place => place.business_status === 'OPERATIONAL')
             .slice(0, 8)
-            .map(place => ({
-              placeId: place.place_id || '',
-              name: place.name || '',
-              formattedAddress: place.formatted_address || '',
-              businessStatus: place.business_status || '',
-              types: place.types || [],
-              rating: place.rating,
-              userRatingsTotal: place.user_ratings_total,
-              phoneNumber: place.formatted_phone_number,
-              website: place.website,
-              openingHours: place.opening_hours?.weekday_text,
-              lat: place.geometry?.location?.lat() || 0,
-              lng: place.geometry?.location?.lng() || 0,
-              photos: place.photos?.slice(0, 1).map(photo => 
-                photo.getUrl({ maxWidth: 200, maxHeight: 200 })
-              ),
-              url: place.url
-            }));
+            .map(place => {
+              // Extract CID from Google Maps URL if available
+              let cid = '';
+              if (place.url) {
+                const cidMatch = place.url.match(/!1s0x[a-f0-9]+:0x([a-f0-9]+)/);
+                if (cidMatch) {
+                  // Convert hex to decimal for CID
+                  cid = parseInt(cidMatch[1], 16).toString();
+                }
+              }
+
+              return {
+                placeId: place.place_id || '',
+                name: place.name || '',
+                formattedAddress: place.formatted_address || '',
+                businessStatus: place.business_status || '',
+                types: place.types || [],
+                rating: place.rating,
+                userRatingsTotal: place.user_ratings_total,
+                phoneNumber: place.formatted_phone_number,
+                website: place.website,
+                openingHours: place.opening_hours?.weekday_text,
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0,
+                photos: place.photos?.slice(0, 1).map(photo =>
+                  photo.getUrl({ maxWidth: 200, maxHeight: 200 })
+                ),
+                url: place.url,
+                cid: cid
+              };
+            });
 
           console.log("✅ Business search results processed:", businessResults.length);
           setSuggestions(businessResults);
