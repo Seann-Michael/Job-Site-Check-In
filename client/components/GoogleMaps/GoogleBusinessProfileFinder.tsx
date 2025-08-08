@@ -155,11 +155,26 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
     }
   };
 
-  const searchByCid = async (cid: string): Promise<BusinessProfile | null> => {
-    // CID search is more complex and typically requires the Place ID
-    // For now, we'll search by converting CID to hex and looking for it
-    toast.info("CID search functionality requires additional API setup");
-    return null;
+  const handleCidSearch = async () => {
+    if (!cidQuery.trim()) {
+      toast.error("Please enter a Customer ID");
+      return;
+    }
+
+    setIsSearchingCid(true);
+    setSearchError(null);
+
+    try {
+      // CID search is complex and requires additional setup
+      // For now, show informational message
+      toast.info("CID search requires additional Google My Business API setup. Please use business name or URL search.");
+      setSearchError("CID search functionality is currently not available. Please use business name or Google Maps URL search instead.");
+    } catch (error) {
+      console.error("CID search error:", error);
+      setSearchError("CID search failed. Please try using business name or URL search.");
+    } finally {
+      setIsSearchingCid(false);
+    }
   };
 
   const searchByUrl = async (url: string): Promise<BusinessProfile | null> => {
