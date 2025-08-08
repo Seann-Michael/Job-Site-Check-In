@@ -1,6 +1,7 @@
 export { GoogleMapComponent } from "./GoogleMapComponent";
 export { AddressAutocomplete } from "./AddressAutocomplete";
 export { BusinessPlacesSearch } from "./BusinessPlacesSearch";
+export { GoogleBusinessProfileFinder } from "./GoogleBusinessProfileFinder";
 
 // Re-export hooks and utilities for convenience
 export {
