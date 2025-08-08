@@ -52,39 +52,99 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     fullscreenControl: true
   };
 
-  // Generate initial grid positions
+  // Generate positions based on pattern
   const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, radius: number) => {
     const positions = [];
     const earthRadius = 6371000; // Earth's radius in meters
-    const halfGrid = Math.floor(size / 2);
-    const spacing = (radius * 2) / (size - 1);
 
-    for (let row = 0; row < size; row++) {
-      for (let col = 0; col < size; col++) {
-        const id = `${row}-${col}`;
-        
-        // Calculate offset from center
-        const xOffset = (col - halfGrid) * spacing;
-        const yOffset = (halfGrid - row) * spacing;
+    if (pattern === 'grid') {
+      // Square grid pattern
+      const halfGrid = Math.floor(size / 2);
+      const spacing = (radius * 2) / (size - 1);
 
-        // Convert meters to lat/lng offset
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const id = `${row}-${col}`;
+
+          // Calculate offset from center
+          const xOffset = (col - halfGrid) * spacing;
+          const yOffset = (halfGrid - row) * spacing;
+
+          // Convert meters to lat/lng offset
+          const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
+          const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
+
+          positions.push({
+            id,
+            position: {
+              lat: centerPoint.lat + latOffset,
+              lng: centerPoint.lng + lngOffset
+            },
+            row,
+            col,
+            label: `${String.fromCharCode(65 + row)}${col + 1}` // A1, A2, B1, etc.
+          });
+        }
+      }
+    } else if (pattern === 'circle') {
+      // Circular pattern
+      const actualPointCount = pointCount || (size * size);
+      const angleStep = (2 * Math.PI) / Math.max(actualPointCount - 1, 1);
+
+      // Add center point first
+      positions.push({
+        id: 'center',
+        position: centerPoint,
+        row: 0,
+        col: 0,
+        label: 'Center'
+      });
+
+      // Add circle points
+      for (let i = 0; i < actualPointCount - 1; i++) {
+        const angle = i * angleStep;
+        const xOffset = Math.cos(angle) * radius;
+        const yOffset = Math.sin(angle) * radius;
+
         const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
         const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
 
         positions.push({
-          id,
+          id: `circle-${i}`,
           position: {
             lat: centerPoint.lat + latOffset,
             lng: centerPoint.lng + lngOffset
           },
-          row,
-          col,
-          label: `${String.fromCharCode(65 + row)}${col + 1}` // A1, A2, B1, etc.
+          row: 0,
+          col: i + 1,
+          label: `C${i + 1}`
+        });
+      }
+    } else if (pattern === 'line') {
+      // Linear pattern
+      const actualPointCount = pointCount || size;
+      const spacing = (radius * 2) / Math.max(actualPointCount - 1, 1);
+      const halfCount = Math.floor(actualPointCount / 2);
+
+      for (let i = 0; i < actualPointCount; i++) {
+        const xOffset = (i - halfCount) * spacing;
+        const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
+
+        positions.push({
+          id: `line-${i}`,
+          position: {
+            lat: centerPoint.lat,
+            lng: centerPoint.lng + lngOffset
+          },
+          row: 0,
+          col: i,
+          label: `L${i + 1}`
         });
       }
     }
+
     return positions;
-  }, []);
+  }, [pattern, pointCount]);
 
   // Initialize markers on mount or when center/grid changes
   useEffect(() => {
