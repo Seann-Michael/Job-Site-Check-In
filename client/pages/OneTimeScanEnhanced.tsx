@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/AppLayout";
+import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponent";
 import {
   MapPin,
   Target,
@@ -717,7 +718,7 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="40-3">40 Pins | ⌀3</SelectItem>
                         <SelectItem value="50-2">50 Pins | ⌀2</SelectItem>
                         <SelectItem value="50-3">50 Pins | ⌀3</SelectItem>
-                        <SelectItem value="50-5">50 Pins | ⌀5</SelectItem>
+                        <SelectItem value="50-5">50 Pins | ���5</SelectItem>
                       </SelectContent>
                     </Select>
 
