@@ -159,7 +159,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           col,
           label: `${String.fromCharCode(65 + row)}${col + 1}`,
           isCenter: row === halfGrid && col === halfGrid,
-          disabled: disabledPoints.includes(id)
+          disabled: disabledPointsList.includes(id)
         });
       }
     }
