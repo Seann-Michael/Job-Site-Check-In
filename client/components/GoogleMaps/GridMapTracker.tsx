@@ -662,14 +662,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
                     }
                   : undefined
               }
-              onDragStart={() =>
-                isCenter ? setIsGridDragging(true) : setIsDragging(true)
-              }
-              onDragEnd={(e) =>
-                isCenter
-                  ? handleCenterDragEnd(e)
-                  : handleMarkerDragEnd(e, marker.id)
-              }
+              onDragStart={() => isCenter && setIsGridDragging(true)}
+              onDragEnd={(e) => isCenter && handleCenterDragEnd(e)}
               onMouseDown={(e) =>
                 !isCenter && handleMarkerMouseDown(marker.id, e)
               }
