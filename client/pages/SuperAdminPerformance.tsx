@@ -912,7 +912,9 @@ export default function SuperAdminPerformance() {
                           </span>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {new Date(db.lastOptimized).toLocaleDateString()}
+                          {db.lastOptimized
+                            ? new Date(db.lastOptimized).toLocaleDateString()
+                            : "Never"}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
