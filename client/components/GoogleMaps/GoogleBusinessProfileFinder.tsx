@@ -60,9 +60,12 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
   onAddressChange,
   className,
 }) => {
-  const [searchMode, setSearchMode] = useState<"name" | "cid" | "url">("name");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
+  // Search states
+  const [cidQuery, setCidQuery] = useState("");
+  const [urlQuery, setUrlQuery] = useState("");
+  const [isSearchingCid, setIsSearchingCid] = useState(false);
+  const [isSearchingUrl, setIsSearchingUrl] = useState(false);
+
   const [foundProfile, setFoundProfile] = useState<BusinessProfile | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [apiKeyAvailable, setApiKeyAvailable] = useState(true);
