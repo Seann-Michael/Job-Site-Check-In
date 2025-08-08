@@ -894,25 +894,38 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-full">
-                <GoogleMapComponent
-                  center={{ lat: 39.8283, lng: -98.5795 }}
-                  zoom={4}
-                  markers={[]}
-                  height="400px"
-                  showControls={true}
-                  showDirectionsButton={false}
-                  className="h-full border-0 rounded-lg"
-                />
-              </div>
+              <iframe
+                src={
+                  selectedBusiness?.coordinates
+                    ? `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d12000!2d${selectedBusiness.coordinates.lng}!3d${selectedBusiness.coordinates.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus`
+                    : "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3179676.4675463075!2d-98.5795!3d39.8283!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDDCsDIzJzI3LjAiTiA5OMKwMzQnNDcuMCJX!5e0!3m2!1sen!2sus!4v1234567890"
+                }
+                width="100%"
+                height="400"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="rounded-lg"
+              />
               <div className="text-sm text-gray-600 mt-4">
                 <p className="mb-2">
-                  Map loaded - {selectedBusiness ? `Business: ${selectedBusiness.name}` : 'Select a business to see search locations'}
+                  {selectedBusiness ? `📍 Showing: ${selectedBusiness.name}` : '🗺️ Select a business to focus the map'}
                 </p>
                 {waypoints.length > 0 && (
-                  <p>
-                    {waypoints.length} waypoints configured ({enabledWaypointsCount} enabled)
-                  </p>
+                  <div className="space-y-2">
+                    <p>📌 {waypoints.length} search locations configured ({enabledWaypointsCount} enabled)</p>
+                    <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span>Search Locations ({enabledWaypointsCount})</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                        <span>Business Center</span>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </CardContent>
