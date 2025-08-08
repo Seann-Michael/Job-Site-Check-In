@@ -31,6 +31,13 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   const [isGridDragging, setIsGridDragging] = useState(false);
   const [gridCenter, setGridCenter] = useState(center);
 
+  // Update gridCenter when center prop changes, but only if not dragging
+  useEffect(() => {
+    if (!isGridDragging) {
+      setGridCenter(center);
+    }
+  }, [center, isGridDragging]);
+
   const apiKey = getGoogleMapsApiKey();
 
   const { isLoaded } = useJsApiLoader({
