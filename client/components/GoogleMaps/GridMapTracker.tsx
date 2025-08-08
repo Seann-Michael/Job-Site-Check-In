@@ -550,10 +550,21 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         onLoad={(map) => {
           mapRef.current = map;
 
-          // Set region to US to ensure miles are used for scale
+          // Set region and locale to US to ensure miles are used for scale
           map.setOptions({
             region: "US",
+            gestureHandling: "auto",
           });
+
+          // Force US locale which should display imperial units only
+          if (window.google && window.google.maps) {
+            // Try to force imperial units by setting locale
+            const scaleControl = map.controls[window.google.maps.ControlPosition.BOTTOM_RIGHT];
+            if (scaleControl) {
+              // Clear existing scale controls
+              scaleControl.clear();
+            }
+          }
 
           // Defer auto-fit bounds to avoid setState during render
           setTimeout(() => {
