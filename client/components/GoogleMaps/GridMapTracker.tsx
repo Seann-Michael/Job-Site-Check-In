@@ -309,7 +309,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   // Handle marker click - single click disables, hold starts drag all
   const handleMarkerMouseDown = useCallback((markerId: string, e: google.maps.MapMouseEvent) => {
     e.stop();
+
+    // Use ref to track if component is still mounted
+    let isHolding = false;
     const timeout = setTimeout(() => {
+      isHolding = true;
       setIsDraggingAllPins(true);
       if (e.latLng) {
         setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
@@ -318,9 +322,9 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
     const handleMouseUp = () => {
       clearTimeout(timeout);
-      if (!isDraggingAllPins) {
-        // Single click - toggle disabled state
-        toggleWaypointDisabled(markerId);
+      if (!isHolding && !isDraggingAllPins) {
+        // Single click - toggle disabled state (defer to prevent render issues)
+        setTimeout(() => toggleWaypointDisabled(markerId), 0);
       }
       document.removeEventListener('mouseup', handleMouseUp);
     };
