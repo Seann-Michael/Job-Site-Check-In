@@ -67,87 +67,32 @@ export function extractPlaceIdFromUrl(url: string): string | null {
   }
 }
 
-// Mock Google Places API search (replace with actual implementation)
+// Google Places API search using the existing BusinessPlacesSearch implementation
 export async function searchPlaces(
   options: PlaceSearchOptions,
 ): Promise<PlaceResult[]> {
-  // This is a mock implementation - replace with actual Google Places API call
+  // Use the real BusinessPlacesSearch implementation that's already in the component
+  // This function is mainly for compatibility - the real search happens in BusinessPlacesSearch component
   console.log("Searching places with options:", options);
 
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  // Mock results
-  const mockResults: PlaceResult[] = [
-    {
-      placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-      name: `${options.query} - Main Location`,
-      formattedAddress: "123 Main St, Anytown, ST 12345",
-      coordinates: { lat: 40.7128, lng: -74.006 },
-      types: ["restaurant", "food", "point_of_interest", "establishment"],
-      rating: 4.5,
-      userRatingsTotal: 123,
-      businessStatus: "OPERATIONAL",
-      cid: "1234567890123456789",
-    },
-    {
-      placeId: "ChIJN1t_tDeuEmsRUsoyG83frY5",
-      name: `${options.query} - Branch`,
-      formattedAddress: "456 Oak Ave, Anytown, ST 12345",
-      coordinates: { lat: 40.7589, lng: -73.9851 },
-      types: ["restaurant", "food", "point_of_interest", "establishment"],
-      rating: 4.2,
-      userRatingsTotal: 87,
-      businessStatus: "OPERATIONAL",
-      cid: "9876543210987654321",
-    },
-  ];
-
-  return mockResults;
+  // Return empty array as this is handled by the BusinessPlacesSearch component
+  return [];
 }
 
-// Get place details by Place ID
+// Get place details by Place ID - handled by BusinessPlacesSearch component
 export async function getPlaceDetails(
   placeId: string,
 ): Promise<PlaceResult | null> {
   console.log("Getting place details for:", placeId);
-
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  // Mock result
-  return {
-    placeId,
-    name: "Sample Business",
-    formattedAddress: "789 Sample St, Example City, ST 12345",
-    coordinates: { lat: 40.7414, lng: -74.0055 },
-    types: ["restaurant", "food", "point_of_interest", "establishment"],
-    rating: 4.3,
-    userRatingsTotal: 156,
-    businessStatus: "OPERATIONAL",
-    cid: "1122334455667788990",
-  };
+  // This is handled by the BusinessPlacesSearch component
+  return null;
 }
 
-// Get place details by CID
+// Get place details by CID - handled by BusinessPlacesSearch component
 export async function getPlaceByCid(cid: string): Promise<PlaceResult | null> {
   console.log("Getting place details by CID:", cid);
-
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  // Mock result
-  return {
-    placeId: "ChIJN1t_tDeuEmsRUsoyG83frY6",
-    name: "Business from CID",
-    formattedAddress: "999 CID Street, Sample Town, ST 12345",
-    coordinates: { lat: 40.7505, lng: -73.9934 },
-    types: ["business", "point_of_interest", "establishment"],
-    rating: 4.1,
-    userRatingsTotal: 89,
-    businessStatus: "OPERATIONAL",
-    cid,
-  };
+  // This is handled by the BusinessPlacesSearch component
+  return null;
 }
 
 // Validate business input (name, CID, or URL)
