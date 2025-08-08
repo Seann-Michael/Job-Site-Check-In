@@ -116,17 +116,22 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   // Handle marker drag
   const handleMarkerDragEnd = useCallback((e: google.maps.MapMouseEvent, markerId: string) => {
     if (!e.latLng) return;
-    
+
     const newLat = e.latLng.lat();
     const newLng = e.latLng.lng();
-    
+
     setMarkers(prevMarkers => {
-      const updatedMarkers = prevMarkers.map(marker => 
-        marker.id === markerId 
+      const updatedMarkers = prevMarkers.map(marker =>
+        marker.id === markerId
           ? { ...marker, position: { lat: newLat, lng: newLng } }
           : marker
       );
-      onGridChange(updatedMarkers);
+
+      // Call onGridChange after state update is complete
+      setTimeout(() => {
+        onGridChange(updatedMarkers);
+      }, 0);
+
       return updatedMarkers;
     });
     setIsDragging(false);
