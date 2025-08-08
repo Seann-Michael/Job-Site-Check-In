@@ -348,28 +348,25 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
 
   return (
     <div className={cn("space-y-6", className)}>
-      <Tabs value={searchMode} onValueChange={(value) => setSearchMode(value as any)}>
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="name" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="name">Business Name</TabsTrigger>
           <TabsTrigger value="cid">CID</TabsTrigger>
           <TabsTrigger value="url">Google Maps URL</TabsTrigger>
+          <TabsTrigger value="manual">Manual Entry</TabsTrigger>
         </TabsList>
 
         <TabsContent value="name" className="space-y-4">
           <div>
             <Label htmlFor="business-name-search">Search by Business Name</Label>
-            <div className="flex gap-2 mt-1">
-              <Input
-                id="business-name-search"
-                placeholder="Enter business name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <Button onClick={handleSearch} disabled={isSearching || !apiKeyAvailable}>
-                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              </Button>
-            </div>
+            <BusinessPlacesSearch
+              value=""
+              onChange={handleBusinessNameSelect}
+              placeholder="Start typing your business name..."
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Use Google Places autocomplete to find your business profile
+            </p>
           </div>
         </TabsContent>
 
@@ -380,16 +377,17 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
               <Input
                 id="cid-search"
                 placeholder="Enter Google Customer ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                value={cidQuery}
+                onChange={(e) => setCidQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleCidSearch()}
+                className="font-mono"
               />
-              <Button onClick={handleSearch} disabled={isSearching || !apiKeyAvailable}>
-                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <Button onClick={handleCidSearch} disabled={isSearchingCid || !apiKeyAvailable}>
+                {isSearchingCid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Enter the numeric Customer ID from Google My Business
+              Enter the numeric Customer ID from Google My Business (e.g., 1234567890123456789)
             </p>
           </div>
         </TabsContent>
@@ -401,17 +399,106 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
               <Input
                 id="url-search"
                 placeholder="Paste Google Maps URL..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                value={urlQuery}
+                onChange={(e) => setUrlQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleUrlSearch()}
               />
-              <Button onClick={handleSearch} disabled={isSearching || !apiKeyAvailable}>
-                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <Button onClick={handleUrlSearch} disabled={isSearchingUrl || !apiKeyAvailable}>
+                {isSearchingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Paste the full Google Maps URL of your business listing
             </p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="manual" className="space-y-4">
+          <div>
+            <Label>Manual Business Information Entry</Label>
+            <p className="text-sm text-muted-foreground mb-4">
+              Enter business information manually or use address search to auto-populate fields
+            </p>
+
+            <div className="space-y-4">
+              <AddressAutocomplete
+                label="Address Search"
+                placeholder="Search for business address..."
+                onChange={(address, placeResult) => {
+                  if (placeResult && onAddressChange) {
+                    const addressParts = placeResult.formattedAddress.split(", ");
+                    const fullAddress = addressParts.slice(0, -2).join(", ");
+                    const city = addressParts[addressParts.length - 2];
+                    const stateZip = addressParts[addressParts.length - 1];
+
+                    let state = "";
+                    let zipCode = "";
+                    if (stateZip) {
+                      const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+                      if (stateZipMatch) {
+                        state = stateZipMatch[1];
+                        zipCode = stateZipMatch[2];
+                      } else {
+                        const parts = stateZip.split(" ");
+                        state = parts[0] || "";
+                        zipCode = parts[1] || "";
+                      }
+                    }
+
+                    const components = {
+                      street: fullAddress || "",
+                      city: city || "",
+                      state: state,
+                      zipCode: zipCode,
+                      country: "United States"
+                    };
+
+                    setManualAddress(components);
+                    onAddressChange(placeResult.formattedAddress, components);
+                  }
+                }}
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="manual-street">Street Address</Label>
+                  <Input
+                    id="manual-street"
+                    value={manualAddress.street}
+                    onChange={(e) => handleManualAddressChange("street", e.target.value)}
+                    placeholder="123 Main Street"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="manual-city">City</Label>
+                  <Input
+                    id="manual-city"
+                    value={manualAddress.city}
+                    onChange={(e) => handleManualAddressChange("city", e.target.value)}
+                    placeholder="New York"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="manual-state">State</Label>
+                  <Input
+                    id="manual-state"
+                    value={manualAddress.state}
+                    onChange={(e) => handleManualAddressChange("state", e.target.value)}
+                    placeholder="NY"
+                    maxLength={2}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="manual-zipCode">Zip Code</Label>
+                  <Input
+                    id="manual-zipCode"
+                    value={manualAddress.zipCode}
+                    onChange={(e) => handleManualAddressChange("zipCode", e.target.value)}
+                    placeholder="10001"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
