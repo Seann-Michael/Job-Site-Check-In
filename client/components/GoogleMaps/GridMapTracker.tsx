@@ -660,7 +660,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               <h3 className="font-bold text-sm">{selectedMarker.label}</h3>
               {selectedMarker.isCenter && (
                 <p className="text-xs text-blue-600 font-bold mt-1">
-                  CENTER (Drag to move grid)
+                  CENTER (Cannot be disabled)
                 </p>
               )}
               <p className="text-xs mt-1">
