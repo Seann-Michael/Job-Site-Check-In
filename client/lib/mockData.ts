@@ -576,6 +576,7 @@ class MockDataService {
     // Force reinitialization to ensure we have full mock data
     const forceReinit = true; // Always force for now to ensure data is available
     if (forceReinit) {
+      console.log("🔄 Force reinitializing mock data...");
       localStorage.removeItem("projects");
       localStorage.removeItem("users");
       localStorage.removeItem("clients");
