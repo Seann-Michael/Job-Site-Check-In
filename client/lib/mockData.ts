@@ -404,7 +404,7 @@ const generateMockProjects = (): MockProject[] => {
         Math.floor(Math.random() * 2) + 1,
       ),
       starred: Math.random() > 0.7,
-      archived: Math.random() > 0.9,
+      archived: false, // Don't archive any projects by default
       createdBy: "John Doe",
       estimatedValue: Math.floor(Math.random() * 100000) + 10000,
       actualValue: Math.floor(Math.random() * 100000) + 8000,
