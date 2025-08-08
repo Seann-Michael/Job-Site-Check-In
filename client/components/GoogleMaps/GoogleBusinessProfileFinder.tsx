@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { loadGoogleMapsAPI, getGoogleMapsApiKey } from "@/lib/googleMaps";
 import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
+import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
