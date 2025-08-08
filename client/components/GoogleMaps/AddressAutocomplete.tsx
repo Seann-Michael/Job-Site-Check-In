@@ -126,33 +126,22 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     console.log("📝 AddressAutocomplete: Input changed to:", newValue);
-    console.log("📝 AddressAutocomplete: API key available:", apiKeyAvailable);
-    console.log(
-      "📝 AddressAutocomplete: Suggestions count:",
-      suggestions.length,
-    );
-    console.log("📝 AddressAutocomplete: Is loading:", isLoading);
-    console.log("📝 AddressAutocomplete: Error:", error);
 
     setInputValue(newValue);
-    setSelectedPlace(null);
 
+    // Clear selected place when user starts typing again
+    if (selectedPlace) {
+      setSelectedPlace(null);
+    }
+
+    // Only call onChange with text input (no place result) during typing
     if (onChange) {
-      onChange(newValue);
+      onChange(newValue); // Don't pass place result during typing
     }
 
     if (newValue.length < 3 || !apiKeyAvailable) {
       clearSuggestions();
       setShowSuggestions(false);
-      if (newValue.length < 3) {
-        console.log(
-          "⚠️ AddressAutocomplete: Input too short, clearing suggestions",
-        );
-      } else if (!apiKeyAvailable) {
-        console.log(
-          "❌ AddressAutocomplete: API key not available, cannot search",
-        );
-      }
     }
   };
 
