@@ -275,6 +275,59 @@ export const createMapEmbedUrl = (
   return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${query}&zoom=14`;
 };
 
+// Utility: Create Street View embed URL for iframe
+export const createStreetViewEmbedUrl = (
+  location: string | { lat: number; lng: number },
+  options: {
+    heading?: number; // Direction to face (0-360)
+    pitch?: number; // Up/down angle (-90 to 90)
+    fov?: number; // Field of view (10-100)
+  } = {},
+): string => {
+  const apiKey = getGoogleMapsApiKey();
+  if (!apiKey) return "";
+
+  let locationParam = "";
+  if (typeof location === "string") {
+    locationParam = `location=${encodeURIComponent(location)}`;
+  } else {
+    locationParam = `location=${location.lat},${location.lng}`;
+  }
+
+  const params = new URLSearchParams({
+    key: apiKey,
+    [locationParam.split('=')[0]]: locationParam.split('=')[1],
+    heading: (options.heading || 0).toString(),
+    pitch: (options.pitch || 0).toString(),
+    fov: (options.fov || 90).toString(),
+  });
+
+  return `https://www.google.com/maps/embed/v1/streetview?${params.toString()}`;
+};
+
+// Check if Street View is available for a location
+export const checkStreetViewAvailability = async (
+  location: { lat: number; lng: number }
+): Promise<boolean> => {
+  try {
+    await loadGoogleMapsAPI();
+
+    return new Promise((resolve) => {
+      const streetViewService = new google.maps.StreetViewService();
+
+      streetViewService.getPanorama({
+        location: new google.maps.LatLng(location.lat, location.lng),
+        radius: 50, // Search within 50 meters
+      }, (data, status) => {
+        resolve(status === google.maps.StreetViewStatus.OK);
+      });
+    });
+  } catch (error) {
+    console.error("Failed to check Street View availability:", error);
+    return false;
+  }
+};
+
 // Test API key validity by making a direct request
 export const validateGoogleMapsApiKey = async (
   apiKey: string,
