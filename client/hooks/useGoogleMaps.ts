@@ -221,100 +221,27 @@ export const useAddressSearch = () => {
           ) {
             console.log("✅ Predictions received, processing...");
 
-            // Enhanced processing with scoring
-            const resultsWithScores: Array<
-              PlaceResult & {
-                distance?: number;
-                relevanceScore: number;
-                matchScore: number;
-              }
-            > = [];
+            // Simple processing - use Google's default relevance
+            const results: PlaceResult[] = [];
 
-            for (const prediction of predictions.slice(0, 8)) {
+            for (const prediction of predictions.slice(0, 6)) {
               console.log("🌍 Geocoding prediction:", prediction.description);
               const geocodeResult = await geocodeAddress(
                 prediction.description,
               );
 
               if (geocodeResult) {
-                // Calculate relevance score based on text matching
-                const description = prediction.description.toLowerCase();
-                const queryLower = query.toLowerCase();
-
-                let relevanceScore = 0;
-                let matchScore = 0;
-
-                // Exact match bonus
-                if (description.includes(queryLower)) {
-                  relevanceScore += 100;
-                }
-
-                // Starting match bonus (higher priority)
-                if (description.startsWith(queryLower)) {
-                  relevanceScore += 200;
-                }
-
-                // Word boundary matches
-                const queryWords = queryLower.split(/\s+/);
-                queryWords.forEach((word) => {
-                  if (word.length > 2 && description.includes(word)) {
-                    matchScore += 50;
-                  }
-                });
-
-                // Calculate distance from user if location available
-                let distance = undefined;
-                if (userLocation) {
-                  const R = 3959; // Earth's radius in miles
-                  const dLat =
-                    ((geocodeResult.lat - userLocation.lat) * Math.PI) / 180;
-                  const dLng =
-                    ((geocodeResult.lng - userLocation.lng) * Math.PI) / 180;
-                  const a =
-                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos((userLocation.lat * Math.PI) / 180) *
-                      Math.cos((geocodeResult.lat * Math.PI) / 180) *
-                      Math.sin(dLng / 2) *
-                      Math.sin(dLng / 2);
-                  distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-                  // Distance bonus (closer = higher score)
-                  if (distance < 10)
-                    relevanceScore += 50; // Within 10 miles
-                  else if (distance < 50) relevanceScore += 25; // Within 50 miles
-                }
-
-                resultsWithScores.push({
-                  ...geocodeResult,
-                  distance,
-                  relevanceScore,
-                  matchScore,
-                });
-
-                console.log(
-                  `✅ Geocoded: ${prediction.description} | Score: ${relevanceScore + matchScore} | Distance: ${distance?.toFixed(1) || "N/A"} mi`,
-                );
+                results.push(geocodeResult);
+                console.log(`✅ Geocoded: ${prediction.description}`);
               }
             }
 
-            // Sort by combined score (relevance + match - distance penalty)
-            const sortedResults = resultsWithScores
-              .sort((a, b) => {
-                const scoreA = a.relevanceScore + a.matchScore;
-                const scoreB = b.relevanceScore + b.matchScore;
-                return scoreB - scoreA;
-              })
-              .slice(0, 6) // Top 6 results
-              .map(
-                ({ distance, relevanceScore, matchScore, ...result }) => result,
-              ); // Remove scoring properties
-
             console.log(
-              "📍 Final sorted results:",
-              sortedResults.length,
+              "📍 Final results:",
+              results.length,
               "suggestions",
             );
-            setSuggestions(sortedResults);
+            setSuggestions(results);
           } else {
             console.log("❌ No predictions or bad status:", status);
             setSuggestions([]);
