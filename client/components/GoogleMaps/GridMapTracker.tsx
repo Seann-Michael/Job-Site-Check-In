@@ -707,35 +707,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       </GoogleMap>
 
 
-      {/* Grid Controls */}
-      <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-lg">
-        <h3 className="font-bold text-sm mb-2">Grid Configuration</h3>
-        <div className="text-xs space-y-1">
-          <p>
-            <span className="font-semibold">Type:</span>{" "}
-            {gridType === "circle" ? "Circle" : "Square"}
-          </p>
-          <p>
-            <span className="font-semibold">Size:</span>{" "}
-            {gridType === "square"
-              ? `${gridSize}x${gridSize}`
-              : `${gridSize} points`}
-          </p>
-          <p>
-            <span className="font-semibold">Spacing:</span> {pinSpacing}m
-          </p>
-          <p>
-            <span className="font-semibold">Active:</span>{" "}
-            {markers.filter((m: any) => !m.disabled).length}/{markers.length}
-          </p>
-        </div>
-        <div className="mt-2 pt-2 border-t text-xs text-gray-600">
-          <p>• Drag CENTER pin to move grid</p>
-          <p>• Click pin to enable/disable</p>
-          <p>• Hold pin to drag all pins</p>
-          <p>• Map auto-fits to show all pins</p>
-        </div>
-      </div>
     </div>
   );
 };
