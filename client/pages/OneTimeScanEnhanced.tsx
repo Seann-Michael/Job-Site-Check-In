@@ -895,85 +895,60 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="relative">
-                <iframe
-                  src={
-                    selectedBusiness?.coordinates
-                      ? `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d12000!2d${selectedBusiness.coordinates.lng}!3d${selectedBusiness.coordinates.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus`
-                      : "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3179676.4675463075!2d-98.5795!3d39.8283!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDDCsDIzJzI3LjAiTiA5OMKwMzQnNDcuMCJX!5e0!3m2!1sen!2sus!4v1234567890"
-                  }
-                  width="100%"
-                  height="400"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="rounded-lg"
-                />
-
-                {/* Waypoint Markers Overlay */}
-                {selectedBusiness?.coordinates && waypoints.length > 0 && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    {waypoints.filter(w => w.enabled).map((waypoint, index) => {
-                      // Simple positioning calculation - center markers around the business location
-                      const offsetX = (waypoint.coordinates.lng - selectedBusiness.coordinates.lng) * 8000 + 200;
-                      const offsetY = (selectedBusiness.coordinates.lat - waypoint.coordinates.lat) * 8000 + 200;
-
-                      return (
-                        <div
-                          key={waypoint.id}
-                          className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-                          style={{
-                            left: `${50 + offsetX}%`,
-                            top: `${50 + offsetY}%`,
-                            maxWidth: 'none'
-                          }}
-                          title={waypoint.isCenter ? `Business Center: ${selectedBusiness.name}` : `Search Location ${index + 1}`}
-                        >
-                          {waypoint.isCenter ? (
-                            // Business center marker
-                            <div className="relative">
-                              <div className="w-6 h-6 bg-green-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                                <Building2 className="w-3 h-3 text-white" />
-                              </div>
-                              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                Business
-                              </div>
-                            </div>
-                          ) : (
-                            // Search location marker
-                            <div className="relative">
-                              <div className="w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                                <span className="text-white text-xs font-bold">{index}</span>
-                              </div>
-                              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                Search {index + 1}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <GridOverlayMap
+                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
+                gridSize={Math.ceil(Math.sqrt(waypointConfig.count))} // Convert waypoint count to grid size
+                gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)} // Convert to meters
+                rankings={{
+                  // Convert waypoints to rankings format
+                  ...waypoints.reduce((acc, waypoint, index) => {
+                    const row = Math.floor(index / Math.ceil(Math.sqrt(waypoints.length)));
+                    const col = index % Math.ceil(Math.sqrt(waypoints.length));
+                    const id = `${String.fromCharCode(65 + row)}${col + 1}`;
+                    acc[id] = waypoint.enabled ? null : undefined; // Show enabled waypoints without rankings initially
+                    return acc;
+                  }, {} as Record<string, number | null>)
+                }}
+                onGridChange={(gridPoints) => {
+                  // Update waypoints when grid changes
+                  const updatedWaypoints = gridPoints.map((point, index) => ({
+                    id: `waypoint-${index}`,
+                    coordinates: point.position,
+                    enabled: true,
+                    isCenter: index === Math.floor(gridPoints.length / 2), // Center point
+                    distance: 0, // Calculate distance if needed
+                    bearing: 0, // Calculate bearing if needed
+                  }));
+                  setWaypoints(updatedWaypoints);
+                }}
+                onRankingUpdate={(pointId, ranking) => {
+                  console.log(`Updated ${pointId} ranking to ${ranking}`);
+                  // Handle ranking updates if needed for scan results
+                }}
+                height="400px"
+                showGridLines={true}
+                showRankingColors={false} // Don't show ranking colors initially
+                editable={true}
+                className="w-full"
+              />
 
               <div className="text-sm text-gray-600 mt-4">
                 <p className="mb-2">
-                  {selectedBusiness ? `📍 Showing: ${selectedBusiness.name}` : '🗺️ Select a business to focus the map'}
+                  {selectedBusiness ? `📍 Interactive Grid: ${selectedBusiness.name}` : '🗺️ Select a business to center the search grid'}
                 </p>
                 {waypoints.length > 0 && (
                   <div className="space-y-2">
-                    <p>📌 {waypoints.filter(w => w.enabled).length} search locations visible on map</p>
+                    <p>📌 {enabledWaypointsCount} active search locations in {waypointConfig.pattern} pattern</p>
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
-                        <span>Search Locations</span>
+                        <div className="w-3 h-3 bg-gray-500 rounded-full border border-white"></div>
+                        <span>Search Grid Points</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <div className="w-3 h-3 bg-green-600 rounded-full border border-white"></div>
                         <span>Business Center</span>
                       </div>
+                      <span className="text-xs italic">Drag markers to adjust search locations</span>
                     </div>
                   </div>
                 )}
