@@ -32,7 +32,6 @@ const CreditHistory = lazy(() => import("./pages/CreditHistory"));
 const CreditAnalytics = lazy(() => import("./pages/CreditAnalytics"));
 const ReportGenerator = lazy(() => import("./pages/BasicReportGenerator"));
 const WorkflowBuilder = lazy(() => import("./pages/WorkflowBuilder"));
-const GoogleMapsTest = lazy(() => import("./pages/GoogleMapsTest"));
 const AddressTest = lazy(() => import("./pages/AddressTest"));
 
 import SuperAdmin from "./pages/SuperAdmin";
