@@ -34,6 +34,7 @@ interface BusinessPlaceResult {
   lng: number;
   photos?: string[];
   url?: string;
+  cid?: string; // Google Customer ID extracted from URL
 }
 
 interface BusinessPlacesSearchProps {
