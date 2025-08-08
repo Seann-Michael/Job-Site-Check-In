@@ -183,7 +183,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     const newMarkers = generateGridPositions(gridCenter, gridType, gridSize, pinSpacing);
     setMarkers(newMarkers);
     // Don't call onGridChange during initialization to prevent infinite loops
-  }, [gridCenter, gridType, gridSize, pinSpacing, disabledPoints, generateGridPositions]);
+  }, [gridCenter, gridType, gridSize, pinSpacing]);
 
   // Get color based on ranking and disabled state
   const getMarkerColor = useCallback((marker: any) => {
