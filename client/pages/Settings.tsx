@@ -24,6 +24,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { UserManagementSystem } from "@/components/UserManagementSystem";
 import { StateSelect } from "@/components/ui/state-select";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
 import {
   Save,
   Building2,
@@ -90,6 +91,12 @@ interface SettingsData {
   timezone: string;
   currency: string;
   dateFormat: string;
+  // Google Business Profile fields
+  googlePlaceId?: string;
+  googleBusinessUrl?: string;
+  businessRating?: number;
+  businessReviewsTotal?: number;
+  businessHours?: string[];
 
   // Project Settings
   autoPostFacebook: boolean;
