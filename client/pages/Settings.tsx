@@ -25,6 +25,7 @@ import { UserManagementSystem } from "@/components/UserManagementSystem";
 import { StateSelect } from "@/components/ui/state-select";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
+import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
 import {
   Save,
   Building2,
@@ -76,27 +77,36 @@ import { toast } from "sonner";
 interface SettingsData {
   // Business Info
   businessName: string;
-  businessType: string;
+  businessTypes: string[]; // Changed to array for multiple categories
   subAccountId: string;
   businessLogo: string;
-  contactName: string;
+  firstName: string; // Split contact name
+  lastName: string;
   email: string;
   phone: string;
   website: string;
+  // Address fields
+  addressSearch: string; // Search input
   address: string;
   city: string;
   state: string;
   zipCode: string;
   country: string;
-  timezone: string;
-  currency: string;
-  dateFormat: string;
   // Google Business Profile fields
   googlePlaceId?: string;
+  googleCid?: string; // Customer ID
   googleBusinessUrl?: string;
   businessRating?: number;
   businessReviewsTotal?: number;
   businessHours?: string[];
+  // Coordinates
+  latitude?: number;
+  longitude?: number;
+  // Regional settings
+  timezone: string;
+  currency: string;
+  dateFormat: string;
+  timeFormat: string; // 12h or 24h
 
   // Project Settings
   autoPostFacebook: boolean;
@@ -249,13 +259,15 @@ const navigationTabs = [
 const createDefaultSettings = (): SettingsData => ({
   // Business Info
   businessName: "Joe's Pizza",
-  businessType: "restaurant",
+  businessTypes: ["restaurant"], // Changed to array
   subAccountId: "102-456-789", // Business Account ID
   businessLogo: "",
-  contactName: "Joe Smith",
+  firstName: "Joe", // Split contact name
+  lastName: "Smith",
   email: "joe@joespizza.com",
   phone: "(555) 123-4567",
   website: "https://joespizza.com",
+  addressSearch: "",
   address: "123 Main Street",
   city: "New York",
   state: "NY",
@@ -264,6 +276,7 @@ const createDefaultSettings = (): SettingsData => ({
   timezone: "America/New_York",
   currency: "USD",
   dateFormat: "MM/DD/YYYY",
+  timeFormat: "12h", // Added time format
 
   // Project Settings
   autoPostFacebook: false,
