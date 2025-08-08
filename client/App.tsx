@@ -33,6 +33,7 @@ const CreditAnalytics = lazy(() => import("./pages/CreditAnalytics"));
 const ReportGenerator = lazy(() => import("./pages/BasicReportGenerator"));
 const WorkflowBuilder = lazy(() => import("./pages/WorkflowBuilder"));
 const AddressTest = lazy(() => import("./pages/AddressTest"));
+const AppPages = lazy(() => import("./pages/AppPages"));
 
 import SuperAdmin from "./pages/SuperAdmin";
 import BusinessDetail from "./pages/BusinessDetail";
