@@ -376,22 +376,37 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
       let startTime = Date.now();
       let hasMoved = false;
+      let initialPosition = null;
       const startPosition = e.latLng ? { lat: e.latLng.lat(), lng: e.latLng.lng() } : null;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        hasMoved = true;
-        if (!isDraggingAllPins && startPosition) {
-          setIsDraggingAllPins(true);
-          setDragStartPosition(startPosition);
+      const handleMouseMove = (moveEvent: google.maps.MapMouseEvent) => {
+        if (!initialPosition && moveEvent.latLng) {
+          initialPosition = { lat: moveEvent.latLng.lat(), lng: moveEvent.latLng.lng() };
+        }
+
+        if (moveEvent.latLng && initialPosition) {
+          const distance = Math.abs(moveEvent.latLng.lat() - initialPosition.lat) +
+                          Math.abs(moveEvent.latLng.lng() - initialPosition.lng);
+
+          if (distance > 0.0001) { // Threshold for movement detection
+            hasMoved = true;
+            if (!isDraggingAllPins && startPosition) {
+              setIsDraggingAllPins(true);
+              setDragStartPosition(startPosition);
+            }
+          }
         }
       };
 
       const handleMouseUp = () => {
         const duration = Date.now() - startTime;
 
-        if (!hasMoved && duration < 300) {
-          // Quick click without movement - toggle disabled state
-          setTimeout(() => toggleWaypointDisabled(markerId), 0);
+        if (!hasMoved && duration < 500) {
+          // Quick click without movement - toggle disabled state (except center pin)
+          const marker = markers.find((m: any) => m.id === markerId);
+          if (marker && !marker.isCenter) {
+            setTimeout(() => toggleWaypointDisabled(markerId), 0);
+          }
         }
 
         if (isDraggingAllPins) {
