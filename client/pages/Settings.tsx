@@ -26,6 +26,8 @@ import { StateSelect } from "@/components/ui/state-select";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
 import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
+import { USStatesSelect } from "@/components/ui/us-states-select";
+import { BusinessTypesSelect } from "@/components/ui/business-types-select";
 import {
   Save,
   Building2,
@@ -704,7 +706,7 @@ export default function Settings() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
+                      <div>
                         <BusinessPlacesSearch
                           label="Business Name"
                           value={settings.businessName || ""}
@@ -723,10 +725,13 @@ export default function Settings() {
                                 const stateZip = addressParts[addressParts.length - 1];
                                 const [state, zipCode] = stateZip ? stateZip.split(" ") : ["", ""];
 
+                                updateSetting("addressSearch", placeResult.formattedAddress);
                                 updateSetting("address", fullAddress || "");
                                 updateSetting("city", city || "");
                                 updateSetting("state", state || "");
                                 updateSetting("zipCode", zipCode || "");
+                                updateSetting("latitude", placeResult.lat);
+                                updateSetting("longitude", placeResult.lng);
                               }
 
                               if (placeResult.phoneNumber) {
@@ -744,19 +749,22 @@ export default function Settings() {
                               updateSetting("businessReviewsTotal", placeResult.userRatingsTotal || 0);
                               updateSetting("businessHours", placeResult.openingHours || []);
 
-                              // Auto-detect business type from Google Places types
+                              // Auto-detect business types from Google Places types (multiple)
                               if (placeResult.types && placeResult.types.length > 0) {
                                 const typeMapping: { [key: string]: string } = {
                                   'restaurant': 'restaurant',
-                                  'food': 'restaurant',
+                                  'food': 'food',
+                                  'meal_takeaway': 'restaurant',
                                   'store': 'retail',
                                   'clothing_store': 'retail',
+                                  'shopping_mall': 'shopping',
                                   'car_dealer': 'automotive',
                                   'car_repair': 'automotive',
                                   'gas_station': 'automotive',
                                   'hospital': 'healthcare',
                                   'dentist': 'healthcare',
                                   'doctor': 'healthcare',
+                                  'pharmacy': 'healthcare',
                                   'beauty_salon': 'beauty',
                                   'spa': 'beauty',
                                   'hair_care': 'beauty',
@@ -769,91 +777,64 @@ export default function Settings() {
                                   'insurance_agency': 'financial',
                                   'plumber': 'home-services',
                                   'electrician': 'home-services',
-                                  'general_contractor': 'home-services',
+                                  'general_contractor': 'construction',
                                   'school': 'education',
-                                  'university': 'education'
+                                  'university': 'education',
+                                  'lodging': 'lodging',
+                                  'travel_agency': 'travel',
+                                  'tourist_attraction': 'entertainment'
                                 };
 
+                                const detectedTypes = [];
                                 for (const type of placeResult.types) {
-                                  if (typeMapping[type]) {
-                                    updateSetting("businessType", typeMapping[type]);
-                                    break;
+                                  if (typeMapping[type] && !detectedTypes.includes(typeMapping[type])) {
+                                    detectedTypes.push(typeMapping[type]);
                                   }
+                                }
+
+                                if (detectedTypes.length > 0) {
+                                  updateSetting("businessTypes", detectedTypes);
                                 }
                               }
                             }
                           }}
-                          placeholder="Search for your business on Google..."
+                          placeholder="Search for your business on Google or enter manually..."
                           required
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          Search and select your Google Business Profile to auto-populate information
+                          Search and select your Google Business Profile to auto-populate information, or enter manually
                         </p>
                       </div>
                       <div>
-                        <Label htmlFor="businessType">Business Type</Label>
-                        <Select
-                          value={settings.businessType || ""}
-                          onValueChange={(value) =>
-                            updateSetting("businessType", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select business type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="restaurant">
-                              Restaurant
-                            </SelectItem>
-                            <SelectItem value="retail">Retail Store</SelectItem>
-                            <SelectItem value="automotive">
-                              Automotive
-                            </SelectItem>
-                            <SelectItem value="healthcare">
-                              Healthcare
-                            </SelectItem>
-                            <SelectItem value="beauty">Beauty & Spa</SelectItem>
-                            <SelectItem value="fitness">
-                              Fitness & Gym
-                            </SelectItem>
-                            <SelectItem value="real-estate">
-                              Real Estate
-                            </SelectItem>
-                            <SelectItem value="legal">
-                              Legal Services
-                            </SelectItem>
-                            <SelectItem value="financial">
-                              Financial Services
-                            </SelectItem>
-                            <SelectItem value="home-services">
-                              Home Services
-                            </SelectItem>
-                            <SelectItem value="professional">
-                              Professional Services
-                            </SelectItem>
-                            <SelectItem value="education">Education</SelectItem>
-                            <SelectItem value="entertainment">
-                              Entertainment
-                            </SelectItem>
-                            <SelectItem value="nonprofit">
-                              Non-Profit
-                            </SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <BusinessTypesSelect
+                          values={settings.businessTypes || []}
+                          onValuesChange={(values) => updateSetting("businessTypes", values)}
+                          label="Business Categories"
+                          placeholder="Select business categories"
+                        />
                         {settings.googlePlaceId && (
                           <p className="text-xs text-green-600 mt-1">
-                            ✓ Auto-detected from Google Business Profile
+                            ✓ Categories detected from Google Business Profile
                           </p>
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="contactName">Contact Name</Label>
+                        <Label htmlFor="firstName">First Name</Label>
                         <Input
-                          id="contactName"
-                          value={settings.contactName || ""}
+                          id="firstName"
+                          value={settings.firstName || ""}
                           onChange={(e) =>
-                            updateSetting("contactName", e.target.value)
+                            updateSetting("firstName", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input
+                          id="lastName"
+                          value={settings.lastName || ""}
+                          onChange={(e) =>
+                            updateSetting("lastName", e.target.value)
                           }
                         />
                       </div>
