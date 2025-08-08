@@ -80,7 +80,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       disableDefaultUI: false,
       zoomControl: true,
       mapTypeControl: true,
-      scaleControl: true,
+      scaleControl: false, // Disable to avoid showing both km/miles
       streetViewControl: false,
       rotateControl: false,
       fullscreenControl: true,
