@@ -87,14 +87,20 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   useEffect(() => {
     const newMarkers = generateGridPositions(center, gridSize, gridRadius);
     setMarkers(newMarkers);
+    setIsInitialized(true);
   }, [center, gridSize, gridRadius, generateGridPositions]);
 
-  // Separate effect to notify parent of changes (only after initial render)
+  // Separate effect to notify parent of changes (only after initial render and for real changes)
   useEffect(() => {
-    if (markers.length > 0) {
-      onGridChange(markers);
+    if (isInitialized && markers.length > 0 && !isDragging) {
+      // Only notify parent after component is initialized and not during drag operations
+      const timeoutId = setTimeout(() => {
+        onGridChange(markers);
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [markers, onGridChange]);
+  }, [markers, onGridChange, isInitialized, isDragging]);
 
   // Get color based on ranking
   const getMarkerColor = useCallback((markerId: string) => {
