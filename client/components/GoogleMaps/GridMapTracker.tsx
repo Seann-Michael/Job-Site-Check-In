@@ -329,10 +329,9 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               : '<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="' +
                 color +
                 '">' +
-                (rankings[marker.id] ||
-                  (gridType === "circle"
-                    ? marker.index || ""
-                    : marker.label?.slice(-1) || "")) +
+                (gridType === "circle"
+                  ? marker.index || ""
+                  : marker.label?.slice(-1) || "") +
                 "</text>"
           }
         </g>
