@@ -367,7 +367,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             ? { ...marker, position: { lat: newLat, lng: newLng } }
             : marker,
         );
-        onGridChangeRef.current(updatedMarkers);
+        // Defer onGridChange to prevent setState during render
+        setTimeout(() => onGridChangeRef.current(updatedMarkers), 0);
         return updatedMarkers;
       });
       setIsDragging(false);
@@ -393,7 +394,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           ? { ...marker, disabled: !marker.disabled }
           : marker,
       );
-      onGridChangeRef.current(updatedMarkers);
+      // Defer onGridChange to prevent setState during render
+      setTimeout(() => onGridChangeRef.current(updatedMarkers), 0);
       return updatedMarkers;
     });
   }, []);
