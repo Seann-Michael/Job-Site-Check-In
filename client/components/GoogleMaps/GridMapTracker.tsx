@@ -706,54 +706,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         )}
       </GoogleMap>
 
-      {/* Legend */}
-      <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg">
-        <h3 className="font-bold text-sm mb-2">Ranking Legend</h3>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: "#0F9D58" }}
-            ></div>
-            <span className="text-xs">Top 3</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: "#F4B400" }}
-            ></div>
-            <span className="text-xs">4-10</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: "#FF6D00" }}
-            ></div>
-            <span className="text-xs">11-20</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: "#EA4335" }}
-            ></div>
-            <span className="text-xs">20+</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: "#4285F4" }}
-            ></div>
-            <span className="text-xs">Not ranked</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: "#CCCCCC" }}
-            ></div>
-            <span className="text-xs">Disabled</span>
-          </div>
-        </div>
-      </div>
 
       {/* Grid Controls */}
       <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-lg">
