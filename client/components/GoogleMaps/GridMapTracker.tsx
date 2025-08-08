@@ -132,7 +132,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   }, []);
 
   // Generate square grid positions
-  const generateSquarePositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, spacing: number) => {
+  const generateSquarePositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, spacing: number, disabledPointsList: string[]) => {
     const positions = [];
     const earthRadius = 6371000;
     const halfGrid = Math.floor(size / 2);
