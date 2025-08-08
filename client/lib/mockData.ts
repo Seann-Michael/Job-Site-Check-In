@@ -576,7 +576,10 @@ class MockDataService {
     const existingUsers = localStorage.getItem("users");
     const existingClients = localStorage.getItem("clients");
 
-    if (existingProjects) {
+    // Force regeneration to apply archived fix
+    const forceRegenForArchivedFix = true;
+
+    if (existingProjects && !forceRegenForArchivedFix) {
       try {
         const parsedProjects = JSON.parse(existingProjects);
         // Ensure we have enough projects and they have photos
@@ -593,7 +596,7 @@ class MockDataService {
         localStorage.setItem("projects", JSON.stringify(this.projects));
       }
     } else {
-      // No existing data, generate fresh
+      // No existing data or force regen, generate fresh
       this.projects = generateMockProjects();
       localStorage.setItem("projects", JSON.stringify(this.projects));
     }
