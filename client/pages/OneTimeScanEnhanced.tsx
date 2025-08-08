@@ -998,6 +998,8 @@ export default function OneTimeScanEnhanced() {
                     ? Math.ceil(Math.sqrt(waypointConfig.count)) // Approximate for circles
                     : waypointConfig.count // For linear
                 }
+                pattern={waypointConfig.pattern}
+                pointCount={waypointConfig.count}
                 gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
                 rankings={{}}
                 onGridChange={useCallback((gridPoints) => {
