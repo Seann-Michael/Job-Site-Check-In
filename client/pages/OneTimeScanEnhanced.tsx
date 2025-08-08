@@ -895,20 +895,11 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <GridOverlayMap
+              <GridMapTracker
                 center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
-                gridSize={Math.ceil(Math.sqrt(waypointConfig.count))} // Convert waypoint count to grid size
-                gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)} // Convert to meters
-                rankings={{
-                  // Convert waypoints to rankings format
-                  ...waypoints.reduce((acc, waypoint, index) => {
-                    const row = Math.floor(index / Math.ceil(Math.sqrt(waypoints.length)));
-                    const col = index % Math.ceil(Math.sqrt(waypoints.length));
-                    const id = `${String.fromCharCode(65 + row)}${col + 1}`;
-                    acc[id] = waypoint.enabled ? null : undefined; // Show enabled waypoints without rankings initially
-                    return acc;
-                  }, {} as Record<string, number | null>)
-                }}
+                gridSize={waypointConfig.count === 5 ? 3 : waypointConfig.count === 8 ? 3 : waypointConfig.count <= 25 ? 5 : 7}
+                gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
+                rankings={{}}
                 onGridChange={(gridPoints) => {
                   // Update waypoints when grid changes
                   const updatedWaypoints = gridPoints.map((point, index) => ({
@@ -916,19 +907,12 @@ export default function OneTimeScanEnhanced() {
                     coordinates: point.position,
                     enabled: true,
                     isCenter: index === Math.floor(gridPoints.length / 2), // Center point
-                    distance: 0, // Calculate distance if needed
-                    bearing: 0, // Calculate bearing if needed
+                    distance: 0,
+                    bearing: 0,
                   }));
                   setWaypoints(updatedWaypoints);
                 }}
-                onRankingUpdate={(pointId, ranking) => {
-                  console.log(`Updated ${pointId} ranking to ${ranking}`);
-                  // Handle ranking updates if needed for scan results
-                }}
                 height="400px"
-                showGridLines={true}
-                showRankingColors={false} // Don't show ranking colors initially
-                editable={true}
                 className="w-full"
               />
 
@@ -937,20 +921,7 @@ export default function OneTimeScanEnhanced() {
                   {selectedBusiness ? `📍 Interactive Grid: ${selectedBusiness.name}` : '🗺️ Select a business to center the search grid'}
                 </p>
                 {waypoints.length > 0 && (
-                  <div className="space-y-2">
-                    <p>📌 {enabledWaypointsCount} active search locations in {waypointConfig.pattern} pattern</p>
-                    <div className="flex items-center gap-4 text-xs">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-gray-500 rounded-full border border-white"></div>
-                        <span>Search Grid Points</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-green-600 rounded-full border border-white"></div>
-                        <span>Business Center</span>
-                      </div>
-                      <span className="text-xs italic">Drag markers to adjust search locations</span>
-                    </div>
-                  </div>
+                  <p>📌 {enabledWaypointsCount} search locations configured - drag markers to adjust positions</p>
                 )}
               </div>
             </CardContent>
