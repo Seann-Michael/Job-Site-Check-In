@@ -894,17 +894,20 @@ export default function OneTimeScanEnhanced() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div style={{ height: '400px', width: '100%' }}>
-                <GoogleMapComponent
-                  lat={39.8283}
-                  lng={-98.5795}
-                  zoom={4}
-                  height="400px"
-                />
-              </div>
+              {/* Simple iframe test first */}
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3179676.4675463075!2d-98.5795!3d39.8283!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDDCsDIzJzI3LjAiTiA5OMKwMzQnNDcuMCJX!5e0!3m2!1sen!2sus!4v1234567890"
+                width="100%"
+                height="400"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="rounded-lg"
+              />
               <div className="text-sm text-gray-600 mt-4">
                 <p className="mb-2">
-                  {selectedBusiness ? `Business: ${selectedBusiness.name}` : 'Select a business to see search locations'}
+                  {selectedBusiness ? `Business: ${selectedBusiness.name}` : 'Basic map test - if this shows, iframe embedding works'}
                 </p>
                 {waypoints.length > 0 && (
                   <p>
