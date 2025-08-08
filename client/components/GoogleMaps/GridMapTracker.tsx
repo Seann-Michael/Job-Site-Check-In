@@ -284,6 +284,28 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     });
   }, []);
 
+  // Handle marker click - single click disables, hold starts drag all
+  const handleMarkerMouseDown = useCallback((markerId: string, e: google.maps.MapMouseEvent) => {
+    e.stop();
+    const timeout = setTimeout(() => {
+      setIsDraggingAllPins(true);
+      if (e.latLng) {
+        setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      }
+    }, 500); // 500ms hold time
+
+    const handleMouseUp = () => {
+      clearTimeout(timeout);
+      if (!isDraggingAllPins) {
+        // Single click - toggle disabled state
+        toggleWaypointDisabled(markerId);
+      }
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [isDraggingAllPins, toggleWaypointDisabled]);
+
   // Generate grid lines based on type
   const gridLines = useMemo(() => {
     const lines = [];
