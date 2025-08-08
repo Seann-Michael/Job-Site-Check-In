@@ -885,57 +885,59 @@ export default function OneTimeScanEnhanced() {
         </div>
 
         {/* Waypoint Map Display */}
-        {(selectedBusiness?.coordinates || waypoints.length > 0) && (
-          <div className="mt-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Map className="h-5 w-5" />
-                  Waypoints Map
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <GoogleMapComponent
-                  center={selectedBusiness?.coordinates}
-                  zoom={12}
-                  height="400px"
-                  markers={waypoints.map((waypoint, index) => ({
-                    id: waypoint.id,
-                    position: waypoint.coordinates,
-                    title: waypoint.isCenter ? 'Business Center' : `Search Location ${index}`,
-                    color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
-                    icon: waypoint.isCenter ? 'business' : undefined,
-                    content: waypoint.isCenter
-                      ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
-                      : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
-                  }))}
-                  className="mb-4"
-                />
-                <div className="text-sm text-gray-600">
-                  {waypoints.length > 0 && (
-                    <p className="mb-2">
-                      Showing {waypoints.length} search locations ({enabledWaypointsCount} enabled for scan)
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      <span>Enabled Search Locations</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                      <span>Disabled Search Locations</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-green-600"></div>
-                      <span>Business Center</span>
-                    </div>
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Map className="h-5 w-5" />
+                Search Locations Map
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GoogleMapComponent
+                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }} // Default to center of US
+                zoom={selectedBusiness?.coordinates ? 12 : 4}
+                height="400px"
+                markers={waypoints.map((waypoint, index) => ({
+                  id: waypoint.id,
+                  position: waypoint.coordinates,
+                  title: waypoint.isCenter ? 'Business Center' : `Search Location ${index}`,
+                  color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
+                  icon: waypoint.isCenter ? 'business' : undefined,
+                  content: waypoint.isCenter
+                    ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
+                    : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
+                }))}
+                className="mb-4"
+              />
+              <div className="text-sm text-gray-600">
+                {waypoints.length > 0 ? (
+                  <p className="mb-2">
+                    Showing {waypoints.length} search locations ({enabledWaypointsCount} enabled for scan)
+                  </p>
+                ) : (
+                  <p className="mb-2">
+                    {selectedBusiness ? 'Search locations will appear when waypoints are configured' : 'Select a business to see search locations'}
+                  </p>
+                )}
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span>Enabled Search Locations</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <span>Disabled Search Locations</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                    <span>Business Center</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AppLayout>
   );
