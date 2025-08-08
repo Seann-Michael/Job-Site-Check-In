@@ -351,15 +351,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   );
 
 
-  // Handle center marker drag (moves entire grid)
-  const handleCenterDragEnd = useCallback((e: google.maps.MapMouseEvent) => {
-    if (!e.latLng) return;
-
-    const newLat = e.latLng.lat();
-    const newLng = e.latLng.lng();
-    setGridCenter({ lat: newLat, lng: newLng });
-    setIsGridDragging(false);
-  }, []);
 
   // Toggle waypoint disabled state
   const toggleWaypointDisabled = useCallback((markerId: string) => {
