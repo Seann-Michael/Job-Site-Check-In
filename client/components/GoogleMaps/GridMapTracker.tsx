@@ -14,10 +14,12 @@ interface GridMapTrackerProps {
   className?: string;
 }
 
-const GridMapTracker: React.FC<GridMapTrackerProps> = ({ 
+const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   center = { lat: 40.7128, lng: -74.0060 },
   gridSize = 5,
   gridRadius = 5000, // in meters
+  pattern = 'grid',
+  pointCount = 25,
   rankings = {},
   onGridChange = () => {},
   height = '600px',
