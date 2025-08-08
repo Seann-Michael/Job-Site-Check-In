@@ -80,6 +80,9 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     zoomControl: true,
     mapTypeControl: true,
     scaleControl: true,
+    scaleControlOptions: {
+      style: google.maps.ScaleControlStyle.DEFAULT,
+    },
     streetViewControl: false,
     rotateControl: false,
     fullscreenControl: true,
