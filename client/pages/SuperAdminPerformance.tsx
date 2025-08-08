@@ -670,9 +670,9 @@ export default function SuperAdminPerformance() {
                               <div className="font-medium">{metric.name}</div>
                               <div className="text-sm text-muted-foreground">
                                 Updated{" "}
-                                {new Date(
-                                  metric.lastUpdated,
-                                ).toLocaleTimeString()}
+                                {metric.lastUpdated
+                                  ? new Date(metric.lastUpdated).toLocaleTimeString()
+                                  : "Never"}
                               </div>
                             </div>
                           </div>
