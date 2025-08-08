@@ -276,10 +276,10 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           ? { ...marker, disabled: !marker.disabled }
           : marker
       );
-      onGridChange(updatedMarkers);
+      onGridChangeRef.current(updatedMarkers);
       return updatedMarkers;
     });
-  }, [onGridChange]);
+  }, []);
 
   // Generate grid lines based on type
   const gridLines = useMemo(() => {
