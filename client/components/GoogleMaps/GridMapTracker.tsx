@@ -81,14 +81,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       zoomControl: true,
       mapTypeControl: true,
       scaleControl: true,
-      scaleControlOptions: isLoaded
-        ? {
-            style: google.maps.ScaleControlStyle.DEFAULT,
-          }
-        : undefined,
       streetViewControl: false,
       rotateControl: false,
       fullscreenControl: true,
+      // Force imperial units
+      region: "US",
     }),
     [isLoaded],
   );
