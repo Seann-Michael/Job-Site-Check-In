@@ -4,11 +4,11 @@ import { getGoogleMapsApiKey } from '@/lib/googleMaps';
 
 interface GridMapTrackerProps {
   center?: { lat: number; lng: number };
+  gridType?: 'square' | 'circle';
   gridSize?: number;
-  gridRadius?: number; // in meters
-  pattern?: 'grid' | 'circle' | 'line';
-  pointCount?: number;
+  pinSpacing?: number; // Distance between pins in meters
   rankings?: Record<string, number | null>;
+  disabledPoints?: string[];
   onGridChange?: (gridPoints: any[]) => void;
   height?: string;
   className?: string;
@@ -16,11 +16,11 @@ interface GridMapTrackerProps {
 
 const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   center = { lat: 40.7128, lng: -74.0060 },
-  gridSize = 5,
-  gridRadius = 5000, // in meters
-  pattern = 'grid',
-  pointCount = 25,
+  gridType = 'square', // 'square' or 'circle'
+  gridSize = 5, // For square: 3-20, For circle: see circleConfig
+  pinSpacing = 1000, // Distance between pins in meters
   rankings = {},
+  disabledPoints = [],
   onGridChange = () => {},
   height = '600px',
   className = ''
@@ -28,6 +28,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   const [markers, setMarkers] = useState<any[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isGridDragging, setIsGridDragging] = useState(false);
+  const [gridCenter, setGridCenter] = useState(center);
 
   const apiKey = getGoogleMapsApiKey();
 
@@ -52,132 +54,174 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     fullscreenControl: true
   };
 
-  // Generate positions based on pattern
-  const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, radius: number) => {
+  // Circle grid configurations (10-15 options)
+  const circleConfigs: Record<number, { rings: number; pattern: number[] }> = {
+    7: { rings: 2, pattern: [1, 6] }, // 7 points: center + 6
+    13: { rings: 2, pattern: [1, 6, 6] }, // 13 points: center + 6 + 6
+    19: { rings: 2, pattern: [1, 6, 12] }, // 19 points: center + 6 + 12
+    21: { rings: 3, pattern: [1, 6, 6, 8] }, // 21 points
+    25: { rings: 3, pattern: [1, 8, 16] }, // 25 points
+    31: { rings: 3, pattern: [1, 6, 12, 12] }, // 31 points
+    37: { rings: 3, pattern: [1, 6, 12, 18] }, // 37 points
+    43: { rings: 3, pattern: [1, 8, 16, 18] }, // 43 points
+    49: { rings: 3, pattern: [1, 8, 16, 24] }, // 49 points
+    55: { rings: 4, pattern: [1, 6, 12, 18, 18] }, // 55 points
+    61: { rings: 4, pattern: [1, 6, 12, 18, 24] }, // 61 points
+    69: { rings: 4, pattern: [1, 8, 16, 20, 24] }, // 69 points
+    73: { rings: 4, pattern: [1, 8, 16, 24, 24] }, // 73 points
+    85: { rings: 4, pattern: [1, 8, 16, 24, 36] }, // 85 points
+    91: { rings: 4, pattern: [1, 6, 12, 24, 48] }, // 91 points
+  };
+
+  // Generate circle grid positions
+  const generateCirclePositions = useCallback((centerPoint: { lat: number; lng: number }, config: { rings: number; pattern: number[] }, spacing: number) => {
     const positions = [];
-    const earthRadius = 6371000; // Earth's radius in meters
+    const earthRadius = 6371000;
+    let pointIndex = 0;
 
-    if (pattern === 'grid') {
-      // Square grid pattern
-      const halfGrid = Math.floor(size / 2);
-      const spacing = (radius * 2) / (size - 1);
+    // Add center point
+    positions.push({
+      id: `center`,
+      position: { ...centerPoint },
+      label: 'C',
+      isCenter: true,
+      disabled: disabledPoints.includes('center'),
+      ring: 0,
+      index: pointIndex++
+    });
 
-      for (let row = 0; row < size; row++) {
-        for (let col = 0; col < size; col++) {
-          const id = `${row}-${col}`;
+    // Add points in concentric rings
+    for (let ring = 1; ring < config.pattern.length; ring++) {
+      const pointsInRing = config.pattern[ring];
+      const radius = ring * spacing;
 
-          // Calculate offset from center
-          const xOffset = (col - halfGrid) * spacing;
-          const yOffset = (halfGrid - row) * spacing;
+      for (let i = 0; i < pointsInRing; i++) {
+        const angle = (2 * Math.PI * i) / pointsInRing;
 
-          // Convert meters to lat/lng offset
-          const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
-          const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
-
-          positions.push({
-            id,
-            position: {
-              lat: centerPoint.lat + latOffset,
-              lng: centerPoint.lng + lngOffset
-            },
-            row,
-            col,
-            label: `${String.fromCharCode(65 + row)}${col + 1}` // A1, A2, B1, etc.
-          });
-        }
-      }
-    } else if (pattern === 'circle') {
-      // Circular pattern
-      const actualPointCount = pointCount || (size * size);
-      const angleStep = (2 * Math.PI) / Math.max(actualPointCount - 1, 1);
-
-      // Add center point first
-      positions.push({
-        id: 'center',
-        position: centerPoint,
-        row: 0,
-        col: 0,
-        label: 'Center'
-      });
-
-      // Add circle points
-      for (let i = 0; i < actualPointCount - 1; i++) {
-        const angle = i * angleStep;
-        const xOffset = Math.cos(angle) * radius;
-        const yOffset = Math.sin(angle) * radius;
+        // Calculate position
+        const xOffset = radius * Math.cos(angle);
+        const yOffset = radius * Math.sin(angle);
 
         const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
         const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
 
+        const id = `ring${ring}-${i}`;
         positions.push({
-          id: `circle-${i}`,
+          id,
           position: {
             lat: centerPoint.lat + latOffset,
             lng: centerPoint.lng + lngOffset
           },
-          row: 0,
-          col: i + 1,
-          label: `C${i + 1}`
-        });
-      }
-    } else if (pattern === 'line') {
-      // Linear pattern
-      const actualPointCount = pointCount || size;
-      const spacing = (radius * 2) / Math.max(actualPointCount - 1, 1);
-      const halfCount = Math.floor(actualPointCount / 2);
-
-      for (let i = 0; i < actualPointCount; i++) {
-        const xOffset = (i - halfCount) * spacing;
-        const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
-
-        positions.push({
-          id: `line-${i}`,
-          position: {
-            lat: centerPoint.lat,
-            lng: centerPoint.lng + lngOffset
-          },
-          row: 0,
-          col: i,
-          label: `L${i + 1}`
+          label: `R${ring}P${i + 1}`,
+          isCenter: false,
+          disabled: disabledPoints.includes(id),
+          ring,
+          index: pointIndex++
         });
       }
     }
 
     return positions;
-  }, [pattern, pointCount]);
+  }, [disabledPoints]);
 
-  // Initialize markers on mount or when center/grid changes
+  // Generate square grid positions
+  const generateSquarePositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, spacing: number) => {
+    const positions = [];
+    const earthRadius = 6371000;
+    const halfGrid = Math.floor(size / 2);
+
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const id = `${row}-${col}`;
+
+        // Calculate offset from center
+        const xOffset = (col - halfGrid) * spacing;
+        const yOffset = (halfGrid - row) * spacing;
+
+        // Convert meters to lat/lng offset
+        const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
+        const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
+
+        positions.push({
+          id,
+          position: {
+            lat: centerPoint.lat + latOffset,
+            lng: centerPoint.lng + lngOffset
+          },
+          row,
+          col,
+          label: `${String.fromCharCode(65 + row)}${col + 1}`,
+          isCenter: row === halfGrid && col === halfGrid,
+          disabled: disabledPoints.includes(id)
+        });
+      }
+    }
+    return positions;
+  }, [disabledPoints]);
+
+  // Generate positions based on grid type
+  const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, type: string, size: number, spacing: number) => {
+    if (type === 'circle') {
+      const config = circleConfigs[size];
+      if (!config) {
+        console.error(`Invalid circle size: ${size}`);
+        return [];
+      }
+      return generateCirclePositions(centerPoint, config, spacing);
+    } else {
+      return generateSquarePositions(centerPoint, size, spacing);
+    }
+  }, [generateCirclePositions, generateSquarePositions, circleConfigs]);
+
+  // Initialize markers on mount or when configuration changes
   useEffect(() => {
-    const newMarkers = generateGridPositions(center, gridSize, gridRadius);
+    const newMarkers = generateGridPositions(gridCenter, gridType, gridSize, pinSpacing);
     setMarkers(newMarkers);
-  }, [center, gridSize, gridRadius, generateGridPositions]);
+    onGridChange(newMarkers);
+  }, [gridCenter, gridType, gridSize, pinSpacing, disabledPoints, generateGridPositions, onGridChange]);
 
-  // Get color based on ranking
-  const getMarkerColor = useCallback((markerId: string) => {
-    const ranking = rankings[markerId];
-    if (!ranking) return '#808080'; // Gray for no ranking
-    if (ranking <= 3) return '#00FF00'; // Green for top 3
-    if (ranking <= 10) return '#FFFF00'; // Yellow for 4-10
-    if (ranking <= 20) return '#FFA500'; // Orange for 11-20
-    return '#FF0000'; // Red for 20+
+  // Get color based on ranking and disabled state
+  const getMarkerColor = useCallback((marker: any) => {
+    if (marker.disabled) return '#CCCCCC';
+    const ranking = rankings[marker.id];
+    if (!ranking) return '#4285F4';
+    if (ranking <= 3) return '#0F9D58';
+    if (ranking <= 10) return '#F4B400';
+    if (ranking <= 20) return '#FF6D00';
+    return '#EA4335';
   }, [rankings]);
 
-  // Create custom marker icon with number and color
-  const createMarkerIcon = useCallback((marker: any) => {
-    const color = getMarkerColor(marker.id);
-    
-    return {
-      path: google.maps.SymbolPath.CIRCLE,
-      fillColor: color,
-      fillOpacity: 0.8,
-      strokeColor: '#000000',
-      strokeWeight: 2,
-      scale: 20,
-      labelOrigin: new google.maps.Point(0, 0)
-    };
-  }, [getMarkerColor]);
+  // Create waypoint-style SVG icon
+  const createWaypointIcon = useCallback((marker: any) => {
+    const color = getMarkerColor(marker);
+    const isDisabled = marker.disabled;
+    const opacity = isDisabled ? 0.5 : 1;
 
-  // Handle marker drag
+    const svg = `
+      <svg width="32" height="48" viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+        <g opacity="${opacity}">
+          <ellipse cx="16" cy="46" rx="10" ry="2" fill="black" opacity="0.2"/>
+          <path d="M16 0 C7.2 0 0 7.2 0 16 C0 24.8 16 48 16 48 S32 24.8 32 16 C32 7.2 24.8 0 16 0 Z"
+                fill="${color}" stroke="white" stroke-width="2"/>
+          <circle cx="16" cy="16" r="8" fill="white"/>
+          ${marker.isCenter ?
+            '<circle cx="16" cy="16" r="3" fill="' + color + '"/>' :
+            '<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="' + color + '">' +
+            (rankings[marker.id] || (gridType === 'circle' ? (marker.index || '') : marker.label?.slice(-1) || '')) + '</text>'
+          }
+        </g>
+      </svg>
+    `;
+
+    return {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(32, 48),
+      anchor: new google.maps.Point(16, 48),
+      labelOrigin: new google.maps.Point(16, -8)
+    };
+  }, [getMarkerColor, rankings, gridType]);
+
+  // Handle individual marker drag
   const handleMarkerDragEnd = useCallback((e: google.maps.MapMouseEvent, markerId: string) => {
     if (!e.latLng) return;
 
@@ -185,56 +229,122 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     const newLng = e.latLng.lng();
 
     setMarkers(prevMarkers => {
-      const updatedMarkers = prevMarkers.map(marker =>
+      const updatedMarkers = prevMarkers.map((marker: any) =>
         marker.id === markerId
           ? { ...marker, position: { lat: newLat, lng: newLng } }
           : marker
       );
-
-      // Call onGridChange - parent handles timing
       onGridChange(updatedMarkers);
-
       return updatedMarkers;
     });
     setIsDragging(false);
   }, [onGridChange]);
 
-  // Generate grid lines (polylines)
+  // Handle center marker drag (moves entire grid)
+  const handleCenterDragEnd = useCallback((e: google.maps.MapMouseEvent) => {
+    if (!e.latLng) return;
+
+    const newLat = e.latLng.lat();
+    const newLng = e.latLng.lng();
+    setGridCenter({ lat: newLat, lng: newLng });
+    setIsGridDragging(false);
+  }, []);
+
+  // Toggle waypoint disabled state
+  const toggleWaypointDisabled = useCallback((markerId: string) => {
+    setMarkers(prevMarkers => {
+      const updatedMarkers = prevMarkers.map((marker: any) =>
+        marker.id === markerId
+          ? { ...marker, disabled: !marker.disabled }
+          : marker
+      );
+      onGridChange(updatedMarkers);
+      return updatedMarkers;
+    });
+  }, [onGridChange]);
+
+  // Generate grid lines based on type
   const gridLines = useMemo(() => {
     const lines = [];
-    
-    // Horizontal lines
-    for (let row = 0; row < gridSize; row++) {
-      const path = [];
-      for (let col = 0; col < gridSize; col++) {
-        const marker = markers.find(m => m.row === row && m.col === col);
-        if (marker) path.push(marker.position);
-      }
-      if (path.length > 1) {
-        lines.push({
-          id: `h-${row}`,
-          path
+    const activeMarkers = markers.filter((m: any) => !m.disabled);
+
+    if (gridType === 'square') {
+      // Square grid lines - horizontal and vertical
+      const rows: Record<string, any[]> = {};
+      const cols: Record<string, any[]> = {};
+
+      activeMarkers.forEach((marker: any) => {
+        if (marker.row !== undefined) {
+          if (!rows[marker.row]) rows[marker.row] = [];
+          rows[marker.row].push(marker.position);
+        }
+        if (marker.col !== undefined) {
+          if (!cols[marker.col]) cols[marker.col] = [];
+          cols[marker.col].push(marker.position);
+        }
+      });
+
+      Object.entries(rows).forEach(([row, positions]) => {
+        if (positions.length > 1) {
+          positions.sort((a, b) => a.lng - b.lng);
+          lines.push({ id: `h-${row}`, path: positions });
+        }
+      });
+
+      Object.entries(cols).forEach(([col, positions]) => {
+        if (positions.length > 1) {
+          positions.sort((a, b) => b.lat - a.lat);
+          lines.push({ id: `v-${col}`, path: positions });
+        }
+      });
+    } else {
+      // Circle grid lines - connect points in same ring and to center
+      const rings: Record<string, any[]> = {};
+      let centerMarker = null;
+
+      activeMarkers.forEach((marker: any) => {
+        if (marker.isCenter) {
+          centerMarker = marker;
+        } else if (marker.ring !== undefined) {
+          if (!rings[marker.ring]) rings[marker.ring] = [];
+          rings[marker.ring].push(marker);
+        }
+      });
+
+      // Connect points in each ring
+      Object.entries(rings).forEach(([ring, ringMarkers]) => {
+        if (ringMarkers.length > 1) {
+          const ringPath = ringMarkers
+            .sort((a, b) => {
+              const angleA = Math.atan2(
+                a.position.lat - centerMarker.position.lat,
+                a.position.lng - centerMarker.position.lng
+              );
+              const angleB = Math.atan2(
+                b.position.lat - centerMarker.position.lat,
+                b.position.lng - centerMarker.position.lng
+              );
+              return angleA - angleB;
+            })
+            .map((m: any) => m.position);
+          ringPath.push(ringPath[0]); // Close the ring
+          lines.push({ id: `ring-${ring}`, path: ringPath });
+        }
+      });
+
+      // Connect center to first ring
+      if (centerMarker && rings[1] && rings[1].length > 0) {
+        rings[1].forEach((marker: any, i: number) => {
+          lines.push({
+            id: `spoke-${i}`,
+            path: [centerMarker.position, marker.position]
+          });
         });
       }
     }
-    
-    // Vertical lines
-    for (let col = 0; col < gridSize; col++) {
-      const path = [];
-      for (let row = 0; row < gridSize; row++) {
-        const marker = markers.find(m => m.row === row && m.col === col);
-        if (marker) path.push(marker.position);
-      }
-      if (path.length > 1) {
-        lines.push({
-          id: `v-${col}`,
-          path
-        });
-      }
-    }
-    
+
     return lines;
-  }, [markers, gridSize]);
+  }, [markers, gridType]);
 
   if (!isLoaded) {
     return (
@@ -263,54 +373,65 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         center={center}
-        zoom={12}
+        zoom={13}
         options={mapOptions}
       >
         {/* Grid lines */}
-        {gridLines.map(line => (
+        {gridLines.map((line: any) => (
           <Polyline
             key={line.id}
             path={line.path}
             options={{
-              strokeColor: '#0000FF',
-              strokeOpacity: 0.3,
+              strokeColor: '#4285F4',
+              strokeOpacity: 0.4,
               strokeWeight: 2,
-              geodesic: true
+              geodesic: true,
+              strokePattern: gridType === 'circle' && line.id.startsWith('ring')
+                ? undefined
+                : [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 4 }, offset: '0', repeat: '20px' }]
             }}
           />
         ))}
 
         {/* Markers */}
-        {markers.map(marker => {
-          const ranking = rankings[marker.id];
+        {markers.map((marker: any) => {
+          const isCenter = marker.isCenter;
+
           return (
             <Marker
               key={marker.id}
               position={marker.position}
-              draggable={true}
-              icon={createMarkerIcon(marker)}
-              label={{
-                text: ranking ? ranking.toString() : marker.label,
-                color: '#000000',
-                fontSize: '12px',
+              draggable={isCenter || (!marker.disabled && !isGridDragging)}
+              icon={createWaypointIcon(marker)}
+              label={marker.disabled ? {
+                text: 'DISABLED',
+                color: '#666666',
+                fontSize: '10px',
                 fontWeight: 'bold'
-              }}
-              onDragStart={() => setIsDragging(true)}
-              onDragEnd={(e) => handleMarkerDragEnd(e, marker.id)}
+              } : undefined}
+              onDragStart={() => isCenter ? setIsGridDragging(true) : setIsDragging(true)}
+              onDragEnd={(e) => isCenter ? handleCenterDragEnd(e) : handleMarkerDragEnd(e, marker.id)}
               onClick={() => setSelectedMarker(marker)}
-              animation={isDragging ? undefined : google.maps.Animation.DROP}
+              opacity={marker.disabled ? 0.5 : 1}
+              zIndex={isCenter ? 1000 : (marker.disabled ? 1 : 100)}
             />
           );
         })}
 
         {/* Info Window */}
-        {selectedMarker && !isDragging && (
+        {selectedMarker && !isDragging && !isGridDragging && (
           <InfoWindow
             position={selectedMarker.position}
             onCloseClick={() => setSelectedMarker(null)}
           >
             <div className="p-2">
               <h3 className="font-bold text-sm">{selectedMarker.label}</h3>
+              {selectedMarker.isCenter && (
+                <p className="text-xs text-blue-600 font-bold mt-1">CENTER (Drag to move grid)</p>
+              )}
+              <p className="text-xs mt-1">
+                Status: {selectedMarker.disabled ? 'Disabled' : 'Active'}
+              </p>
               <p className="text-xs mt-1">
                 Ranking: {rankings[selectedMarker.id] || 'Not ranked'}
               </p>
@@ -320,6 +441,18 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               <p className="text-xs mt-1">
                 Lng: {selectedMarker.position.lng.toFixed(6)}
               </p>
+              {!selectedMarker.isCenter && (
+                <button
+                  onClick={() => toggleWaypointDisabled(selectedMarker.id)}
+                  className={`mt-2 px-2 py-1 text-xs rounded ${
+                    selectedMarker.disabled
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-red-500 hover:bg-red-600 text-white'
+                  }`}
+                >
+                  {selectedMarker.disabled ? 'Enable' : 'Disable'} Waypoint
+                </button>
+              )}
             </div>
           </InfoWindow>
         )}
@@ -330,33 +463,46 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         <h3 className="font-bold text-sm mb-2">Ranking Legend</h3>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-green-500 border border-black"></div>
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#0F9D58' }}></div>
             <span className="text-xs">Top 3</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-yellow-500 border border-black"></div>
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#F4B400' }}></div>
             <span className="text-xs">4-10</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-orange-500 border border-black"></div>
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#FF6D00' }}></div>
             <span className="text-xs">11-20</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-red-500 border border-black"></div>
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#EA4335' }}></div>
             <span className="text-xs">20+</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-gray-500 border border-black"></div>
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#4285F4' }}></div>
             <span className="text-xs">Not ranked</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#CCCCCC' }}></div>
+            <span className="text-xs">Disabled</span>
           </div>
         </div>
       </div>
 
       {/* Grid Controls */}
       <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-lg">
-        <h3 className="font-bold text-sm mb-2">Grid: {gridSize}×{gridSize}</h3>
-        <p className="text-xs text-gray-600">Drag markers to adjust</p>
-        <p className="text-xs text-gray-600 mt-1">Click markers for details</p>
+        <h3 className="font-bold text-sm mb-2">Grid Configuration</h3>
+        <div className="text-xs space-y-1">
+          <p><span className="font-semibold">Type:</span> {gridType === 'circle' ? 'Circle' : 'Square'}</p>
+          <p><span className="font-semibold">Size:</span> {gridType === 'square' ? `${gridSize}x${gridSize}` : `${gridSize} points`}</p>
+          <p><span className="font-semibold">Spacing:</span> {pinSpacing}m</p>
+          <p><span className="font-semibold">Active:</span> {markers.filter((m: any) => !m.disabled).length}/{markers.length}</p>
+        </div>
+        <div className="mt-2 pt-2 border-t text-xs text-gray-600">
+          <p>• Drag CENTER pin to move grid</p>
+          <p>• Drag waypoints to adjust</p>
+          <p>• Click to enable/disable</p>
+        </div>
       </div>
     </div>
   );
