@@ -811,7 +811,7 @@ export default function SuperAdminPerformance() {
                                     : "text-red-600"
                               }`}
                             >
-                              {cache.hitRate.toFixed(1)}%
+                              {(cache.hitRate || 0).toFixed(1)}%
                             </div>
                             <Progress
                               value={cache.hitRate}
