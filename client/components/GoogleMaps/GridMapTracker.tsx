@@ -1,10 +1,22 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
-import { getGoogleMapsApiKey } from '@/lib/googleMaps';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import {
+  GoogleMap,
+  useJsApiLoader,
+  Marker,
+  Polyline,
+  InfoWindow,
+} from "@react-google-maps/api";
+import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 
 interface GridMapTrackerProps {
   center?: { lat: number; lng: number };
-  gridType?: 'square' | 'circle';
+  gridType?: "square" | "circle";
   gridSize?: number;
   pinSpacing?: number; // Distance between pins in meters
   rankings?: Record<string, number | null>;
@@ -15,22 +27,25 @@ interface GridMapTrackerProps {
 }
 
 const GridMapTracker: React.FC<GridMapTrackerProps> = ({
-  center = { lat: 40.7128, lng: -74.0060 },
-  gridType = 'square', // 'square' or 'circle'
+  center = { lat: 40.7128, lng: -74.006 },
+  gridType = "square", // 'square' or 'circle'
   gridSize = 5, // For square: 3-20, For circle: see circleConfig
   pinSpacing = 1000, // Distance between pins in meters
   rankings = {},
   disabledPoints = [],
   onGridChange = () => {},
-  height = '800px',
-  className = ''
+  height = "800px",
+  className = "",
 }) => {
   const [markers, setMarkers] = useState<any[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isGridDragging, setIsGridDragging] = useState(false);
   const [isDraggingAllPins, setIsDraggingAllPins] = useState(false);
-  const [dragStartPosition, setDragStartPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [dragStartPosition, setDragStartPosition] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [gridCenter, setGridCenter] = useState(center);
   const mapRef = useRef<google.maps.Map | null>(null);
   const onGridChangeRef = useRef(onGridChange);
@@ -50,14 +65,14 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   const apiKey = getGoogleMapsApiKey();
 
   const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
+    id: "google-map-script",
     googleMapsApiKey: apiKey,
-    libraries: ['places']
+    libraries: ["places"],
   });
 
   const mapContainerStyle = {
-    width: '100%',
-    height: height
+    width: "100%",
+    height: height,
   };
 
   const mapOptions = {
@@ -67,7 +82,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     scaleControl: true,
     streetViewControl: false,
     rotateControl: false,
-    fullscreenControl: true
+    fullscreenControl: true,
   };
 
   // Circle grid configurations (10-15 options)
@@ -90,116 +105,175 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   };
 
   // Generate circle grid positions
-  const generateCirclePositions = useCallback((centerPoint: { lat: number; lng: number }, config: { rings: number; pattern: number[] }, spacing: number, disabledPointsList: string[]) => {
-    const positions = [];
-    const earthRadius = 6371000;
-    let pointIndex = 0;
+  const generateCirclePositions = useCallback(
+    (
+      centerPoint: { lat: number; lng: number },
+      config: { rings: number; pattern: number[] },
+      spacing: number,
+      disabledPointsList: string[],
+    ) => {
+      const positions = [];
+      const earthRadius = 6371000;
+      let pointIndex = 0;
 
-    // Add center point
-    positions.push({
-      id: `center`,
-      position: { ...centerPoint },
-      label: 'C',
-      isCenter: true,
-      disabled: disabledPointsList.includes('center'),
-      ring: 0,
-      index: pointIndex++
-    });
+      // Add center point
+      positions.push({
+        id: `center`,
+        position: { ...centerPoint },
+        label: "C",
+        isCenter: true,
+        disabled: disabledPointsList.includes("center"),
+        ring: 0,
+        index: pointIndex++,
+      });
 
-    // Add points in concentric rings
-    for (let ring = 1; ring < config.pattern.length; ring++) {
-      const pointsInRing = config.pattern[ring];
-      const radius = ring * spacing;
+      // Add points in concentric rings
+      for (let ring = 1; ring < config.pattern.length; ring++) {
+        const pointsInRing = config.pattern[ring];
+        const radius = ring * spacing;
 
-      for (let i = 0; i < pointsInRing; i++) {
-        const angle = (2 * Math.PI * i) / pointsInRing;
+        for (let i = 0; i < pointsInRing; i++) {
+          const angle = (2 * Math.PI * i) / pointsInRing;
 
-        // Calculate position
-        const xOffset = radius * Math.cos(angle);
-        const yOffset = radius * Math.sin(angle);
+          // Calculate position
+          const xOffset = radius * Math.cos(angle);
+          const yOffset = radius * Math.sin(angle);
 
-        const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
-        const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
+          const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
+          const lngOffset =
+            ((xOffset / earthRadius) * (180 / Math.PI)) /
+            Math.cos((centerPoint.lat * Math.PI) / 180);
 
-        const id = `ring${ring}-${i}`;
-        positions.push({
-          id,
-          position: {
-            lat: centerPoint.lat + latOffset,
-            lng: centerPoint.lng + lngOffset
-          },
-          label: `R${ring}P${i + 1}`,
-          isCenter: false,
-          disabled: disabledPointsList.includes(id),
-          ring,
-          index: pointIndex++
-        });
+          const id = `ring${ring}-${i}`;
+          positions.push({
+            id,
+            position: {
+              lat: centerPoint.lat + latOffset,
+              lng: centerPoint.lng + lngOffset,
+            },
+            label: `R${ring}P${i + 1}`,
+            isCenter: false,
+            disabled: disabledPointsList.includes(id),
+            ring,
+            index: pointIndex++,
+          });
+        }
       }
-    }
 
-    return positions;
-  }, []);
+      return positions;
+    },
+    [],
+  );
 
   // Generate square grid positions
-  const generateSquarePositions = useCallback((centerPoint: { lat: number; lng: number }, size: number, spacing: number, disabledPointsList: string[]) => {
-    const positions = [];
-    const earthRadius = 6371000;
-    const halfGrid = Math.floor(size / 2);
+  const generateSquarePositions = useCallback(
+    (
+      centerPoint: { lat: number; lng: number },
+      size: number,
+      spacing: number,
+      disabledPointsList: string[],
+    ) => {
+      const positions = [];
+      const earthRadius = 6371000;
+      const halfGrid = Math.floor(size / 2);
 
-    for (let row = 0; row < size; row++) {
-      for (let col = 0; col < size; col++) {
-        const id = `${row}-${col}`;
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const id = `${row}-${col}`;
 
-        // Calculate offset from center
-        const xOffset = (col - halfGrid) * spacing;
-        const yOffset = (halfGrid - row) * spacing;
+          // Calculate offset from center
+          const xOffset = (col - halfGrid) * spacing;
+          const yOffset = (halfGrid - row) * spacing;
 
-        // Convert meters to lat/lng offset
-        const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
-        const lngOffset = (xOffset / earthRadius) * (180 / Math.PI) / Math.cos(centerPoint.lat * Math.PI / 180);
+          // Convert meters to lat/lng offset
+          const latOffset = (yOffset / earthRadius) * (180 / Math.PI);
+          const lngOffset =
+            ((xOffset / earthRadius) * (180 / Math.PI)) /
+            Math.cos((centerPoint.lat * Math.PI) / 180);
 
-        positions.push({
-          id,
-          position: {
-            lat: centerPoint.lat + latOffset,
-            lng: centerPoint.lng + lngOffset
-          },
-          row,
-          col,
-          label: `${String.fromCharCode(65 + row)}${col + 1}`,
-          isCenter: row === halfGrid && col === halfGrid,
-          disabled: disabledPointsList.includes(id)
-        });
+          positions.push({
+            id,
+            position: {
+              lat: centerPoint.lat + latOffset,
+              lng: centerPoint.lng + lngOffset,
+            },
+            row,
+            col,
+            label: `${String.fromCharCode(65 + row)}${col + 1}`,
+            isCenter: row === halfGrid && col === halfGrid,
+            disabled: disabledPointsList.includes(id),
+          });
+        }
       }
-    }
-    return positions;
-  }, []);
+      return positions;
+    },
+    [],
+  );
 
   // Generate positions based on grid type
-  const generateGridPositions = useCallback((centerPoint: { lat: number; lng: number }, type: string, size: number, spacing: number, disabledPointsList: string[]) => {
-    if (type === 'circle') {
-      const config = circleConfigs[size];
-      if (!config) {
-        console.warn(`Invalid circle size: ${size}, falling back to 25 points`);
-        // Fallback to a valid circle configuration
-        const fallbackConfig = circleConfigs[25];
-        if (fallbackConfig) {
-          return generateCirclePositions(centerPoint, fallbackConfig, spacing, disabledPointsList);
+  const generateGridPositions = useCallback(
+    (
+      centerPoint: { lat: number; lng: number },
+      type: string,
+      size: number,
+      spacing: number,
+      disabledPointsList: string[],
+    ) => {
+      if (type === "circle") {
+        const config = circleConfigs[size];
+        if (!config) {
+          console.warn(
+            `Invalid circle size: ${size}, falling back to 25 points`,
+          );
+          // Fallback to a valid circle configuration
+          const fallbackConfig = circleConfigs[25];
+          if (fallbackConfig) {
+            return generateCirclePositions(
+              centerPoint,
+              fallbackConfig,
+              spacing,
+              disabledPointsList,
+            );
+          }
+          return [];
         }
-        return [];
+        return generateCirclePositions(
+          centerPoint,
+          config,
+          spacing,
+          disabledPointsList,
+        );
+      } else {
+        return generateSquarePositions(
+          centerPoint,
+          size,
+          spacing,
+          disabledPointsList,
+        );
       }
-      return generateCirclePositions(centerPoint, config, spacing, disabledPointsList);
-    } else {
-      return generateSquarePositions(centerPoint, size, spacing, disabledPointsList);
-    }
-  }, [generateCirclePositions, generateSquarePositions]);
+    },
+    [generateCirclePositions, generateSquarePositions],
+  );
 
   // Initialize markers when any grid configuration changes
   useEffect(() => {
-    const newMarkers = generateGridPositions(gridCenter, gridType, gridSize, pinSpacing, disabledPoints);
+    const newMarkers = generateGridPositions(
+      gridCenter,
+      gridType,
+      gridSize,
+      pinSpacing,
+      disabledPoints,
+    );
     setMarkers(newMarkers);
     // Don't call onGridChange during initialization to prevent infinite loops
-  }, [gridCenter, gridType, gridSize, pinSpacing, disabledPoints, generateGridPositions]);
+  }, [
+    gridCenter,
+    gridType,
+    gridSize,
+    pinSpacing,
+    disabledPoints,
+    generateGridPositions,
+  ]);
 
   // Auto-fit bounds when markers change - deferred to prevent setState during render
   useEffect(() => {
@@ -209,7 +283,9 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         if (mapRef.current && markers.length > 0) {
           const bounds = new google.maps.LatLngBounds();
           markers.forEach((marker: any) => {
-            bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
+            bounds.extend(
+              new google.maps.LatLng(marker.position.lat, marker.position.lng),
+            );
           });
           mapRef.current.fitBounds(bounds);
           const zoom = mapRef.current.getZoom();
@@ -224,64 +300,80 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   }, [markers]);
 
   // Get color based on ranking and disabled state
-  const getMarkerColor = useCallback((marker: any) => {
-    if (marker.disabled) return '#CCCCCC';
-    const ranking = rankings[marker.id];
-    if (!ranking) return '#4285F4';
-    if (ranking <= 3) return '#0F9D58';
-    if (ranking <= 10) return '#F4B400';
-    if (ranking <= 20) return '#FF6D00';
-    return '#EA4335';
-  }, [rankings]);
+  const getMarkerColor = useCallback(
+    (marker: any) => {
+      if (marker.disabled) return "#CCCCCC";
+      const ranking = rankings[marker.id];
+      if (!ranking) return "#4285F4";
+      if (ranking <= 3) return "#0F9D58";
+      if (ranking <= 10) return "#F4B400";
+      if (ranking <= 20) return "#FF6D00";
+      return "#EA4335";
+    },
+    [rankings],
+  );
 
   // Create waypoint-style SVG icon
-  const createWaypointIcon = useCallback((marker: any) => {
-    const color = getMarkerColor(marker);
-    const isDisabled = marker.disabled;
-    const opacity = isDisabled ? 0.5 : 1;
+  const createWaypointIcon = useCallback(
+    (marker: any) => {
+      const color = getMarkerColor(marker);
+      const isDisabled = marker.disabled;
+      const opacity = isDisabled ? 0.5 : 1;
 
-    const svg = `
+      const svg = `
       <svg width="32" height="48" viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
         <g opacity="${opacity}">
           <ellipse cx="16" cy="46" rx="10" ry="2" fill="black" opacity="0.2"/>
           <path d="M16 0 C7.2 0 0 7.2 0 16 C0 24.8 16 48 16 48 S32 24.8 32 16 C32 7.2 24.8 0 16 0 Z"
                 fill="${color}" stroke="white" stroke-width="2"/>
           <circle cx="16" cy="16" r="8" fill="white"/>
-          ${marker.isCenter ?
-            '<circle cx="16" cy="16" r="3" fill="' + color + '"/>' :
-            '<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="' + color + '">' +
-            (rankings[marker.id] || (gridType === 'circle' ? (marker.index || '') : marker.label?.slice(-1) || '')) + '</text>'
+          ${
+            marker.isCenter
+              ? '<circle cx="16" cy="16" r="3" fill="' + color + '"/>'
+              : '<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="' +
+                color +
+                '">' +
+                (rankings[marker.id] ||
+                  (gridType === "circle"
+                    ? marker.index || ""
+                    : marker.label?.slice(-1) || "")) +
+                "</text>"
           }
         </g>
       </svg>
     `;
 
-    return {
-      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-      scaledSize: new google.maps.Size(32, 48),
-      anchor: new google.maps.Point(16, 48),
-      labelOrigin: new google.maps.Point(16, -8)
-    };
-  }, [getMarkerColor, rankings, gridType]);
+      return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(32, 48),
+        anchor: new google.maps.Point(16, 48),
+        labelOrigin: new google.maps.Point(16, -8),
+      };
+    },
+    [getMarkerColor, rankings, gridType],
+  );
 
   // Handle individual marker drag
-  const handleMarkerDragEnd = useCallback((e: google.maps.MapMouseEvent, markerId: string) => {
-    if (!e.latLng) return;
+  const handleMarkerDragEnd = useCallback(
+    (e: google.maps.MapMouseEvent, markerId: string) => {
+      if (!e.latLng) return;
 
-    const newLat = e.latLng.lat();
-    const newLng = e.latLng.lng();
+      const newLat = e.latLng.lat();
+      const newLng = e.latLng.lng();
 
-    setMarkers(prevMarkers => {
-      const updatedMarkers = prevMarkers.map((marker: any) =>
-        marker.id === markerId
-          ? { ...marker, position: { lat: newLat, lng: newLng } }
-          : marker
-      );
-      onGridChangeRef.current(updatedMarkers);
-      return updatedMarkers;
-    });
-    setIsDragging(false);
-  }, []);
+      setMarkers((prevMarkers) => {
+        const updatedMarkers = prevMarkers.map((marker: any) =>
+          marker.id === markerId
+            ? { ...marker, position: { lat: newLat, lng: newLng } }
+            : marker,
+        );
+        onGridChangeRef.current(updatedMarkers);
+        return updatedMarkers;
+      });
+      setIsDragging(false);
+    },
+    [],
+  );
 
   // Handle center marker drag (moves entire grid)
   const handleCenterDragEnd = useCallback((e: google.maps.MapMouseEvent) => {
@@ -295,11 +387,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
   // Toggle waypoint disabled state
   const toggleWaypointDisabled = useCallback((markerId: string) => {
-    setMarkers(prevMarkers => {
+    setMarkers((prevMarkers) => {
       const updatedMarkers = prevMarkers.map((marker: any) =>
         marker.id === markerId
           ? { ...marker, disabled: !marker.disabled }
-          : marker
+          : marker,
       );
       onGridChangeRef.current(updatedMarkers);
       return updatedMarkers;
@@ -307,37 +399,40 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   }, []);
 
   // Handle marker click - single click disables, hold starts drag all
-  const handleMarkerMouseDown = useCallback((markerId: string, e: google.maps.MapMouseEvent) => {
-    e.stop();
+  const handleMarkerMouseDown = useCallback(
+    (markerId: string, e: google.maps.MapMouseEvent) => {
+      e.stop();
 
-    // Use ref to track if component is still mounted
-    let isHolding = false;
-    const timeout = setTimeout(() => {
-      isHolding = true;
-      setIsDraggingAllPins(true);
-      if (e.latLng) {
-        setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-      }
-    }, 500); // 500ms hold time
+      // Use ref to track if component is still mounted
+      let isHolding = false;
+      const timeout = setTimeout(() => {
+        isHolding = true;
+        setIsDraggingAllPins(true);
+        if (e.latLng) {
+          setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+        }
+      }, 500); // 500ms hold time
 
-    const handleMouseUp = () => {
-      clearTimeout(timeout);
-      if (!isHolding && !isDraggingAllPins) {
-        // Single click - toggle disabled state (defer to prevent render issues)
-        setTimeout(() => toggleWaypointDisabled(markerId), 0);
-      }
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
+      const handleMouseUp = () => {
+        clearTimeout(timeout);
+        if (!isHolding && !isDraggingAllPins) {
+          // Single click - toggle disabled state (defer to prevent render issues)
+          setTimeout(() => toggleWaypointDisabled(markerId), 0);
+        }
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
 
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [isDraggingAllPins, toggleWaypointDisabled]);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [isDraggingAllPins, toggleWaypointDisabled],
+  );
 
   // Generate grid lines based on type
   const gridLines = useMemo(() => {
     const lines = [];
     const activeMarkers = markers.filter((m: any) => !m.disabled);
 
-    if (gridType === 'square') {
+    if (gridType === "square") {
       // Square grid lines - horizontal and vertical
       const rows: Record<string, any[]> = {};
       const cols: Record<string, any[]> = {};
@@ -387,11 +482,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             .sort((a, b) => {
               const angleA = Math.atan2(
                 a.position.lat - centerMarker.position.lat,
-                a.position.lng - centerMarker.position.lng
+                a.position.lng - centerMarker.position.lng,
               );
               const angleB = Math.atan2(
                 b.position.lat - centerMarker.position.lat,
-                b.position.lng - centerMarker.position.lng
+                b.position.lng - centerMarker.position.lng,
               );
               return angleA - angleB;
             })
@@ -406,7 +501,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         rings[1].forEach((marker: any, i: number) => {
           lines.push({
             id: `spoke-${i}`,
-            path: [centerMarker.position, marker.position]
+            path: [centerMarker.position, marker.position],
           });
         });
       }
@@ -417,7 +512,10 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
   if (!isLoaded) {
     return (
-      <div className={`flex items-center justify-center rounded-lg border bg-gray-50 ${className}`} style={{ height }}>
+      <div
+        className={`flex items-center justify-center rounded-lg border bg-gray-50 ${className}`}
+        style={{ height }}
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
           <p className="text-sm text-gray-600">Loading interactive map...</p>
@@ -428,7 +526,10 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
   if (!apiKey) {
     return (
-      <div className={`flex items-center justify-center rounded-lg border bg-red-50 ${className}`} style={{ height }}>
+      <div
+        className={`flex items-center justify-center rounded-lg border bg-red-50 ${className}`}
+        style={{ height }}
+      >
         <div className="text-center text-red-600">
           <p className="text-sm font-medium">Google Maps API Key Required</p>
           <p className="text-xs mt-1">Configure your API key in settings</p>
@@ -451,7 +552,12 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             if (markers.length > 0 && mapRef.current) {
               const bounds = new google.maps.LatLngBounds();
               markers.forEach((marker: any) => {
-                bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
+                bounds.extend(
+                  new google.maps.LatLng(
+                    marker.position.lat,
+                    marker.position.lng,
+                  ),
+                );
               });
               mapRef.current.fitBounds(bounds);
               const zoom = mapRef.current.getZoom();
@@ -478,13 +584,13 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             const deltaLng = e.latLng.lng() - dragStartPosition.lng;
 
             // Throttle updates to prevent excessive renders
-            setMarkers(prevMarkers => {
+            setMarkers((prevMarkers) => {
               const updatedMarkers = prevMarkers.map((marker: any) => ({
                 ...marker,
                 position: {
                   lat: marker.position.lat + deltaLat,
-                  lng: marker.position.lng + deltaLng
-                }
+                  lng: marker.position.lng + deltaLng,
+                },
               }));
               return updatedMarkers;
             });
@@ -499,13 +605,24 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             key={line.id}
             path={line.path}
             options={{
-              strokeColor: '#4285F4',
+              strokeColor: "#4285F4",
               strokeOpacity: 0.4,
               strokeWeight: 2,
               geodesic: true,
-              strokePattern: gridType === 'circle' && line.id.startsWith('ring')
-                ? undefined
-                : [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 4 }, offset: '0', repeat: '20px' }]
+              strokePattern:
+                gridType === "circle" && line.id.startsWith("ring")
+                  ? undefined
+                  : [
+                      {
+                        icon: {
+                          path: "M 0,-1 0,1",
+                          strokeOpacity: 1,
+                          scale: 4,
+                        },
+                        offset: "0",
+                        repeat: "20px",
+                      },
+                    ],
             }}
           />
         ))}
@@ -520,18 +637,30 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               position={marker.position}
               draggable={isCenter || (!marker.disabled && !isGridDragging)}
               icon={createWaypointIcon(marker)}
-              label={marker.disabled ? {
-                text: 'DISABLED',
-                color: '#666666',
-                fontSize: '10px',
-                fontWeight: 'bold'
-              } : undefined}
-              onDragStart={() => isCenter ? setIsGridDragging(true) : setIsDragging(true)}
-              onDragEnd={(e) => isCenter ? handleCenterDragEnd(e) : handleMarkerDragEnd(e, marker.id)}
-              onMouseDown={(e) => !isCenter && handleMarkerMouseDown(marker.id, e)}
+              label={
+                marker.disabled
+                  ? {
+                      text: "DISABLED",
+                      color: "#666666",
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                    }
+                  : undefined
+              }
+              onDragStart={() =>
+                isCenter ? setIsGridDragging(true) : setIsDragging(true)
+              }
+              onDragEnd={(e) =>
+                isCenter
+                  ? handleCenterDragEnd(e)
+                  : handleMarkerDragEnd(e, marker.id)
+              }
+              onMouseDown={(e) =>
+                !isCenter && handleMarkerMouseDown(marker.id, e)
+              }
               onClick={() => !isDraggingAllPins && setSelectedMarker(marker)}
               opacity={marker.disabled ? 0.5 : 1}
-              zIndex={isCenter ? 1000 : (marker.disabled ? 1 : 100)}
+              zIndex={isCenter ? 1000 : marker.disabled ? 1 : 100}
             />
           );
         })}
@@ -545,13 +674,15 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
             <div className="p-2">
               <h3 className="font-bold text-sm">{selectedMarker.label}</h3>
               {selectedMarker.isCenter && (
-                <p className="text-xs text-blue-600 font-bold mt-1">CENTER (Drag to move grid)</p>
+                <p className="text-xs text-blue-600 font-bold mt-1">
+                  CENTER (Drag to move grid)
+                </p>
               )}
               <p className="text-xs mt-1">
-                Status: {selectedMarker.disabled ? 'Disabled' : 'Active'}
+                Status: {selectedMarker.disabled ? "Disabled" : "Active"}
               </p>
               <p className="text-xs mt-1">
-                Ranking: {rankings[selectedMarker.id] || 'Not ranked'}
+                Ranking: {rankings[selectedMarker.id] || "Not ranked"}
               </p>
               <p className="text-xs mt-1">
                 Lat: {selectedMarker.position.lat.toFixed(6)}
@@ -564,11 +695,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
                   onClick={() => toggleWaypointDisabled(selectedMarker.id)}
                   className={`mt-2 px-2 py-1 text-xs rounded ${
                     selectedMarker.disabled
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-red-500 hover:bg-red-600 text-white'
+                      ? "bg-green-500 hover:bg-green-600 text-white"
+                      : "bg-red-500 hover:bg-red-600 text-white"
                   }`}
                 >
-                  {selectedMarker.disabled ? 'Enable' : 'Disable'} Waypoint
+                  {selectedMarker.disabled ? "Enable" : "Disable"} Waypoint
                 </button>
               )}
             </div>
@@ -581,27 +712,45 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         <h3 className="font-bold text-sm mb-2">Ranking Legend</h3>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#0F9D58' }}></div>
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: "#0F9D58" }}
+            ></div>
             <span className="text-xs">Top 3</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#F4B400' }}></div>
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: "#F4B400" }}
+            ></div>
             <span className="text-xs">4-10</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#FF6D00' }}></div>
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: "#FF6D00" }}
+            ></div>
             <span className="text-xs">11-20</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#EA4335' }}></div>
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: "#EA4335" }}
+            ></div>
             <span className="text-xs">20+</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#4285F4' }}></div>
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: "#4285F4" }}
+            ></div>
             <span className="text-xs">Not ranked</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#CCCCCC' }}></div>
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: "#CCCCCC" }}
+            ></div>
             <span className="text-xs">Disabled</span>
           </div>
         </div>
@@ -611,10 +760,23 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-lg">
         <h3 className="font-bold text-sm mb-2">Grid Configuration</h3>
         <div className="text-xs space-y-1">
-          <p><span className="font-semibold">Type:</span> {gridType === 'circle' ? 'Circle' : 'Square'}</p>
-          <p><span className="font-semibold">Size:</span> {gridType === 'square' ? `${gridSize}x${gridSize}` : `${gridSize} points`}</p>
-          <p><span className="font-semibold">Spacing:</span> {pinSpacing}m</p>
-          <p><span className="font-semibold">Active:</span> {markers.filter((m: any) => !m.disabled).length}/{markers.length}</p>
+          <p>
+            <span className="font-semibold">Type:</span>{" "}
+            {gridType === "circle" ? "Circle" : "Square"}
+          </p>
+          <p>
+            <span className="font-semibold">Size:</span>{" "}
+            {gridType === "square"
+              ? `${gridSize}x${gridSize}`
+              : `${gridSize} points`}
+          </p>
+          <p>
+            <span className="font-semibold">Spacing:</span> {pinSpacing}m
+          </p>
+          <p>
+            <span className="font-semibold">Active:</span>{" "}
+            {markers.filter((m: any) => !m.disabled).length}/{markers.length}
+          </p>
         </div>
         <div className="mt-2 pt-2 border-t text-xs text-gray-600">
           <p>• Drag CENTER pin to move grid</p>

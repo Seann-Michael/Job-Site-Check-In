@@ -166,15 +166,22 @@ export default function AddProject() {
 
     setFormData((prev) => ({
       ...prev,
-      addressSearch: selectedPlace.formattedAddress || selectedPlace.description,
+      addressSearch:
+        selectedPlace.formattedAddress || selectedPlace.description,
       streetAddress: streetAddress,
       city: city,
       state: state,
       zipCode: zipCode,
       country: country || "United States",
       placeId: selectedPlace.place_id || selectedPlace.placeId || "",
-      gpsLat: selectedPlace.geometry?.location?.lat?.toString() || selectedPlace.lat?.toString() || "",
-      gpsLng: selectedPlace.geometry?.location?.lng?.toString() || selectedPlace.lng?.toString() || "",
+      gpsLat:
+        selectedPlace.geometry?.location?.lat?.toString() ||
+        selectedPlace.lat?.toString() ||
+        "",
+      gpsLng:
+        selectedPlace.geometry?.location?.lng?.toString() ||
+        selectedPlace.lng?.toString() ||
+        "",
     }));
   };
 
@@ -202,7 +209,6 @@ export default function AddProject() {
       additionalPhones: prev.additionalPhones.filter((_, i) => i !== index),
     }));
   };
-
 
   // Simulate Google Places API (in production, use actual Google Places API)
   const simulateGooglePlaces = (input: string) => {
@@ -486,7 +492,9 @@ export default function AddProject() {
 
                 {/* Address Fields */}
                 <div className="space-y-4">
-                  <Label className="text-base font-medium">Address Details</Label>
+                  <Label className="text-base font-medium">
+                    Address Details
+                  </Label>
 
                   <div className="space-y-2">
                     <Label htmlFor="streetAddress">Street Address</Label>
@@ -494,7 +502,9 @@ export default function AddProject() {
                       id="streetAddress"
                       placeholder="123 Main Street"
                       value={formData.streetAddress}
-                      onChange={(e) => handleInputChange("streetAddress", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("streetAddress", e.target.value)
+                      }
                     />
                   </div>
 
@@ -505,7 +515,9 @@ export default function AddProject() {
                         id="city"
                         placeholder="City"
                         value={formData.city}
-                        onChange={(e) => handleInputChange("city", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("city", e.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -514,7 +526,9 @@ export default function AddProject() {
                         id="state"
                         placeholder="State"
                         value={formData.state}
-                        onChange={(e) => handleInputChange("state", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("state", e.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -526,7 +540,9 @@ export default function AddProject() {
                         id="zipCode"
                         placeholder="12345"
                         value={formData.zipCode}
-                        onChange={(e) => handleInputChange("zipCode", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("zipCode", e.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -535,7 +551,9 @@ export default function AddProject() {
                         id="country"
                         placeholder="United States"
                         value={formData.country}
-                        onChange={(e) => handleInputChange("country", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("country", e.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -565,7 +583,9 @@ export default function AddProject() {
                         id="gpsLat"
                         placeholder="40.7128"
                         value={formData.gpsLat}
-                        onChange={(e) => handleInputChange("gpsLat", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("gpsLat", e.target.value)
+                        }
                         className={formData.placeId ? "bg-muted" : ""}
                         readOnly={!!formData.placeId}
                       />
@@ -576,7 +596,9 @@ export default function AddProject() {
                         id="gpsLng"
                         placeholder="-74.0060"
                         value={formData.gpsLng}
-                        onChange={(e) => handleInputChange("gpsLng", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("gpsLng", e.target.value)
+                        }
                         className={formData.placeId ? "bg-muted" : ""}
                         readOnly={!!formData.placeId}
                       />

@@ -58,7 +58,7 @@ const US_STATES = [
   { code: "WV", name: "West Virginia" },
   { code: "WI", name: "Wisconsin" },
   { code: "WY", name: "Wyoming" },
-  { code: "DC", name: "District of Columbia" }
+  { code: "DC", name: "District of Columbia" },
 ];
 
 interface USStatesSelectProps {
@@ -72,7 +72,7 @@ export const USStatesSelect: React.FC<USStatesSelectProps> = ({
   value,
   onValueChange,
   placeholder = "Select state",
-  disabled
+  disabled,
 }) => {
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>

@@ -16,10 +16,10 @@ let globalDropdownHistory: DropdownHistory = {};
 try {
   // Check if we're in Builder.io editor environment
   const isBuilderIoEditor =
-    typeof window !== 'undefined' &&
-    (window.location.href.includes('builder.io') ||
-     window.parent !== window ||
-     document.referrer.includes('builder.io'));
+    typeof window !== "undefined" &&
+    (window.location.href.includes("builder.io") ||
+      window.parent !== window ||
+      document.referrer.includes("builder.io"));
 
   if (!isBuilderIoEditor) {
     const stored = localStorage.getItem("globalDropdownHistory");
@@ -36,10 +36,10 @@ let saveTimeout: NodeJS.Timeout;
 const saveToStorage = () => {
   // Check if we're in Builder.io editor environment
   const isBuilderIoEditor =
-    typeof window !== 'undefined' &&
-    (window.location.href.includes('builder.io') ||
-     window.parent !== window ||
-     document.referrer.includes('builder.io'));
+    typeof window !== "undefined" &&
+    (window.location.href.includes("builder.io") ||
+      window.parent !== window ||
+      document.referrer.includes("builder.io"));
 
   if (isBuilderIoEditor) {
     return; // Don't save in Builder.io editor

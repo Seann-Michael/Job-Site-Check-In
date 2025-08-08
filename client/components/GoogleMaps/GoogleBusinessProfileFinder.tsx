@@ -55,18 +55,18 @@ interface GoogleBusinessProfileFinderProps {
   className?: string;
 }
 
-export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderProps> = ({
-  onProfileFound,
-  onAddressChange,
-  className,
-}) => {
+export const GoogleBusinessProfileFinder: React.FC<
+  GoogleBusinessProfileFinderProps
+> = ({ onProfileFound, onAddressChange, className }) => {
   // Search states
   const [cidQuery, setCidQuery] = useState("");
   const [urlQuery, setUrlQuery] = useState("");
   const [isSearchingCid, setIsSearchingCid] = useState(false);
   const [isSearchingUrl, setIsSearchingUrl] = useState(false);
 
-  const [foundProfile, setFoundProfile] = useState<BusinessProfile | null>(null);
+  const [foundProfile, setFoundProfile] = useState<BusinessProfile | null>(
+    null,
+  );
   const [searchError, setSearchError] = useState<string | null>(null);
   const [apiKeyAvailable, setApiKeyAvailable] = useState(true);
 
@@ -109,29 +109,32 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
     if (placeIdMatch) {
       return placeIdMatch[1];
     }
-    
+
     // Alternative format
     const altMatch = url.match(/!1s([A-Za-z0-9_-]+)!/);
     if (altMatch && altMatch[1].startsWith("ChIJ")) {
       return altMatch[1];
     }
-    
+
     return null;
   };
 
-  const handleBusinessNameSelect = (businessName: string, placeResult?: any) => {
+  const handleBusinessNameSelect = (
+    businessName: string,
+    placeResult?: any,
+  ) => {
     if (placeResult) {
       // Convert the placeResult to BusinessProfile format
-      let cid = '';
+      let cid = "";
       if (placeResult.url) {
-        cid = extractCidFromUrl(placeResult.url) || '';
+        cid = extractCidFromUrl(placeResult.url) || "";
       }
 
       const profile: BusinessProfile = {
-        placeId: placeResult.placeId || '',
+        placeId: placeResult.placeId || "",
         name: placeResult.name || businessName,
-        formattedAddress: placeResult.formattedAddress || '',
-        businessStatus: placeResult.businessStatus || '',
+        formattedAddress: placeResult.formattedAddress || "",
+        businessStatus: placeResult.businessStatus || "",
         types: placeResult.types || [],
         rating: placeResult.rating,
         userRatingsTotal: placeResult.userRatingsTotal,
@@ -167,11 +170,17 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
     try {
       // CID search is complex and requires additional setup
       // For now, show informational message
-      toast.info("CID search requires additional Google My Business API setup. Please use business name or URL search.");
-      setSearchError("CID search functionality is currently not available. Please use business name or Google Maps URL search instead.");
+      toast.info(
+        "CID search requires additional Google My Business API setup. Please use business name or URL search.",
+      );
+      setSearchError(
+        "CID search functionality is currently not available. Please use business name or Google Maps URL search instead.",
+      );
     } catch (error) {
       console.error("CID search error:", error);
-      setSearchError("CID search failed. Please try using business name or URL search.");
+      setSearchError(
+        "CID search failed. Please try using business name or URL search.",
+      );
     } finally {
       setIsSearchingCid(false);
     }
@@ -210,36 +219,55 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
         // Try extracting business name from URL
         const nameMatch = urlQuery.match(/place\/([^\/]+)/);
         if (nameMatch) {
-          const businessName = decodeURIComponent(nameMatch[1].replace(/\+/g, ' '));
+          const businessName = decodeURIComponent(
+            nameMatch[1].replace(/\+/g, " "),
+          );
           toast.info(`Extracted business name: ${businessName}. Searching...`);
 
           await loadGoogleMapsAPI();
-          const service = new google.maps.places.PlacesService(document.createElement('div'));
+          const service = new google.maps.places.PlacesService(
+            document.createElement("div"),
+          );
 
           const request: google.maps.places.TextSearchRequest = {
             query: businessName,
-            type: 'establishment',
+            type: "establishment",
             fields: [
-              'place_id', 'name', 'formatted_address', 'business_status', 'types',
-              'rating', 'user_ratings_total', 'formatted_phone_number', 'website',
-              'opening_hours', 'geometry', 'photos', 'url', 'price_level'
-            ]
+              "place_id",
+              "name",
+              "formatted_address",
+              "business_status",
+              "types",
+              "rating",
+              "user_ratings_total",
+              "formatted_phone_number",
+              "website",
+              "opening_hours",
+              "geometry",
+              "photos",
+              "url",
+              "price_level",
+            ],
           };
 
           service.textSearch(request, (results, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+            if (
+              status === google.maps.places.PlacesServiceStatus.OK &&
+              results &&
+              results.length > 0
+            ) {
               const place = results[0];
 
-              let extractedCid = '';
+              let extractedCid = "";
               if (place.url) {
-                extractedCid = extractCidFromUrl(place.url) || '';
+                extractedCid = extractCidFromUrl(place.url) || "";
               }
 
               const profile: BusinessProfile = {
-                placeId: place.place_id || '',
-                name: place.name || '',
-                formattedAddress: place.formatted_address || '',
-                businessStatus: place.business_status || '',
+                placeId: place.place_id || "",
+                name: place.name || "",
+                formattedAddress: place.formatted_address || "",
+                businessStatus: place.business_status || "",
                 types: place.types || [],
                 rating: place.rating,
                 userRatingsTotal: place.user_ratings_total,
@@ -248,9 +276,11 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                 openingHours: place.opening_hours?.weekday_text,
                 lat: place.geometry?.location?.lat() || 0,
                 lng: place.geometry?.location?.lng() || 0,
-                photos: place.photos?.slice(0, 3).map(photo =>
-                  photo.getUrl({ maxWidth: 400, maxHeight: 300 })
-                ),
+                photos: place.photos
+                  ?.slice(0, 3)
+                  .map((photo) =>
+                    photo.getUrl({ maxWidth: 400, maxHeight: 300 }),
+                  ),
                 url: place.url,
                 cid: extractedCid,
                 priceLevel: place.price_level,
@@ -266,44 +296,63 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
             }
           });
         } else {
-          setSearchError("Could not extract business information from this URL. Please ensure it's a valid Google Maps business URL.");
+          setSearchError(
+            "Could not extract business information from this URL. Please ensure it's a valid Google Maps business URL.",
+          );
         }
       }
     } catch (error) {
       console.error("URL search error:", error);
-      setSearchError("URL search failed. Please try again with a valid Google Maps URL.");
+      setSearchError(
+        "URL search failed. Please try again with a valid Google Maps URL.",
+      );
     } finally {
       setIsSearchingUrl(false);
     }
   };
 
-  const searchByPlaceId = async (placeId: string): Promise<BusinessProfile | null> => {
+  const searchByPlaceId = async (
+    placeId: string,
+  ): Promise<BusinessProfile | null> => {
     await loadGoogleMapsAPI();
-    
+
     return new Promise((resolve) => {
-      const service = new google.maps.places.PlacesService(document.createElement('div'));
-      
+      const service = new google.maps.places.PlacesService(
+        document.createElement("div"),
+      );
+
       const request: google.maps.places.PlaceDetailsRequest = {
         placeId: placeId,
         fields: [
-          'place_id', 'name', 'formatted_address', 'business_status', 'types',
-          'rating', 'user_ratings_total', 'formatted_phone_number', 'website',
-          'opening_hours', 'geometry', 'photos', 'url', 'price_level'
-        ]
+          "place_id",
+          "name",
+          "formatted_address",
+          "business_status",
+          "types",
+          "rating",
+          "user_ratings_total",
+          "formatted_phone_number",
+          "website",
+          "opening_hours",
+          "geometry",
+          "photos",
+          "url",
+          "price_level",
+        ],
       };
 
       service.getDetails(request, (place, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-          let cid = '';
+          let cid = "";
           if (place.url) {
-            cid = extractCidFromUrl(place.url) || '';
+            cid = extractCidFromUrl(place.url) || "";
           }
 
           const profile: BusinessProfile = {
-            placeId: place.place_id || '',
-            name: place.name || '',
-            formattedAddress: place.formatted_address || '',
-            businessStatus: place.business_status || '',
+            placeId: place.place_id || "",
+            name: place.name || "",
+            formattedAddress: place.formatted_address || "",
+            businessStatus: place.business_status || "",
             types: place.types || [],
             rating: place.rating,
             userRatingsTotal: place.user_ratings_total,
@@ -312,9 +361,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
             openingHours: place.opening_hours?.weekday_text,
             lat: place.geometry?.location?.lat() || 0,
             lng: place.geometry?.location?.lng() || 0,
-            photos: place.photos?.slice(0, 3).map(photo => 
-              photo.getUrl({ maxWidth: 400, maxHeight: 300 })
-            ),
+            photos: place.photos
+              ?.slice(0, 3)
+              .map((photo) => photo.getUrl({ maxWidth: 400, maxHeight: 300 })),
             url: place.url,
             cid: cid,
             priceLevel: place.price_level,
@@ -328,22 +377,24 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
     });
   };
 
-
   const handleManualAddressChange = (field: string, value: string) => {
     const updated = { ...manualAddress, [field]: value };
     setManualAddress(updated);
-    
+
     if (onAddressChange) {
-      const fullAddress = `${updated.street}, ${updated.city}, ${updated.state} ${updated.zipCode}`.trim();
+      const fullAddress =
+        `${updated.street}, ${updated.city}, ${updated.state} ${updated.zipCode}`.trim();
       onAddressChange(fullAddress, updated);
     }
   };
 
   const formatBusinessTypes = (types: string[]) => {
     return types
-      .filter(type => !['establishment', 'point_of_interest'].includes(type))
+      .filter((type) => !["establishment", "point_of_interest"].includes(type))
       .slice(0, 3)
-      .map(type => type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+      .map((type) =>
+        type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+      );
   };
 
   return (
@@ -358,7 +409,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
 
         <TabsContent value="name" className="space-y-4">
           <div>
-            <Label htmlFor="business-name-search">Search by Business Name</Label>
+            <Label htmlFor="business-name-search">
+              Search by Business Name
+            </Label>
             <BusinessPlacesSearch
               value=""
               onChange={handleBusinessNameSelect}
@@ -379,15 +432,23 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                 placeholder="Enter Google Customer ID..."
                 value={cidQuery}
                 onChange={(e) => setCidQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleCidSearch()}
+                onKeyPress={(e) => e.key === "Enter" && handleCidSearch()}
                 className="font-mono"
               />
-              <Button onClick={handleCidSearch} disabled={isSearchingCid || !apiKeyAvailable}>
-                {isSearchingCid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <Button
+                onClick={handleCidSearch}
+                disabled={isSearchingCid || !apiKeyAvailable}
+              >
+                {isSearchingCid ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Enter the numeric Customer ID from Google My Business (e.g., 1234567890123456789)
+              Enter the numeric Customer ID from Google My Business (e.g.,
+              1234567890123456789)
             </p>
           </div>
         </TabsContent>
@@ -401,10 +462,17 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                 placeholder="Paste Google Maps URL..."
                 value={urlQuery}
                 onChange={(e) => setUrlQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleUrlSearch()}
+                onKeyPress={(e) => e.key === "Enter" && handleUrlSearch()}
               />
-              <Button onClick={handleUrlSearch} disabled={isSearchingUrl || !apiKeyAvailable}>
-                {isSearchingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <Button
+                onClick={handleUrlSearch}
+                disabled={isSearchingUrl || !apiKeyAvailable}
+              >
+                {isSearchingUrl ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -417,7 +485,8 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
           <div>
             <Label>Manual Business Information Entry</Label>
             <p className="text-sm text-muted-foreground mb-4">
-              Enter business information manually or use address search to auto-populate fields
+              Enter business information manually or use address search to
+              auto-populate fields
             </p>
 
             <div className="space-y-4">
@@ -426,7 +495,8 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                 placeholder="Search for business address..."
                 onChange={(address, placeResult) => {
                   if (placeResult && onAddressChange) {
-                    const addressParts = placeResult.formattedAddress.split(", ");
+                    const addressParts =
+                      placeResult.formattedAddress.split(", ");
                     const fullAddress = addressParts.slice(0, -2).join(", ");
                     const city = addressParts[addressParts.length - 2];
                     const stateZip = addressParts[addressParts.length - 1];
@@ -434,7 +504,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                     let state = "";
                     let zipCode = "";
                     if (stateZip) {
-                      const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+                      const stateZipMatch = stateZip.match(
+                        /^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/,
+                      );
                       if (stateZipMatch) {
                         state = stateZipMatch[1];
                         zipCode = stateZipMatch[2];
@@ -450,7 +522,7 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                       city: city || "",
                       state: state,
                       zipCode: zipCode,
-                      country: "United States"
+                      country: "United States",
                     };
 
                     setManualAddress(components);
@@ -465,7 +537,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                   <Input
                     id="manual-street"
                     value={manualAddress.street}
-                    onChange={(e) => handleManualAddressChange("street", e.target.value)}
+                    onChange={(e) =>
+                      handleManualAddressChange("street", e.target.value)
+                    }
                     placeholder="123 Main Street"
                   />
                 </div>
@@ -474,7 +548,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                   <Input
                     id="manual-city"
                     value={manualAddress.city}
-                    onChange={(e) => handleManualAddressChange("city", e.target.value)}
+                    onChange={(e) =>
+                      handleManualAddressChange("city", e.target.value)
+                    }
                     placeholder="New York"
                   />
                 </div>
@@ -483,7 +559,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                   <Input
                     id="manual-state"
                     value={manualAddress.state}
-                    onChange={(e) => handleManualAddressChange("state", e.target.value)}
+                    onChange={(e) =>
+                      handleManualAddressChange("state", e.target.value)
+                    }
                     placeholder="NY"
                     maxLength={2}
                   />
@@ -493,7 +571,9 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                   <Input
                     id="manual-zipCode"
                     value={manualAddress.zipCode}
-                    onChange={(e) => handleManualAddressChange("zipCode", e.target.value)}
+                    onChange={(e) =>
+                      handleManualAddressChange("zipCode", e.target.value)
+                    }
                     placeholder="10001"
                   />
                 </div>
@@ -511,7 +591,8 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
             <span className="font-medium">Google Maps API Required</span>
           </div>
           <p className="text-sm text-yellow-600 mt-1">
-            Configure Google Maps API key in Super Admin → API Settings to enable business profile search.
+            Configure Google Maps API key in Super Admin → API Settings to
+            enable business profile search.
           </p>
         </div>
       )}
@@ -547,28 +628,35 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                     <MapPin className="h-4 w-4 text-gray-500" />
                     <span>{foundProfile.formattedAddress}</span>
                   </div>
-                  
+
                   {foundProfile.phoneNumber && (
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-gray-500" />
                       <span>{foundProfile.phoneNumber}</span>
                     </div>
                   )}
-                  
+
                   {foundProfile.website && (
                     <div className="flex items-center gap-2 text-sm">
                       <Globe className="h-4 w-4 text-gray-500" />
-                      <a href={foundProfile.website} target="_blank" rel="noopener noreferrer" 
-                         className="text-blue-600 hover:underline">
+                      <a
+                        href={foundProfile.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
                         {foundProfile.website}
                       </a>
                     </div>
                   )}
-                  
+
                   {foundProfile.rating && (
                     <div className="flex items-center gap-2 text-sm">
                       <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span>{foundProfile.rating} ({foundProfile.userRatingsTotal} reviews)</span>
+                      <span>
+                        {foundProfile.rating} ({foundProfile.userRatingsTotal}{" "}
+                        reviews)
+                      </span>
                     </div>
                   )}
                 </div>
@@ -577,25 +665,39 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
               <div className="space-y-2">
                 {foundProfile.types && foundProfile.types.length > 0 && (
                   <div>
-                    <Label className="text-sm font-medium">Business Categories</Label>
+                    <Label className="text-sm font-medium">
+                      Business Categories
+                    </Label>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {formatBusinessTypes(foundProfile.types).map((type, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {type}
-                        </Badge>
-                      ))}
+                      {formatBusinessTypes(foundProfile.types).map(
+                        (type, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {type}
+                          </Badge>
+                        ),
+                      )}
                     </div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Place ID</Label>
-                    <p className="font-mono text-xs truncate">{foundProfile.placeId}</p>
+                    <Label className="text-xs text-muted-foreground">
+                      Place ID
+                    </Label>
+                    <p className="font-mono text-xs truncate">
+                      {foundProfile.placeId}
+                    </p>
                   </div>
                   {foundProfile.cid && (
                     <div>
-                      <Label className="text-xs text-muted-foreground">CID</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        CID
+                      </Label>
                       <p className="font-mono text-xs">{foundProfile.cid}</p>
                     </div>
                   )}
@@ -605,7 +707,7 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(foundProfile.url, '_blank')}
+                    onClick={() => window.open(foundProfile.url, "_blank")}
                     className="w-full gap-2"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -617,7 +719,6 @@ export const GoogleBusinessProfileFinder: React.FC<GoogleBusinessProfileFinderPr
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 };

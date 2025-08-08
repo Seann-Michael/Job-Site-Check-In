@@ -51,10 +51,7 @@ import {
   type ScanOptions,
   type BusinessLocation,
 } from "@/lib/creditSystem";
-import {
-  validateBusinessInput,
-  type PlaceResult,
-} from "@/lib/googlePlaces";
+import { validateBusinessInput, type PlaceResult } from "@/lib/googlePlaces";
 import {
   generateWaypoints,
   toggleWaypoint,
@@ -119,7 +116,6 @@ export default function OneTimeScanEnhanced() {
       setBusinessInput(businessName);
     }
   };
-
 
   // Generate waypoints when configuration changes
   useEffect(() => {
@@ -606,17 +602,39 @@ export default function OneTimeScanEnhanced() {
                         <SelectItem value="49">7×7 Grid (49 pins)</SelectItem>
                         <SelectItem value="64">8×8 Grid (64 pins)</SelectItem>
                         <SelectItem value="81">9×9 Grid (81 pins)</SelectItem>
-                        <SelectItem value="100">10×10 Grid (100 pins)</SelectItem>
-                        <SelectItem value="121">11×11 Grid (121 pins)</SelectItem>
-                        <SelectItem value="144">12×12 Grid (144 pins)</SelectItem>
-                        <SelectItem value="169">13×13 Grid (169 pins)</SelectItem>
-                        <SelectItem value="196">14×14 Grid (196 pins)</SelectItem>
-                        <SelectItem value="225">15×15 Grid (225 pins)</SelectItem>
-                        <SelectItem value="256">16×16 Grid (256 pins)</SelectItem>
-                        <SelectItem value="289">17×17 Grid (289 pins)</SelectItem>
-                        <SelectItem value="324">18×18 Grid (324 pins)</SelectItem>
-                        <SelectItem value="361">19×19 Grid (361 pins)</SelectItem>
-                        <SelectItem value="400">20×20 Grid (400 pins)</SelectItem>
+                        <SelectItem value="100">
+                          10×10 Grid (100 pins)
+                        </SelectItem>
+                        <SelectItem value="121">
+                          11×11 Grid (121 pins)
+                        </SelectItem>
+                        <SelectItem value="144">
+                          12×12 Grid (144 pins)
+                        </SelectItem>
+                        <SelectItem value="169">
+                          13×13 Grid (169 pins)
+                        </SelectItem>
+                        <SelectItem value="196">
+                          14×14 Grid (196 pins)
+                        </SelectItem>
+                        <SelectItem value="225">
+                          15×15 Grid (225 pins)
+                        </SelectItem>
+                        <SelectItem value="256">
+                          16×16 Grid (256 pins)
+                        </SelectItem>
+                        <SelectItem value="289">
+                          17×17 Grid (289 pins)
+                        </SelectItem>
+                        <SelectItem value="324">
+                          18×18 Grid (324 pins)
+                        </SelectItem>
+                        <SelectItem value="361">
+                          19×19 Grid (361 pins)
+                        </SelectItem>
+                        <SelectItem value="400">
+                          20×20 Grid (400 pins)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -624,7 +642,9 @@ export default function OneTimeScanEnhanced() {
 
                 {waypointConfig.pattern === "circle" && (
                   <div>
-                    <Label className="text-base font-medium">Circle Configuration</Label>
+                    <Label className="text-base font-medium">
+                      Circle Configuration
+                    </Label>
                     <Select
                       value={waypointConfig.count.toString()}
                       onValueChange={(value) =>
@@ -639,20 +659,36 @@ export default function OneTimeScanEnhanced() {
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
                         <SelectItem value="7">7 Points (Center + 6)</SelectItem>
-                        <SelectItem value="13">13 Points (Center + 6 + 6)</SelectItem>
-                        <SelectItem value="19">19 Points (Center + 6 + 12)</SelectItem>
+                        <SelectItem value="13">
+                          13 Points (Center + 6 + 6)
+                        </SelectItem>
+                        <SelectItem value="19">
+                          19 Points (Center + 6 + 12)
+                        </SelectItem>
                         <SelectItem value="21">21 Points (4 Rings)</SelectItem>
-                        <SelectItem value="25">25 Points (Center + 8 + 16)</SelectItem>
+                        <SelectItem value="25">
+                          25 Points (Center + 8 + 16)
+                        </SelectItem>
                         <SelectItem value="31">31 Points (4 Rings)</SelectItem>
-                        <SelectItem value="37">37 Points (Center + 6 + 12 + 18)</SelectItem>
+                        <SelectItem value="37">
+                          37 Points (Center + 6 + 12 + 18)
+                        </SelectItem>
                         <SelectItem value="43">43 Points (4 Rings)</SelectItem>
-                        <SelectItem value="49">49 Points (Center + 8 + 16 + 24)</SelectItem>
+                        <SelectItem value="49">
+                          49 Points (Center + 8 + 16 + 24)
+                        </SelectItem>
                         <SelectItem value="55">55 Points (5 Rings)</SelectItem>
-                        <SelectItem value="61">61 Points (Center + 6 + 12 + 18 + 24)</SelectItem>
+                        <SelectItem value="61">
+                          61 Points (Center + 6 + 12 + 18 + 24)
+                        </SelectItem>
                         <SelectItem value="69">69 Points (5 Rings)</SelectItem>
                         <SelectItem value="73">73 Points (5 Rings)</SelectItem>
-                        <SelectItem value="85">85 Points (Center + 8 + 16 + 24 + 36)</SelectItem>
-                        <SelectItem value="91">91 Points (Center + 6 + 12 + 24 + 48)</SelectItem>
+                        <SelectItem value="85">
+                          85 Points (Center + 8 + 16 + 24 + 36)
+                        </SelectItem>
+                        <SelectItem value="91">
+                          91 Points (Center + 6 + 12 + 24 + 48)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -660,7 +696,9 @@ export default function OneTimeScanEnhanced() {
 
                 {waypointConfig.pattern === "line" && (
                   <div>
-                    <Label className="text-base font-medium">Linear Points</Label>
+                    <Label className="text-base font-medium">
+                      Linear Points
+                    </Label>
                     <Select
                       value={waypointConfig.count.toString()}
                       onValueChange={(value) =>
@@ -686,7 +724,9 @@ export default function OneTimeScanEnhanced() {
                 )}
 
                 <div>
-                  <Label className="text-base font-medium">Distance Between Pins</Label>
+                  <Label className="text-base font-medium">
+                    Distance Between Pins
+                  </Label>
                   <Select
                     value={waypointConfig.distanceBetween.toString()}
                     onValueChange={(value) =>
@@ -700,21 +740,41 @@ export default function OneTimeScanEnhanced() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0.1">0.1 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="0.25">0.25 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="0.5">0.5 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="0.75">0.75 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="0.1">
+                        0.1 {waypointConfig.unit}
+                      </SelectItem>
+                      <SelectItem value="0.25">
+                        0.25 {waypointConfig.unit}
+                      </SelectItem>
+                      <SelectItem value="0.5">
+                        0.5 {waypointConfig.unit}
+                      </SelectItem>
+                      <SelectItem value="0.75">
+                        0.75 {waypointConfig.unit}
+                      </SelectItem>
                       <SelectItem value="1">1 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="1.5">1.5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="1.5">
+                        1.5 {waypointConfig.unit}
+                      </SelectItem>
                       <SelectItem value="2">2 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="2.5">2.5 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="2.5">
+                        2.5 {waypointConfig.unit}
+                      </SelectItem>
                       <SelectItem value="3">3 {waypointConfig.unit}</SelectItem>
                       <SelectItem value="4">4 {waypointConfig.unit}</SelectItem>
                       <SelectItem value="5">5 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="7.5">7.5 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="10">10 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="15">15 {waypointConfig.unit}</SelectItem>
-                      <SelectItem value="20">20 {waypointConfig.unit}</SelectItem>
+                      <SelectItem value="7.5">
+                        7.5 {waypointConfig.unit}
+                      </SelectItem>
+                      <SelectItem value="10">
+                        10 {waypointConfig.unit}
+                      </SelectItem>
+                      <SelectItem value="15">
+                        15 {waypointConfig.unit}
+                      </SelectItem>
+                      <SelectItem value="20">
+                        20 {waypointConfig.unit}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -724,7 +784,12 @@ export default function OneTimeScanEnhanced() {
                   <div className="flex rounded-md border overflow-hidden mt-2">
                     <button
                       type="button"
-                      onClick={() => setWaypointConfig({ ...waypointConfig, unit: "kilometers" })}
+                      onClick={() =>
+                        setWaypointConfig({
+                          ...waypointConfig,
+                          unit: "kilometers",
+                        })
+                      }
                       className={`flex-1 px-3 py-2 text-sm font-medium border-r transition-colors ${
                         waypointConfig.unit === "kilometers"
                           ? "bg-blue-50 text-blue-700 border-blue-200"
@@ -735,7 +800,9 @@ export default function OneTimeScanEnhanced() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setWaypointConfig({ ...waypointConfig, unit: "miles" })}
+                      onClick={() =>
+                        setWaypointConfig({ ...waypointConfig, unit: "miles" })
+                      }
                       className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
                         waypointConfig.unit === "miles"
                           ? "bg-blue-50 text-blue-700"
@@ -990,18 +1057,28 @@ export default function OneTimeScanEnhanced() {
             </CardHeader>
             <CardContent>
               <GridMapTracker
-                center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
-                gridType={waypointConfig.pattern === "grid" ? "square" : "circle"}
+                center={
+                  selectedBusiness?.coordinates || {
+                    lat: 39.8283,
+                    lng: -98.5795,
+                  }
+                }
+                gridType={
+                  waypointConfig.pattern === "grid" ? "square" : "circle"
+                }
                 gridSize={
                   waypointConfig.pattern === "grid"
                     ? Math.sqrt(waypointConfig.count) // For square grids
                     : waypointConfig.count // For circle grids, use exact count
                 }
-                pinSpacing={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
+                pinSpacing={
+                  waypointConfig.distanceBetween *
+                  (waypointConfig.unit === "miles" ? 1609 : 1000)
+                }
                 rankings={{}}
-                disabledPoints={useMemo(() =>
-                  waypoints.filter(w => !w.enabled).map(w => w.id),
-                  [waypoints]
+                disabledPoints={useMemo(
+                  () => waypoints.filter((w) => !w.enabled).map((w) => w.id),
+                  [waypoints],
                 )}
                 onGridChange={useCallback((gridPoints) => {
                   // Only update waypoints on user interactions (drag, enable/disable)
@@ -1022,10 +1099,15 @@ export default function OneTimeScanEnhanced() {
 
               <div className="text-sm text-gray-600 mt-4">
                 <p className="mb-2">
-                  {selectedBusiness ? `📍 Interactive Grid: ${selectedBusiness.name}` : '🗺️ Select a business to center the search grid'}
+                  {selectedBusiness
+                    ? `📍 Interactive Grid: ${selectedBusiness.name}`
+                    : "🗺️ Select a business to center the search grid"}
                 </p>
                 {waypoints.length > 0 && (
-                  <p>📌 {enabledWaypointsCount} search locations configured - drag markers to adjust positions</p>
+                  <p>
+                    📌 {enabledWaypointsCount} search locations configured -
+                    drag markers to adjust positions
+                  </p>
                 )}
               </div>
             </CardContent>

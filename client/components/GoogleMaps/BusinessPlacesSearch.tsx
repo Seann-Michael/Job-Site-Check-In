@@ -62,7 +62,8 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<BusinessPlaceResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPlace, setSelectedPlace] = useState<BusinessPlaceResult | null>(null);
+  const [selectedPlace, setSelectedPlace] =
+    useState<BusinessPlaceResult | null>(null);
   const [apiKeyAvailable, setApiKeyAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,7 +75,9 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
       const apiKey = getGoogleMapsApiKey();
       setApiKeyAvailable(!!apiKey);
       if (!apiKey) {
-        console.warn("❌ BusinessPlacesSearch: Google Maps API key not configured.");
+        console.warn(
+          "❌ BusinessPlacesSearch: Google Maps API key not configured.",
+        );
       }
     };
 
@@ -126,44 +129,51 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
 
     try {
       await loadGoogleMapsAPI();
-      
+
       const service = new google.maps.places.PlacesService(
-        document.createElement('div')
+        document.createElement("div"),
       );
 
       // Search for business establishments
       const request: google.maps.places.TextSearchRequest = {
         query: query,
-        type: 'establishment',
+        type: "establishment",
         fields: [
-          'place_id',
-          'name',
-          'formatted_address',
-          'business_status',
-          'types',
-          'rating',
-          'user_ratings_total',
-          'formatted_phone_number',
-          'website',
-          'opening_hours',
-          'geometry',
-          'photos',
-          'url'
-        ]
+          "place_id",
+          "name",
+          "formatted_address",
+          "business_status",
+          "types",
+          "rating",
+          "user_ratings_total",
+          "formatted_phone_number",
+          "website",
+          "opening_hours",
+          "geometry",
+          "photos",
+          "url",
+        ],
       };
 
       service.textSearch(request, (results, status) => {
-        console.log("🏢 Business search - Status:", status, "Results:", results?.length);
+        console.log(
+          "🏢 Business search - Status:",
+          status,
+          "Results:",
+          results?.length,
+        );
 
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           const businessResults: BusinessPlaceResult[] = results
-            .filter(place => place.business_status === 'OPERATIONAL')
+            .filter((place) => place.business_status === "OPERATIONAL")
             .slice(0, 8)
-            .map(place => {
+            .map((place) => {
               // Extract CID from Google Maps URL if available
-              let cid = '';
+              let cid = "";
               if (place.url) {
-                const cidMatch = place.url.match(/!1s0x[a-f0-9]+:0x([a-f0-9]+)/);
+                const cidMatch = place.url.match(
+                  /!1s0x[a-f0-9]+:0x([a-f0-9]+)/,
+                );
                 if (cidMatch) {
                   // Convert hex to decimal for CID
                   cid = parseInt(cidMatch[1], 16).toString();
@@ -171,10 +181,10 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
               }
 
               return {
-                placeId: place.place_id || '',
-                name: place.name || '',
-                formattedAddress: place.formatted_address || '',
-                businessStatus: place.business_status || '',
+                placeId: place.place_id || "",
+                name: place.name || "",
+                formattedAddress: place.formatted_address || "",
+                businessStatus: place.business_status || "",
                 types: place.types || [],
                 rating: place.rating,
                 userRatingsTotal: place.user_ratings_total,
@@ -183,15 +193,20 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
                 openingHours: place.opening_hours?.weekday_text,
                 lat: place.geometry?.location?.lat() || 0,
                 lng: place.geometry?.location?.lng() || 0,
-                photos: place.photos?.slice(0, 1).map(photo =>
-                  photo.getUrl({ maxWidth: 200, maxHeight: 200 })
-                ),
+                photos: place.photos
+                  ?.slice(0, 1)
+                  .map((photo) =>
+                    photo.getUrl({ maxWidth: 200, maxHeight: 200 }),
+                  ),
                 url: place.url,
-                cid: cid
+                cid: cid,
               };
             });
 
-          console.log("✅ Business search results processed:", businessResults.length);
+          console.log(
+            "✅ Business search results processed:",
+            businessResults.length,
+          );
           setSuggestions(businessResults);
         } else {
           console.log("❌ No business results or bad status:", status);
@@ -251,12 +266,12 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
   };
 
   const formatBusinessTypes = (types: string[]) => {
-    const relevantTypes = types.filter(type => 
-      !['establishment', 'point_of_interest'].includes(type)
-    ).slice(0, 2);
-    
-    return relevantTypes.map(type => 
-      type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    const relevantTypes = types
+      .filter((type) => !["establishment", "point_of_interest"].includes(type))
+      .slice(0, 2);
+
+    return relevantTypes.map((type) =>
+      type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
     );
   };
 
@@ -302,7 +317,9 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => selectedPlace.url && window.open(selectedPlace.url, "_blank")}
+                onClick={() =>
+                  selectedPlace.url && window.open(selectedPlace.url, "_blank")
+                }
                 className="h-6 w-6 p-0"
                 title="View on Google Maps"
               >
@@ -348,7 +365,8 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
                 Business search disabled
               </Badge>
               <p className="text-xs text-muted-foreground">
-                Configure Google Places API key in Super Admin → API → Third-Party APIs
+                Configure Google Places API key in Super Admin → API →
+                Third-Party APIs
               </p>
             </div>
           )}
@@ -382,7 +400,7 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <MapPin className="h-3 w-3" />
                     <span className="truncate">{place.formattedAddress}</span>
@@ -419,7 +437,9 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
             <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-600">
               <div className="flex items-center gap-2">
                 <Search className="h-3 w-3" />
-                <span>Can't find your business? You can type it manually above.</span>
+                <span>
+                  Can't find your business? You can type it manually above.
+                </span>
               </div>
             </div>
           </div>
@@ -435,18 +455,29 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
                 <CheckCircle className="h-4 w-4" />
                 <span className="font-medium">Business Profile Connected</span>
               </div>
-              
+
               <div className="grid gap-2 text-sm">
-                <div><strong>Name:</strong> {selectedPlace.name}</div>
-                <div><strong>Address:</strong> {selectedPlace.formattedAddress}</div>
+                <div>
+                  <strong>Name:</strong> {selectedPlace.name}
+                </div>
+                <div>
+                  <strong>Address:</strong> {selectedPlace.formattedAddress}
+                </div>
                 {selectedPlace.phoneNumber && (
-                  <div><strong>Phone:</strong> {selectedPlace.phoneNumber}</div>
+                  <div>
+                    <strong>Phone:</strong> {selectedPlace.phoneNumber}
+                  </div>
                 )}
                 {selectedPlace.website && (
-                  <div><strong>Website:</strong> {selectedPlace.website}</div>
+                  <div>
+                    <strong>Website:</strong> {selectedPlace.website}
+                  </div>
                 )}
                 {selectedPlace.rating && (
-                  <div><strong>Rating:</strong> {selectedPlace.rating} stars ({selectedPlace.userRatingsTotal} reviews)</div>
+                  <div>
+                    <strong>Rating:</strong> {selectedPlace.rating} stars (
+                    {selectedPlace.userRatingsTotal} reviews)
+                  </div>
                 )}
               </div>
 
@@ -455,9 +486,17 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
                   Technical Details
                 </summary>
                 <div className="mt-1 p-2 bg-white rounded text-muted-foreground space-y-1">
-                  <div><strong>Place ID:</strong> {selectedPlace.placeId}</div>
-                  <div><strong>Coordinates:</strong> {selectedPlace.lat.toFixed(6)}, {selectedPlace.lng.toFixed(6)}</div>
-                  <div><strong>Business Status:</strong> {selectedPlace.businessStatus}</div>
+                  <div>
+                    <strong>Place ID:</strong> {selectedPlace.placeId}
+                  </div>
+                  <div>
+                    <strong>Coordinates:</strong> {selectedPlace.lat.toFixed(6)}
+                    , {selectedPlace.lng.toFixed(6)}
+                  </div>
+                  <div>
+                    <strong>Business Status:</strong>{" "}
+                    {selectedPlace.businessStatus}
+                  </div>
                 </div>
               </details>
             </div>

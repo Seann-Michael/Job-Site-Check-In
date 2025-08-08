@@ -143,7 +143,7 @@ export const useGooglePlacesAutocomplete = (
 };
 
 // Global location cache to avoid repeated permission requests
-let globalLocationCache: {lat: number, lng: number} | null = null;
+let globalLocationCache: { lat: number; lng: number } | null = null;
 let locationRequestAttempted = false;
 
 // Hook for address search with suggestions
@@ -151,7 +151,10 @@ export const useAddressSearch = () => {
   const [suggestions, setSuggestions] = useState<PlaceResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(globalLocationCache);
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(globalLocationCache);
 
   // Subtle location detection - only attempts once globally
   useEffect(() => {
@@ -171,51 +174,68 @@ export const useAddressSearch = () => {
       locationRequestAttempted = true;
 
       // First check permission status to avoid prompt if already denied
-      navigator.permissions.query({name: 'geolocation'}).then((result) => {
-        if (result.state === 'granted') {
-          // Permission already granted, get location
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const location = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-              };
-              globalLocationCache = location;
-              setUserLocation(location);
-              console.log("📍 User location obtained for address search bias:", location);
-            },
-            (error) => {
-              console.log("🌍 Geolocation failed silently, using default bias");
-            },
-            { timeout: 5000, maximumAge: 600000 } // 10 min cache
+      navigator.permissions
+        .query({ name: "geolocation" })
+        .then((result) => {
+          if (result.state === "granted") {
+            // Permission already granted, get location
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const location = {
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                };
+                globalLocationCache = location;
+                setUserLocation(location);
+                console.log(
+                  "📍 User location obtained for address search bias:",
+                  location,
+                );
+              },
+              (error) => {
+                console.log(
+                  "🌍 Geolocation failed silently, using default bias",
+                );
+              },
+              { timeout: 5000, maximumAge: 600000 }, // 10 min cache
+            );
+          } else if (result.state === "prompt") {
+            // Only request if state is prompt (not denied)
+            // This is the first time, so it's reasonable to ask
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const location = {
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                };
+                globalLocationCache = location;
+                setUserLocation(location);
+                console.log(
+                  "📍 User location obtained for address search bias:",
+                  location,
+                );
+              },
+              (error) => {
+                console.log(
+                  "🌍 Geolocation permission denied or failed, using default bias",
+                );
+              },
+              { timeout: 5000, maximumAge: 600000 }, // 10 min cache
+            );
+          } else {
+            console.log("🌍 Geolocation permission denied, using default bias");
+          }
+        })
+        .catch(() => {
+          // Fallback for browsers that don't support permissions API
+          console.log(
+            "🌍 Permissions API not supported, skipping geolocation to avoid prompts",
           );
-        } else if (result.state === 'prompt') {
-          // Only request if state is prompt (not denied)
-          // This is the first time, so it's reasonable to ask
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const location = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-              };
-              globalLocationCache = location;
-              setUserLocation(location);
-              console.log("📍 User location obtained for address search bias:", location);
-            },
-            (error) => {
-              console.log("🌍 Geolocation permission denied or failed, using default bias");
-            },
-            { timeout: 5000, maximumAge: 600000 } // 10 min cache
-          );
-        } else {
-          console.log("🌍 Geolocation permission denied, using default bias");
-        }
-      }).catch(() => {
-        // Fallback for browsers that don't support permissions API
-        console.log("🌍 Permissions API not supported, skipping geolocation to avoid prompts");
-      });
+        });
     } else {
-      console.log("🌍 Geolocation not supported or permissions API not available");
+      console.log(
+        "🌍 Geolocation not supported or permissions API not available",
+      );
     }
   }, []);
 
@@ -263,7 +283,10 @@ export const useAddressSearch = () => {
 
       // Add location bias if user location is available
       if (userLocation) {
-        requestOptions.location = new google.maps.LatLng(userLocation.lat, userLocation.lng);
+        requestOptions.location = new google.maps.LatLng(
+          userLocation.lat,
+          userLocation.lng,
+        );
         requestOptions.radius = 50000; // 50km radius for bias
         console.log("📍 Using location bias:", userLocation);
       }
@@ -276,11 +299,13 @@ export const useAddressSearch = () => {
         // Enhance component restrictions for specific state
         requestOptions.componentRestrictions = {
           country: "us",
-          administrativeArea: state
+          administrativeArea: state,
         };
       }
 
-      service.getPlacePredictions(requestOptions, async (predictions, status) => {
+      service.getPlacePredictions(
+        requestOptions,
+        async (predictions, status) => {
           console.log(
             "📍 Prediction callback - Status:",
             status,
@@ -295,15 +320,19 @@ export const useAddressSearch = () => {
             console.log("✅ Predictions received, processing...");
 
             // Enhanced processing with scoring
-            const resultsWithScores: Array<PlaceResult & {
-              distance?: number,
-              relevanceScore: number,
-              matchScore: number
-            }> = [];
+            const resultsWithScores: Array<
+              PlaceResult & {
+                distance?: number;
+                relevanceScore: number;
+                matchScore: number;
+              }
+            > = [];
 
             for (const prediction of predictions.slice(0, 8)) {
               console.log("🌍 Geocoding prediction:", prediction.description);
-              const geocodeResult = await geocodeAddress(prediction.description);
+              const geocodeResult = await geocodeAddress(
+                prediction.description,
+              );
 
               if (geocodeResult) {
                 // Calculate relevance score based on text matching
@@ -325,7 +354,7 @@ export const useAddressSearch = () => {
 
                 // Word boundary matches
                 const queryWords = queryLower.split(/\s+/);
-                queryWords.forEach(word => {
+                queryWords.forEach((word) => {
                   if (word.length > 2 && description.includes(word)) {
                     matchScore += 50;
                   }
@@ -335,15 +364,21 @@ export const useAddressSearch = () => {
                 let distance = undefined;
                 if (userLocation) {
                   const R = 3959; // Earth's radius in miles
-                  const dLat = (geocodeResult.lat - userLocation.lat) * Math.PI / 180;
-                  const dLng = (geocodeResult.lng - userLocation.lng) * Math.PI / 180;
-                  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                    Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(geocodeResult.lat * Math.PI / 180) *
-                    Math.sin(dLng/2) * Math.sin(dLng/2);
-                  distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                  const dLat =
+                    ((geocodeResult.lat - userLocation.lat) * Math.PI) / 180;
+                  const dLng =
+                    ((geocodeResult.lng - userLocation.lng) * Math.PI) / 180;
+                  const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos((userLocation.lat * Math.PI) / 180) *
+                      Math.cos((geocodeResult.lat * Math.PI) / 180) *
+                      Math.sin(dLng / 2) *
+                      Math.sin(dLng / 2);
+                  distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
                   // Distance bonus (closer = higher score)
-                  if (distance < 10) relevanceScore += 50;  // Within 10 miles
+                  if (distance < 10)
+                    relevanceScore += 50; // Within 10 miles
                   else if (distance < 50) relevanceScore += 25; // Within 50 miles
                 }
 
@@ -351,10 +386,12 @@ export const useAddressSearch = () => {
                   ...geocodeResult,
                   distance,
                   relevanceScore,
-                  matchScore
+                  matchScore,
                 });
 
-                console.log(`✅ Geocoded: ${prediction.description} | Score: ${relevanceScore + matchScore} | Distance: ${distance?.toFixed(1) || 'N/A'} mi`);
+                console.log(
+                  `✅ Geocoded: ${prediction.description} | Score: ${relevanceScore + matchScore} | Distance: ${distance?.toFixed(1) || "N/A"} mi`,
+                );
               }
             }
 
@@ -366,9 +403,15 @@ export const useAddressSearch = () => {
                 return scoreB - scoreA;
               })
               .slice(0, 6) // Top 6 results
-              .map(({ distance, relevanceScore, matchScore, ...result }) => result); // Remove scoring properties
+              .map(
+                ({ distance, relevanceScore, matchScore, ...result }) => result,
+              ); // Remove scoring properties
 
-            console.log("📍 Final sorted results:", sortedResults.length, "suggestions");
+            console.log(
+              "📍 Final sorted results:",
+              sortedResults.length,
+              "suggestions",
+            );
             setSuggestions(sortedResults);
           } else {
             console.log("❌ No predictions or bad status:", status);
@@ -473,28 +516,28 @@ export const useBusinessPlacesSearch = () => {
       console.log("✅ Google Maps API loaded successfully");
 
       const service = new google.maps.places.PlacesService(
-        document.createElement('div')
+        document.createElement("div"),
       );
       console.log("🏢 PlacesService created, making text search request...");
 
       const request: google.maps.places.TextSearchRequest = {
         query: query,
-        type: 'establishment',
+        type: "establishment",
         fields: [
-          'place_id',
-          'name',
-          'formatted_address',
-          'business_status',
-          'types',
-          'rating',
-          'user_ratings_total',
-          'formatted_phone_number',
-          'website',
-          'opening_hours',
-          'geometry',
-          'photos',
-          'url'
-        ]
+          "place_id",
+          "name",
+          "formatted_address",
+          "business_status",
+          "types",
+          "rating",
+          "user_ratings_total",
+          "formatted_phone_number",
+          "website",
+          "opening_hours",
+          "geometry",
+          "photos",
+          "url",
+        ],
       };
 
       service.textSearch(request, (results, status) => {
@@ -505,20 +548,17 @@ export const useBusinessPlacesSearch = () => {
           results?.length,
         );
 
-        if (
-          status === google.maps.places.PlacesServiceStatus.OK &&
-          results
-        ) {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           console.log("✅ Business results received, processing...");
 
           const businessResults = results
-            .filter(place => place.business_status === 'OPERATIONAL')
+            .filter((place) => place.business_status === "OPERATIONAL")
             .slice(0, 8)
-            .map(place => ({
-              placeId: place.place_id || '',
-              name: place.name || '',
-              formattedAddress: place.formatted_address || '',
-              businessStatus: place.business_status || '',
+            .map((place) => ({
+              placeId: place.place_id || "",
+              name: place.name || "",
+              formattedAddress: place.formatted_address || "",
+              businessStatus: place.business_status || "",
               types: place.types || [],
               rating: place.rating,
               userRatingsTotal: place.user_ratings_total,
@@ -527,13 +567,19 @@ export const useBusinessPlacesSearch = () => {
               openingHours: place.opening_hours?.weekday_text,
               lat: place.geometry?.location?.lat() || 0,
               lng: place.geometry?.location?.lng() || 0,
-              photos: place.photos?.slice(0, 1).map(photo =>
-                photo.getUrl({ maxWidth: 200, maxHeight: 200 })
-              ),
-              url: place.url
+              photos: place.photos
+                ?.slice(0, 1)
+                .map((photo) =>
+                  photo.getUrl({ maxWidth: 200, maxHeight: 200 }),
+                ),
+              url: place.url,
             }));
 
-          console.log("📍 Final business results:", businessResults.length, "businesses");
+          console.log(
+            "📍 Final business results:",
+            businessResults.length,
+            "businesses",
+          );
           setSuggestions(businessResults);
         } else {
           console.log("❌ No business results or bad status:", status);

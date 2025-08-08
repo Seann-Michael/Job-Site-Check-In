@@ -35,10 +35,10 @@ function getSubAccountId(): string {
   try {
     // Check if we're in Builder.io editor environment
     const isBuilderIoEditor =
-      typeof window !== 'undefined' &&
-      (window.location.href.includes('builder.io') ||
-       window.parent !== window ||
-       document.referrer.includes('builder.io'));
+      typeof window !== "undefined" &&
+      (window.location.href.includes("builder.io") ||
+        window.parent !== window ||
+        document.referrer.includes("builder.io"));
 
     if (isBuilderIoEditor) {
       return "BUILDER_IO_DEFAULT";

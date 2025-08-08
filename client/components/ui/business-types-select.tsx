@@ -39,7 +39,7 @@ const BUSINESS_TYPE_OPTIONS = [
   { value: "agriculture", label: "Agriculture" },
   { value: "art", label: "Arts & Culture" },
   { value: "government", label: "Government" },
-  { value: "other", label: "Other" }
+  { value: "other", label: "Other" },
 ];
 
 interface BusinessTypesSelectProps {
@@ -57,40 +57,46 @@ export const BusinessTypesSelect: React.FC<BusinessTypesSelectProps> = ({
   label = "Business Types",
   placeholder = "Select business categories",
   disabled = false,
-  maxSelections = 5
+  maxSelections = 5,
 }) => {
   const [selectedType, setSelectedType] = useState("");
   const [customType, setCustomType] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
   const addBusinessType = (typeValue: string) => {
-    if (typeValue && !values.includes(typeValue) && values.length < maxSelections) {
+    if (
+      typeValue &&
+      !values.includes(typeValue) &&
+      values.length < maxSelections
+    ) {
       onValuesChange([...values, typeValue]);
     }
     setSelectedType("");
   };
 
   const removeBusinessType = (typeValue: string) => {
-    onValuesChange(values.filter(v => v !== typeValue));
+    onValuesChange(values.filter((v) => v !== typeValue));
   };
 
   const addCustomType = () => {
     if (customType.trim() && !values.includes(customType.trim())) {
-      addBusinessType(customType.trim().toLowerCase().replace(/\s+/g, '-'));
+      addBusinessType(customType.trim().toLowerCase().replace(/\s+/g, "-"));
       setCustomType("");
       setShowCustomInput(false);
     }
   };
 
   const getTypeLabel = (value: string) => {
-    const option = BUSINESS_TYPE_OPTIONS.find(opt => opt.value === value);
-    return option ? option.label : value.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const option = BUSINESS_TYPE_OPTIONS.find((opt) => opt.value === value);
+    return option
+      ? option.label
+      : value.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   return (
     <div className="space-y-3">
       <Label>{label}</Label>
-      
+
       {/* Selected Types Display */}
       {values.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -124,16 +130,16 @@ export const BusinessTypesSelect: React.FC<BusinessTypesSelectProps> = ({
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent>
-                {BUSINESS_TYPE_OPTIONS
-                  .filter(option => !values.includes(option.value))
-                  .map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                {BUSINESS_TYPE_OPTIONS.filter(
+                  (option) => !values.includes(option.value),
+                ).map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            
+
             <Button
               type="button"
               variant="outline"
@@ -183,7 +189,8 @@ export const BusinessTypesSelect: React.FC<BusinessTypesSelectProps> = ({
       )}
 
       <p className="text-xs text-muted-foreground">
-        Select up to {maxSelections} business categories that best describe your business.
+        Select up to {maxSelections} business categories that best describe your
+        business.
         {values.length >= maxSelections && " (Maximum reached)"}
       </p>
     </div>

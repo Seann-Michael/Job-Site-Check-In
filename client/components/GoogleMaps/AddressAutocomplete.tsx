@@ -50,13 +50,25 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   useEffect(() => {
     const checkApiKey = () => {
       const apiKey = getGoogleMapsApiKey();
-      console.log("🔍 AddressAutocomplete: API key check result:", apiKey ? "FOUND" : "NOT_FOUND");
-      console.log("🔍 AddressAutocomplete: API key value:", apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}` : "NONE");
+      console.log(
+        "🔍 AddressAutocomplete: API key check result:",
+        apiKey ? "FOUND" : "NOT_FOUND",
+      );
+      console.log(
+        "🔍 AddressAutocomplete: API key value:",
+        apiKey
+          ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}`
+          : "NONE",
+      );
       setApiKeyAvailable(!!apiKey);
       if (!apiKey) {
-        console.warn("❌ AddressAutocomplete: Google Maps API key not configured. Address autocomplete disabled.");
+        console.warn(
+          "❌ AddressAutocomplete: Google Maps API key not configured. Address autocomplete disabled.",
+        );
       } else {
-        console.log("✅ AddressAutocomplete: API key available, autocomplete enabled");
+        console.log(
+          "✅ AddressAutocomplete: API key available, autocomplete enabled",
+        );
       }
     };
 
@@ -74,13 +86,21 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (inputValue && inputValue.length >= 3 && apiKeyAvailable) {
-        console.log("🔍 AddressAutocomplete: Searching for address:", inputValue);
+        console.log(
+          "🔍 AddressAutocomplete: Searching for address:",
+          inputValue,
+        );
         searchAddress(inputValue);
         setShowSuggestions(true);
       } else if (!apiKeyAvailable) {
-        console.log("❌ AddressAutocomplete: Search skipped - API key not available");
+        console.log(
+          "❌ AddressAutocomplete: Search skipped - API key not available",
+        );
       } else if (inputValue && inputValue.length < 3) {
-        console.log("⚠️ AddressAutocomplete: Input too short for search:", inputValue);
+        console.log(
+          "⚠️ AddressAutocomplete: Input too short for search:",
+          inputValue,
+        );
       }
     }, 300);
 
@@ -107,7 +127,10 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     const newValue = e.target.value;
     console.log("📝 AddressAutocomplete: Input changed to:", newValue);
     console.log("📝 AddressAutocomplete: API key available:", apiKeyAvailable);
-    console.log("📝 AddressAutocomplete: Suggestions count:", suggestions.length);
+    console.log(
+      "📝 AddressAutocomplete: Suggestions count:",
+      suggestions.length,
+    );
     console.log("📝 AddressAutocomplete: Is loading:", isLoading);
     console.log("📝 AddressAutocomplete: Error:", error);
 
@@ -122,9 +145,13 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
       clearSuggestions();
       setShowSuggestions(false);
       if (newValue.length < 3) {
-        console.log("⚠️ AddressAutocomplete: Input too short, clearing suggestions");
+        console.log(
+          "⚠️ AddressAutocomplete: Input too short, clearing suggestions",
+        );
       } else if (!apiKeyAvailable) {
-        console.log("❌ AddressAutocomplete: API key not available, cannot search");
+        console.log(
+          "❌ AddressAutocomplete: API key not available, cannot search",
+        );
       }
     }
   };
@@ -301,11 +328,11 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           <div
             ref={suggestionsRef}
             className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
-            style={{ fontFamily: 'Roboto, Arial, sans-serif' }}
+            style={{ fontFamily: "Roboto, Arial, sans-serif" }}
           >
             {suggestions.map((place, index) => (
               <button
-                key={`${place.placeId || 'unknown'}-${index}`}
+                key={`${place.placeId || "unknown"}-${index}`}
                 type="button"
                 className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
                 onClick={() => handleSuggestionSelect(place)}
@@ -328,7 +355,9 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <Search className="h-3 w-3" />
-                  <span>Can't find your address? You can type it manually above.</span>
+                  <span>
+                    Can't find your address? You can type it manually above.
+                  </span>
                 </div>
               </div>
             </div>
@@ -361,8 +390,13 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               Technical Details
             </summary>
             <div className="mt-1 p-2 bg-muted rounded text-muted-foreground space-y-1">
-              <div><strong>Coordinates:</strong> {selectedPlace.lat.toFixed(6)}, {selectedPlace.lng.toFixed(6)}</div>
-              <div><strong>Formatted:</strong> {selectedPlace.formattedAddress}</div>
+              <div>
+                <strong>Coordinates:</strong> {selectedPlace.lat.toFixed(6)},{" "}
+                {selectedPlace.lng.toFixed(6)}
+              </div>
+              <div>
+                <strong>Formatted:</strong> {selectedPlace.formattedAddress}
+              </div>
             </div>
           </details>
         </div>

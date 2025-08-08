@@ -4,23 +4,23 @@ import { GridOverlayMap } from "@/components/GoogleMaps/GridOverlayMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { 
-  Grid3X3, 
-  MapPin, 
-  Target, 
+import {
+  Grid3X3,
+  MapPin,
+  Target,
   Settings,
   Download,
-  Upload
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,25 +32,45 @@ interface GridPoint {
 }
 
 export default function GridOverlayDemo() {
-  const [gridCenter, setGridCenter] = useState({ lat: 40.7128, lng: -74.0060 }); // NYC
+  const [gridCenter, setGridCenter] = useState({ lat: 40.7128, lng: -74.006 }); // NYC
   const [gridSize, setGridSize] = useState(5);
   const [gridRadius, setGridRadius] = useState(5000);
   const [showGridLines, setShowGridLines] = useState(true);
   const [showRankingColors, setShowRankingColors] = useState(true);
   const [editable, setEditable] = useState(true);
   const [rankings, setRankings] = useState<Record<string, number | null>>({
-    A1: 1, A2: 5, A3: 12, A4: 8, A5: 3,
-    B1: 15, B2: 2, B3: null, B4: 7, B5: 18,
-    C1: 9, C2: null, C3: 4, C4: 14, C5: 6,
-    D1: 11, D2: 13, D3: 1, D4: null, D5: 16,
-    E1: 20, E2: 10, E3: 17, E4: 19, E5: null,
+    A1: 1,
+    A2: 5,
+    A3: 12,
+    A4: 8,
+    A5: 3,
+    B1: 15,
+    B2: 2,
+    B3: null,
+    B4: 7,
+    B5: 18,
+    C1: 9,
+    C2: null,
+    C3: 4,
+    C4: 14,
+    C5: 6,
+    D1: 11,
+    D2: 13,
+    D3: 1,
+    D4: null,
+    D5: 16,
+    E1: 20,
+    E2: 10,
+    E3: 17,
+    E4: 19,
+    E5: null,
   });
 
   const [currentGrid, setCurrentGrid] = useState<GridPoint[]>([]);
 
   // Preset locations
   const presetLocations = [
-    { name: "New York City", center: { lat: 40.7128, lng: -74.0060 } },
+    { name: "New York City", center: { lat: 40.7128, lng: -74.006 } },
     { name: "Los Angeles", center: { lat: 34.0522, lng: -118.2437 } },
     { name: "Chicago", center: { lat: 41.8781, lng: -87.6298 } },
     { name: "Miami", center: { lat: 25.7617, lng: -80.1918 } },
@@ -63,9 +83,9 @@ export default function GridOverlayDemo() {
   };
 
   const handleRankingUpdate = (pointId: string, ranking: number | null) => {
-    setRankings(prev => ({
+    setRankings((prev) => ({
       ...prev,
-      [pointId]: ranking
+      [pointId]: ranking,
     }));
   };
 
@@ -78,33 +98,34 @@ export default function GridOverlayDemo() {
       rankings,
       timestamp: new Date().toISOString(),
     };
-    
+
     const blob = new Blob([JSON.stringify(gridData, null, 2)], {
-      type: 'application/json'
+      type: "application/json",
     });
-    
+
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `grid-overlay-${gridSize}x${gridSize}-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    
+
     toast.success("Grid configuration exported");
   };
 
   const generateRandomRankings = () => {
     const newRankings: Record<string, number | null> = {};
     const totalPoints = gridSize * gridSize;
-    
+
     for (let row = 0; row < gridSize; row++) {
       for (let col = 0; col < gridSize; col++) {
         const id = `${String.fromCharCode(65 + row)}${col + 1}`;
         // 70% chance of having a ranking
-        newRankings[id] = Math.random() > 0.3 ? Math.floor(Math.random() * 20) + 1 : null;
+        newRankings[id] =
+          Math.random() > 0.3 ? Math.floor(Math.random() * 20) + 1 : null;
       }
     }
-    
+
     setRankings(newRankings);
     toast.success("Random rankings generated");
   };
@@ -135,7 +156,8 @@ export default function GridOverlayDemo() {
             </h1>
           </div>
           <p className="text-gray-600">
-            Interactive grid overlay system for Google Maps with draggable markers, ranking visualization, and grid line connections.
+            Interactive grid overlay system for Google Maps with draggable
+            markers, ranking visualization, and grid line connections.
           </p>
         </div>
 
@@ -153,7 +175,10 @@ export default function GridOverlayDemo() {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Grid Size</Label>
-                  <Select value={gridSize.toString()} onValueChange={(v) => setGridSize(parseInt(v))}>
+                  <Select
+                    value={gridSize.toString()}
+                    onValueChange={(v) => setGridSize(parseInt(v))}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -171,22 +196,28 @@ export default function GridOverlayDemo() {
                   <Input
                     type="number"
                     value={gridRadius}
-                    onChange={(e) => setGridRadius(parseInt(e.target.value) || 5000)}
+                    onChange={(e) =>
+                      setGridRadius(parseInt(e.target.value) || 5000)
+                    }
                     placeholder="5000"
                   />
                 </div>
 
                 <div>
                   <Label>Location Preset</Label>
-                  <Select onValueChange={(value) => {
-                    const location = presetLocations.find(l => l.name === value);
-                    if (location) setGridCenter(location.center);
-                  }}>
+                  <Select
+                    onValueChange={(value) => {
+                      const location = presetLocations.find(
+                        (l) => l.name === value,
+                      );
+                      if (location) setGridCenter(location.center);
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose location..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {presetLocations.map(location => (
+                      {presetLocations.map((location) => (
                         <SelectItem key={location.name} value={location.name}>
                           {location.name}
                         </SelectItem>
@@ -235,24 +266,24 @@ export default function GridOverlayDemo() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button 
-                  onClick={generateRandomRankings} 
-                  className="w-full" 
+                <Button
+                  onClick={generateRandomRankings}
+                  className="w-full"
                   variant="outline"
                 >
                   Generate Random Rankings
                 </Button>
-                
-                <Button 
-                  onClick={clearAllRankings} 
-                  className="w-full" 
+
+                <Button
+                  onClick={clearAllRankings}
+                  className="w-full"
                   variant="outline"
                 >
                   Clear All Rankings
                 </Button>
 
-                <Button 
-                  onClick={exportGrid} 
+                <Button
+                  onClick={exportGrid}
                   className="w-full"
                   variant="default"
                 >
@@ -278,21 +309,24 @@ export default function GridOverlayDemo() {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Ranked Points:</span>
                   <Badge variant="default">
-                    {Object.values(rankings).filter(r => r !== null).length}
+                    {Object.values(rankings).filter((r) => r !== null).length}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Average Rank:</span>
                   <Badge variant="secondary">
                     {Object.values(rankings)
-                      .filter(r => r !== null)
-                      .reduce((sum, r) => sum + (r || 0), 0) / 
-                     Object.values(rankings).filter(r => r !== null).length || 0}
+                      .filter((r) => r !== null)
+                      .reduce((sum, r) => sum + (r || 0), 0) /
+                      Object.values(rankings).filter((r) => r !== null)
+                        .length || 0}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Grid Radius:</span>
-                  <Badge variant="outline">{(gridRadius / 1000).toFixed(1)}km</Badge>
+                  <Badge variant="outline">
+                    {(gridRadius / 1000).toFixed(1)}km
+                  </Badge>
                 </div>
               </CardContent>
             </Card>

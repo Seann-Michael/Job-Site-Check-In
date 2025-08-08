@@ -139,7 +139,11 @@ export default function Index() {
           console.warn("No projects found, forcing regeneration...");
           mockDataService.forceReinitialize();
           const newProjects = mockDataService.getProjects();
-          console.log("After force regeneration:", newProjects.length, "projects");
+          console.log(
+            "After force regeneration:",
+            newProjects.length,
+            "projects",
+          );
           setProjects(newProjects);
           setFilteredProjects(newProjects.filter((p) => !p.archived));
         } else {

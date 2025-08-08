@@ -29,7 +29,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -90,10 +92,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   return (
     <div className="space-y-2">
       {label && <Label>{label}</Label>}
-      
+
       {/* Preview */}
       {value && (
-        <div className={`border rounded-lg overflow-hidden ${previewClassName} relative group`}>
+        <div
+          className={`border rounded-lg overflow-hidden ${previewClassName} relative group`}
+        >
           {accept === "image/*" ? (
             <img
               src={value}
@@ -105,7 +109,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               <ImageIcon className="h-8 w-8 text-gray-400" />
             </div>
           )}
-          
+
           {/* Remove button overlay */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center">
             <Button
@@ -133,13 +137,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           <Upload className="h-4 w-4" />
           {isUploading ? "Uploading..." : value ? "Change" : "Upload"}
         </Button>
-        
+
         {value && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleRemove}
-          >
+          <Button type="button" variant="outline" onClick={handleRemove}>
             Remove
           </Button>
         )}

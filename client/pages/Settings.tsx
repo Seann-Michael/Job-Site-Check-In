@@ -659,7 +659,9 @@ export default function Settings() {
                       <FileUpload
                         label="Business Logo"
                         value={settings.businessLogo || ""}
-                        onChange={(fileUrl) => updateSetting("businessLogo", fileUrl)}
+                        onChange={(fileUrl) =>
+                          updateSetting("businessLogo", fileUrl)
+                        }
                         accept="image/*"
                         maxSize={5}
                         description="Upload a logo for your business (max 5MB)"
@@ -671,22 +673,32 @@ export default function Settings() {
                       <div className="sm:col-span-2">
                         <GoogleBusinessProfileFinder
                           onProfileFound={(profile) => {
-                            console.log("🏢 Google Business Profile found:", profile);
+                            console.log(
+                              "🏢 Google Business Profile found:",
+                              profile,
+                            );
 
                             // Auto-populate all business information
                             updateSetting("businessName", profile.name);
 
                             // Parse and update address information
                             if (profile.formattedAddress) {
-                              const addressParts = profile.formattedAddress.split(", ");
-                              const fullAddress = addressParts.slice(0, -2).join(", ");
-                              const city = addressParts[addressParts.length - 2];
-                              const stateZip = addressParts[addressParts.length - 1];
+                              const addressParts =
+                                profile.formattedAddress.split(", ");
+                              const fullAddress = addressParts
+                                .slice(0, -2)
+                                .join(", ");
+                              const city =
+                                addressParts[addressParts.length - 2];
+                              const stateZip =
+                                addressParts[addressParts.length - 1];
 
                               let state = "";
                               let zipCode = "";
                               if (stateZip) {
-                                const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+                                const stateZipMatch = stateZip.match(
+                                  /^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/,
+                                );
                                 if (stateZipMatch) {
                                   state = stateZipMatch[1];
                                   zipCode = stateZipMatch[2];
@@ -697,7 +709,10 @@ export default function Settings() {
                                 }
                               }
 
-                              updateSetting("addressSearch", profile.formattedAddress);
+                              updateSetting(
+                                "addressSearch",
+                                profile.formattedAddress,
+                              );
                               updateSetting("address", fullAddress || "");
                               updateSetting("city", city || "");
                               updateSetting("state", state);
@@ -720,50 +735,65 @@ export default function Settings() {
                             // Store Google-specific data
                             updateSetting("googlePlaceId", profile.placeId);
                             updateSetting("googleCid", profile.cid || "");
-                            updateSetting("googleBusinessUrl", profile.url || "");
-                            updateSetting("businessRating", profile.rating || 0);
-                            updateSetting("businessReviewsTotal", profile.userRatingsTotal || 0);
-                            updateSetting("businessHours", profile.openingHours || []);
+                            updateSetting(
+                              "googleBusinessUrl",
+                              profile.url || "",
+                            );
+                            updateSetting(
+                              "businessRating",
+                              profile.rating || 0,
+                            );
+                            updateSetting(
+                              "businessReviewsTotal",
+                              profile.userRatingsTotal || 0,
+                            );
+                            updateSetting(
+                              "businessHours",
+                              profile.openingHours || [],
+                            );
 
                             // Auto-detect business types from Google Places types
                             if (profile.types && profile.types.length > 0) {
                               const typeMapping: { [key: string]: string } = {
-                                'restaurant': 'restaurant',
-                                'food': 'food',
-                                'meal_takeaway': 'restaurant',
-                                'store': 'retail',
-                                'clothing_store': 'retail',
-                                'shopping_mall': 'shopping',
-                                'car_dealer': 'automotive',
-                                'car_repair': 'automotive',
-                                'gas_station': 'automotive',
-                                'hospital': 'healthcare',
-                                'dentist': 'healthcare',
-                                'doctor': 'healthcare',
-                                'pharmacy': 'healthcare',
-                                'beauty_salon': 'beauty',
-                                'spa': 'beauty',
-                                'hair_care': 'beauty',
-                                'gym': 'fitness',
-                                'health': 'fitness',
-                                'real_estate_agency': 'real-estate',
-                                'lawyer': 'legal',
-                                'accounting': 'financial',
-                                'bank': 'financial',
-                                'insurance_agency': 'financial',
-                                'plumber': 'home-services',
-                                'electrician': 'home-services',
-                                'general_contractor': 'construction',
-                                'school': 'education',
-                                'university': 'education',
-                                'lodging': 'lodging',
-                                'travel_agency': 'travel',
-                                'tourist_attraction': 'entertainment'
+                                restaurant: "restaurant",
+                                food: "food",
+                                meal_takeaway: "restaurant",
+                                store: "retail",
+                                clothing_store: "retail",
+                                shopping_mall: "shopping",
+                                car_dealer: "automotive",
+                                car_repair: "automotive",
+                                gas_station: "automotive",
+                                hospital: "healthcare",
+                                dentist: "healthcare",
+                                doctor: "healthcare",
+                                pharmacy: "healthcare",
+                                beauty_salon: "beauty",
+                                spa: "beauty",
+                                hair_care: "beauty",
+                                gym: "fitness",
+                                health: "fitness",
+                                real_estate_agency: "real-estate",
+                                lawyer: "legal",
+                                accounting: "financial",
+                                bank: "financial",
+                                insurance_agency: "financial",
+                                plumber: "home-services",
+                                electrician: "home-services",
+                                general_contractor: "construction",
+                                school: "education",
+                                university: "education",
+                                lodging: "lodging",
+                                travel_agency: "travel",
+                                tourist_attraction: "entertainment",
                               };
 
                               const detectedTypes = [];
                               for (const type of profile.types) {
-                                if (typeMapping[type] && !detectedTypes.includes(typeMapping[type])) {
+                                if (
+                                  typeMapping[type] &&
+                                  !detectedTypes.includes(typeMapping[type])
+                                ) {
                                   detectedTypes.push(typeMapping[type]);
                                 }
                               }
@@ -776,22 +806,38 @@ export default function Settings() {
                           onAddressChange={(address, addressComponents) => {
                             if (addressComponents) {
                               updateSetting("addressSearch", address);
-                              updateSetting("address", addressComponents.street || "");
-                              updateSetting("city", addressComponents.city || "");
-                              updateSetting("state", addressComponents.state || "");
-                              updateSetting("zipCode", addressComponents.zipCode || "");
+                              updateSetting(
+                                "address",
+                                addressComponents.street || "",
+                              );
+                              updateSetting(
+                                "city",
+                                addressComponents.city || "",
+                              );
+                              updateSetting(
+                                "state",
+                                addressComponents.state || "",
+                              );
+                              updateSetting(
+                                "zipCode",
+                                addressComponents.zipCode || "",
+                              );
                             }
                           }}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="subAccountId">Business Account ID</Label>
+                        <Label htmlFor="subAccountId">
+                          Business Account ID
+                        </Label>
                         <Input
                           id="subAccountId"
                           value={settings.subAccountId || ""}
                           onChange={(e) => {
                             // Only allow 9 digits
-                            const value = e.target.value.replace(/\D/g, '').slice(0, 9);
+                            const value = e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 9);
                             updateSetting("subAccountId", value);
                           }}
                           placeholder="123456789"
@@ -807,8 +853,12 @@ export default function Settings() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                navigator.clipboard.writeText(settings.subAccountId);
-                                toast.success("Business Account ID copied to clipboard");
+                                navigator.clipboard.writeText(
+                                  settings.subAccountId,
+                                );
+                                toast.success(
+                                  "Business Account ID copied to clipboard",
+                                );
                               }}
                               className="h-6 w-6 p-0"
                             >
@@ -900,7 +950,9 @@ export default function Settings() {
                         </p>
                       </div>
                       <div>
-                        <Label htmlFor="googleCid">Google Customer ID (CID)</Label>
+                        <Label htmlFor="googleCid">
+                          Google Customer ID (CID)
+                        </Label>
                         <Input
                           id="googleCid"
                           value={settings.googleCid || ""}
@@ -922,7 +974,10 @@ export default function Settings() {
                           step="any"
                           value={settings.latitude || ""}
                           onChange={(e) =>
-                            updateSetting("latitude", parseFloat(e.target.value) || undefined)
+                            updateSetting(
+                              "latitude",
+                              parseFloat(e.target.value) || undefined,
+                            )
                           }
                           placeholder="40.7128"
                           className="font-mono text-sm"
@@ -936,7 +991,10 @@ export default function Settings() {
                           step="any"
                           value={settings.longitude || ""}
                           onChange={(e) =>
-                            updateSetting("longitude", parseFloat(e.target.value) || undefined)
+                            updateSetting(
+                              "longitude",
+                              parseFloat(e.target.value) || undefined,
+                            )
                           }
                           placeholder="-74.0060"
                           className="font-mono text-sm"
@@ -947,7 +1005,9 @@ export default function Settings() {
                     <div className="space-y-4">
                       <BusinessTypesSelect
                         values={settings.businessTypes || []}
-                        onValuesChange={(values) => updateSetting("businessTypes", values)}
+                        onValuesChange={(values) =>
+                          updateSetting("businessTypes", values)
+                        }
                         label="Business Categories"
                         placeholder="Select business categories"
                       />
@@ -962,11 +1022,14 @@ export default function Settings() {
                       <div className="p-3 border rounded-lg bg-green-50">
                         <div className="flex items-center gap-2 text-green-700">
                           <CheckCircle className="h-4 w-4" />
-                          <span className="font-medium">Google Business Profile Connected</span>
+                          <span className="font-medium">
+                            Google Business Profile Connected
+                          </span>
                         </div>
                         {settings.businessRating && (
                           <div className="mt-2 text-sm text-green-600">
-                            Rating: {settings.businessRating} stars ({settings.businessReviewsTotal} reviews)
+                            Rating: {settings.businessRating} stars (
+                            {settings.businessReviewsTotal} reviews)
                           </div>
                         )}
                       </div>
@@ -1019,7 +1082,9 @@ export default function Settings() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="12h">12-hour (1:30 PM)</SelectItem>
+                            <SelectItem value="12h">
+                              12-hour (1:30 PM)
+                            </SelectItem>
                             <SelectItem value="24h">24-hour (13:30)</SelectItem>
                           </SelectContent>
                         </Select>

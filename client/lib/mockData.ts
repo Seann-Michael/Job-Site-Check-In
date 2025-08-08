@@ -207,11 +207,21 @@ const generateMockProjects = (): MockProject[] => {
 
       // Create more realistic and varied photo URLs
       const colors = [
-        "4f46e5", "059669", "dc2626", "ea580c", "7c2d12", "6366f1",
-        "8b5cf6", "f59e0b", "10b981", "3b82f6", "ef4444", "84cc16"
+        "4f46e5",
+        "059669",
+        "dc2626",
+        "ea580c",
+        "7c2d12",
+        "6366f1",
+        "8b5cf6",
+        "f59e0b",
+        "10b981",
+        "3b82f6",
+        "ef4444",
+        "84cc16",
       ];
       const color = colors[(i * photoCount + j) % colors.length];
-      const photoId = (i * photoCount + j + 1); // Unique ID for each photo across all projects
+      const photoId = i * photoCount + j + 1; // Unique ID for each photo across all projects
 
       // Create varied photo content based on project type and photo index
       const projectType = projectNames[i].split(" - ")[0];
@@ -583,7 +593,10 @@ class MockDataService {
       try {
         const parsedProjects = JSON.parse(existingProjects);
         // Ensure we have enough projects and they have photos
-        if (parsedProjects.length >= 10 && parsedProjects.some(p => p.photos && p.photos.length > 0)) {
+        if (
+          parsedProjects.length >= 10 &&
+          parsedProjects.some((p) => p.photos && p.photos.length > 0)
+        ) {
           this.projects = parsedProjects;
         } else {
           // Existing data is incomplete, regenerate
@@ -641,7 +654,13 @@ class MockDataService {
     localStorage.removeItem("projects");
     this.projects = generateMockProjects();
     localStorage.setItem("projects", JSON.stringify(this.projects));
-    console.log("✅ Force regenerated", this.projects.length, "projects with", this.projects.reduce((total, p) => total + p.photos.length, 0), "total photos");
+    console.log(
+      "✅ Force regenerated",
+      this.projects.length,
+      "projects with",
+      this.projects.reduce((total, p) => total + p.photos.length, 0),
+      "total photos",
+    );
     return this.projects;
   }
 
@@ -818,7 +837,7 @@ class MockDataService {
 export const mockDataService = MockDataService.getInstance();
 
 // Expose on window for debugging (only in development)
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
   (window as any).mockDataService = mockDataService;
 }
 
