@@ -869,27 +869,47 @@ export default function Settings() {
                           }
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="address">Business Address</Label>
-                        <div className="relative">
-                          <Input
-                            id="address"
-                            value={settings.address || ""}
-                            onChange={(e) =>
-                              updateSetting("address", e.target.value)
+                      <div className="sm:col-span-2">
+                        <AddressAutocomplete
+                          label="Business Address"
+                          value={settings.addressSearch || ""}
+                          onChange={(address, placeResult) => {
+                            updateSetting("addressSearch", address);
+
+                            if (placeResult) {
+                              // Parse address components
+                              const addressParts = placeResult.formattedAddress.split(", ");
+                              const fullAddress = addressParts.slice(0, -2).join(", ");
+                              const city = addressParts[addressParts.length - 2];
+                              const stateZip = addressParts[addressParts.length - 1];
+                              const [state, zipCode] = stateZip ? stateZip.split(" ") : ["", ""];
+
+                              updateSetting("address", fullAddress || "");
+                              updateSetting("city", city || "");
+                              updateSetting("state", state || "");
+                              updateSetting("zipCode", zipCode || "");
+                              updateSetting("latitude", placeResult.lat);
+                              updateSetting("longitude", placeResult.lng);
+
+                              if (placeResult.placeId) {
+                                updateSetting("googlePlaceId", placeResult.placeId);
+                              }
                             }
-                            placeholder="Start typing address for Google autocomplete..."
-                            className="pr-10"
-                          />
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <Badge variant="outline" className="text-xs">
-                              Google
-                            </Badge>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Address with Google autocomplete integration
-                        </p>
+                          }}
+                          placeholder="Search for address or enter manually..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="address">Street Address</Label>
+                        <Input
+                          id="address"
+                          value={settings.address || ""}
+                          onChange={(e) =>
+                            updateSetting("address", e.target.value)
+                          }
+                          placeholder="123 Main Street"
+                        />
                       </div>
                       <div>
                         <Label htmlFor="city">City</Label>
@@ -899,16 +919,15 @@ export default function Settings() {
                           onChange={(e) =>
                             updateSetting("city", e.target.value)
                           }
+                          placeholder="New York"
                         />
                       </div>
                       <div>
                         <Label htmlFor="state">State</Label>
-                        <Input
-                          id="state"
+                        <USStatesSelect
                           value={settings.state || ""}
-                          onChange={(e) =>
-                            updateSetting("state", e.target.value)
-                          }
+                          onValueChange={(value) => updateSetting("state", value)}
+                          placeholder="Select state"
                         />
                       </div>
                       <div>
@@ -919,6 +938,7 @@ export default function Settings() {
                           onChange={(e) =>
                             updateSetting("zipCode", e.target.value)
                           }
+                          placeholder="10001"
                         />
                       </div>
                     </div>
