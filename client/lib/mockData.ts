@@ -599,14 +599,24 @@ class MockDataService {
     }
 
     if (existingUsers) {
-      this.users = JSON.parse(existingUsers);
+      try {
+        this.users = JSON.parse(existingUsers);
+      } catch (error) {
+        this.users = generateMockUsers();
+        localStorage.setItem("users", JSON.stringify(this.users));
+      }
     } else {
       this.users = generateMockUsers();
       localStorage.setItem("users", JSON.stringify(this.users));
     }
 
     if (existingClients) {
-      this.clients = JSON.parse(existingClients);
+      try {
+        this.clients = JSON.parse(existingClients);
+      } catch (error) {
+        this.clients = generateMockClients();
+        localStorage.setItem("clients", JSON.stringify(this.clients));
+      }
     } else {
       this.clients = generateMockClients();
       localStorage.setItem("clients", JSON.stringify(this.clients));
