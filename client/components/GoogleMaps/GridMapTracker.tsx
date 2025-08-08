@@ -75,18 +75,23 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     height: height,
   };
 
-  const mapOptions = useMemo(() => ({
-    disableDefaultUI: false,
-    zoomControl: true,
-    mapTypeControl: true,
-    scaleControl: true,
-    scaleControlOptions: isLoaded ? {
-      style: google.maps.ScaleControlStyle.DEFAULT,
-    } : undefined,
-    streetViewControl: false,
-    rotateControl: false,
-    fullscreenControl: true,
-  }), [isLoaded]);
+  const mapOptions = useMemo(
+    () => ({
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: true,
+      scaleControl: true,
+      scaleControlOptions: isLoaded
+        ? {
+            style: google.maps.ScaleControlStyle.DEFAULT,
+          }
+        : undefined,
+      streetViewControl: false,
+      rotateControl: false,
+      fullscreenControl: true,
+    }),
+    [isLoaded],
+  );
 
   // Circle grid configurations (10-15 options)
   const circleConfigs: Record<number, { rings: number; pattern: number[] }> = {
@@ -303,14 +308,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   }, [markers]);
 
   // Get color based on marker state
-  const getMarkerColor = useCallback(
-    (marker: any) => {
-      if (marker.disabled) return "#808080"; // Solid grey for disabled pins
-      if (marker.isCenter) return "#DC2626"; // Red for center pin
-      return "#4285F4"; // Blue for regular pins
-    },
-    [],
-  );
+  const getMarkerColor = useCallback((marker: any) => {
+    if (marker.disabled) return "#808080"; // Solid grey for disabled pins
+    if (marker.isCenter) return "#DC2626"; // Red for center pin
+    return "#4285F4"; // Blue for regular pins
+  }, []);
 
   // Create waypoint-style SVG icon
   const createWaypointIcon = useCallback(
@@ -550,7 +552,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
           // Set region to US to ensure miles are used for scale
           map.setOptions({
-            region: 'US'
+            region: "US",
           });
 
           // Defer auto-fit bounds to avoid setState during render
@@ -714,8 +716,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           </InfoWindow>
         )}
       </GoogleMap>
-
-
     </div>
   );
 };
