@@ -1,5 +1,6 @@
 export { GoogleMapComponent } from "./GoogleMapComponent";
 export { AddressAutocomplete } from "./AddressAutocomplete";
+export { BusinessPlacesSearch } from "./BusinessPlacesSearch";
 
 // Re-export hooks and utilities for convenience
 export {
@@ -7,6 +8,7 @@ export {
   useGooglePlacesAutocomplete,
   useAddressSearch,
   useGeolocation,
+  useBusinessPlacesSearch,
 } from "@/hooks/useGoogleMaps";
 export {
   loadGoogleMapsAPI,
