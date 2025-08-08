@@ -252,11 +252,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
           ? { ...marker, position: { lat: newLat, lng: newLng } }
           : marker
       );
-      onGridChange(updatedMarkers);
+      onGridChangeRef.current(updatedMarkers);
       return updatedMarkers;
     });
     setIsDragging(false);
-  }, [onGridChange]);
+  }, []);
 
   // Handle center marker drag (moves entire grid)
   const handleCenterDragEnd = useCallback((e: google.maps.MapMouseEvent) => {
