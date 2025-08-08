@@ -638,21 +638,21 @@ export default function OneTimeScanEnhanced() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
-                        <SelectItem value="8">8 Points Circle</SelectItem>
-                        <SelectItem value="12">12 Points Circle</SelectItem>
-                        <SelectItem value="16">16 Points Circle</SelectItem>
-                        <SelectItem value="20">20 Points Circle</SelectItem>
-                        <SelectItem value="24">24 Points Circle</SelectItem>
-                        <SelectItem value="28">28 Points Circle</SelectItem>
-                        <SelectItem value="32">32 Points Circle</SelectItem>
-                        <SelectItem value="36">36 Points Circle</SelectItem>
-                        <SelectItem value="40">40 Points Circle</SelectItem>
-                        <SelectItem value="44">44 Points Circle</SelectItem>
-                        <SelectItem value="48">48 Points Circle</SelectItem>
-                        <SelectItem value="52">52 Points Circle</SelectItem>
-                        <SelectItem value="56">56 Points Circle</SelectItem>
-                        <SelectItem value="60">60 Points Circle</SelectItem>
-                        <SelectItem value="64">64 Points Circle</SelectItem>
+                        <SelectItem value="7">7 Points (Center + 6)</SelectItem>
+                        <SelectItem value="13">13 Points (Center + 6 + 6)</SelectItem>
+                        <SelectItem value="19">19 Points (Center + 6 + 12)</SelectItem>
+                        <SelectItem value="21">21 Points (4 Rings)</SelectItem>
+                        <SelectItem value="25">25 Points (Center + 8 + 16)</SelectItem>
+                        <SelectItem value="31">31 Points (4 Rings)</SelectItem>
+                        <SelectItem value="37">37 Points (Center + 6 + 12 + 18)</SelectItem>
+                        <SelectItem value="43">43 Points (4 Rings)</SelectItem>
+                        <SelectItem value="49">49 Points (Center + 8 + 16 + 24)</SelectItem>
+                        <SelectItem value="55">55 Points (5 Rings)</SelectItem>
+                        <SelectItem value="61">61 Points (Center + 6 + 12 + 18 + 24)</SelectItem>
+                        <SelectItem value="69">69 Points (5 Rings)</SelectItem>
+                        <SelectItem value="73">73 Points (5 Rings)</SelectItem>
+                        <SelectItem value="85">85 Points (Center + 8 + 16 + 24 + 36)</SelectItem>
+                        <SelectItem value="91">91 Points (Center + 6 + 12 + 24 + 48)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
