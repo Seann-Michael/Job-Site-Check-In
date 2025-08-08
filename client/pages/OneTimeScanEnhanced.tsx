@@ -95,7 +95,7 @@ export default function OneTimeScanEnhanced() {
 
   // Waypoint Configuration
   const [waypointConfig, setWaypointConfig] = useState({
-    count: 10,
+    count: 25,
     distanceBetween: 1,
     unit: "miles" as "miles" | "kilometers",
     pattern: "circle" as "circle" | "grid" | "line",
