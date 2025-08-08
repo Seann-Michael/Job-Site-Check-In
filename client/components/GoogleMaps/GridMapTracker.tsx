@@ -397,33 +397,46 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     });
   }, []);
 
-  // Handle marker click - single click disables, hold starts drag all
+  // Handle marker interactions - click to toggle, drag to move all pins
   const handleMarkerMouseDown = useCallback(
     (markerId: string, e: google.maps.MapMouseEvent) => {
       e.stop();
 
-      // Use ref to track if component is still mounted
-      let isHolding = false;
-      const timeout = setTimeout(() => {
-        isHolding = true;
-        setIsDraggingAllPins(true);
-        if (e.latLng) {
-          setDragStartPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      let startTime = Date.now();
+      let hasMoved = false;
+      const startPosition = e.latLng ? { lat: e.latLng.lat(), lng: e.latLng.lng() } : null;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        hasMoved = true;
+        if (!isDraggingAllPins && startPosition) {
+          setIsDraggingAllPins(true);
+          setDragStartPosition(startPosition);
         }
-      }, 500); // 500ms hold time
+      };
 
       const handleMouseUp = () => {
-        clearTimeout(timeout);
-        if (!isHolding && !isDraggingAllPins) {
-          // Single click - toggle disabled state (defer to prevent render issues)
+        const duration = Date.now() - startTime;
+
+        if (!hasMoved && duration < 300) {
+          // Quick click without movement - toggle disabled state
           setTimeout(() => toggleWaypointDisabled(markerId), 0);
         }
+
+        if (isDraggingAllPins) {
+          setIsDraggingAllPins(false);
+          setDragStartPosition(null);
+          // Notify parent of final positions after drag-all operation completes
+          setTimeout(() => onGridChangeRef.current(markers), 0);
+        }
+
+        document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
       };
 
+      document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [isDraggingAllPins, toggleWaypointDisabled],
+    [isDraggingAllPins, toggleWaypointDisabled, markers, onGridChangeRef],
   );
 
   // Generate grid lines based on type
