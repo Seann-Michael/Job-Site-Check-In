@@ -918,6 +918,30 @@ export default function OneTimeScanEnhanced() {
                       {scanConfig.priority}
                     </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Grid Pattern:</span>
+                    <span className="text-sm font-medium capitalize">
+                      {waypointConfig.pattern}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Grid Size:</span>
+                    <span className="text-sm font-medium">
+                      {waypointConfig.pattern === "grid" ? `${Math.sqrt(waypointConfig.count)}×${Math.sqrt(waypointConfig.count)}` : `${waypointConfig.count} points`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Pin Spacing:</span>
+                    <span className="text-sm font-medium">
+                      {waypointConfig.distanceBetween} {waypointConfig.unit}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Distance Unit:</span>
+                    <span className="text-sm font-medium capitalize">
+                      {waypointConfig.unit}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="border-t pt-3">
