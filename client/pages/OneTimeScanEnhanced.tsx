@@ -991,7 +991,13 @@ export default function OneTimeScanEnhanced() {
             <CardContent>
               <GridMapTracker
                 center={selectedBusiness?.coordinates || { lat: 39.8283, lng: -98.5795 }}
-                gridSize={waypointConfig.count === 5 ? 3 : waypointConfig.count === 8 ? 3 : waypointConfig.count <= 25 ? 5 : 7}
+                gridSize={
+                  waypointConfig.pattern === "grid"
+                    ? Math.sqrt(waypointConfig.count) // For square grids
+                    : waypointConfig.pattern === "circle"
+                    ? Math.ceil(Math.sqrt(waypointConfig.count)) // Approximate for circles
+                    : waypointConfig.count // For linear
+                }
                 gridRadius={waypointConfig.distanceBetween * (waypointConfig.unit === 'miles' ? 1609 : 1000)}
                 rankings={{}}
                 onGridChange={useCallback((gridPoints) => {
