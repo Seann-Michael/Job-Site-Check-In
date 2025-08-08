@@ -355,11 +355,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       ],
     },
     {
-      id: "google-maps-test",
-      label: "Maps Test",
-      href: "/admin/google-maps-test",
+      id: "app-pages",
+      label: "App Pages",
+      href: "/admin/app-pages",
       icon: Monitor,
-      active: location.pathname === "/admin/google-maps-test",
+      active: location.pathname === "/admin/app-pages",
       comingSoon: false,
     },
   ];
