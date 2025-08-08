@@ -547,6 +547,12 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         options={mapOptions}
         onLoad={(map) => {
           mapRef.current = map;
+
+          // Set region to US to ensure miles are used for scale
+          map.setOptions({
+            region: 'US'
+          });
+
           // Defer auto-fit bounds to avoid setState during render
           setTimeout(() => {
             if (markers.length > 0 && mapRef.current) {
