@@ -903,10 +903,11 @@ export default function OneTimeScanEnhanced() {
                     id: waypoint.id,
                     position: waypoint.coordinates,
                     title: waypoint.isCenter ? 'Business Center' : `Search Location ${index}`,
-                    color: waypoint.enabled ? '#3B82F6' : '#9CA3AF',
+                    color: waypoint.isCenter ? '#059669' : (waypoint.enabled ? '#3B82F6' : '#9CA3AF'),
+                    icon: waypoint.isCenter ? 'business' : undefined,
                     content: waypoint.isCenter
                       ? `<div><strong>Business Center</strong><br/>${selectedBusiness?.name || 'Selected Business'}</div>`
-                      : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}</div>`
+                      : `<div><strong>Search Location ${index}</strong><br/>Distance: ${waypoint.distance?.toFixed(1)} ${waypointConfig.unit}<br/>Status: ${waypoint.enabled ? 'Enabled' : 'Disabled'}</div>`
                   }))}
                   className="mb-4"
                 />
