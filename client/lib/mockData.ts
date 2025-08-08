@@ -576,14 +576,26 @@ class MockDataService {
     const existingUsers = localStorage.getItem("users");
     const existingClients = localStorage.getItem("clients");
 
-    if (existingProjects && !forceReinit) {
-      this.projects = JSON.parse(existingProjects);
-      console.log("📂 Loaded existing projects from localStorage:", this.projects.length);
+    if (existingProjects) {
+      try {
+        const parsedProjects = JSON.parse(existingProjects);
+        // Ensure we have enough projects and they have photos
+        if (parsedProjects.length >= 10 && parsedProjects.some(p => p.photos && p.photos.length > 0)) {
+          this.projects = parsedProjects;
+        } else {
+          // Existing data is incomplete, regenerate
+          this.projects = generateMockProjects();
+          localStorage.setItem("projects", JSON.stringify(this.projects));
+        }
+      } catch (error) {
+        // Corrupted data, regenerate
+        this.projects = generateMockProjects();
+        localStorage.setItem("projects", JSON.stringify(this.projects));
+      }
     } else {
-      console.log("🔨 Generating new mock projects...");
+      // No existing data, generate fresh
       this.projects = generateMockProjects();
       localStorage.setItem("projects", JSON.stringify(this.projects));
-      console.log("✅ Generated and saved", this.projects.length, "projects with", this.projects.reduce((total, p) => total + p.photos.length, 0), "total photos");
     }
 
     if (existingUsers) {
