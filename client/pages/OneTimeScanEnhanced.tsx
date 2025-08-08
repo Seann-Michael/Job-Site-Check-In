@@ -1004,18 +1004,17 @@ export default function OneTimeScanEnhanced() {
                   [waypoints]
                 )}
                 onGridChange={useCallback((gridPoints) => {
-                  // Prevent setState during render by using requestAnimationFrame
-                  requestAnimationFrame(() => {
-                    const updatedWaypoints = gridPoints.map((point, index) => ({
-                      id: point.id || `waypoint-${index}`,
-                      coordinates: point.position,
-                      enabled: !point.disabled,
-                      isCenter: point.isCenter || false,
-                      distance: 0,
-                      bearing: 0,
-                    }));
-                    setWaypoints(updatedWaypoints);
-                  });
+                  // Only update waypoints on user interactions (drag, enable/disable)
+                  // This prevents infinite loops from automatic grid generation
+                  const updatedWaypoints = gridPoints.map((point, index) => ({
+                    id: point.id || `waypoint-${index}`,
+                    coordinates: point.position,
+                    enabled: !point.disabled,
+                    isCenter: point.isCenter || false,
+                    distance: 0,
+                    bearing: 0,
+                  }));
+                  setWaypoints(updatedWaypoints);
                 }, [])}
                 height="400px"
                 className="w-full"
