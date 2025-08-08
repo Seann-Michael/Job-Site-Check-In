@@ -81,7 +81,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   };
 
   // Generate circle grid positions
-  const generateCirclePositions = useCallback((centerPoint: { lat: number; lng: number }, config: { rings: number; pattern: number[] }, spacing: number) => {
+  const generateCirclePositions = useCallback((centerPoint: { lat: number; lng: number }, config: { rings: number; pattern: number[] }, spacing: number, disabledPointsList: string[]) => {
     const positions = [];
     const earthRadius = 6371000;
     let pointIndex = 0;
