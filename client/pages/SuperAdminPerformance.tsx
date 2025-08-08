@@ -740,7 +740,9 @@ export default function SuperAdminPerformance() {
                           {job.status === "scheduled" && (
                             <div className="text-sm text-muted-foreground">
                               Scheduled for{" "}
-                              {new Date(job.startTime).toLocaleString()}
+                              {job.startTime
+                                ? new Date(job.startTime).toLocaleString()
+                                : "Unknown"}
                             </div>
                           )}
                         </div>
