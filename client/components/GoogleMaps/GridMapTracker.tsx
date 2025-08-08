@@ -185,12 +185,18 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     }
   }, [generateCirclePositions, generateSquarePositions, circleConfigs]);
 
-  // Initialize markers on mount or when configuration changes
+  // Initialize markers when grid configuration changes
   useEffect(() => {
     const newMarkers = generateGridPositions(gridCenter, gridType, gridSize, pinSpacing);
     setMarkers(newMarkers);
     // Don't call onGridChange during initialization to prevent infinite loops
-  }, [gridCenter, gridType, gridSize, pinSpacing]);
+  }, [gridType, gridSize, pinSpacing]);
+
+  // Separate effect for gridCenter changes to prevent dependency loops
+  useEffect(() => {
+    const newMarkers = generateGridPositions(gridCenter, gridType, gridSize, pinSpacing);
+    setMarkers(newMarkers);
+  }, [gridCenter]);
 
   // Get color based on ranking and disabled state
   const getMarkerColor = useCallback((marker: any) => {
