@@ -201,6 +201,21 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     // Don't call onGridChange during initialization to prevent infinite loops
   }, [gridCenter, gridType, gridSize, pinSpacing, disabledPoints, generateGridPositions]);
 
+  // Auto-fit bounds when markers change
+  useEffect(() => {
+    if (mapRef.current && markers.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      markers.forEach((marker: any) => {
+        bounds.extend(new google.maps.LatLng(marker.position.lat, marker.position.lng));
+      });
+      mapRef.current.fitBounds(bounds);
+      const zoom = mapRef.current.getZoom();
+      if (zoom && zoom > 16) {
+        mapRef.current.setZoom(16); // Prevent zooming too close
+      }
+    }
+  }, [markers]);
+
   // Get color based on ranking and disabled state
   const getMarkerColor = useCallback((marker: any) => {
     if (marker.disabled) return '#CCCCCC';
@@ -499,7 +514,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               } : undefined}
               onDragStart={() => isCenter ? setIsGridDragging(true) : setIsDragging(true)}
               onDragEnd={(e) => isCenter ? handleCenterDragEnd(e) : handleMarkerDragEnd(e, marker.id)}
-              onClick={() => setSelectedMarker(marker)}
+              onMouseDown={(e) => !isCenter && handleMarkerMouseDown(marker.id, e)}
+              onClick={() => !isDraggingAllPins && setSelectedMarker(marker)}
               opacity={marker.disabled ? 0.5 : 1}
               zIndex={isCenter ? 1000 : (marker.disabled ? 1 : 100)}
             />
