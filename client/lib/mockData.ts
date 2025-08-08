@@ -209,7 +209,7 @@ const generateMockProjects = (): MockProject[] => {
 
   const projects: MockProject[] = [];
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 10; i++) {
     const projectId = `project-${i + 1}`;
     const startDate = new Date(
       2024,
