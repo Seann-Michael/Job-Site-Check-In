@@ -1054,7 +1054,7 @@ export default function SuperAdminPerformance() {
                               className="h-2 w-16"
                             />
                             <span className="text-sm">
-                              {job.progress.toFixed(0)}%
+                              {(job.progress || 0).toFixed(0)}%
                             </span>
                           </div>
                         </TableCell>
