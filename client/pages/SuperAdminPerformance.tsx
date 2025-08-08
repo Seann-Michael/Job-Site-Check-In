@@ -678,7 +678,7 @@ export default function SuperAdminPerformance() {
                           </div>
                           <div className="text-right">
                             <div className={`text-lg font-bold ${colorClass}`}>
-                              {metric.value.toFixed(
+                              {(metric.value || 0).toFixed(
                                 metric.unit === "%" ? 1 : 0,
                               )}
                               {metric.unit}
