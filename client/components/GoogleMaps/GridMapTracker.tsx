@@ -86,8 +86,14 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   useEffect(() => {
     const newMarkers = generateGridPositions(center, gridSize, gridRadius);
     setMarkers(newMarkers);
-    onGridChange(newMarkers);
-  }, [center, gridSize, gridRadius, generateGridPositions, onGridChange]);
+  }, [center, gridSize, gridRadius, generateGridPositions]);
+
+  // Separate effect to notify parent of changes (only after initial render)
+  useEffect(() => {
+    if (markers.length > 0) {
+      onGridChange(markers);
+    }
+  }, [markers, onGridChange]);
 
   // Get color based on ranking
   const getMarkerColor = useCallback((markerId: string) => {
