@@ -346,14 +346,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/maps/test"
-                  element={
-                    <ProtectedRoute>
-                      <GoogleMapsTestPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/audits/recurring-scans"
                   element={
                     <ProtectedRoute>
