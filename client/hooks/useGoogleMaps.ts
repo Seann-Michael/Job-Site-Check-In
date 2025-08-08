@@ -33,7 +33,7 @@ export const useGoogleMaps = (options: google.maps.MapOptions = {}) => {
     };
 
     initMap();
-  }, [options]);
+  }, []);
 
   const addMarker = useCallback(
     (
