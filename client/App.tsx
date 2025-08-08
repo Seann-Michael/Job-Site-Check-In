@@ -199,14 +199,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/google-maps-test"
-                  element={
-                    <ProtectedRoute>
-                      <GoogleMapsTest />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/address-test"
                   element={
                     <ProtectedRoute>
