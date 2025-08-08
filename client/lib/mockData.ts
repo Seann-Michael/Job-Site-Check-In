@@ -587,11 +587,14 @@ class MockDataService {
     const existingUsers = localStorage.getItem("users");
     const existingClients = localStorage.getItem("clients");
 
-    if (existingProjects) {
+    if (existingProjects && !forceReinit) {
       this.projects = JSON.parse(existingProjects);
+      console.log("📂 Loaded existing projects from localStorage:", this.projects.length);
     } else {
+      console.log("🔨 Generating new mock projects...");
       this.projects = generateMockProjects();
       localStorage.setItem("projects", JSON.stringify(this.projects));
+      console.log("✅ Generated and saved", this.projects.length, "projects with", this.projects.reduce((total, p) => total + p.photos.length, 0), "total photos");
     }
 
     if (existingUsers) {
