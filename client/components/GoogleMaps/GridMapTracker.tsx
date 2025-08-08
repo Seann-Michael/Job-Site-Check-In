@@ -22,14 +22,17 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   rankings = {},
   disabledPoints = [],
   onGridChange = () => {},
-  height = '600px',
+  height = '800px',
   className = ''
 }) => {
   const [markers, setMarkers] = useState<any[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isGridDragging, setIsGridDragging] = useState(false);
+  const [isDraggingAllPins, setIsDraggingAllPins] = useState(false);
+  const [dragStartPosition, setDragStartPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [gridCenter, setGridCenter] = useState(center);
+  const mapRef = useRef<google.maps.Map | null>(null);
   const onGridChangeRef = useRef(onGridChange);
 
   // Update ref when callback changes
