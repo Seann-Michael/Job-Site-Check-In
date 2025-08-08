@@ -220,9 +220,9 @@ const generateMockProjects = (): MockProject[] => {
       startDate.getTime() + (Math.random() * 90 + 30) * 24 * 60 * 60 * 1000,
     );
 
-    // Generate photos for each project
+    // Generate photos for each project (exactly 20 photos total across 10 projects = 2 photos per project)
     const photos = [];
-    const photoCount = Math.floor(Math.random() * 20) + 5; // 5-25 photos per project
+    const photoCount = 2; // Exactly 2 photos per project for 20 total
 
     for (let j = 0; j < photoCount; j++) {
       const photoTypes = ["before", "during", "after", "detail", "progress"];
