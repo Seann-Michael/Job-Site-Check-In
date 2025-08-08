@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/AppLayout";
 import { UserManagementSystem } from "@/components/UserManagementSystem";
 import { StateSelect } from "@/components/ui/state-select";
@@ -1550,7 +1551,7 @@ export default function Settings() {
                                     label: "Project Created",
                                     description:
                                       "When a new project is created",
-                                    icon: "🆕",
+                                    icon: "����",
                                   },
                                   {
                                     id: "project.completed",
@@ -3952,7 +3953,7 @@ export default function Settings() {
                           <span>$147</span>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Billed monthly • Next bill date: April 15, 2024
+                          Billed monthly �� Next bill date: April 15, 2024
                         </p>
                       </div>
                     </div>
