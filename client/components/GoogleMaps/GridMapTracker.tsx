@@ -350,28 +350,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     [getMarkerColor, gridType],
   );
 
-  // Handle individual marker drag
-  const handleMarkerDragEnd = useCallback(
-    (e: google.maps.MapMouseEvent, markerId: string) => {
-      if (!e.latLng) return;
-
-      const newLat = e.latLng.lat();
-      const newLng = e.latLng.lng();
-
-      setMarkers((prevMarkers) => {
-        const updatedMarkers = prevMarkers.map((marker: any) =>
-          marker.id === markerId
-            ? { ...marker, position: { lat: newLat, lng: newLng } }
-            : marker,
-        );
-        // Defer onGridChange to prevent setState during render
-        setTimeout(() => onGridChangeRef.current(updatedMarkers), 0);
-        return updatedMarkers;
-      });
-      setIsDragging(false);
-    },
-    [],
-  );
 
   // Handle center marker drag (moves entire grid)
   const handleCenterDragEnd = useCallback((e: google.maps.MapMouseEvent) => {
