@@ -253,29 +253,33 @@ const generateMockProjects = (): MockProject[] => {
         `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="%23${color}"/><polygon points="0,600 800,400 800,600" fill="white" opacity="0.1"/><polygon points="0,0 400,200 0,400" fill="white" opacity="0.1"/><text x="400" y="300" font-family="Arial" font-size="36" fill="white" text-anchor="middle" font-weight="bold">📸 ${photoId}</text><text x="400" y="350" font-family="Arial" font-size="20" fill="white" text-anchor="middle">${projectType} - ${photoStage}</text></svg>`,
       ];
 
+      const selectedPhotoType = j === 0 ? "before" : "after";
+      const selectedCategory = categories[i % categories.length];
+
       photos.push({
-        url: imageUrls[0], // Primary URL (Picsum)
-        title: `${photoTypes[Math.floor(Math.random() * photoTypes.length)]} - Photo ${j + 1}`,
-        description: `Progress photo showing ${categories[Math.floor(Math.random() * categories.length)]} work`,
+        url: imageUrls[0], // Primary URL
+        title: `${selectedPhotoType.charAt(0).toUpperCase() + selectedPhotoType.slice(1)} - ${projectNames[i]}`,
+        description: `Professional ${selectedPhotoType} photo showcasing ${selectedCategory} work for ${projectNames[i]}. High-quality documentation of project progress and completion.`,
         tags: [
-          photoTypes[Math.floor(Math.random() * photoTypes.length)],
-          categories[Math.floor(Math.random() * categories.length)],
+          selectedPhotoType,
+          selectedCategory,
           ...keywords[i].slice(0, 2),
+          `photo-${photoId}`,
         ],
         uploadedAt: new Date(
           startDate.getTime() +
-            Math.random() * (endDate.getTime() - startDate.getTime()),
+            (j / photoCount) * (endDate.getTime() - startDate.getTime()),
         ).toISOString(),
         uploadedBy: ["John Doe", "Jane Smith", "Mike Johnson", "Sarah Wilson"][
           Math.floor(Math.random() * 4)
         ],
         isPrimary: j === 0,
         metadata: {
-          originalFileName: `project_${projectId}_photo_${j + 1}.jpg`,
-          fileSize: Math.floor(Math.random() * 5000000) + 500000, // 500KB - 5MB
+          originalFileName: `${projectId}_${selectedPhotoType}_${selectedCategory}_${j + 1}.jpg`,
+          fileSize: Math.floor(Math.random() * 3000000) + 800000, // 800KB - 3.8MB
           fileType: "image/jpeg",
-          category: categories[Math.floor(Math.random() * categories.length)],
-          altText: `${photoTypes[Math.floor(Math.random() * photoTypes.length)]} photo of ${projectNames[i]}`,
+          category: selectedCategory,
+          altText: `${selectedPhotoType.charAt(0).toUpperCase() + selectedPhotoType.slice(1)} photo of ${projectNames[i]} showing ${selectedCategory} work`,
           fallbackUrls: imageUrls.slice(1), // Store fallback URLs
         },
       });
