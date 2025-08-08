@@ -639,7 +639,11 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               }
               // No individual drag handlers - using mouseDown for unified behavior
               onMouseDown={(e) => handleMarkerMouseDown(marker.id, e)}
-              onClick={() => !isDraggingAllPins && setSelectedMarker(marker)}
+              onClick={() => {
+                if (!isDraggingAllPins) {
+                  handleMarkerClick(marker.id);
+                }
+              }}
               opacity={1} // Always solid, color change handles disabled state
               zIndex={isCenter ? 1000 : marker.disabled ? 1 : 100}
             />
