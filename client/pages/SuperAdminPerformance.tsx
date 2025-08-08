@@ -820,7 +820,7 @@ export default function SuperAdminPerformance() {
                           </div>
                         </TableCell>
                         <TableCell>{cache.size}</TableCell>
-                        <TableCell>{cache.requests.toLocaleString()}</TableCell>
+                        <TableCell>{(cache.requests || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-sm">
                           {new Date(cache.lastCleared).toLocaleDateString()}
                         </TableCell>
