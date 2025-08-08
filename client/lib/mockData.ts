@@ -581,12 +581,12 @@ class MockDataService {
   public initialize() {
     if (this.initialized) return;
 
-    // Check if we're in Builder.io editor context
+    // Use more specific Builder.io detection
     const isBuilderIoEditor =
       typeof window !== "undefined" &&
       (window.location.href.includes("builder.io") ||
-        window.parent !== window ||
-        document.referrer.includes("builder.io"));
+        window.location.hostname.includes("builder.io") ||
+        (document.referrer.includes("builder.io") && window.parent !== window));
 
     if (isBuilderIoEditor) {
       // Use minimal mock data for Builder.io to prevent rendering issues
@@ -597,8 +597,8 @@ class MockDataService {
       return;
     }
 
-    // TEMPORARY: Force reinitialization to update photo structure with fallback URLs
-    const forceReinit = false; // Changed to false after first load
+    // Force reinitialization to ensure we have full mock data
+    const forceReinit = true; // Always force for now to ensure data is available
     if (forceReinit) {
       localStorage.removeItem("projects");
       localStorage.removeItem("users");
