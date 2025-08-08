@@ -622,6 +622,15 @@ class MockDataService {
     this.initialize();
   }
 
+  public forceRegenerateProjects() {
+    console.log("🔄 Force regenerating projects...");
+    localStorage.removeItem("projects");
+    this.projects = generateMockProjects();
+    localStorage.setItem("projects", JSON.stringify(this.projects));
+    console.log("✅ Force regenerated", this.projects.length, "projects with", this.projects.reduce((total, p) => total + p.photos.length, 0), "total photos");
+    return this.projects;
+  }
+
   // Minimal mock data for Builder.io editor
   private getMinimalMockProjects(): MockProject[] {
     return [
