@@ -28,6 +28,7 @@ import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSear
 import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
 import { USStatesSelect } from "@/components/ui/us-states-select";
 import { BusinessTypesSelect } from "@/components/ui/business-types-select";
+import { FileUpload } from "@/components/ui/file-upload";
 import {
   Save,
   Building2,
@@ -676,33 +677,15 @@ export default function Settings() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Business Logo</Label>
-                      <div className="space-y-2">
-                        {settings.businessLogo && (
-                          <div className="w-20 h-20 border rounded-lg overflow-hidden">
-                            <img
-                              src={settings.businessLogo}
-                              alt="Business Logo"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="gap-2">
-                            <Upload className="h-4 w-4" />
-                            Upload Logo
-                          </Button>
-                          {settings.businessLogo && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateSetting("businessLogo", "")}
-                            >
-                              Remove
-                            </Button>
-                          )}
-                        </div>
-                      </div>
+                      <FileUpload
+                        label="Business Logo"
+                        value={settings.businessLogo || ""}
+                        onChange={(fileUrl) => updateSetting("businessLogo", fileUrl)}
+                        accept="image/*"
+                        maxSize={5}
+                        description="Upload a logo for your business (max 5MB)"
+                        previewClassName="w-20 h-20"
+                      />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -723,13 +706,28 @@ export default function Settings() {
                                 const fullAddress = addressParts.slice(0, -2).join(", ");
                                 const city = addressParts[addressParts.length - 2];
                                 const stateZip = addressParts[addressParts.length - 1];
-                                const [state, zipCode] = stateZip ? stateZip.split(" ") : ["", ""];
+
+                                // Better state extraction for US addresses
+                                let state = "";
+                                let zipCode = "";
+                                if (stateZip) {
+                                  const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+                                  if (stateZipMatch) {
+                                    state = stateZipMatch[1]; // Two-letter state code
+                                    zipCode = stateZipMatch[2];
+                                  } else {
+                                    // Fallback to simple split
+                                    const parts = stateZip.split(" ");
+                                    state = parts[0] || "";
+                                    zipCode = parts[1] || "";
+                                  }
+                                }
 
                                 updateSetting("addressSearch", placeResult.formattedAddress);
                                 updateSetting("address", fullAddress || "");
                                 updateSetting("city", city || "");
-                                updateSetting("state", state || "");
-                                updateSetting("zipCode", zipCode || "");
+                                updateSetting("state", state);
+                                updateSetting("zipCode", zipCode);
                                 updateSetting("latitude", placeResult.lat);
                                 updateSetting("longitude", placeResult.lng);
                               }
@@ -883,12 +881,27 @@ export default function Settings() {
                               const fullAddress = addressParts.slice(0, -2).join(", ");
                               const city = addressParts[addressParts.length - 2];
                               const stateZip = addressParts[addressParts.length - 1];
-                              const [state, zipCode] = stateZip ? stateZip.split(" ") : ["", ""];
+
+                              // Better state extraction for US addresses
+                              let state = "";
+                              let zipCode = "";
+                              if (stateZip) {
+                                const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+                                if (stateZipMatch) {
+                                  state = stateZipMatch[1]; // Two-letter state code
+                                  zipCode = stateZipMatch[2];
+                                } else {
+                                  // Fallback to simple split
+                                  const parts = stateZip.split(" ");
+                                  state = parts[0] || "";
+                                  zipCode = parts[1] || "";
+                                }
+                              }
 
                               updateSetting("address", fullAddress || "");
                               updateSetting("city", city || "");
-                              updateSetting("state", state || "");
-                              updateSetting("zipCode", zipCode || "");
+                              updateSetting("state", state);
+                              updateSetting("zipCode", zipCode);
                               updateSetting("latitude", placeResult.lat);
                               updateSetting("longitude", placeResult.lng);
 
