@@ -604,8 +604,9 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         </div>
         <div className="mt-2 pt-2 border-t text-xs text-gray-600">
           <p>• Drag CENTER pin to move grid</p>
-          <p>• Drag waypoints to adjust</p>
-          <p>• Click to enable/disable</p>
+          <p>• Click pin to enable/disable</p>
+          <p>• Hold pin to drag all pins</p>
+          <p>• Map auto-fits to show all pins</p>
         </div>
       </div>
     </div>
