@@ -163,12 +163,16 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   const handleKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && inputValue && !selectedPlace && apiKeyAvailable) {
+      e.preventDefault(); // Prevent form submission
+      setShowSuggestions(false); // Hide suggestions
+
       // Try to geocode the entered address
       try {
         const { geocodeAddress } = await import("@/lib/googleMaps");
         const result = await geocodeAddress(inputValue);
         if (result) {
           setSelectedPlace(result);
+          setInputValue(result.formattedAddress);
           if (onChange) {
             onChange(result.formattedAddress, result);
           }
