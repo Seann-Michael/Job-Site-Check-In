@@ -73,6 +73,7 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
+import { mockDataService } from "@/lib/mockData";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
