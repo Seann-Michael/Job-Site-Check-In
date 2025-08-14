@@ -31,10 +31,7 @@ export default function Index() {
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
 
-  // Check if we're in Builder.io editor
-  const isBuilderIoEditor =
-    typeof window !== "undefined" &&
-    window.location.hostname.includes("builder.io");
+  // Removed Builder.io editor detection to prevent forced mock data
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
