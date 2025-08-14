@@ -287,11 +287,12 @@ export default function ProjectDetail() {
 
   const handleDelete = () => {
     if (confirm("Are you sure you want to delete this project?")) {
-      const projects = JSON.parse(localStorage.getItem("projects") || "[]");
-      const updatedProjects = projects.filter((p: Project) => p.id !== id);
-      localStorage.setItem("projects", JSON.stringify(updatedProjects));
-      toast.success("Project deleted successfully");
-      navigate("/admin/projects");
+      mockDataService.initialize();
+      if (id) {
+        mockDataService.deleteProject(id);
+        toast.success("Project deleted successfully");
+        navigate("/admin/projects");
+      }
     }
   };
 
