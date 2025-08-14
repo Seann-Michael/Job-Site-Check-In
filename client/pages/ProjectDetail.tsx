@@ -837,11 +837,8 @@ export default function ProjectDetail() {
   };
 
   const updateProject = (updatedProject: Project) => {
-    const projects = JSON.parse(localStorage.getItem("projects") || "[]");
-    const updatedProjects = projects.map((p: Project) =>
-      p.id === project?.id ? updatedProject : p,
-    );
-    localStorage.setItem("projects", JSON.stringify(updatedProjects));
+    mockDataService.initialize();
+    mockDataService.updateProject(updatedProject.id, updatedProject);
     setProject({ ...updatedProject });
   };
 
