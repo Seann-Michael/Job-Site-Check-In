@@ -399,14 +399,9 @@ export default function AddProject() {
         updatedAt: new Date().toISOString(),
       };
 
-      // Store in localStorage for demo
-      const existingProjects = JSON.parse(
-        localStorage.getItem("projects") || "[]",
-      );
-      localStorage.setItem(
-        "projects",
-        JSON.stringify([project, ...existingProjects]),
-      );
+      // Use mockDataService to properly save the project
+      mockDataService.initialize(); // Ensure initialized
+      mockDataService.addProject(project);
 
       toast.success("Project created successfully!");
       navigate("/admin/projects");
