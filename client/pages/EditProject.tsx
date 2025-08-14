@@ -223,23 +223,20 @@ export default function EditProject() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const projects = JSON.parse(localStorage.getItem("projects") || "[]");
-      const updatedProjects = projects.map((project: Project) => {
-        if (project.id === id) {
-          return {
-            ...project,
-            ...formData,
-            keywords: formData.keywords
-              .split(",")
-              .map((k) => k.trim())
-              .filter(Boolean),
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return project;
-      });
-
-      localStorage.setItem("projects", JSON.stringify(updatedProjects));
+      mockDataService.initialize();
+      const existingProject = mockDataService.getProjectById(id!);
+      if (existingProject) {
+        const updatedProject = {
+          ...existingProject,
+          ...formData,
+          keywords: formData.keywords
+            .split(",")
+            .map((k) => k.trim())
+            .filter(Boolean),
+          updatedAt: new Date().toISOString(),
+        };
+        mockDataService.updateProject(id!, updatedProject);
+      }
       toast.success("Project updated successfully!");
       navigate(`/project/${id}`);
     } catch (error) {
