@@ -5,9 +5,9 @@ export default function AuditsSimple() {
   return (
     <AppLayout
       title="Audits"
-      description="Test audits page"
+      breadcrumbs={[{ label: "Audits", href: "/admin/audits" }]}
     >
-      <div className="p-6">
+      <div className="container mx-auto p-6 space-y-6">
         <h1 className="text-2xl font-bold">Audits Page - Simple Test</h1>
         <p>This is a simplified audits page to test if the basic structure works.</p>
       </div>
