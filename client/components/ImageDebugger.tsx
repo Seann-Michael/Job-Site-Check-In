@@ -91,14 +91,14 @@ export function ImageDebugger({ projectId = "project-1" }: ImageDebuggerProps) {
       projectId,
       projectsInStorage: projectsArray.length,
       projectFound: !!project,
-      photosCount: project?.photos?.length || 0,
+      photosCount: 0, // Photos are now handled via getProjectPhotos()
       mockServiceProject: !!mockProject,
-      mockServicePhotos: mockProject?.photos?.length || 0,
+      mockServicePhotos: 0,
       mockDataInitialized: localStorage.getItem('projects') !== null,
       storageProject: project ? {
         id: project.id,
         name: project.name,
-        photosStructure: project.photos?.slice(0, 2) // First 2 photos for debugging
+        photosStructure: null // Photos structure removed
       } : null
     });
   }, [projectId]);
