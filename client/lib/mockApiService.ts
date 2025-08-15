@@ -6,8 +6,8 @@ export interface Project {
   business_id: string;
   name: string;
   description: string;
-  type: 'seo_audit' | 'local_optimization' | 'content_marketing' | 'reputation_management' | 'technical_seo' | 'link_building' | 'ongoing_optimization';
-  status: 'draft' | 'active' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+  type: 'renovation' | 'landscaping' | 'cleaning' | 'maintenance' | 'construction' | 'repair' | 'improvement' | 'other';
+  status: 'planning' | 'in_progress' | 'review' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   assigned_to?: string;
   client_contact?: {
@@ -15,14 +15,18 @@ export interface Project {
     email: string;
     phone: string;
   };
-  objectives?: string[];
-  deliverables?: string[];
-  timeline?: any;
-  budget?: any;
-  seo_targets?: any;
-  competitors?: any;
-  progress?: any;
-  metadata?: any;
+  location: string;
+  before_photos?: string[];
+  after_photos?: string[];
+  progress_photos?: string[];
+  notes?: string;
+  estimated_completion?: string;
+  actual_completion?: string;
+  cost_estimate?: number;
+  actual_cost?: number;
+  materials_used?: string[];
+  crew_members?: string[];
+  weather_conditions?: string;
   created_at: string;
   updated_at: string;
   started_at?: string;
