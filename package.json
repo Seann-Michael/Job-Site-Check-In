@@ -8,12 +8,14 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "setup": "node scripts/setup-supabase.js",
     "populate-data": "tsx scripts/populate-sample-data.ts",
     "setup-db": "npm run populate-data",
     "server:dev": "cd server_complete && npm run dev",
     "server:build": "cd server_complete && npm run build",
     "full:dev": "concurrently \"npm run dev\" \"npm run server:dev\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "echo '\n🚀 Local SEO Ranker setup complete!\nRun: npm run setup (to configure Supabase)'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
