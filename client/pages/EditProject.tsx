@@ -240,7 +240,9 @@ export default function EditProject() {
       toast.success("Project updated successfully!");
       navigate(`/project/${id}`);
     } catch (error) {
-      toast.error("Failed to update project");
+      console.error("Failed to update project:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to update project: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
