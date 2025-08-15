@@ -183,7 +183,7 @@ export default function Index() {
 
   const handleDeleteProject = useCallback(async (id: string) => {
     try {
-      await dataService.deleteProject(id);
+      await mockApiService.deleteProject(id);
       setProjects(prev => prev.filter(p => p.id !== id));
       toast.success("Project deleted successfully");
       track("project_deleted", { projectId: id });
