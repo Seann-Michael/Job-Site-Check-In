@@ -1095,7 +1095,7 @@ export function UserManagementSystem() {
                       selectedUser
                         ? {
                             ...selectedUser,
-                            status: value as "active" | "inactive",
+                            status: value as "active" | "pending" | "disabled",
                           }
                         : null,
                     )
