@@ -78,6 +78,11 @@ export default function Index() {
         setBusinesses(businessData);
         console.log("Loaded businesses:", businessData.length);
 
+        // Load users
+        const userData = await mockApiService.getUsers();
+        setUsers(userData);
+        console.log("Loaded users:", userData.length);
+
         // Load all projects
         const allProjects = await mockApiService.getProjects();
 
