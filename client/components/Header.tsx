@@ -120,7 +120,7 @@ export function Header() {
           </div>
 
           {/* Notifications */}
-          <Link to="/notifications">
+          <Link to="/support">
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               {notificationCount > 0 && (
