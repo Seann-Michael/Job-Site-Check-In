@@ -58,6 +58,15 @@ export function CreditProvider({ children }: CreditProviderProps) {
     }
   }, []);
 
+  const handleCreditUpdate = useCallback((event: CustomEvent) => {
+    try {
+      setBalance(event.detail.balance);
+      refreshCredits(); // Refresh transactions as well
+    } catch (error) {
+      console.error("Error handling credit update:", error);
+    }
+  }, [refreshCredits]);
+
   useEffect(() => {
     try {
       // Initialize credit system
@@ -65,15 +74,6 @@ export function CreditProvider({ children }: CreditProviderProps) {
       refreshCredits();
 
       // Listen for credit updates
-      const handleCreditUpdate = (event: CustomEvent) => {
-        try {
-          setBalance(event.detail.balance);
-          refreshCredits(); // Refresh transactions as well
-        } catch (error) {
-          console.error("Error handling credit update:", error);
-        }
-      };
-
       window.addEventListener(
         "creditsUpdated",
         handleCreditUpdate as EventListener,
@@ -90,7 +90,7 @@ export function CreditProvider({ children }: CreditProviderProps) {
       // Ensure we're not in loading state even if initialization fails
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshCredits, handleCreditUpdate]);
 
   const value: CreditContextType = {
     balance,
