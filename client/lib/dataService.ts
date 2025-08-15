@@ -1,14 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
+// Initialize Supabase client with fallback handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Create a placeholder client if environment variables are missing
+let supabase: ReturnType<typeof createClient>;
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.');
+  console.warn('⚠️ Supabase environment variables are not set. Using fallback mode.');
+  console.warn('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.');
+  
+  // Create a dummy client that will throw meaningful errors for operations
+  supabase = createClient('https://placeholder.supabase.co', 'placeholder-key');
+} else {
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export { supabase };
 
 // Types for our data structures
 export interface Project {
@@ -175,29 +184,44 @@ export class DataService {
     return DataService.instance;
   }
 
+  private checkSupabaseConfig(): void {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+    }
+  }
+
   // Auth methods
   async getCurrentUser(): Promise<User | null> {
-    if (this.currentUser) return this.currentUser;
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    try {
+      this.checkSupabaseConfig();
+      
+      if (this.currentUser) return this.currentUser;
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    if (error) {
-      console.error('Error fetching user profile:', error);
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      this.currentUser = data;
+      return data;
+    } catch (error) {
+      console.error('Error in getCurrentUser:', error);
       return null;
     }
-
-    this.currentUser = data;
-    return data;
   }
 
   async signIn(email: string, password: string) {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -220,6 +244,8 @@ export class DataService {
   }
 
   async signUp(email: string, password: string, name: string, role: string = 'business_owner') {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -254,6 +280,8 @@ export class DataService {
   }
 
   async signOut() {
+    this.checkSupabaseConfig();
+    
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     this.currentUser = null;
@@ -261,38 +289,54 @@ export class DataService {
 
   // Business methods
   async getBusinesses(ownerId?: string): Promise<Business[]> {
-    const user = await this.getCurrentUser();
-    if (!user) throw new Error('User not authenticated');
+    try {
+      this.checkSupabaseConfig();
+      
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error('User not authenticated');
 
-    let query = supabase.from('businesses').select('*');
-    
-    if (ownerId) {
-      query = query.eq('owner_id', ownerId);
-    } else if (user.role === 'business_owner') {
-      query = query.eq('owner_id', user.id);
+      let query = supabase.from('businesses').select('*');
+      
+      if (ownerId) {
+        query = query.eq('owner_id', ownerId);
+      } else if (user.role === 'business_owner') {
+        query = query.eq('owner_id', user.id);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching businesses:', error);
+      return [];
     }
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
   }
 
   async getBusiness(id: string): Promise<Business | null> {
-    const { data, error } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      throw error;
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching business:', error);
+      return null;
     }
-    return data;
   }
 
   async createBusiness(business: Partial<Business>): Promise<Business> {
+    this.checkSupabaseConfig();
+    
     const user = await this.getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -311,6 +355,8 @@ export class DataService {
   }
 
   async updateBusiness(id: string, updates: Partial<Business>): Promise<Business> {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase
       .from('businesses')
       .update(updates)
@@ -323,6 +369,8 @@ export class DataService {
   }
 
   async deleteBusiness(id: string): Promise<void> {
+    this.checkSupabaseConfig();
+    
     const { error } = await supabase
       .from('businesses')
       .delete()
@@ -333,40 +381,56 @@ export class DataService {
 
   // Project methods
   async getProjects(businessId?: string, filters: any = {}): Promise<Project[]> {
-    let query = supabase.from('projects').select('*');
-    
-    if (businessId) {
-      query = query.eq('business_id', businessId);
-    }
-    
-    // Apply filters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        query = query.eq(key, value);
+    try {
+      this.checkSupabaseConfig();
+      
+      let query = supabase.from('projects').select('*');
+      
+      if (businessId) {
+        query = query.eq('business_id', businessId);
       }
-    });
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+      
+      // Apply filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query = query.eq(key, value);
+        }
+      });
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      return [];
+    }
   }
 
   async getProject(id: string): Promise<Project | null> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      throw error;
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      return null;
     }
-    return data;
   }
 
   async createProject(project: Partial<Project>): Promise<Project> {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase
       .from('projects')
       .insert({
@@ -381,6 +445,8 @@ export class DataService {
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase
       .from('projects')
       .update(updates)
@@ -393,6 +459,8 @@ export class DataService {
   }
 
   async deleteProject(id: string): Promise<void> {
+    this.checkSupabaseConfig();
+    
     const { error } = await supabase
       .from('projects')
       .delete()
@@ -403,17 +471,26 @@ export class DataService {
 
   // Project Task methods
   async getProjectTasks(projectId: string): Promise<ProjectTask[]> {
-    const { data, error } = await supabase
-      .from('project_tasks')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching project tasks:', error);
+      return [];
+    }
   }
 
   async createProjectTask(task: Partial<ProjectTask>): Promise<ProjectTask> {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase
       .from('project_tasks')
       .insert({
@@ -429,6 +506,8 @@ export class DataService {
   }
 
   async updateProjectTask(id: string, updates: Partial<ProjectTask>): Promise<ProjectTask> {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase
       .from('project_tasks')
       .update(updates)
@@ -441,6 +520,8 @@ export class DataService {
   }
 
   async deleteProjectTask(id: string): Promise<void> {
+    this.checkSupabaseConfig();
+    
     const { error } = await supabase
       .from('project_tasks')
       .delete()
@@ -451,17 +532,26 @@ export class DataService {
 
   // Project Photo methods
   async getProjectPhotos(projectId: string): Promise<ProjectPhoto[]> {
-    const { data, error } = await supabase
-      .from('project_photos')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('project_photos')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching project photos:', error);
+      return [];
+    }
   }
 
   async uploadProjectPhoto(projectId: string, file: File, metadata: any = {}): Promise<ProjectPhoto> {
+    this.checkSupabaseConfig();
+    
     // Upload file to Supabase storage
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
@@ -501,6 +591,8 @@ export class DataService {
   }
 
   async deleteProjectPhoto(id: string): Promise<void> {
+    this.checkSupabaseConfig();
+    
     const { error } = await supabase
       .from('project_photos')
       .delete()
@@ -511,17 +603,26 @@ export class DataService {
 
   // Project Document methods
   async getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
-    const { data, error } = await supabase
-      .from('project_documents')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('project_documents')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching project documents:', error);
+      return [];
+    }
   }
 
   async uploadProjectDocument(projectId: string, file: File, metadata: any = {}): Promise<ProjectDocument> {
+    this.checkSupabaseConfig();
+    
     // Upload file to Supabase storage
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
@@ -563,6 +664,8 @@ export class DataService {
   }
 
   async deleteProjectDocument(id: string): Promise<void> {
+    this.checkSupabaseConfig();
+    
     const { error } = await supabase
       .from('project_documents')
       .delete()
@@ -573,17 +676,26 @@ export class DataService {
 
   // Review methods
   async getReviews(businessId: string): Promise<Review[]> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('business_id', businessId)
-      .order('date', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('date', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      return [];
+    }
   }
 
   async createReview(review: Partial<Review>): Promise<Review> {
+    this.checkSupabaseConfig();
+    
     const { data, error } = await supabase
       .from('reviews')
       .insert({
@@ -600,60 +712,88 @@ export class DataService {
 
   // Analytics methods
   async getAnalytics(businessId: string, dateRange?: { start: string; end: string }) {
-    let query = supabase
-      .from('analytics')
-      .select('*')
-      .eq('business_id', businessId);
-    
-    if (dateRange) {
-      query = query
-        .gte('date', dateRange.start)
-        .lte('date', dateRange.end);
+    try {
+      this.checkSupabaseConfig();
+      
+      let query = supabase
+        .from('analytics')
+        .select('*')
+        .eq('business_id', businessId);
+      
+      if (dateRange) {
+        query = query
+          .gte('date', dateRange.start)
+          .lte('date', dateRange.end);
+      }
+      
+      const { data, error } = await query.order('date', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      return [];
     }
-    
-    const { data, error } = await query.order('date', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
   }
 
   // Dashboard summary methods
   async getDashboardSummary(userId?: string) {
-    const user = await this.getCurrentUser();
-    if (!user && !userId) throw new Error('User not authenticated');
-    
-    const targetUserId = userId || user!.id;
-    
-    const { data, error } = await supabase
-      .from('user_dashboard_summary')
-      .select('*')
-      .eq('user_id', targetUserId)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    try {
+      this.checkSupabaseConfig();
+      
+      const user = await this.getCurrentUser();
+      if (!user && !userId) throw new Error('User not authenticated');
+      
+      const targetUserId = userId || user!.id;
+      
+      const { data, error } = await supabase
+        .from('user_dashboard_summary')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching dashboard summary:', error);
+      return null;
+    }
   }
 
   async getBusinessPerformanceSummary(businessId: string) {
-    const { data, error } = await supabase
-      .from('business_performance_summary')
-      .select('*')
-      .eq('business_id', businessId)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('business_performance_summary')
+        .select('*')
+        .eq('business_id', businessId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching business performance summary:', error);
+      return null;
+    }
   }
 
   async getProjectActivitySummary(projectId: string) {
-    const { data, error } = await supabase
-      .from('project_activity_summary')
-      .select('*')
-      .eq('project_id', projectId)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    try {
+      this.checkSupabaseConfig();
+      
+      const { data, error } = await supabase
+        .from('project_activity_summary')
+        .select('*')
+        .eq('project_id', projectId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching project activity summary:', error);
+      return null;
+    }
   }
 }
 
