@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { mockApiService } from '@/lib/mockApiService';
+import { dataService } from '@/lib/dataService';
 
 interface ImageDebuggerProps {
   projectId?: string;

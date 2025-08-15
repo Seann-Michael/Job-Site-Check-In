@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { mockApiService } from '@/lib/mockApiService';
+import { dataService } from '@/lib/dataService';
 import { toast } from 'sonner';
 
 export function TestMockData() {
