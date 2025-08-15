@@ -330,10 +330,30 @@ export class DataService {
 
   async signOut() {
     this.checkSupabaseConfig();
-    
+
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     this.currentUser = null;
+  }
+
+  async getUsers(): Promise<User[]> {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Database table might not exist, falling back to mock data:', error);
+        return this.getMockUsers();
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return this.getMockUsers();
+    }
   }
 
   // Business methods
