@@ -23,7 +23,6 @@ import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { dataService, Project, User, Business } from "@/lib/dataService";
-import { fallbackDataService } from "@/lib/fallbackDataService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Index() {
