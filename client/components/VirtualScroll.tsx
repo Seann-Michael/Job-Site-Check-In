@@ -83,7 +83,13 @@ export function VirtualScroll<T>({
         newScrollTop + containerHeight >= totalHeight - itemHeight * 3
       ) {
         loadMore();
-        trackPerformance("virtual_scroll_load_more", Date.now());
+        if (trackPerformance && typeof trackPerformance === 'function') {
+          try {
+            trackPerformance("virtual_scroll_load_more", Date.now());
+          } catch (error) {
+            console.warn('VirtualScroll load more tracking failed:', error);
+          }
+        }
       }
     },
     [
