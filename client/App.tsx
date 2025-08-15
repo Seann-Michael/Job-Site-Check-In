@@ -976,6 +976,10 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/AgencyClientManagement"
+                  element={<Navigate to="/agency/admin/clients" replace />}
+                />
+                <Route
                   path="/AgencySettings"
                   element={<Navigate to="/agency/admin/settings" replace />}
                 />
