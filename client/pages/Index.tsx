@@ -64,7 +64,7 @@ export default function Index() {
     track("dashboard_loaded", {
       userRole: currentUser?.role,
     });
-  }, [currentUser, navigate]);
+  }, [currentUser?.role, currentUser?.isImpersonated, navigate]);
 
   useEffect(() => {
     // Load data from backend
