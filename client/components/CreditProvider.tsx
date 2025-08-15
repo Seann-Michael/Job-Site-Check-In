@@ -37,7 +37,7 @@ export function CreditProvider({ children }: CreditProviderProps) {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshCredits = () => {
+  const refreshCredits = useCallback(() => {
     try {
       const currentBalance = getCreditBalance();
       const currentTransactions = getCreditTransactions();
@@ -56,7 +56,7 @@ export function CreditProvider({ children }: CreditProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     try {
