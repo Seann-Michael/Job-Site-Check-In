@@ -70,7 +70,7 @@ export default function Index() {
       userRole: currentUser?.role,
       projectCount: projects.length,
     });
-  }, [currentUser, navigate, trackPageView, track, projects.length]);
+  }, [currentUser, navigate, trackPageView, track]);
 
   useEffect(() => {
     // Load data from Supabase or fallback service
