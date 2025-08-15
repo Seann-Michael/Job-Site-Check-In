@@ -149,14 +149,8 @@ export default function Index() {
 
     setFilteredProjects(filtered);
 
-    // Track filter usage
-    if (searchQuery || Object.values(filters).some(v => v && v !== "all")) {
-      trackFeatureUsage("project_filtering", {
-        hasSearch: !!searchQuery,
-        filtersApplied: Object.entries(filters).filter(([_, v]) => v && v !== "all").length,
-        resultCount: filtered.length
-      });
-    }
+    // Analytics tracking removed to prevent infinite loops
+    // TODO: Move analytics tracking to user interaction handlers instead of useEffect
   }, [projects, searchQuery, filters, projectSort, currentUser]);
 
   const handleSearchChange = useCallback((value: string) => {
