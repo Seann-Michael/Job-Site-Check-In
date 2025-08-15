@@ -56,7 +56,7 @@ export function DataManagement({ projects = [] }: DataManagementProps) {
 
   const handleExport = async () => {
     try {
-      trackFeatureUsage("data_export", {
+      trackFeatureUsage("data_export", "export_data", {
         format: exportFormat,
         includeMedia,
         projectCount: selectedProjects.length || projects.length,
@@ -77,7 +77,7 @@ export function DataManagement({ projects = [] }: DataManagementProps) {
 
   const handleBackup = async () => {
     try {
-      trackFeatureUsage("data_backup", backupOptions);
+      trackFeatureUsage("data_backup", "create_backup", backupOptions);
 
       await createBackup(backupOptions);
       toast.success("Backup created successfully!");
@@ -88,7 +88,7 @@ export function DataManagement({ projects = [] }: DataManagementProps) {
 
   const handleRestore = async () => {
     try {
-      trackFeatureUsage("data_restore");
+      trackFeatureUsage("data_restore", "restore_data");
 
       if (
         !confirm(
