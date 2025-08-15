@@ -59,12 +59,6 @@ import {
 import React, { useState, useEffect, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentUser, signOut } from "@/lib/auth";
-import {
-  getCurrentBusiness,
-  canSwitchBusinesses,
-  getUserBusinesses,
-  switchToBusiness,
-} from "@/lib/businessManager";
 import { toast } from "sonner";
 
 interface AppLayoutProps {
