@@ -76,7 +76,7 @@ export function BroadcastAlert() {
       switch (message.targetAudience) {
         case "business-owners":
           return (
-            currentUser.role === "business" || currentUser.role === "owner"
+            currentUser.role === "admin" || currentUser.role === "editor"
           );
         case "agency-admins":
           return currentUser.role === "agency";
