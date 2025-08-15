@@ -64,7 +64,7 @@ export default function SupportTicketDetail() {
 
   useEffect(() => {
     if (!ticketId) {
-      navigate("/admin/support");
+      navigate("/support");
       return;
     }
 
@@ -78,7 +78,7 @@ export default function SupportTicketDetail() {
 
     if (!foundTicket) {
       toast.error("Ticket not found");
-      navigate("/admin/support");
+      navigate("/support");
       return;
     }
 
@@ -198,7 +198,7 @@ export default function SupportTicketDetail() {
         <div className="container px-4 py-6">
           <div className="text-center py-12">
             <h3 className="text-lg font-semibold mb-2">Ticket not found</h3>
-            <Link to="/admin/support">
+            <Link to="/support">
               <Button>Back to Support</Button>
             </Link>
           </div>
@@ -212,7 +212,7 @@ export default function SupportTicketDetail() {
       <div className="container px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Link to="/admin/support">
+          <Link to="/support">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
