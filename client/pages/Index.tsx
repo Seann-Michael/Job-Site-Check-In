@@ -151,7 +151,7 @@ export default function Index() {
 
     // Analytics tracking removed to prevent infinite loops
     // TODO: Move analytics tracking to user interaction handlers instead of useEffect
-  }, [projects, searchQuery, filters, projectSort, currentUser]);
+  }, [projects, searchQuery, filters, projectSort, currentUser?.id]); // Use specific property instead of whole object
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
