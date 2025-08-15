@@ -347,6 +347,12 @@ export class DataService {
 
   async getUsers(): Promise<User[]> {
     try {
+      // Check if Supabase is configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('Supabase not configured, returning mock users');
+        return this.getMockUsers();
+      }
+
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
