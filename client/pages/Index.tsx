@@ -21,7 +21,7 @@ import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeProvider";
-import { mockApiService, Project, User, Business } from "@/lib/mockApiService";
+import { dataService, Project, User, Business } from "@/lib/dataService";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -71,17 +71,17 @@ export default function Index() {
         setIsLoading(true);
 
         // Load businesses first
-        const businessData = await mockApiService.getBusinesses();
+        const businessData = await dataService.getBusinesses();
         setBusinesses(businessData);
         console.log("Loaded businesses:", businessData.length);
 
         // Load users
-        const userData = await mockApiService.getUsers();
+        const userData = await dataService.getUsers();
         setUsers(userData);
         console.log("Loaded users:", userData.length);
 
         // Load all projects
-        const allProjects = await mockApiService.getProjects();
+        const allProjects = await dataService.getProjects();
 
         setProjects(allProjects);
         setFilteredProjects(allProjects);
@@ -179,7 +179,7 @@ export default function Index() {
 
   const handleDeleteProject = useCallback(async (id: string) => {
     try {
-      await mockApiService.deleteProject(id);
+      await dataService.deleteProject(id);
       setProjects(prev => prev.filter(p => p.id !== id));
       toast.success("Project deleted successfully");
       track("project_deleted", { projectId: id });
