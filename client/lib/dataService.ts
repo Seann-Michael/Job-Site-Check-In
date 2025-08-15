@@ -667,11 +667,26 @@ export class DataService {
   }
 
   async deleteProject(id: string): Promise<void> {
-    this.checkSupabaseConfig();
+    try {
+      // Check if Supabase is configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn("Supabase not configured, simulating project deletion");
+        // For mock mode, just log the deletion
+        return;
+      }
 
-    const { error } = await supabase.from("projects").delete().eq("id", id);
+      this.checkSupabaseConfig();
 
-    if (error) throw error;
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+
+      if (error) {
+        console.error("Supabase delete error:", error);
+        throw new Error(`Failed to delete project: ${error.message}`);
+      }
+    } catch (error) {
+      console.error("Error in deleteProject:", error);
+      throw error;
+    }
   }
 
   // Project Task methods
