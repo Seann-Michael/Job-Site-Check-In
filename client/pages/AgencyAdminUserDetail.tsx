@@ -176,7 +176,7 @@ export default function AgencyAdminUserDetail() {
           <p className="text-muted-foreground mb-4">
             The requested admin user could not be found.
           </p>
-          <Link to="/agency-admin/admin-users">
+          <Link to="/agency/admin/admin-users">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Admin Users
@@ -193,7 +193,7 @@ export default function AgencyAdminUserDetail() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/agency-admin/admin-users">
+            <Link to="/agency/admin/admin-users">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
@@ -209,7 +209,7 @@ export default function AgencyAdminUserDetail() {
               <Smartphone className="mr-2 h-4 w-4" />
               Send App Link
             </Button>
-            <Link to={`/agency-admin/admin-users/${user.id}/edit`}>
+            <Link to={`/agency/admin/admin-users/${user.id}/edit`}>
               <Button>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit User

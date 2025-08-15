@@ -137,7 +137,7 @@ export default function AgencyAdminUserEdit() {
           <p className="text-muted-foreground mb-4">
             The requested admin user could not be found.
           </p>
-          <Link to="/agency-admin/admin-users">
+          <Link to="/agency/admin/admin-users">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Admin Users
@@ -154,7 +154,7 @@ export default function AgencyAdminUserEdit() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to={`/agency-admin/admin-users/${id}`}>
+            <Link to={`/agency/admin/admin-users/${id}`}>
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
@@ -306,7 +306,7 @@ export default function AgencyAdminUserEdit() {
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2">
-          <Link to={`/agency-admin/admin-users/${id}`}>
+          <Link to={`/agency/admin/admin-users/${id}`}>
             <Button variant="outline">Cancel</Button>
           </Link>
           <Button onClick={handleSave} className="gap-2">

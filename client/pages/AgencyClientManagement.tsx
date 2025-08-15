@@ -194,7 +194,7 @@ export default function AgencyClientManagement() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/agency-admin/clients/add">
+            <Link to="/agency/admin/clients/add">
               <Button className="gap-2">
                 <UserPlus className="h-4 w-4" />
                 Add Client
@@ -381,7 +381,7 @@ export default function AgencyClientManagement() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
                               <Link
-                                to={`/agency-admin/clients/${client.id}`}
+                                to={`/agency/admin/clients/${client.id}`}
                                 className="flex items-center"
                               >
                                 <Eye className="mr-2 h-4 w-4" />
@@ -390,7 +390,7 @@ export default function AgencyClientManagement() {
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                               <Link
-                                to={`/agency-admin/clients/${client.id}/edit`}
+                                to={`/agency/admin/clients/${client.id}/edit`}
                                 className="flex items-center"
                               >
                                 <Edit className="mr-2 h-4 w-4" />

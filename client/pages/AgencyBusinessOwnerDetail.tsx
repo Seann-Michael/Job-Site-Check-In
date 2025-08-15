@@ -142,7 +142,7 @@ export default function AgencyBusinessOwnerDetail() {
           <p className="text-muted-foreground mb-4">
             The requested business owner could not be found.
           </p>
-          <Link to="/agency-admin/business-owners">
+          <Link to="/agency/admin/business-owners">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Business Owners
@@ -196,7 +196,7 @@ export default function AgencyBusinessOwnerDetail() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/agency-admin/business-owners">
+            <Link to="/agency/admin/business-owners">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
@@ -212,7 +212,7 @@ export default function AgencyBusinessOwnerDetail() {
               <Shield className="mr-2 h-4 w-4" />
               Login as User
             </Button>
-            <Link to={`/agency-admin/business-owners/${business.id}/edit`}>
+            <Link to={`/agency/admin/business-owners/${business.id}/edit`}>
               <Button>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Business

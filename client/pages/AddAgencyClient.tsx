@@ -151,7 +151,7 @@ export default function AddAgencyClient() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Link to="/agency-admin/clients">
+          <Link to="/agency/admin/clients">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -423,7 +423,7 @@ export default function AddAgencyClient() {
                         "Add Client"
                       )}
                     </Button>
-                    <Link to="/agency-admin/clients">
+                    <Link to="/agency/admin/clients">
                       <Button variant="outline" className="w-full">
                         Cancel
                       </Button>
