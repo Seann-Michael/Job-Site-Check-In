@@ -108,11 +108,15 @@ export function VirtualScroll<T>({
 
   // Performance monitoring
   useEffect(() => {
-    if (safeItems.length > 0) {
-      trackPerformance(
-        "virtual_scroll_render_count",
-        endIndex - startIndex + 1,
-      );
+    try {
+      if (safeItems.length > 0 && trackPerformance && typeof trackPerformance === 'function') {
+        trackPerformance(
+          "virtual_scroll_render_count",
+          endIndex - startIndex + 1,
+        );
+      }
+    } catch (error) {
+      console.warn('VirtualScroll performance tracking failed:', error);
     }
   }, [startIndex, endIndex, safeItems.length, trackPerformance]);
 
