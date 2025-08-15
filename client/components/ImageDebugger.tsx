@@ -82,42 +82,8 @@ export function ImageDebugger({ projectId = "project-1" }: ImageDebuggerProps) {
       testImg.src = url;
     });
 
-    // Test project photos
-    if (project?.photos?.length > 0) {
-      const photosToTest = project.photos.slice(0, 3); // Test first 3 photos
-
-      photosToTest.forEach((photo: any, index: number) => {
-        const photoUrl = typeof photo === 'string' ? photo : photo.url;
-        const testResult = {
-          index,
-          url: photoUrl,
-          isString: typeof photo === 'string',
-          loadSuccess: null as boolean | null,
-          error: null as string | null,
-          isControl: false
-        };
-
-        imageTests.push(testResult);
-
-        // Create test image to check if URL loads
-        const testImg = new Image();
-        testImg.onload = () => {
-          setImageTests(prev => prev.map(test =>
-            test.index === index ? { ...test, loadSuccess: true } : test
-          ));
-        };
-        testImg.onerror = (e) => {
-          setImageTests(prev => prev.map(test =>
-            test.index === index ? {
-              ...test,
-              loadSuccess: false,
-              error: 'Network error or invalid URL'
-            } : test
-          ));
-        };
-        testImg.src = photoUrl;
-      });
-    }
+    // Test project photos from localStorage (legacy)
+    // Note: Current dataService uses separate getProjectPhotos() method
 
     setImageTests(imageTests);
 
