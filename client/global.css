@@ -773,3 +773,12 @@ body {
     display: none; /* Chrome, Safari and Opera */
   }
 }
+
+/* ResizeObserver error suppression */
+.radix-scroll-area-viewport,
+.virtual-scroll-container,
+[data-radix-scroll-area-viewport],
+[data-radix-popover-content],
+[data-radix-dropdown-menu-content] {
+  contain: layout style;
+}
