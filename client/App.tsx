@@ -888,10 +888,6 @@ const App = () => (
                   element={<Navigate to="/agency/admin/business-owners/add" replace />}
                 />
                 <Route
-                  path="/AddAgencyAdminUser"
-                  element={<Navigate to="/agency/admin/admin-users/add" replace />}
-                />
-                <Route
                   path="/AdminProjects"
                   element={<Navigate to="/admin/projects" replace />}
                 />
