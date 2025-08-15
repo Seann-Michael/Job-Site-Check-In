@@ -4,6 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Debug logging
+console.log('🔧 Supabase Config Debug:', {
+  hasUrl: !!supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  urlSnippet: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'undefined',
+  keySnippet: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'undefined'
+});
+
 // Create a placeholder client if environment variables are missing
 let supabase: ReturnType<typeof createClient>;
 
