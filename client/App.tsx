@@ -928,6 +928,30 @@ const App = () => (
                   element={<Navigate to="/agency/admin/settings" replace />}
                 />
                 <Route
+                  path="/AgencyAnalytics"
+                  element={<Navigate to="/agency/admin/analytics" replace />}
+                />
+                <Route
+                  path="/AgencyReports"
+                  element={<Navigate to="/agency/admin/reports" replace />}
+                />
+                <Route
+                  path="/AgencyBilling"
+                  element={<Navigate to="/agency/admin/billing" replace />}
+                />
+                <Route
+                  path="/AgencyCommission"
+                  element={<Navigate to="/agency/admin/commission" replace />}
+                />
+                <Route
+                  path="/AgencyAudits"
+                  element={<Navigate to="/agency/admin/audits" replace />}
+                />
+                <Route
+                  path="/AgencyTasks"
+                  element={<Navigate to="/agency/admin/tasks" replace />}
+                />
+                <Route
                   path="/RecurringScans"
                   element={
                     <Navigate to="/admin/audits/recurring-scans" replace />
