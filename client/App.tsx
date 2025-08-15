@@ -985,6 +985,34 @@ const App = () => (
                   path="/GridOverlayDemo"
                   element={<Navigate to="/admin/grid-demo" replace />}
                 />
+                <Route
+                  path="/OneTimeScan"
+                  element={<Navigate to="/admin/audits/one-time-scan" replace />}
+                />
+                <Route
+                  path="/WorkflowBuilder"
+                  element={<Navigate to="/admin/workflow-builder" replace />}
+                />
+                <Route
+                  path="/AdminAutomations"
+                  element={<Navigate to="/admin/automations" replace />}
+                />
+                <Route
+                  path="/Profile"
+                  element={<Navigate to="/admin/profile" replace />}
+                />
+                <Route
+                  path="/Ideas"
+                  element={<Navigate to="/ideas" replace />}
+                />
+                <Route
+                  path="/ComingSoon"
+                  element={<Navigate to="/coming-soon" replace />}
+                />
+                <Route
+                  path="/Support"
+                  element={<Navigate to="/support" replace />}
+                />
 
                 {/* Agency Admin Legacy URL Redirects */}
                 <Route
