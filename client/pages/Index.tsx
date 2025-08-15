@@ -22,18 +22,15 @@ import { VirtualProjectList } from "@/components/VirtualScroll";
 import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeProvider";
-import { mockDataService, MockProject } from "@/lib/mockData";
-
-// Use MockProject interface from mockData
-type Project = MockProject;
+import { dataService, Project, User, Business } from "@/lib/dataService";
 
 export default function Index() {
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
 
-  // Removed Builder.io editor detection to prevent forced mock data
-
   const [projects, setProjects] = useState<Project[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -57,13 +54,6 @@ export default function Index() {
     tags: "",
   });
 
-  // Mock users for filtering
-  const users = [
-    { id: "1", name: "John Smith" },
-    { id: "2", name: "Jane Doe" },
-    { id: "3", name: "Mike Johnson" },
-  ];
-
   // Redirect super admin users to super admin dashboard
   useEffect(() => {
     if (currentUser?.role === "superadmin" && !currentUser?.isImpersonated) {
@@ -80,146 +70,141 @@ export default function Index() {
   }, [currentUser, navigate, trackPageView, track, projects.length]);
 
   useEffect(() => {
-    // Load projects from mock data service
-    const loadProjects = async () => {
+    // Load data from Supabase
+    const loadData = async () => {
       try {
-        console.log("Loading projects...");
+        console.log("Loading data from Supabase...");
+        setIsLoading(true);
 
-        // Removed Builder.io specific logic that forced minimal mock data
-
-        // Load projects from mock data service
-        console.log("Loading projects from mock data service...");
-        mockDataService.initialize(); // Ensure it's initialized
-        const mockProjects = mockDataService.getProjects();
-        console.log("Loaded projects:", mockProjects.length, "projects");
-
-        if (mockProjects.length === 0) {
-          console.warn("No projects found, forcing regeneration...");
-          mockDataService.forceReinitialize();
-          const newProjects = mockDataService.getProjects();
-          console.log(
-            "After force regeneration:",
-            newProjects.length,
-            "projects",
-          );
-          setProjects(newProjects);
-          setFilteredProjects(newProjects.filter((p) => !p.archived));
-        } else {
-          setProjects(mockProjects);
-          setFilteredProjects(mockProjects.filter((p) => !p.archived));
+        // Check if user is authenticated
+        const user = await dataService.getCurrentUser();
+        if (!user) {
+          console.warn("User not authenticated, redirecting to login...");
+          navigate("/login");
+          return;
         }
+
+        // Load businesses first
+        console.log("Loading businesses...");
+        const businessData = await dataService.getBusinesses();
+        setBusinesses(businessData);
+        console.log("Loaded businesses:", businessData.length);
+
+        // Load projects from all user's businesses
+        const allProjects: Project[] = [];
+        for (const business of businessData) {
+          const businessProjects = await dataService.getProjects(business.id);
+          allProjects.push(...businessProjects);
+        }
+
+        setProjects(allProjects);
+        setFilteredProjects(allProjects);
+        console.log("Loaded projects:", allProjects.length);
+
+        // Show initial projects
+        const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
+        setDisplayedProjects(initialProjects);
+
+        // Track successful data load
+        track("data_loaded", {
+          businessCount: businessData.length,
+          projectCount: allProjects.length,
+          userRole: user.role,
+        });
+
       } catch (error) {
-        console.error("Error loading projects:", error);
-        toast.error("Failed to load projects");
-        // Fallback to empty array
-        setProjects([]);
-        setFilteredProjects([]);
+        console.error("Error loading data:", error);
+        toast.error("Failed to load projects. Please try again.");
+        
+        // If we can't load from Supabase, check if it's a connection issue
+        if (error instanceof Error && error.message.includes("Missing Supabase")) {
+          toast.error("Supabase is not properly configured. Please check your environment variables.");
+        }
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    loadProjects();
-  }, []);
+    loadData();
+  }, [navigate, track, showAllProjects]);
 
-  const applyFilters = () => {
-    let filtered = projects;
+  // Apply filters and search to projects
+  useEffect(() => {
+    let filtered = [...projects];
 
-    // Project sort filter (applied first)
-    switch (projectSort) {
-      case "starred":
-        filtered = filtered.filter((project) => project.starred === true);
-        break;
-      case "my-projects":
-        filtered = filtered.filter(
-          (project) => project.createdBy === currentUser?.id,
-        );
-        break;
-      case "archived":
-        filtered = filtered.filter((project) => project.archived === true);
-        break;
-      case "all":
-      default:
-        // Show all non-archived projects by default
-        filtered = filtered.filter((project) => project.archived !== true);
-        break;
-    }
-
-    // Search query filter
-    if (searchQuery.trim() !== "") {
-      filtered = filtered.filter(
-        (project) =>
-          project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          project.description
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          project.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          project.keywords.some((keyword) =>
-            keyword.toLowerCase().includes(searchQuery.toLowerCase()),
-          ),
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((project) =>
+        project.name.toLowerCase().includes(query) ||
+        project.description?.toLowerCase().includes(query) ||
+        project.type.toLowerCase().includes(query) ||
+        project.status.toLowerCase().includes(query)
       );
     }
 
-    // Date filters
+    // Apply filters
+    if (filters.status !== "all") {
+      filtered = filtered.filter((project) => project.status === filters.status);
+    }
+
+    if (filters.assignedUser !== "all") {
+      filtered = filtered.filter((project) => project.assigned_to === filters.assignedUser);
+    }
+
     if (filters.startDate) {
       filtered = filtered.filter(
-        (project) =>
-          new Date(project.startDate || project.createdAt) >=
-          new Date(filters.startDate),
+        (project) => new Date(project.created_at) >= new Date(filters.startDate)
       );
     }
 
     if (filters.endDate) {
       filtered = filtered.filter(
-        (project) =>
-          new Date(project.completionDate || project.createdAt) <=
-          new Date(filters.endDate),
+        (project) => new Date(project.created_at) <= new Date(filters.endDate)
       );
     }
 
-    // Status filter
-    if (filters.status !== "all") {
-      filtered = filtered.filter(
-        (project) => (project.status || "active") === filters.status,
-      );
-    }
-
-    // Assigned user filter
-    if (filters.assignedUser !== "all") {
-      filtered = filtered.filter((project) =>
-        project.assignedUsers?.includes(filters.assignedUser),
-      );
-    }
-
-    // Tags filter
-    if (filters.tags.trim() !== "") {
-      const searchTags = filters.tags
-        .toLowerCase()
-        .split(",")
-        .map((t) => t.trim());
-      filtered = filtered.filter((project) =>
-        searchTags.some((tag) =>
-          project.keywords.some((keyword) =>
-            keyword.toLowerCase().includes(tag),
-          ),
-        ),
-      );
+    // Apply project sort
+    switch (projectSort) {
+      case "my-projects":
+        const currentUserId = currentUser?.id;
+        if (currentUserId) {
+          filtered = filtered.filter((project) => project.assigned_to === currentUserId);
+        }
+        break;
+      case "archived":
+        filtered = filtered.filter((project) => project.status === "completed" || project.status === "cancelled");
+        break;
+      case "starred":
+        // For now, show high priority projects as "starred"
+        filtered = filtered.filter((project) => project.priority === "high" || project.priority === "urgent");
+        break;
     }
 
     setFilteredProjects(filtered);
+
+    // Update displayed projects
+    const displayed = filtered.slice(0, showAllProjects ? filtered.length : 6);
+    setDisplayedProjects(displayed);
+
+    // Track filter usage
+    if (searchQuery || Object.values(filters).some(v => v && v !== "all")) {
+      trackFeatureUsage("project_filtering", {
+        hasSearch: !!searchQuery,
+        filtersApplied: Object.entries(filters).filter(([_, v]) => v && v !== "all").length,
+        resultCount: filtered.length
+      });
+    }
+  }, [projects, searchQuery, filters, projectSort, showAllProjects, currentUser, trackFeatureUsage]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    trackFeatureUsage("project_search", { queryLength: value.length });
   };
 
-  useEffect(() => {
-    applyFilters();
-  }, [projects, searchQuery, filters, projectSort]);
-
-  // Update displayed projects when filtered projects change
-  useEffect(() => {
-    if (showAllProjects) {
-      setDisplayedProjects(filteredProjects);
-    } else {
-      setDisplayedProjects(filteredProjects.slice(0, 20));
-    }
-  }, [filteredProjects, showAllProjects]);
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
 
   const clearFilters = () => {
     setFilters({
@@ -230,188 +215,195 @@ export default function Index() {
       tags: "",
     });
     setSearchQuery("");
+    trackFeatureUsage("filters_cleared");
   };
 
-  const markProjectIncomplete = (projectId: string) => {
-    mockDataService.updateProject(projectId, {
-      status: "active",
-      completedDate: undefined,
-    });
-    const updatedProjects = mockDataService.getProjects();
-    setProjects(updatedProjects);
-    setFilteredProjects(updatedProjects.filter((p) => !p.archived));
-    toast.success("Project marked as incomplete");
+  const hasActiveFilters = useMemo(() => {
+    return searchQuery.trim() !== "" || 
+           Object.entries(filters).some(([key, value]) => 
+             key !== "tags" ? value !== "all" && value !== "" : value !== ""
+           );
+  }, [searchQuery, filters]);
+
+  const handleDeleteProject = async (id: string) => {
+    try {
+      await dataService.deleteProject(id);
+      setProjects(prev => prev.filter(p => p.id !== id));
+      toast.success("Project deleted successfully");
+      track("project_deleted", { projectId: id });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      toast.error("Failed to delete project");
+    }
   };
+
+  const handleAdvancedSearch = (searchCriteria: any) => {
+    console.log("Advanced search:", searchCriteria);
+    setShowAdvancedSearch(false);
+    trackFeatureUsage("advanced_search_used", searchCriteria);
+  };
+
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const total = projects.length;
+    const active = projects.filter(p => p.status === "active" || p.status === "in_progress").length;
+    const completed = projects.filter(p => p.status === "completed").length;
+    const businesses_count = businesses.length;
+
+    return {
+      total: total.toString(),
+      active: active.toString(),
+      completed: completed.toString(),
+      businesses: businesses_count.toString()
+    };
+  }, [projects, businesses]);
+
+  if (isLoading) {
+    return (
+      <AppLayout
+        title="Projects"
+        breadcrumbs={[{ label: "Projects", href: "/" }]}
+        actions={<ThemeToggle />}
+      >
+        <ProjectGridSkeleton />
+      </AppLayout>
+    );
+  }
 
   return (
-    <AppLayout>
-      <div className="w-full px-3 sm:px-4 py-6 max-w-full overflow-x-hidden min-w-0 bg-background">
-        {/* Broadcast Messages */}
-        <EnhancedBroadcastAlert />
+    <AppLayout
+      title="Projects"
+      breadcrumbs={[{ label: "Projects", href: "/" }]}
+      actions={<ThemeToggle />}
+      quickStats={[
+        { label: "Total", value: stats.total },
+        {
+          label: "Active",
+          value: stats.active,
+          color: "success",
+        },
+        {
+          label: "Completed",
+          value: stats.completed,
+          color: "success",
+        },
+        {
+          label: "Businesses",
+          value: stats.businesses,
+          color: "info",
+        },
+      ]}
+    >
+      <div className="space-y-6">
+        <EnhancedBroadcastAlert 
+          onDismiss={() => trackFeatureUsage("broadcast_alert_dismissed")}
+        />
 
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-4">
-            Projects ({filteredProjects.length})
-          </h1>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            {/* Project Sort Buttons */}
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex items-center gap-1 border rounded-lg p-1 min-w-max">
+        {/* Search and Filter Controls */}
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
+              <div className="flex flex-1 items-center space-x-2">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search projects..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
                 <Button
-                  variant={projectSort === "all" ? "default" : "ghost"}
+                  variant="outline"
                   size="sm"
-                  onClick={() => setProjectSort("all")}
-                  className="text-xs whitespace-nowrap"
+                  onClick={() => setShowAdvancedSearch(true)}
                 >
-                  All
-                </Button>
-                <Button
-                  variant={projectSort === "starred" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setProjectSort("starred")}
-                  className="text-xs whitespace-nowrap"
-                >
-                  Starred
-                </Button>
-                <Button
-                  variant={projectSort === "my-projects" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setProjectSort("my-projects")}
-                  className="text-xs whitespace-nowrap"
-                >
-                  My Projects
-                </Button>
-                <Button
-                  variant={projectSort === "archived" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setProjectSort("archived")}
-                  className="text-xs whitespace-nowrap"
-                >
-                  Archived
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              {/* Card Size Controls - Hidden on mobile */}
-              <div className="hidden sm:flex border rounded-lg p-1 bg-muted/30">
-                <Button
-                  variant={cardSize === "small" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setCardSize("small")}
-                  className="px-3 h-8 text-xs"
-                >
-                  Small
-                </Button>
-                <Button
-                  variant={cardSize === "medium" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setCardSize("medium")}
-                  className="px-3 h-8 text-xs"
-                >
-                  Medium
-                </Button>
-                <Button
-                  variant={cardSize === "large" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setCardSize("large")}
-                  className="px-3 h-8 text-xs"
-                >
-                  Large
+                  <Search className="mr-2 h-4 w-4" />
+                  Advanced
                 </Button>
               </div>
 
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="gap-2 w-full sm:w-auto"
-              >
-                <Filter className="h-4 w-4" />
-                <span className="sm:hidden">Show Filters</span>
-                <span className="hidden sm:inline">Filters</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
+                  {hasActiveFilters && (
+                    <span className="ml-1 rounded-full bg-primary w-2 h-2" />
+                  )}
+                </Button>
 
-        {/* Filters Section */}
-        {showFilters && (
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Filter Projects</CardTitle>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    <RotateCcw className="h-4 w-4 mr-2" />
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    <X className="mr-2 h-4 w-4" />
                     Clear
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowFilters(false)}
-                  >
-                    <X className="h-4 w-4" />
+                )}
+
+                <Link to="/add-project">
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Project
                   </Button>
-                </div>
+                </Link>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <Input
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Date</Label>
-                  <Input
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
+            </div>
+
+            {/* Filter Panel */}
+            {showFilters && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
+                <div>
+                  <Label htmlFor="status-filter">Status</Label>
                   <Select
                     value={filters.status}
-                    onValueChange={(value) =>
-                      setFilters((prev) => ({ ...prev, status: value }))
-                    }
+                    onValueChange={(value) => handleFilterChange("status", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="All statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="on-hold">On Hold</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Assigned User</Label>
+
+                <div>
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="end-date">End Date</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="assigned-user">Assigned To</Label>
                   <Select
                     value={filters.assignedUser}
-                    onValueChange={(value) =>
-                      setFilters((prev) => ({ ...prev, assignedUser: value }))
-                    }
+                    onValueChange={(value) => handleFilterChange("assignedUser", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="All users" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Users</SelectItem>
@@ -423,149 +415,99 @@ export default function Index() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Tags</Label>
-                  <Input
-                    placeholder="kitchen, bathroom..."
-                    value={filters.tags}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, tags: e.target.value }))
-                    }
-                  />
-                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardHeader>
+        </Card>
 
-        {/* Search Bar */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1 max-w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search projects..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-full"
-            />
+        {/* Project Sorting and View Options */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Select value={projectSort} onValueChange={(value: any) => setProjectSort(value)}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                <SelectItem value="my-projects">My Projects</SelectItem>
+                <SelectItem value="starred">High Priority</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={cardSize} onValueChange={(value: any) => setCardSize(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Small</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="large">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Showing {displayedProjects.length} of {filteredProjects.length} projects
           </div>
         </div>
 
-        {isLoading ? (
-          <ProjectGridSkeleton />
-        ) : filteredProjects.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No projects found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchQuery.trim() ||
-                Object.values(filters).some((v) => v !== "" && v !== "all")
-                  ? "No projects match your search or filters."
-                  : "Get started by creating your first project."}
+        {/* Projects Grid */}
+        {displayedProjects.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <FolderOpen className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {hasActiveFilters ? "No projects match your filters" : "No projects yet"}
+              </h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                {hasActiveFilters
+                  ? "Try adjusting your search criteria or clearing filters to see more projects."
+                  : "Get started by creating your first project. It's quick and easy!"}
               </p>
-              <Link to="/admin/add-project">
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Project
+              {hasActiveFilters ? (
+                <Button variant="outline" onClick={clearFilters}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Clear Filters
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/add-project">
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Project
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         ) : (
           <>
-            {/* Mobile single column layout */}
-            <div className="block md:hidden">
-              {filteredProjects.length > 3 && (
-                <div className="text-xs text-muted-foreground mb-3 text-center">
-                  Showing {displayedProjects.length} of{" "}
-                  {filteredProjects.length} projects
-                </div>
-              )}
-              <div className="space-y-4">
-                {displayedProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onDelete={() => {
-                      mockDataService.deleteProject(project.id);
-                      const updatedProjects = mockDataService.getProjects();
-                      setProjects(updatedProjects);
-                      setFilteredProjects(
-                        updatedProjects.filter((p) => !p.archived),
-                      );
-                    }}
-                    onMarkIncomplete={
-                      project.status === "completed"
-                        ? () => markProjectIncomplete(project.id)
-                        : undefined
-                    }
-                    onToggleStar={(starred) => {
-                      mockDataService.updateProject(project.id, { starred });
-                      const updatedProjects = mockDataService.getProjects();
-                      setProjects(updatedProjects);
-                      setFilteredProjects(
-                        updatedProjects.filter((p) => !p.archived),
-                      );
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+            <VirtualProjectList
+              projects={displayedProjects}
+              onDeleteProject={handleDeleteProject}
+              cardSize={cardSize}
+            />
 
-            {/* Desktop grid layout */}
-            <div
-              className={`hidden md:grid gap-4 auto-rows-fr ${
-                cardSize === "small"
-                  ? "md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-                  : cardSize === "medium"
-                    ? "md:grid-cols-2 lg:grid-cols-3"
-                    : "md:grid-cols-1 lg:grid-cols-2"
-              }`}
-            >
-              {displayedProjects.map((project) => (
-                <div key={project.id} className="flex">
-                  <ProjectCard
-                    project={project}
-                    onDelete={() => {
-                      mockDataService.deleteProject(project.id);
-                      const updatedProjects = mockDataService.getProjects();
-                      setProjects(updatedProjects);
-                      setFilteredProjects(
-                        updatedProjects.filter((p) => !p.archived),
-                      );
-                    }}
-                    onMarkIncomplete={
-                      project.status === "completed"
-                        ? () => markProjectIncomplete(project.id)
-                        : undefined
-                    }
-                    onToggleStar={(starred) => {
-                      mockDataService.updateProject(project.id, { starred });
-                      const updatedProjects = mockDataService.getProjects();
-                      setProjects(updatedProjects);
-                      setFilteredProjects(
-                        updatedProjects.filter((p) => !p.archived),
-                      );
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Load More / View All Button */}
-            {!showAllProjects && filteredProjects.length > 20 && (
-              <div className="flex justify-center mt-8">
+            {/* Show More Button */}
+            {filteredProjects.length > displayedProjects.length && (
+              <div className="flex justify-center">
                 <Button
                   variant="outline"
                   onClick={() => setShowAllProjects(true)}
-                  className="px-8"
                 >
-                  View All {filteredProjects.length} Projects
+                  Show All {filteredProjects.length} Projects
                 </Button>
               </div>
             )}
           </>
+        )}
+
+        {/* Advanced Search Modal */}
+        {showAdvancedSearch && (
+          <AdvancedSearch
+            onSearch={handleAdvancedSearch}
+            onClose={() => setShowAdvancedSearch(false)}
+          />
         )}
       </div>
     </AppLayout>
