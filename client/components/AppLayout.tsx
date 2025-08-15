@@ -19,14 +19,15 @@ import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Footer } from "@/components/Footer";
 import { CreditProvider } from "@/components/CreditProvider";
 import { CreditDisplay } from "@/components/CreditDisplay";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// DropdownMenu imports temporarily disabled to fix infinite loop
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuLabel,
+//   DropdownMenuSeparator,
+//   DropdownMenuTrigger,
+// } from "@/components/ui/dropdown-menu";
 import {
   Shield,
   Users,
