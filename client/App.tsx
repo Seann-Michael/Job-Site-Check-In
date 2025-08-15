@@ -1004,6 +1004,14 @@ const App = () => (
                   element={<Navigate to="/agency/admin/projects/create" replace />}
                 />
                 <Route
+                  path="/AgencyProjectDetail"
+                  element={<Navigate to="/agency/admin/projects" replace />}
+                />
+                <Route
+                  path="/AgencyProjectEdit"
+                  element={<Navigate to="/agency/admin/projects" replace />}
+                />
+                <Route
                   path="/RecurringScans"
                   element={
                     <Navigate to="/admin/audits/recurring-scans" replace />
