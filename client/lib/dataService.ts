@@ -368,6 +368,12 @@ export class DataService {
   // Business methods
   async getBusinesses(ownerId?: string): Promise<Business[]> {
     try {
+      // Check if Supabase is configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('Supabase not configured, returning mock businesses');
+        return this.getMockBusinesses();
+      }
+
       this.checkSupabaseConfig();
 
       const user = await this.getCurrentUser();
