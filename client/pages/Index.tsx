@@ -21,7 +21,7 @@ import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeProvider";
-import { dataService, Project, User, Business } from "@/lib/dataService";
+import { mockApiService, Project, User, Business } from "@/lib/mockApiService";
 
 export default function Index() {
   const navigate = useNavigate();
