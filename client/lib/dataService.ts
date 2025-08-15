@@ -919,6 +919,33 @@ export class DataService {
       }
     ];
   }
+
+  private getMockUsers(): User[] {
+    return [
+      {
+        id: 'user-1',
+        email: 'john@example.com',
+        name: 'John Smith',
+        role: 'business_owner',
+        is_2fa_enabled: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email_verified: true,
+        phone_verified: false,
+      },
+      {
+        id: 'user-2',
+        email: 'sarah@example.com',
+        name: 'Sarah Johnson',
+        role: 'staff',
+        is_2fa_enabled: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email_verified: true,
+        phone_verified: false,
+      }
+    ];
+  }
 }
 
 // Export singleton instance
