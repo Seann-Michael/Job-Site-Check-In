@@ -338,7 +338,7 @@ export function AppLayout({
                     variant="ghost"
                     size="icon"
                     onClick={() => setMobileSidebarOpen(true)}
-                    className="lg:hidden"
+                    className="md:hidden"
                   >
                     <Menu className="h-5 w-5" />
                   </Button>
