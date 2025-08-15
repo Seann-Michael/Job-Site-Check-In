@@ -854,7 +854,8 @@ export default function ProjectDetail() {
       setProject({ ...updatedProject });
     } catch (error) {
       console.error('Error updating project:', error);
-      toast.error('Failed to update project');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to update project: ${errorMessage}`);
     }
   };
 
