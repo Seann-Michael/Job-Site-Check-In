@@ -194,9 +194,28 @@ export class DataService {
   async getCurrentUser(): Promise<User | null> {
     try {
       this.checkSupabaseConfig();
-      
+
       if (this.currentUser) return this.currentUser;
-      
+
+      // Check for current auth system user first
+      const localUser = this.getCurrentLocalUser();
+      if (localUser) {
+        // Convert local user to Supabase user format
+        this.currentUser = {
+          id: localUser.id,
+          email: localUser.email,
+          name: localUser.name,
+          role: this.mapLocalRoleToSupabaseRole(localUser.role),
+          is_2fa_enabled: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          email_verified: true,
+          phone_verified: false,
+        };
+        return this.currentUser;
+      }
+
+      // Fallback to Supabase auth if available
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
