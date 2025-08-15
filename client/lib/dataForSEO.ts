@@ -132,11 +132,9 @@ class DataForSEOService {
         username: envUsername,
         password: envPassword
       };
+    } else {
+      this.loadCredentials();
     }
-  }
-
-  constructor() {
-    this.loadCredentials();
   }
 
   private loadCredentials() {
