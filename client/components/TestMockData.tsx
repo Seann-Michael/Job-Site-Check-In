@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { mockDataService } from '@/lib/mockData';
+import { mockApiService } from '@/lib/mockApiService';
 import { toast } from 'sonner';
 
 export function TestMockData() {
@@ -11,8 +11,7 @@ export function TestMockData() {
       localStorage.removeItem('users');
       localStorage.removeItem('clients');
       
-      // Force reinitialize
-      mockDataService.forceReinitialize();
+      // mockApiService doesn't need reinitialization - data is static
       
       // Check what we have
       const projects = JSON.parse(localStorage.getItem('projects') || '[]');
