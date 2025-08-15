@@ -200,7 +200,7 @@ export function useVirtualScroll<T>(
     const initial = safeAllItems.slice(0, initialLoad);
     setItems(initial);
     setHasMore(safeAllItems.length > initialLoad);
-  }, [safeAllItems, initialLoad]);
+  }, [safeAllItems.length, initialLoad]); // Use length instead of full array
 
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;
