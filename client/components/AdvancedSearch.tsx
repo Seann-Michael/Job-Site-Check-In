@@ -287,7 +287,7 @@ export function AdvancedSearch({
                 : "",
       })),
     );
-    trackFeatureUsage("advanced_search_clear_filters");
+    trackFeatureUsage("advanced_search_clear_filters", "all");
   };
 
   const saveCurrentSearch = () => {
