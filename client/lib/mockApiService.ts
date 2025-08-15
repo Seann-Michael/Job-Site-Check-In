@@ -257,6 +257,12 @@ class MockApiService {
     return [...mockBusinesses];
   }
 
+  async getUsers(): Promise<User[]> {
+    await this.delay();
+    console.log("MockApiService: Fetched users", mockUsers.length);
+    return [...mockUsers];
+  }
+
   async getProjects(businessId?: string): Promise<Project[]> {
     await this.delay();
     let projects = [...mockProjects];
