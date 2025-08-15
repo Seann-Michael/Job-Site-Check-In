@@ -220,6 +220,31 @@ const mockProjects: Project[] = [
   }
 ];
 
+const mockUsers: User[] = [
+  {
+    id: "user-1",
+    email: "admin@example.com",
+    name: "Admin User",
+    role: "super_admin",
+    is_2fa_enabled: false,
+    email_verified: true,
+    phone_verified: false,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z"
+  },
+  {
+    id: "user-2",
+    email: "manager@example.com",
+    name: "Project Manager",
+    role: "agency_admin",
+    is_2fa_enabled: true,
+    email_verified: true,
+    phone_verified: true,
+    created_at: "2024-01-02T00:00:00Z",
+    updated_at: "2024-01-02T00:00:00Z"
+  }
+];
+
 class MockApiService {
   // Simulate API delay
   private async delay(ms: number = 300) {
