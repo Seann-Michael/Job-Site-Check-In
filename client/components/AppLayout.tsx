@@ -235,7 +235,7 @@ export function AppLayout({
         {/* Mobile Sidebar Overlay */}
         {mobileSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
             onClick={() => setMobileSidebarOpen(false)}
           />
         )}
