@@ -596,7 +596,7 @@ export default function Index() {
         ) : (
           <>
             <VirtualProjectList
-              projects={displayedProjects}
+              projects={memoizedDisplayedProjects}
               onDeleteProject={handleDeleteProject}
               cardSize={cardSize}
             />
