@@ -1713,10 +1713,8 @@ Contact our billing support team:
                                   variant="outline"
                                   size="sm"
                                   onClick={() =>
-                                    window.open(
-                                      `/admin/support/ticket/${ticket.id}`,
-                                      "_blank",
-                                    )
+                                    // Support ticket details route not yet implemented
+                                    navigate("/support")
                                   }
                                 >
                                   View
