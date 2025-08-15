@@ -190,6 +190,36 @@ export class DataService {
     }
   }
 
+  private getCurrentLocalUser(): any {
+    try {
+      const userStr = localStorage.getItem("auth_user");
+      if (userStr) {
+        return JSON.parse(userStr);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting local user:', error);
+      return null;
+    }
+  }
+
+  private mapLocalRoleToSupabaseRole(localRole: string): 'super_admin' | 'agency_admin' | 'business_owner' | 'staff' | 'viewer' {
+    switch (localRole) {
+      case 'superadmin':
+        return 'super_admin';
+      case 'agency':
+        return 'agency_admin';
+      case 'admin':
+        return 'business_owner';
+      case 'editor':
+        return 'staff';
+      case 'viewer':
+        return 'viewer';
+      default:
+        return 'viewer';
+    }
+  }
+
   // Auth methods
   async getCurrentUser(): Promise<User | null> {
     try {
