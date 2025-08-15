@@ -1,26 +1,32 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client with fallback handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Debug logging
-console.log('🔧 Supabase Config Debug:', {
+console.log("🔧 Supabase Config Debug:", {
   hasUrl: !!supabaseUrl,
   hasKey: !!supabaseAnonKey,
-  urlSnippet: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'undefined',
-  keySnippet: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'undefined'
+  urlSnippet: supabaseUrl ? supabaseUrl.substring(0, 20) + "..." : "undefined",
+  keySnippet: supabaseAnonKey
+    ? supabaseAnonKey.substring(0, 20) + "..."
+    : "undefined",
 });
 
 // Create a placeholder client if environment variables are missing
 let supabase: ReturnType<typeof createClient>;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase environment variables are not set. Using fallback mode.');
-  console.warn('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.');
-  
+  console.warn(
+    "⚠️ Supabase environment variables are not set. Using fallback mode.",
+  );
+  console.warn(
+    "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.",
+  );
+
   // Create a dummy client that will throw meaningful errors for operations
-  supabase = createClient('https://placeholder.supabase.co', 'placeholder-key');
+  supabase = createClient("https://placeholder.supabase.co", "placeholder-key");
 } else {
   supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
@@ -33,9 +39,22 @@ export interface Project {
   business_id: string;
   name: string;
   description: string;
-  type: 'seo_audit' | 'local_optimization' | 'content_marketing' | 'reputation_management' | 'technical_seo' | 'link_building' | 'ongoing_optimization';
-  status: 'draft' | 'active' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  type:
+    | "seo_audit"
+    | "local_optimization"
+    | "content_marketing"
+    | "reputation_management"
+    | "technical_seo"
+    | "link_building"
+    | "ongoing_optimization";
+  status:
+    | "draft"
+    | "active"
+    | "in_progress"
+    | "paused"
+    | "completed"
+    | "cancelled";
+  priority: "low" | "medium" | "high" | "urgent";
   assigned_to?: string;
   client_contact?: {
     name: string;
@@ -73,7 +92,12 @@ export interface Business {
   business_hours?: any;
   social_media?: any;
   metadata?: any;
-  status: 'active' | 'inactive' | 'pending_verification' | 'suspended' | 'deleted';
+  status:
+    | "active"
+    | "inactive"
+    | "pending_verification"
+    | "suspended"
+    | "deleted";
   created_at: string;
   updated_at: string;
   verified_at?: string;
@@ -83,7 +107,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'agency_admin' | 'business_owner' | 'staff' | 'viewer';
+  role: "super_admin" | "agency_admin" | "business_owner" | "staff" | "viewer";
   is_2fa_enabled: boolean;
   avatar_url?: string;
   phone?: string;
@@ -100,8 +124,14 @@ export interface ProjectTask {
   project_id: string;
   title: string;
   description?: string;
-  status: 'todo' | 'in_progress' | 'review' | 'completed' | 'cancelled' | 'blocked';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status:
+    | "todo"
+    | "in_progress"
+    | "review"
+    | "completed"
+    | "cancelled"
+    | "blocked";
+  priority: "low" | "medium" | "high" | "urgent";
   assigned_to?: string;
   assigned_by?: string;
   estimated_hours?: number;
@@ -127,7 +157,7 @@ export interface ProjectPhoto {
   mime_type: string;
   width?: number;
   height?: number;
-  category: 'before' | 'after' | 'progress' | 'final' | 'reference' | 'general';
+  category: "before" | "after" | "progress" | "final" | "reference" | "general";
   description?: string;
   geolocation?: any;
   metadata?: any;
@@ -145,12 +175,21 @@ export interface ProjectDocument {
   file_path: string;
   file_size: number;
   mime_type: string;
-  document_type: 'contract' | 'proposal' | 'report' | 'invoice' | 'receipt' | 'correspondence' | 'technical' | 'legal' | 'general';
+  document_type:
+    | "contract"
+    | "proposal"
+    | "report"
+    | "invoice"
+    | "receipt"
+    | "correspondence"
+    | "technical"
+    | "legal"
+    | "general";
   description?: string;
   tags?: string[];
   version: number;
   is_final: boolean;
-  access_level: 'public' | 'client' | 'team' | 'admin' | 'private';
+  access_level: "public" | "client" | "team" | "admin" | "private";
   uploaded_by?: string;
   created_at: string;
   updated_at: string;
@@ -159,7 +198,14 @@ export interface ProjectDocument {
 export interface Review {
   id: string;
   business_id: string;
-  platform: 'google' | 'yelp' | 'facebook' | 'tripadvisor' | 'better_business_bureau' | 'glassdoor' | 'custom';
+  platform:
+    | "google"
+    | "yelp"
+    | "facebook"
+    | "tripadvisor"
+    | "better_business_bureau"
+    | "glassdoor"
+    | "custom";
   platform_review_id?: string;
   rating: number;
   title?: string;
@@ -196,13 +242,17 @@ export class DataService {
     // In development, allow graceful fallback to mock data
     if (import.meta.env.DEV) {
       if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn('⚠️ Supabase not configured in development mode, using mock data fallback');
+        console.warn(
+          "⚠️ Supabase not configured in development mode, using mock data fallback",
+        );
         return;
       }
     } else {
       // In production, require proper configuration
       if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+        throw new Error(
+          "Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.",
+        );
       }
     }
   }
@@ -215,25 +265,27 @@ export class DataService {
       }
       return null;
     } catch (error) {
-      console.error('Error getting local user:', error);
+      console.error("Error getting local user:", error);
       return null;
     }
   }
 
-  private mapLocalRoleToSupabaseRole(localRole: string): 'super_admin' | 'agency_admin' | 'business_owner' | 'staff' | 'viewer' {
+  private mapLocalRoleToSupabaseRole(
+    localRole: string,
+  ): "super_admin" | "agency_admin" | "business_owner" | "staff" | "viewer" {
     switch (localRole) {
-      case 'superadmin':
-        return 'super_admin';
-      case 'agency':
-        return 'agency_admin';
-      case 'admin':
-        return 'business_owner';
-      case 'editor':
-        return 'staff';
-      case 'viewer':
-        return 'viewer';
+      case "superadmin":
+        return "super_admin";
+      case "agency":
+        return "agency_admin";
+      case "admin":
+        return "business_owner";
+      case "editor":
+        return "staff";
+      case "viewer":
+        return "viewer";
       default:
-        return 'viewer';
+        return "viewer";
     }
   }
 
@@ -263,69 +315,76 @@ export class DataService {
       }
 
       // Fallback to Supabase auth if available
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return null;
 
       const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
+        .from("users")
+        .select("*")
+        .eq("id", user.id)
         .single();
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error("Error fetching user profile:", error);
         return null;
       }
 
       this.currentUser = data;
       return data;
     } catch (error) {
-      console.error('Error in getCurrentUser:', error);
+      console.error("Error in getCurrentUser:", error);
       return null;
     }
   }
 
   async signIn(email: string, password: string) {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
     });
-    
+
     if (error) throw error;
-    
+
     // Fetch user profile
     if (data.user) {
       const { data: userProfile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', data.user.id)
+        .from("users")
+        .select("*")
+        .eq("id", data.user.id)
         .single();
-      
+
       this.currentUser = userProfile;
     }
-    
+
     return data;
   }
 
-  async signUp(email: string, password: string, name: string, role: string = 'business_owner') {
+  async signUp(
+    email: string,
+    password: string,
+    name: string,
+    role: string = "business_owner",
+  ) {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name, role }
-      }
+        data: { name, role },
+      },
     });
-    
+
     if (error) throw error;
-    
+
     // Create user profile
     if (data.user) {
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from("users")
         .insert({
           id: data.user.id,
           email,
@@ -333,15 +392,15 @@ export class DataService {
           role,
           email_verified: false,
           phone_verified: false,
-          is_2fa_enabled: false
+          is_2fa_enabled: false,
         })
         .select()
         .single();
-      
+
       if (profileError) throw profileError;
       this.currentUser = userProfile;
     }
-    
+
     return data;
   }
 
@@ -357,24 +416,27 @@ export class DataService {
     try {
       // Check if Supabase is configured
       if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn('Supabase not configured, returning mock users');
+        console.warn("Supabase not configured, returning mock users");
         return this.getMockUsers();
       }
 
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("users")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn('Database table might not exist, falling back to mock data:', error);
+        console.warn(
+          "Database table might not exist, falling back to mock data:",
+          error,
+        );
         return this.getMockUsers();
       }
       return data || [];
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error("Error fetching users:", error);
       return this.getMockUsers();
     }
   }
@@ -384,7 +446,7 @@ export class DataService {
     try {
       // Check if Supabase is configured
       if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn('Supabase not configured, returning mock businesses');
+        console.warn("Supabase not configured, returning mock businesses");
         return this.getMockBusinesses();
       }
 
@@ -392,27 +454,32 @@ export class DataService {
 
       const user = await this.getCurrentUser();
       if (!user) {
-        console.warn('User not authenticated, returning mock businesses');
+        console.warn("User not authenticated, returning mock businesses");
         return this.getMockBusinesses();
       }
 
-      let query = supabase.from('businesses').select('*');
+      let query = supabase.from("businesses").select("*");
 
       if (ownerId) {
-        query = query.eq('owner_id', ownerId);
-      } else if (user.role === 'business_owner') {
-        query = query.eq('owner_id', user.id);
+        query = query.eq("owner_id", ownerId);
+      } else if (user.role === "business_owner") {
+        query = query.eq("owner_id", user.id);
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query.order("created_at", {
+        ascending: false,
+      });
 
       if (error) {
-        console.warn('Database table might not exist, falling back to mock data:', error);
+        console.warn(
+          "Database table might not exist, falling back to mock data:",
+          error,
+        );
         return this.getMockBusinesses();
       }
       return data || [];
     } catch (error) {
-      console.error('Error fetching businesses:', error);
+      console.error("Error fetching businesses:", error);
       return this.getMockBusinesses();
     }
   }
@@ -420,84 +487,87 @@ export class DataService {
   async getBusiness(id: string): Promise<Business | null> {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('id', id)
+        .from("businesses")
+        .select("*")
+        .eq("id", id)
         .single();
-      
+
       if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
+        if (error.code === "PGRST116") return null; // Not found
         throw error;
       }
       return data;
     } catch (error) {
-      console.error('Error fetching business:', error);
+      console.error("Error fetching business:", error);
       return null;
     }
   }
 
   async createBusiness(business: Partial<Business>): Promise<Business> {
     this.checkSupabaseConfig();
-    
+
     const user = await this.getCurrentUser();
-    if (!user) throw new Error('User not authenticated');
+    if (!user) throw new Error("User not authenticated");
 
     const { data, error } = await supabase
-      .from('businesses')
+      .from("businesses")
       .insert({
         ...business,
         owner_id: user.id,
-        status: 'active'
+        status: "active",
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
-  async updateBusiness(id: string, updates: Partial<Business>): Promise<Business> {
+  async updateBusiness(
+    id: string,
+    updates: Partial<Business>,
+  ): Promise<Business> {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase
-      .from('businesses')
+      .from("businesses")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async deleteBusiness(id: string): Promise<void> {
     this.checkSupabaseConfig();
-    
-    const { error } = await supabase
-      .from('businesses')
-      .delete()
-      .eq('id', id);
-    
+
+    const { error } = await supabase.from("businesses").delete().eq("id", id);
+
     if (error) throw error;
   }
 
   // Project methods
-  async getProjects(businessId?: string, filters: any = {}): Promise<Project[]> {
+  async getProjects(
+    businessId?: string,
+    filters: any = {},
+  ): Promise<Project[]> {
     try {
       // Check if Supabase is configured
       if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn('Supabase not configured, returning mock projects');
+        console.warn("Supabase not configured, returning mock projects");
         return this.getMockProjects();
       }
 
       this.checkSupabaseConfig();
 
-      let query = supabase.from('projects').select('*');
+      let query = supabase.from("projects").select("*");
 
       if (businessId) {
-        query = query.eq('business_id', businessId);
+        query = query.eq("business_id", businessId);
       }
 
       // Apply filters
@@ -507,15 +577,20 @@ export class DataService {
         }
       });
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query.order("created_at", {
+        ascending: false,
+      });
 
       if (error) {
-        console.warn('Database table might not exist, falling back to mock data:', error);
+        console.warn(
+          "Database table might not exist, falling back to mock data:",
+          error,
+        );
         return this.getMockProjects();
       }
       return data || [];
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      console.error("Error fetching projects:", error);
       return this.getMockProjects();
     }
   }
@@ -523,62 +598,59 @@ export class DataService {
   async getProject(id: string): Promise<Project | null> {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', id)
+        .from("projects")
+        .select("*")
+        .eq("id", id)
         .single();
-      
+
       if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
+        if (error.code === "PGRST116") return null; // Not found
         throw error;
       }
       return data;
     } catch (error) {
-      console.error('Error fetching project:', error);
+      console.error("Error fetching project:", error);
       return null;
     }
   }
 
   async createProject(project: Partial<Project>): Promise<Project> {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase
-      .from('projects')
+      .from("projects")
       .insert({
         ...project,
-        status: project.status || 'draft'
+        status: project.status || "draft",
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase
-      .from('projects')
+      .from("projects")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async deleteProject(id: string): Promise<void> {
     this.checkSupabaseConfig();
-    
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', id);
-    
+
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+
     if (error) throw error;
   }
 
@@ -586,60 +658,63 @@ export class DataService {
   async getProjectTasks(projectId: string): Promise<ProjectTask[]> {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('project_tasks')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
-      
+        .from("project_tasks")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching project tasks:', error);
+      console.error("Error fetching project tasks:", error);
       return [];
     }
   }
 
   async createProjectTask(task: Partial<ProjectTask>): Promise<ProjectTask> {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase
-      .from('project_tasks')
+      .from("project_tasks")
       .insert({
         ...task,
-        status: task.status || 'todo',
-        progress_percentage: task.progress_percentage || 0
+        status: task.status || "todo",
+        progress_percentage: task.progress_percentage || 0,
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
-  async updateProjectTask(id: string, updates: Partial<ProjectTask>): Promise<ProjectTask> {
+  async updateProjectTask(
+    id: string,
+    updates: Partial<ProjectTask>,
+  ): Promise<ProjectTask> {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase
-      .from('project_tasks')
+      .from("project_tasks")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async deleteProjectTask(id: string): Promise<void> {
     this.checkSupabaseConfig();
-    
+
     const { error } = await supabase
-      .from('project_tasks')
+      .from("project_tasks")
       .delete()
-      .eq('id', id);
-    
+      .eq("id", id);
+
     if (error) throw error;
   }
 
@@ -647,43 +722,47 @@ export class DataService {
   async getProjectPhotos(projectId: string): Promise<ProjectPhoto[]> {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('project_photos')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
-      
+        .from("project_photos")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching project photos:', error);
+      console.error("Error fetching project photos:", error);
       return [];
     }
   }
 
-  async uploadProjectPhoto(projectId: string, file: File, metadata: any = {}): Promise<ProjectPhoto> {
+  async uploadProjectPhoto(
+    projectId: string,
+    file: File,
+    metadata: any = {},
+  ): Promise<ProjectPhoto> {
     this.checkSupabaseConfig();
-    
+
     // Upload file to Supabase storage
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `project-photos/${projectId}/${fileName}`;
-    
+
     const { error: uploadError } = await supabase.storage
-      .from('project-files')
+      .from("project-files")
       .upload(filePath, file);
-    
+
     if (uploadError) throw uploadError;
-    
+
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('project-files')
-      .getPublicUrl(filePath);
-    
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("project-files").getPublicUrl(filePath);
+
     // Create photo record
     const { data, error } = await supabase
-      .from('project_photos')
+      .from("project_photos")
       .insert({
         project_id: projectId,
         filename: fileName,
@@ -691,26 +770,26 @@ export class DataService {
         file_path: publicUrl,
         file_size: file.size,
         mime_type: file.type,
-        category: metadata.category || 'general',
+        category: metadata.category || "general",
         description: metadata.description,
         is_featured: metadata.is_featured || false,
-        metadata: metadata
+        metadata: metadata,
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async deleteProjectPhoto(id: string): Promise<void> {
     this.checkSupabaseConfig();
-    
+
     const { error } = await supabase
-      .from('project_photos')
+      .from("project_photos")
       .delete()
-      .eq('id', id);
-    
+      .eq("id", id);
+
     if (error) throw error;
   }
 
@@ -718,43 +797,47 @@ export class DataService {
   async getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('project_documents')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
-      
+        .from("project_documents")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching project documents:', error);
+      console.error("Error fetching project documents:", error);
       return [];
     }
   }
 
-  async uploadProjectDocument(projectId: string, file: File, metadata: any = {}): Promise<ProjectDocument> {
+  async uploadProjectDocument(
+    projectId: string,
+    file: File,
+    metadata: any = {},
+  ): Promise<ProjectDocument> {
     this.checkSupabaseConfig();
-    
+
     // Upload file to Supabase storage
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `project-documents/${projectId}/${fileName}`;
-    
+
     const { error: uploadError } = await supabase.storage
-      .from('project-files')
+      .from("project-files")
       .upload(filePath, file);
-    
+
     if (uploadError) throw uploadError;
-    
+
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('project-files')
-      .getPublicUrl(filePath);
-    
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("project-files").getPublicUrl(filePath);
+
     // Create document record
     const { data, error } = await supabase
-      .from('project_documents')
+      .from("project_documents")
       .insert({
         project_id: projectId,
         filename: fileName,
@@ -762,28 +845,28 @@ export class DataService {
         file_path: publicUrl,
         file_size: file.size,
         mime_type: file.type,
-        document_type: metadata.document_type || 'general',
+        document_type: metadata.document_type || "general",
         description: metadata.description,
         version: metadata.version || 1,
         is_final: metadata.is_final || false,
-        access_level: metadata.access_level || 'team',
-        tags: metadata.tags || []
+        access_level: metadata.access_level || "team",
+        tags: metadata.tags || [],
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async deleteProjectDocument(id: string): Promise<void> {
     this.checkSupabaseConfig();
-    
+
     const { error } = await supabase
-      .from('project_documents')
+      .from("project_documents")
       .delete()
-      .eq('id', id);
-    
+      .eq("id", id);
+
     if (error) throw error;
   }
 
@@ -791,60 +874,61 @@ export class DataService {
   async getReviews(businessId: string): Promise<Review[]> {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('business_id', businessId)
-        .order('date', { ascending: false });
-      
+        .from("reviews")
+        .select("*")
+        .eq("business_id", businessId)
+        .order("date", { ascending: false });
+
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching reviews:', error);
+      console.error("Error fetching reviews:", error);
       return [];
     }
   }
 
   async createReview(review: Partial<Review>): Promise<Review> {
     this.checkSupabaseConfig();
-    
+
     const { data, error } = await supabase
-      .from('reviews')
+      .from("reviews")
       .insert({
         ...review,
         is_verified: review.is_verified || false,
-        is_featured: review.is_featured || false
+        is_featured: review.is_featured || false,
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   // Analytics methods
-  async getAnalytics(businessId: string, dateRange?: { start: string; end: string }) {
+  async getAnalytics(
+    businessId: string,
+    dateRange?: { start: string; end: string },
+  ) {
     try {
       this.checkSupabaseConfig();
-      
+
       let query = supabase
-        .from('analytics')
-        .select('*')
-        .eq('business_id', businessId);
-      
+        .from("analytics")
+        .select("*")
+        .eq("business_id", businessId);
+
       if (dateRange) {
-        query = query
-          .gte('date', dateRange.start)
-          .lte('date', dateRange.end);
+        query = query.gte("date", dateRange.start).lte("date", dateRange.end);
       }
-      
-      const { data, error } = await query.order('date', { ascending: false });
-      
+
+      const { data, error } = await query.order("date", { ascending: false });
+
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error("Error fetching analytics:", error);
       return [];
     }
   }
@@ -853,22 +937,22 @@ export class DataService {
   async getDashboardSummary(userId?: string) {
     try {
       this.checkSupabaseConfig();
-      
+
       const user = await this.getCurrentUser();
-      if (!user && !userId) throw new Error('User not authenticated');
-      
+      if (!user && !userId) throw new Error("User not authenticated");
+
       const targetUserId = userId || user!.id;
-      
+
       const { data, error } = await supabase
-        .from('user_dashboard_summary')
-        .select('*')
-        .eq('user_id', targetUserId)
+        .from("user_dashboard_summary")
+        .select("*")
+        .eq("user_id", targetUserId)
         .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
+
+      if (error && error.code !== "PGRST116") throw error;
       return data;
     } catch (error) {
-      console.error('Error fetching dashboard summary:', error);
+      console.error("Error fetching dashboard summary:", error);
       return null;
     }
   }
@@ -876,17 +960,17 @@ export class DataService {
   async getBusinessPerformanceSummary(businessId: string) {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('business_performance_summary')
-        .select('*')
-        .eq('business_id', businessId)
+        .from("business_performance_summary")
+        .select("*")
+        .eq("business_id", businessId)
         .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
+
+      if (error && error.code !== "PGRST116") throw error;
       return data;
     } catch (error) {
-      console.error('Error fetching business performance summary:', error);
+      console.error("Error fetching business performance summary:", error);
       return null;
     }
   }
@@ -894,17 +978,17 @@ export class DataService {
   async getProjectActivitySummary(projectId: string) {
     try {
       this.checkSupabaseConfig();
-      
+
       const { data, error } = await supabase
-        .from('project_activity_summary')
-        .select('*')
-        .eq('project_id', projectId)
+        .from("project_activity_summary")
+        .select("*")
+        .eq("project_id", projectId)
         .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
+
+      if (error && error.code !== "PGRST116") throw error;
       return data;
     } catch (error) {
-      console.error('Error fetching project activity summary:', error);
+      console.error("Error fetching project activity summary:", error);
       return null;
     }
   }
@@ -912,56 +996,61 @@ export class DataService {
   private getMockBusinesses(): Business[] {
     return [
       {
-        id: 'business-1',
-        owner_id: 'user-1',
-        name: 'Green Thumb Landscaping',
-        description: 'Professional landscaping and lawn care services',
-        address: { street: '123 Garden Lane', city: 'Springfield', state: 'IL', zip: '62701' },
-        phone: '(555) 123-4567',
-        email: 'contact@greenthumb.com',
-        website: 'https://greenthumb.com',
-        category: 'Landscaping',
-        status: 'active',
+        id: "business-1",
+        owner_id: "user-1",
+        name: "Green Thumb Landscaping",
+        description: "Professional landscaping and lawn care services",
+        address: {
+          street: "123 Garden Lane",
+          city: "Springfield",
+          state: "IL",
+          zip: "62701",
+        },
+        phone: "(555) 123-4567",
+        email: "contact@greenthumb.com",
+        website: "https://greenthumb.com",
+        category: "Landscaping",
+        status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }
+      },
     ];
   }
 
   private getMockProjects(): Project[] {
     return [
       {
-        id: 'project-1',
-        business_id: 'business-1',
-        name: 'Front Yard Renovation',
-        description: 'Complete renovation of front yard with new landscaping',
-        type: 'renovation' as any,
-        status: 'in_progress',
-        priority: 'high',
+        id: "project-1",
+        business_id: "business-1",
+        name: "Front Yard Renovation",
+        description: "Complete renovation of front yard with new landscaping",
+        type: "renovation" as any,
+        status: "in_progress",
+        priority: "high",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
       {
-        id: 'project-2',
-        business_id: 'business-1',
-        name: 'Backyard Deck Installation',
-        description: 'Installing a new wooden deck in the backyard',
-        type: 'construction' as any,
-        status: 'planning',
-        priority: 'medium',
+        id: "project-2",
+        business_id: "business-1",
+        name: "Backyard Deck Installation",
+        description: "Installing a new wooden deck in the backyard",
+        type: "construction" as any,
+        status: "planning",
+        priority: "medium",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }
+      },
     ];
   }
 
   private getMockUsers(): User[] {
     return [
       {
-        id: 'user-1',
-        email: 'john@example.com',
-        name: 'John Smith',
-        role: 'business_owner',
+        id: "user-1",
+        email: "john@example.com",
+        name: "John Smith",
+        role: "business_owner",
         is_2fa_enabled: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -969,16 +1058,16 @@ export class DataService {
         phone_verified: false,
       },
       {
-        id: 'user-2',
-        email: 'sarah@example.com',
-        name: 'Sarah Johnson',
-        role: 'staff',
+        id: "user-2",
+        email: "sarah@example.com",
+        name: "Sarah Johnson",
+        role: "staff",
         is_2fa_enabled: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         email_verified: true,
         phone_verified: false,
-      }
+      },
     ];
   }
 }
@@ -994,5 +1083,5 @@ export type {
   ProjectTask,
   ProjectPhoto,
   ProjectDocument,
-  Review
+  Review,
 };
