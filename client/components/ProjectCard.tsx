@@ -1,15 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, MapPin, Images, CheckCircle, Star } from "lucide-react";
+import { CalendarDays, MapPin, Images, CheckCircle, Star, Building2, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "sonner";
-import { MockProject } from "@/lib/mockData";
+import { Project } from "@/lib/dataService";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
-
-// Use MockProject interface for consistency
-type Project = MockProject;
 
 interface ProjectCardProps {
   project: Project;
@@ -24,7 +21,7 @@ export function ProjectCard({
   onMarkIncomplete,
   onToggleStar,
 }: ProjectCardProps) {
-  const [isStarred, setIsStarred] = useState(project.starred || false);
+  const [isStarred, setIsStarred] = useState(project.priority === 'high' || project.priority === 'urgent');
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -34,153 +31,231 @@ export function ProjectCard({
     onToggleStar?.(newStarred);
     toast.success(newStarred ? "Project starred" : "Project unstarred");
   };
-  const getPrimaryPhoto = () => {
-    if (project.photos.length === 0) return null;
 
-    // Find primary photo or use first photo
-    const primaryPhoto = project.photos.find(
-      (photo: any) => typeof photo === "object" && photo.isPrimary,
-    );
-
-    if (primaryPhoto && typeof primaryPhoto === "object") {
-      return primaryPhoto;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+      case 'in_progress':
+        return 'bg-green-500/10 text-green-700 dark:text-green-400';
+      case 'completed':
+        return 'bg-blue-500/10 text-blue-700 dark:text-blue-400';
+      case 'paused':
+        return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400';
+      case 'cancelled':
+        return 'bg-red-500/10 text-red-700 dark:text-red-400';
+      case 'draft':
+        return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
+      default:
+        return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
     }
-
-    // Return first photo
-    const firstPhoto = project.photos[0];
-    return typeof firstPhoto === "string"
-      ? {
-          url: firstPhoto,
-          uploadedAt: project.createdAt,
-          uploadedBy: "Unknown",
-        }
-      : firstPhoto;
   };
 
-  const getPhotoUrl = (photo: any) => {
-    return typeof photo === "string" ? photo : photo?.url;
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return 'bg-red-500/10 text-red-700 dark:text-red-400';
+      case 'high':
+        return 'bg-orange-500/10 text-orange-700 dark:text-orange-400';
+      case 'medium':
+        return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400';
+      case 'low':
+        return 'bg-green-500/10 text-green-700 dark:text-green-400';
+      default:
+        return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
+    }
   };
 
-  const primaryPhoto = getPrimaryPhoto();
+  const getTypeLabel = (type: string) => {
+    const typeLabels: Record<string, string> = {
+      'seo_audit': 'SEO Audit',
+      'local_optimization': 'Local SEO',
+      'content_marketing': 'Content Marketing',
+      'reputation_management': 'Reputation Mgmt',
+      'technical_seo': 'Technical SEO',
+      'link_building': 'Link Building',
+      'ongoing_optimization': 'Ongoing SEO'
+    };
+    return typeLabels[type] || type;
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'No date';
+    }
+  };
+
+  const getDaysRemaining = () => {
+    if (!project.due_date) return null;
+    
+    const dueDate = new Date(project.due_date);
+    const today = new Date();
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
+    if (diffDays === 0) return 'Due today';
+    if (diffDays === 1) return '1 day remaining';
+    return `${diffDays} days remaining`;
+  };
+
+  const daysRemaining = getDaysRemaining();
+  const isOverdue = project.due_date && new Date(project.due_date) < new Date();
 
   return (
-    <Link to={`/project/${project.id}`}>
-      <Card className="group overflow-hidden transition-all hover:shadow-lg hover:shadow-primary/5 h-full flex flex-col">
-        <div className="aspect-video relative overflow-hidden bg-muted">
-          {primaryPhoto ? (
-            <>
-              <ImageWithFallback
-                photo={primaryPhoto}
-                alt={project.name}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-              />
-            </>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Images className="h-12 w-12 text-muted-foreground/50" />
-            </div>
-          )}
-          {project.photos.length > 1 && (
-            <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-xs text-white">
-              <Images className="h-3 w-3" />
-              {project.photos.length}
-            </div>
-          )}
-
-          {/* Status Badge */}
-          {project.status && (
-            <div className="absolute top-2 left-2">
-              <Badge
-                variant={
-                  project.status === "completed"
-                    ? "default"
-                    : project.status === "active"
-                      ? "secondary"
-                      : "outline"
-                }
-                className="flex items-center gap-1"
-              >
-                {project.status === "completed" && (
-                  <CheckCircle className="h-3 w-3" />
-                )}
-                {project.status}
+    <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-primary/20">
+      <Link to={`/project/${project.id}`} className="block">
+        <CardContent className="p-0">
+          {/* Header with project image/placeholder */}
+          <div className="relative h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20" />
+            <div className="relative z-10 text-center">
+              <Building2 className="w-8 h-8 mx-auto mb-2 text-primary/60" />
+              <Badge variant="secondary" className="text-xs">
+                {getTypeLabel(project.type)}
               </Badge>
             </div>
-          )}
-
-          {/* Star Icon */}
-          <div className="absolute top-2 right-2">
+            
+            {/* Star button */}
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 sm:h-8 sm:w-8 p-0 bg-black/50 hover:bg-black/70 text-white min-h-[36px] min-w-[36px] sm:min-h-[32px] sm:min-w-[32px]"
+              className="absolute top-2 right-2 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={handleStarClick}
             >
-              <Star
-                className={`h-4 w-4 ${isStarred ? "fill-yellow-400 text-yellow-400" : ""}`}
+              <Star 
+                className={`h-4 w-4 ${
+                  isStarred 
+                    ? 'fill-yellow-400 text-yellow-400' 
+                    : 'text-muted-foreground hover:text-yellow-400'
+                }`}
               />
             </Button>
           </div>
-        </div>
 
-        <CardContent className="p-3 sm:p-4 flex-1 flex flex-col">
-          <div className="flex-1 flex flex-col">
-            <h3 className="font-medium text-sm sm:text-base mb-2 line-clamp-2 leading-tight">
-              {project.name}
-            </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2 min-h-[2rem] leading-tight">
-              {project.description || "No description available"}
-            </p>
-
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 sm:mb-2">
-              <MapPin className="h-3 w-3 flex-shrink-0" />
-              <span className="line-clamp-1 leading-tight">
-                {project.address || "No address provided"}
-              </span>
+          {/* Content */}
+          <div className="p-4 space-y-3">
+            {/* Title and Status */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                {project.name}
+              </h3>
+              
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={getStatusColor(project.status)}>
+                  {project.status.replace('_', ' ')}
+                </Badge>
+                <Badge variant="outline" className={getPriorityColor(project.priority)}>
+                  {project.priority}
+                </Badge>
+              </div>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-              <CalendarDays className="h-3 w-3 flex-shrink-0" />
-              <span className="leading-tight">
-                {new Date(project.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
+            {/* Description */}
+            {project.description && (
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {project.description}
+              </p>
+            )}
 
-          <div className="mt-auto pt-2">
-            <div className="flex flex-wrap gap-1 w-full">
-              {project.keywords && project.keywords.length > 0 ? (
-                <>
-                  {project.keywords.slice(0, 2).map((keyword, index) => (
-                    <Badge
-                      key={`${keyword}-${index}`}
-                      variant="secondary"
-                      className="text-xs h-5 px-1.5 flex items-center leading-none"
-                    >
+            {/* Project details */}
+            <div className="space-y-2 text-sm text-muted-foreground">
+              {/* Client contact */}
+              {project.client_contact?.name && (
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span>{project.client_contact.name}</span>
+                </div>
+              )}
+
+              {/* Created date */}
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4" />
+                <span>Created {formatDate(project.created_at)}</span>
+              </div>
+
+              {/* Due date */}
+              {project.due_date && (
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4" />
+                  <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                    {daysRemaining}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress indicator for ongoing projects */}
+            {project.progress && typeof project.progress === 'object' && project.progress.percentage && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium">{project.progress.percentage}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${project.progress.percentage}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Keywords preview */}
+            {project.seo_targets?.target_keywords && project.seo_targets.target_keywords.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Target Keywords:</p>
+                <div className="flex flex-wrap gap-1">
+                  {project.seo_targets.target_keywords.slice(0, 3).map((keyword: string, index: number) => (
+                    <Badge key={index} variant="outline" className="text-xs">
                       {keyword}
                     </Badge>
                   ))}
-                  {project.keywords.length > 2 && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs h-5 px-1.5 flex items-center leading-none"
-                    >
-                      +{project.keywords.length - 2}
+                  {project.seo_targets.target_keywords.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{project.seo_targets.target_keywords.length - 3} more
                     </Badge>
                   )}
-                </>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="text-xs h-5 px-1.5 flex items-center opacity-50 leading-none"
+                </div>
+              </div>
+            )}
+
+            {/* Budget info */}
+            {project.budget && typeof project.budget === 'object' && (
+              <div className="flex justify-between text-sm pt-2 border-t">
+                <span className="text-muted-foreground">Budget:</span>
+                <span className="font-medium">
+                  ${project.budget.spent?.toLocaleString() || 0} / ${project.budget.total?.toLocaleString() || 0}
+                </span>
+              </div>
+            )}
+
+            {/* Action buttons (show on hover) */}
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-2">
+              <Button variant="outline" size="sm" className="flex-1">
+                View Details
+              </Button>
+              {project.status === 'completed' && onMarkIncomplete && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onMarkIncomplete();
+                  }}
                 >
-                  No keywords
-                </Badge>
+                  <CheckCircle className="w-4 h-4" />
+                </Button>
               )}
             </div>
           </div>
         </CardContent>
-      </Card>
-    </Link>
+      </Link>
+    </Card>
   );
 }
