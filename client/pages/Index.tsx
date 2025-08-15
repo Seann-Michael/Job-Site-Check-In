@@ -29,7 +29,7 @@ export default function Index() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [showFilters, setShowFilters] = useState(false);
