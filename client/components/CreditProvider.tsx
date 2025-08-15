@@ -68,7 +68,7 @@ export function CreditProvider({ children }: CreditProviderProps) {
       // Ensure we're not in loading state even if initialization fails
       setIsLoading(false);
     }
-  }, [refreshCredits]);
+  }, []); // Remove refreshCredits from dependency array
 
   const value: CreditContextType = {
     balance,
