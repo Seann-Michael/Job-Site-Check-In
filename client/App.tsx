@@ -1074,6 +1074,10 @@ const App = () => (
                   element={<Navigate to="/ideas" replace />}
                 />
                 <Route
+                  path="/IdeaDetail"
+                  element={<Navigate to="/ideas" replace />}
+                />
+                <Route
                   path="/ComingSoon"
                   element={<Navigate to="/coming-soon" replace />}
                 />
