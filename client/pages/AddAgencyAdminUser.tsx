@@ -121,7 +121,7 @@ export default function AddAgencyAdminUser() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Link to="/agency-admin/admin-users">
+          <Link to="/agency/admin/admin-users">
             <Button variant="outline" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
@@ -250,7 +250,7 @@ export default function AddAgencyAdminUser() {
                   <div className="text-sm text-muted-foreground">
                     <p className="font-medium mb-2">Permission Guidelines:</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• Admins can manage business owners and users</li>
+                      <li>�� Admins can manage business owners and users</li>
                       <li>
                         • Managers have limited business management access
                       </li>
@@ -265,7 +265,7 @@ export default function AddAgencyAdminUser() {
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-2">
-            <Link to="/agency-admin/admin-users">
+            <Link to="/agency/admin/admin-users">
               <Button type="button" variant="outline">
                 Cancel
               </Button>
