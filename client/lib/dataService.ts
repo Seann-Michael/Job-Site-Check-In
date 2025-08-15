@@ -185,8 +185,17 @@ export class DataService {
   }
 
   private checkSupabaseConfig(): void {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+    // In development, allow graceful fallback to mock data
+    if (import.meta.env.DEV) {
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('⚠️ Supabase not configured in development mode, using mock data fallback');
+        return;
+      }
+    } else {
+      // In production, require proper configuration
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+      }
     }
   }
 
