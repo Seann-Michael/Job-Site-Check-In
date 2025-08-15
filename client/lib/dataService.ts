@@ -639,9 +639,13 @@ export class DataService {
         console.warn("Supabase not configured, simulating project update");
         // For mock mode, just return the updated project data
         const mockProjects = this.getMockProjects();
-        const existingProject = mockProjects.find(p => p.id === id);
+        const existingProject = mockProjects.find((p) => p.id === id);
         if (existingProject) {
-          return { ...existingProject, ...updates, updated_at: new Date().toISOString() };
+          return {
+            ...existingProject,
+            ...updates,
+            updated_at: new Date().toISOString(),
+          };
         }
         throw new Error("Project not found in mock data");
       }

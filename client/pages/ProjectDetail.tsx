@@ -222,14 +222,19 @@ export default function ProjectDetail() {
             tasks: foundProject.tasks || [],
             checklist: foundProject.checklist || [],
             keywords: foundProject.keywords || [],
-            photos: foundProject.photos || foundProject.before_photos || foundProject.after_photos || foundProject.progress_photos || [],
+            photos:
+              foundProject.photos ||
+              foundProject.before_photos ||
+              foundProject.after_photos ||
+              foundProject.progress_photos ||
+              [],
             documents: foundProject.documents || [],
             additionalPhones: foundProject.additionalPhones || [],
           };
           setProject(projectWithDefaults);
         }
       } catch (error) {
-        console.error('Error loading project:', error);
+        console.error("Error loading project:", error);
       }
     };
 
@@ -853,8 +858,9 @@ export default function ProjectDetail() {
       await dataService.updateProject(updatedProject.id, updatedProject);
       setProject({ ...updatedProject });
     } catch (error) {
-      console.error('Error updating project:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error("Error updating project:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(`Failed to update project: ${errorMessage}`);
     }
   };

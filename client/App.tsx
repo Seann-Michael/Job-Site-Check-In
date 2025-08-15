@@ -885,7 +885,9 @@ const App = () => (
                 />
                 <Route
                   path="/AddAgencyClient"
-                  element={<Navigate to="/agency/admin/business-owners/add" replace />}
+                  element={
+                    <Navigate to="/agency/admin/business-owners/add" replace />
+                  }
                 />
 
                 {/* Auth and Public Routes */}
@@ -969,7 +971,9 @@ const App = () => (
                 />
                 <Route
                   path="/AgencyClients"
-                  element={<Navigate to="/agency/admin/business-owners" replace />}
+                  element={
+                    <Navigate to="/agency/admin/business-owners" replace />
+                  }
                 />
                 <Route
                   path="/AgencySettings"
@@ -1001,7 +1005,9 @@ const App = () => (
                 />
                 <Route
                   path="/AgencyProjectCreate"
-                  element={<Navigate to="/agency/admin/projects/create" replace />}
+                  element={
+                    <Navigate to="/agency/admin/projects/create" replace />
+                  }
                 />
                 <Route
                   path="/AgencyProjectDetail"
@@ -1043,7 +1049,9 @@ const App = () => (
                 />
                 <Route
                   path="/OneTimeScan"
-                  element={<Navigate to="/admin/audits/one-time-scan" replace />}
+                  element={
+                    <Navigate to="/admin/audits/one-time-scan" replace />
+                  }
                 />
                 <Route
                   path="/WorkflowBuilder"

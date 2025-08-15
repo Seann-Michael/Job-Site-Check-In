@@ -224,7 +224,7 @@ export default function EditProject() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const projects = await dataService.getProjects();
-      const existingProject = projects.find(p => p.id === id!);
+      const existingProject = projects.find((p) => p.id === id!);
       if (existingProject) {
         const updatedProject = {
           ...existingProject,
@@ -241,7 +241,8 @@ export default function EditProject() {
       navigate(`/project/${id}`);
     } catch (error) {
       console.error("Failed to update project:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(`Failed to update project: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
