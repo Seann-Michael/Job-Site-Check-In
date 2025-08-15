@@ -1,12 +1,16 @@
 import "./global.css";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+
+// Simple test component
+function TestApp() {
+  return <div>Hello World - React is working!</div>;
+}
 
 // Mount the React app
-const rootElement = document.getElementById("root")!;
-let root = (globalThis as any).__react_root;
-if (!root) {
-  root = createRoot(rootElement);
-  (globalThis as any).__react_root = root;
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  const root = createRoot(rootElement);
+  root.render(<TestApp />);
+} else {
+  console.error("Root element not found!");
 }
-root.render(<App />);
