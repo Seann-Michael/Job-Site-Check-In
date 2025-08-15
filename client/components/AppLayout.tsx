@@ -261,7 +261,7 @@ export function AppLayout({
                   variant="ghost"
                   size="icon"
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="hidden lg:flex"
+                  className="hidden md:flex"
                 >
                   {sidebarCollapsed ? (
                     <ChevronRight className="h-4 w-4" />
