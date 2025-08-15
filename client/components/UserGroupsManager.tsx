@@ -988,7 +988,7 @@ export function UserGroupsManager() {
             <Button
               variant="destructive"
               onClick={handleDeleteGroup}
-              disabled={selectedGroup?.userCount ?? 0 > 0}
+              disabled={(selectedGroup?.userCount ?? 0) > 0}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Group
