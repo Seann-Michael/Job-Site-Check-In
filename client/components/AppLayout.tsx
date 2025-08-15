@@ -161,16 +161,7 @@ export function AppLayout({
     };
   }, []);
 
-  const handleBusinessSwitch = (businessId: string) => {
-    if (switchToBusiness(businessId)) {
-      toast.success(
-        `Switched to ${userBusinesses.find((b) => b.id === businessId)?.name}`,
-      );
-      window.location.reload(); // Reload to update all components
-    } else {
-      toast.error("Failed to switch business");
-    }
-  };
+  // Business switching temporarily disabled
 
   const handleSignOut = async () => {
     try {
