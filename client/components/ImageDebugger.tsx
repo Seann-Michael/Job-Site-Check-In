@@ -18,12 +18,19 @@ export function ImageDebugger({ projectId = "project-1" }: ImageDebuggerProps) {
   };
 
   useEffect(() => {
-    // Force initialize mock data service
-    try {
-      dataService.initialize();
-    } catch (error) {
-      console.error('Error initializing mock data:', error);
-    }
+    // Load project data from dataService
+    const loadProjectData = async () => {
+      try {
+        if (projectId) {
+          const project = await dataService.getProject(projectId);
+          setDebugInfo({ project });
+        }
+      } catch (error) {
+        console.error('Error loading project data:', error);
+      }
+    };
+
+    loadProjectData();
 
     // Check localStorage directly
     const projectsFromStorage = localStorage.getItem('projects');
