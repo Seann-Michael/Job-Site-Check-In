@@ -59,11 +59,8 @@ export default function Index() {
       return;
     }
 
-    // Track page view
-    trackPageView();
-    track("dashboard_loaded", {
-      userRole: currentUser?.role,
-    });
+    // Analytics tracking removed to prevent re-render issues
+    // TODO: Move analytics to component mount or user interaction handlers
   }, [currentUser?.role, currentUser?.isImpersonated, navigate]);
 
   useEffect(() => {
