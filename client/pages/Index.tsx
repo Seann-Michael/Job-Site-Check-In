@@ -157,7 +157,7 @@ export default function Index() {
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
     trackFeatureUsage("project_search", { queryLength: value.length });
-  }, [trackFeatureUsage]);
+  }, []);
 
   const handleFilterChange = useCallback((key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
