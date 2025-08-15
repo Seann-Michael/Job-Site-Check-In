@@ -288,7 +288,11 @@ const App = () => (
                 />
                 <Route
                   path="/admin/audits"
-                  element={<Audits />}
+                  element={
+                    <ProtectedRoute>
+                      <Audits />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/admin/maps"
