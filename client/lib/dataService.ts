@@ -633,17 +633,37 @@ export class DataService {
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
-    this.checkSupabaseConfig();
+    try {
+      // Check if Supabase is configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn("Supabase not configured, simulating project update");
+        // For mock mode, just return the updated project data
+        const mockProjects = this.getMockProjects();
+        const existingProject = mockProjects.find(p => p.id === id);
+        if (existingProject) {
+          return { ...existingProject, ...updates, updated_at: new Date().toISOString() };
+        }
+        throw new Error("Project not found in mock data");
+      }
 
-    const { data, error } = await supabase
-      .from("projects")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
+      this.checkSupabaseConfig();
 
-    if (error) throw error;
-    return data;
+      const { data, error } = await supabase
+        .from("projects")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw new Error(`Failed to update project: ${error.message}`);
+      }
+      return data;
+    } catch (error) {
+      console.error("Error in updateProject:", error);
+      throw error;
+    }
   }
 
   async deleteProject(id: string): Promise<void> {
