@@ -29,57 +29,21 @@ interface CreditProviderProps {
 }
 
 export function CreditProvider({ children }: CreditProviderProps) {
-  const [balance, setBalance] = useState<CreditBalance>({
-    total: 0,
-    used: 0,
-    remaining: 0,
-    lastUpdated: new Date().toISOString(),
-  });
-  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const refreshCredits = useCallback(() => {
-    try {
-      const currentBalance = getCreditBalance();
-      const currentTransactions = getCreditTransactions();
-      setBalance(currentBalance);
-      setTransactions(currentTransactions);
-    } catch (error) {
-      console.error("Error refreshing credits:", error);
-      // Set fallback values on error
-      setBalance({
-        total: 250000,
-        used: 0,
-        remaining: 250000,
-        lastUpdated: new Date().toISOString(),
-      });
-      setTransactions([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      // Initialize credit system
-      initializeCreditSystem();
-      refreshCredits();
-    } catch (error) {
-      console.error("Error initializing credit system:", error);
-      // Ensure we're not in loading state even if initialization fails
-      setIsLoading(false);
-    }
-  }, []); // Remove refreshCredits from dependency array
-
-  const value: CreditContextType = useMemo(() => ({
-    balance,
-    transactions,
-    refreshCredits,
-    isLoading,
-  }), [balance, transactions, refreshCredits, isLoading]);
+  // Simplified static provider to isolate infinite loop issue
+  const staticValue: CreditContextType = useMemo(() => ({
+    balance: {
+      total: 250000,
+      used: 0,
+      remaining: 250000,
+      lastUpdated: new Date().toISOString(),
+    },
+    transactions: [],
+    refreshCredits: () => {}, // No-op function
+    isLoading: false,
+  }), []);
 
   return (
-    <CreditContext.Provider value={value}>{children}</CreditContext.Provider>
+    <CreditContext.Provider value={staticValue}>{children}</CreditContext.Provider>
   );
 }
 
