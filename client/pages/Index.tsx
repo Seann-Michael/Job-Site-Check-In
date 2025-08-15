@@ -12,18 +12,16 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectCard } from "@/components/ProjectCard";
 import { EnhancedBroadcastAlert } from "@/components/EnhancedBroadcastAlert";
-import { FolderOpen, Plus, Search, Filter, X, RotateCcw, AlertCircle } from "lucide-react";
+import { FolderOpen, Plus, Search, Filter, X, RotateCcw } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
 import { AdvancedSearch } from "@/components/AdvancedSearch";
-import { VirtualProjectList } from "@/components/VirtualScroll";
 import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { dataService, Project, User, Business } from "@/lib/dataService";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -38,7 +36,6 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(false);
-  const [displayedProjects, setDisplayedProjects] = useState<Project[]>([]);
 
   const { track, trackPageView, trackFeatureUsage } = useAnalytics();
   const [projectSort, setProjectSort] = useState<
@@ -66,161 +63,47 @@ export default function Index() {
     trackPageView();
     track("dashboard_loaded", {
       userRole: currentUser?.role,
-      projectCount: projects.length,
     });
   }, [currentUser, navigate, trackPageView, track]);
 
   useEffect(() => {
-    // Load data from Supabase or fallback service
+    // Load data from backend
     const loadData = async () => {
       try {
-        console.log("Loading data...");
+        console.log("Loading data from backend...");
         setIsLoading(true);
 
-        // Check if we should use fallback data
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (!supabaseUrl || !supabaseAnonKey) {
-          console.warn("⚠️ Supabase not configured, using fallback demo data");
-          setUsingFallbackData(true);
-          
-          // Use fallback data service
-          const businessData = await fallbackDataService.getBusinesses();
-          setBusinesses(businessData);
-          console.log("Loaded businesses (fallback):", businessData.length);
+        // Load businesses first
+        const businessData = await dataService.getBusinesses();
+        setBusinesses(businessData);
+        console.log("Loaded businesses:", businessData.length);
 
-          // Load projects from all businesses
-          const allProjects: Project[] = [];
-          for (const business of businessData) {
-            const businessProjects = await fallbackDataService.getProjects(business.id);
-            allProjects.push(...businessProjects);
-          }
-
-          setProjects(allProjects);
-          setFilteredProjects(allProjects);
-          console.log("Loaded projects (fallback):", allProjects.length);
-
-          // Show initial projects
-          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
-          setDisplayedProjects(initialProjects);
-
-          // Track demo data usage
-          track("demo_data_loaded", {
-            businessCount: businessData.length,
-            projectCount: allProjects.length,
-          });
-
-          return;
+        // Load projects from all businesses
+        const allProjects: Project[] = [];
+        for (const business of businessData) {
+          const businessProjects = await dataService.getProjects(business.id);
+          allProjects.push(...businessProjects);
         }
 
-        // Try to use real Supabase data
-        try {
-          // Check if user is authenticated
-          const user = await dataService.getCurrentUser();
-          if (!user) {
-            console.warn("User not authenticated, using demo data");
-            setUsingFallbackData(true);
-            
-            // Load demo data
-            const businessData = await fallbackDataService.getBusinesses();
-            setBusinesses(businessData);
-            
-            const allProjects: Project[] = [];
-            for (const business of businessData) {
-              const businessProjects = await fallbackDataService.getProjects(business.id);
-              allProjects.push(...businessProjects);
-            }
-            
-            setProjects(allProjects);
-            setFilteredProjects(allProjects);
-            const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
-            setDisplayedProjects(initialProjects);
-            return;
-          }
+        setProjects(allProjects);
+        setFilteredProjects(allProjects);
+        console.log("Loaded projects:", allProjects.length);
 
-          // Load businesses first
-          console.log("Loading businesses from Supabase...");
-          const businessData = await dataService.getBusinesses();
-          setBusinesses(businessData);
-          console.log("Loaded businesses:", businessData.length);
-
-          // Load projects from all user's businesses
-          const allProjects: Project[] = [];
-          for (const business of businessData) {
-            const businessProjects = await dataService.getProjects(business.id);
-            allProjects.push(...businessProjects);
-          }
-
-          setProjects(allProjects);
-          setFilteredProjects(allProjects);
-          console.log("Loaded projects:", allProjects.length);
-
-          // Show initial projects
-          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
-          setDisplayedProjects(initialProjects);
-
-          // Track successful data load
-          track("data_loaded", {
-            businessCount: businessData.length,
-            projectCount: allProjects.length,
-            userRole: user.role,
-          });
-
-        } catch (supabaseError) {
-          console.error("Error loading from Supabase:", supabaseError);
-          console.warn("Falling back to demo data");
-          setUsingFallbackData(true);
-          
-          // Fallback to demo data
-          const businessData = await fallbackDataService.getBusinesses();
-          setBusinesses(businessData);
-          
-          const allProjects: Project[] = [];
-          for (const business of businessData) {
-            const businessProjects = await fallbackDataService.getProjects(business.id);
-            allProjects.push(...businessProjects);
-          }
-          
-          setProjects(allProjects);
-          setFilteredProjects(allProjects);
-          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
-          setDisplayedProjects(initialProjects);
-          
-          toast.info("Using demo data. Configure Supabase for full functionality.");
-        }
-
+        // Track successful data load
+        track("data_loaded", {
+          businessCount: businessData.length,
+          projectCount: allProjects.length,
+        });
       } catch (error) {
         console.error("Error loading data:", error);
-        toast.error("Failed to load projects. Using demo data instead.");
-        setUsingFallbackData(true);
-        
-        // Load fallback data as last resort
-        try {
-          const businessData = await fallbackDataService.getBusinesses();
-          setBusinesses(businessData);
-          
-          const allProjects: Project[] = [];
-          for (const business of businessData) {
-            const businessProjects = await fallbackDataService.getProjects(business.id);
-            allProjects.push(...businessProjects);
-          }
-          
-          setProjects(allProjects);
-          setFilteredProjects(allProjects);
-          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
-          setDisplayedProjects(initialProjects);
-        } catch (fallbackError) {
-          console.error("Even fallback data failed:", fallbackError);
-          toast.error("Unable to load any data. Please check your configuration.");
-        }
+        toast.error("Failed to load projects. Please check your connection.");
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [navigate, track, showAllProjects]);
+  }, [track, showAllProjects]);
 
   // Apply filters and search to projects
   useEffect(() => {
@@ -246,18 +129,6 @@ export default function Index() {
       filtered = filtered.filter((project) => project.assigned_to === filters.assignedUser);
     }
 
-    if (filters.startDate) {
-      filtered = filtered.filter(
-        (project) => new Date(project.created_at) >= new Date(filters.startDate)
-      );
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(
-        (project) => new Date(project.created_at) <= new Date(filters.endDate)
-      );
-    }
-
     // Apply project sort
     switch (projectSort) {
       case "my-projects":
@@ -277,10 +148,6 @@ export default function Index() {
 
     setFilteredProjects(filtered);
 
-    // Update displayed projects
-    const displayed = filtered.slice(0, showAllProjects ? filtered.length : 6);
-    setDisplayedProjects(displayed);
-
     // Track filter usage
     if (searchQuery || Object.values(filters).some(v => v && v !== "all")) {
       trackFeatureUsage("project_filtering", {
@@ -289,7 +156,7 @@ export default function Index() {
         resultCount: filtered.length
       });
     }
-  }, [projects, searchQuery, filters, projectSort, showAllProjects, currentUser, trackFeatureUsage]);
+  }, [projects, searchQuery, filters, projectSort, currentUser, trackFeatureUsage]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
@@ -309,7 +176,6 @@ export default function Index() {
       tags: "",
     });
     setSearchQuery("");
-    trackFeatureUsage("filters_cleared");
   };
 
   const hasActiveFilters = useMemo(() => {
@@ -321,11 +187,7 @@ export default function Index() {
 
   const handleDeleteProject = useCallback(async (id: string) => {
     try {
-      if (usingFallbackData) {
-        await fallbackDataService.deleteProject(id);
-      } else {
-        await dataService.deleteProject(id);
-      }
+      await dataService.deleteProject(id);
       setProjects(prev => prev.filter(p => p.id !== id));
       toast.success("Project deleted successfully");
       track("project_deleted", { projectId: id });
@@ -333,7 +195,7 @@ export default function Index() {
       console.error("Error deleting project:", error);
       toast.error("Failed to delete project");
     }
-  }, [usingFallbackData, track]);
+  }, [track]);
 
   const handleAdvancedSearch = (searchCriteria: any) => {
     console.log("Advanced search:", searchCriteria);
@@ -356,8 +218,10 @@ export default function Index() {
     };
   }, [projects, businesses]);
 
-  // Memoize the displayed projects to prevent unnecessary re-renders
-  const memoizedDisplayedProjects = useMemo(() => displayedProjects, [displayedProjects]);
+  // Get displayed projects (limit for performance)
+  const displayedProjects = useMemo(() => {
+    return showAllProjects ? filteredProjects : filteredProjects.slice(0, 12);
+  }, [filteredProjects, showAllProjects]);
 
   if (isLoading) {
     return (
@@ -376,145 +240,134 @@ export default function Index() {
       title="Projects"
       breadcrumbs={[{ label: "Projects", href: "/" }]}
       actions={<ThemeToggle />}
-      quickStats={[
-        { label: "Total", value: stats.total },
-        {
-          label: "Active",
-          value: stats.active,
-          color: "success",
-        },
-        {
-          label: "Completed",
-          value: stats.completed,
-          color: "success",
-        },
-        {
-          label: "Businesses",
-          value: stats.businesses,
-          color: "info",
-        },
-      ]}
     >
-      <div className="space-y-6">
-        {/* Demo Mode Alert */}
-        {usingFallbackData && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Demo Mode:</strong> You're viewing sample data. To access full functionality, configure Supabase by setting up your environment variables and running <code>npm run setup</code>.
-            </AlertDescription>
-          </Alert>
-        )}
+      <div className="container mx-auto p-6 space-y-6">
+        <EnhancedBroadcastAlert />
 
-        <EnhancedBroadcastAlert 
-          onDismiss={() => trackFeatureUsage("broadcast_alert_dismissed")}
-        />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.active}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.completed}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Businesses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.businesses}</div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Search and Filter Controls */}
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-              <div className="flex flex-1 items-center space-x-2">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search projects..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-9"
-                  />
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className={showFilters ? "bg-accent" : ""}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+            </Button>
+            
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={clearFilters}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+            )}
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowAdvancedSearch(true)}
+            >
+              Advanced Search
+            </Button>
+            
+            <Button asChild>
+              <Link to="/add-project">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Project
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="project-sort">Project Sort</Label>
+                  <Select value={projectSort} onValueChange={(value: any) => setProjectSort(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Projects</SelectItem>
+                      <SelectItem value="my-projects">My Projects</SelectItem>
+                      <SelectItem value="starred">Starred</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAdvancedSearch(true)}
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Advanced
-                </Button>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
-                >
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filters
-                  {hasActiveFilters && (
-                    <span className="ml-1 rounded-full bg-primary w-2 h-2" />
-                  )}
-                </Button>
-
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    <X className="mr-2 h-4 w-4" />
-                    Clear
-                  </Button>
-                )}
-
-                <Link to="/add-project">
-                  <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Project
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Filter Panel */}
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
+                
                 <div>
                   <Label htmlFor="status-filter">Status</Label>
-                  <Select
-                    value={filters.status}
-                    onValueChange={(value) => handleFilterChange("status", value)}
-                  >
+                  <Select value={filters.status} onValueChange={(value) => handleFilterChange("status", value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="All statuses" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
+                
                 <div>
-                  <Label htmlFor="start-date">Start Date</Label>
-                  <Input
-                    id="start-date"
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="end-date">End Date</Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="assigned-user">Assigned To</Label>
-                  <Select
-                    value={filters.assignedUser}
-                    onValueChange={(value) => handleFilterChange("assignedUser", value)}
-                  >
+                  <Label htmlFor="assigned-filter">Assigned User</Label>
+                  <Select value={filters.assignedUser} onValueChange={(value) => handleFilterChange("assignedUser", value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="All users" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Users</SelectItem>
@@ -527,77 +380,41 @@ export default function Index() {
                   </Select>
                 </div>
               </div>
-            )}
-          </CardHeader>
-        </Card>
-
-        {/* Project Sorting and View Options */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Select value={projectSort} onValueChange={(value: any) => setProjectSort(value)}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                <SelectItem value="my-projects">My Projects</SelectItem>
-                <SelectItem value="starred">High Priority</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={cardSize} onValueChange={(value: any) => setCardSize(value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Small</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="large">Large</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="text-sm text-muted-foreground">
-            Showing {displayedProjects.length} of {filteredProjects.length} projects
-          </div>
-        </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Projects Grid */}
         {displayedProjects.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <FolderOpen className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                {hasActiveFilters ? "No projects match your filters" : "No projects yet"}
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                {hasActiveFilters
-                  ? "Try adjusting your search criteria or clearing filters to see more projects."
-                  : "Get started by creating your first project. It's quick and easy!"}
+              <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No projects found</h3>
+              <p className="text-muted-foreground mb-4">
+                {projects.length === 0
+                  ? "Get started by creating your first project"
+                  : "Try adjusting your search or filters"}
               </p>
-              {hasActiveFilters ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Clear Filters
-                </Button>
-              ) : (
+              <Button asChild>
                 <Link to="/add-project">
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Project
-                  </Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Project
                 </Link>
-              )}
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <>
-            <VirtualProjectList
-              projects={memoizedDisplayedProjects}
-              onDeleteProject={handleDeleteProject}
-              cardSize={cardSize}
-            />
+            {/* Projects Grid - Simple grid layout without virtual scrolling */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {displayedProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onDelete={() => handleDeleteProject(project.id)}
+                />
+              ))}
+            </div>
 
             {/* Show More Button */}
             {filteredProjects.length > displayedProjects.length && (
@@ -606,7 +423,7 @@ export default function Index() {
                   variant="outline"
                   onClick={() => setShowAllProjects(true)}
                 >
-                  Show All {filteredProjects.length} Projects
+                  Show {filteredProjects.length - displayedProjects.length} More Projects
                 </Button>
               </div>
             )}
@@ -616,8 +433,11 @@ export default function Index() {
         {/* Advanced Search Modal */}
         {showAdvancedSearch && (
           <AdvancedSearch
-            onSearch={handleAdvancedSearch}
+            isOpen={showAdvancedSearch}
             onClose={() => setShowAdvancedSearch(false)}
+            onSearch={handleAdvancedSearch}
+            businesses={businesses}
+            users={users}
           />
         )}
       </div>
