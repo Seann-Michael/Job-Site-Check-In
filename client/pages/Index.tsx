@@ -104,7 +104,7 @@ export default function Index() {
     };
 
     loadData();
-  }, [showAllProjects]);
+  }, []); // Remove showAllProjects dependency - data loading shouldn't depend on display preference
 
   // Apply filters and search to projects
   useEffect(() => {
