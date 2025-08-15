@@ -853,6 +853,52 @@ export class DataService {
       return null;
     }
   }
+  // Mock data fallback methods
+  private getMockBusinesses(): Business[] {
+    return [
+      {
+        id: 'business-1',
+        owner_id: 'user-1',
+        name: 'Green Thumb Landscaping',
+        description: 'Professional landscaping and lawn care services',
+        address: { street: '123 Garden Lane', city: 'Springfield', state: 'IL', zip: '62701' },
+        phone: '(555) 123-4567',
+        email: 'contact@greenthumb.com',
+        website: 'https://greenthumb.com',
+        category: 'Landscaping',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    ];
+  }
+
+  private getMockProjects(): Project[] {
+    return [
+      {
+        id: 'project-1',
+        business_id: 'business-1',
+        name: 'Front Yard Renovation',
+        description: 'Complete renovation of front yard with new landscaping',
+        type: 'renovation' as any,
+        status: 'in_progress',
+        priority: 'high',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'project-2',
+        business_id: 'business-1',
+        name: 'Backyard Deck Installation',
+        description: 'Installing a new wooden deck in the backyard',
+        type: 'construction' as any,
+        status: 'planning',
+        priority: 'medium',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    ];
+  }
 }
 
 // Export singleton instance
