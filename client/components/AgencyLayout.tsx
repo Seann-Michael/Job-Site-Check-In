@@ -637,7 +637,7 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
               <HeaderSearch />
 
               {/* Notifications */}
-              <NotificationDropdown count={notificationCount} />
+              <NotificationDropdown />
 
               {/* Theme Toggle */}
               <ThemeToggle />
