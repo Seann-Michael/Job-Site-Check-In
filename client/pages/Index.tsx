@@ -155,7 +155,7 @@ export default function Index() {
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
-    trackFeatureUsage("project_search", { queryLength: value.length });
+    // Analytics tracking removed to prevent potential re-render issues
   }, []);
 
   const handleFilterChange = useCallback((key: string, value: string) => {
