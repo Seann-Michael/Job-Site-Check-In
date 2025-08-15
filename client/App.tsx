@@ -1054,6 +1054,10 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/AuditReport"
+                  element={<Navigate to="/admin/audits" replace />}
+                />
+                <Route
                   path="/WorkflowBuilder"
                   element={<Navigate to="/admin/workflow-builder" replace />}
                 />
