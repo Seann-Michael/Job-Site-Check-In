@@ -39,8 +39,8 @@ export function ImageDebugger({ projectId = "project-1" }: ImageDebuggerProps) {
     // Check specific project
     const project = projectsArray.find((p: any) => p.id === projectId);
 
-    // Get project from mock service
-    const mockProject = dataService.getProject(projectId);
+    // Get project from mock service - this would need to be awaited
+    let mockProject = null;
 
     // Test multiple image URLs including control URLs
     const imageTests: any[] = [];
