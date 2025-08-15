@@ -23,7 +23,7 @@ import { MediaViewer } from "@/components/MediaViewer";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 import { PhotoActionMenu } from "@/components/PhotoActionMenu";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
-import { mockApiService } from "@/lib/mockApiService";
+import { dataService } from "@/lib/dataService";
 import {
   ArrowLeft,
   Images,
@@ -116,7 +116,7 @@ export default function Gallery() {
     const loadGalleryData = async () => {
       try {
         setLoading(true);
-        const projectsData = await mockApiService.getProjects();
+        const projectsData = await dataService.getProjects();
         const allPhotos: PhotoWithMetadata[] = [];
         const projectOptions: Array<{ id: string; name: string }> = [];
         const userSet = new Set<string>();
