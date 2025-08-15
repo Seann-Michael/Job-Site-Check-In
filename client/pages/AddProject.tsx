@@ -8,6 +8,13 @@ import { AppLayout } from "@/components/AppLayout";
 import { ModernPhotoCapture } from "@/components/ModernPhotoCapture";
 import { PhoneInput } from "@/components/ui/phone-input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ArrowLeft,
   Save,
   Sparkles,
@@ -16,6 +23,7 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle,
+  Building2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,7 +34,7 @@ import { DROPDOWN_FIELDS } from "@/hooks/useDropdownState";
 import { generateProjectId } from "@/lib/idGenerator";
 import { AddressAutocomplete } from "@/components/GoogleMaps";
 import { USStatesSelect } from "@/components/ui/us-states-select";
-import { mockDataService } from "@/lib/mockData";
+import { dataService, Business } from "@/lib/dataService";
 import {
   getGoogleMapsApiKey,
   validateGoogleMapsApiKey,
@@ -43,9 +51,13 @@ interface EnhancedPhoto {
 export default function AddProject() {
   const navigate = useNavigate();
   const [photos, setPhotos] = useState<EnhancedPhoto[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    type: "local_optimization" as const,
+    priority: "medium" as const,
     // Address search field
     addressSearch: "",
     // Structured address fields
@@ -58,17 +70,41 @@ export default function AddProject() {
     gpsLat: "",
     gpsLng: "",
     customerName: "",
+    customerEmail: "",
     mobilePhone: "",
     additionalPhones: [""],
     keywords: "",
     startDate: new Date().toISOString().split("T")[0], // Auto-populated with today
     completionDate: "",
+    dueDate: "",
+    budget: "",
+    objectives: [""],
+    deliverables: [""],
     streetViewUrl: "", // Store Street View URL to avoid repeated API calls
     hasStreetView: false, // Track if Street View is available
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
   const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
+
+  // Load user's businesses on component mount
+  useEffect(() => {
+    const loadBusinesses = async () => {
+      try {
+        const businessData = await dataService.getBusinesses();
+        setBusinesses(businessData);
+        // Auto-select if only one business
+        if (businessData.length === 1) {
+          setSelectedBusinessId(businessData[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading businesses:", error);
+        toast.error("Failed to load businesses. Please try again.");
+      }
+    };
+
+    loadBusinesses();
+  }, []);
 
   // Debug Google Maps API setup on page load
   useEffect(() => {
@@ -98,19 +134,12 @@ export default function AddProject() {
         console.log("🧪 Testing API key validation...");
         try {
           const validation = await validateGoogleMapsApiKey(apiKey);
-          console.log("📊 Validation result:", validation);
-
-          if (validation.valid) {
-            console.log("✅ Google Maps API key is valid and working");
-          } else {
-            console.error(
-              "❌ Google Maps API key validation failed:",
-              validation.error,
-            );
-          }
+          console.log("✅ API Key Validation Result:", validation);
         } catch (error) {
-          console.error("💥 API validation error:", error);
+          console.error("❌ API Key Validation Error:", error);
         }
+      } else {
+        console.log("⚠️ No Google Maps API key found - address features disabled");
       }
     };
 
@@ -118,175 +147,83 @@ export default function AddProject() {
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const clearAddressData = () => {
-    setFormData((prev) => ({
-      ...prev,
-      addressSearch: "",
-      streetAddress: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      country: "United States",
-      placeId: "",
-      gpsLat: "",
-      gpsLng: "",
-      streetViewUrl: "",
-      hasStreetView: false,
-    }));
-  };
+  const handleAddressSelect = async (address: any) => {
+    console.log("🗺️ Address selected:", address);
 
-  const handleAddressSelect = async (selectedPlace: any) => {
-    console.log("🏠 Selected place:", selectedPlace);
+    const updatedFormData = {
+      ...formData,
+      addressSearch: address.formatted_address || "",
+      streetAddress: address.name || "",
+      city: address.city || "",
+      state: address.state || "",
+      zipCode: address.postal_code || "",
+      placeId: address.place_id || "",
+      gpsLat: address.geometry?.location?.lat?.toString() || "",
+      gpsLng: address.geometry?.location?.lng?.toString() || "",
+    };
 
-    // Parse Google Places address components
-    const addressComponents = selectedPlace.address_components || [];
-    let streetNumber = "";
-    let route = "";
-    let city = "";
-    let state = "";
-    let zipCode = "";
-    let country = "";
+    setFormData(updatedFormData);
 
-    addressComponents.forEach((component: any) => {
-      const types = component.types;
-      if (types.includes("street_number")) {
-        streetNumber = component.long_name;
-      } else if (types.includes("route")) {
-        route = component.long_name;
-      } else if (types.includes("locality")) {
-        city = component.long_name;
-      } else if (types.includes("administrative_area_level_1")) {
-        state = component.short_name;
-      } else if (types.includes("postal_code")) {
-        zipCode = component.long_name;
-      } else if (types.includes("country")) {
-        country = component.long_name;
-      }
-    });
-
-    const streetAddress = `${streetNumber} ${route}`.trim();
-
-    // Get coordinates for Street View
-    const lat =
-      selectedPlace.geometry?.location?.lat?.() ||
-      selectedPlace.geometry?.location?.lat ||
-      selectedPlace.lat;
-    const lng =
-      selectedPlace.geometry?.location?.lng?.() ||
-      selectedPlace.geometry?.location?.lng ||
-      selectedPlace.lng;
-
-    let streetViewUrl = "";
-    let hasStreetView = false;
-
-    // Generate Street View URL if coordinates are available
-    if (lat && lng) {
+    // Check for Street View availability
+    const apiKey = getGoogleMapsApiKey();
+    if (apiKey && address.geometry?.location) {
       try {
-        // Check if Street View is available
-        hasStreetView = await checkStreetViewAvailability({ lat, lng });
+        const streetViewAvailable = await checkStreetViewAvailability(
+          address.geometry.location.lat,
+          address.geometry.location.lng,
+          apiKey,
+        );
 
-        if (hasStreetView) {
-          streetViewUrl = createStreetViewEmbedUrl({ lat, lng });
-          console.log("📷 Street View URL generated:", streetViewUrl);
+        if (streetViewAvailable) {
+          const streetViewUrl = createStreetViewEmbedUrl(
+            address.geometry.location.lat,
+            address.geometry.location.lng,
+            apiKey,
+          );
+
+          setFormData((prev) => ({
+            ...prev,
+            streetViewUrl,
+            hasStreetView: true,
+          }));
+
+          console.log("📍 Street View available and URL generated");
         } else {
-          console.log("📷 Street View not available for this location");
+          console.log("📍 Street View not available for this location");
+          setFormData((prev) => ({
+            ...prev,
+            streetViewUrl: "",
+            hasStreetView: false,
+          }));
         }
       } catch (error) {
-        console.error("📷 Failed to check Street View availability:", error);
+        console.error("Error checking Street View availability:", error);
       }
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      addressSearch:
-        selectedPlace.formattedAddress || selectedPlace.description,
-      streetAddress: streetAddress,
-      city: city,
-      state: state,
-      zipCode: zipCode,
-      country: country || "United States",
-      placeId: selectedPlace.place_id || selectedPlace.placeId || "",
-      gpsLat: lat?.toString() || "",
-      gpsLng: lng?.toString() || "",
-      streetViewUrl: streetViewUrl,
-      hasStreetView: hasStreetView,
-    }));
   };
 
-  const handleAdditionalPhoneChange = (index: number, value: string) => {
-    setFormData((prev) => {
-      const newPhones = [...prev.additionalPhones];
-      newPhones[index] = value;
-      return {
-        ...prev,
-        additionalPhones: newPhones,
-      };
-    });
-  };
-
-  const addPhoneField = () => {
-    setFormData((prev) => ({
-      ...prev,
-      additionalPhones: [...prev.additionalPhones, ""],
-    }));
-  };
-
-  const removePhoneField = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      additionalPhones: prev.additionalPhones.filter((_, i) => i !== index),
-    }));
-  };
-
-  // Simulate Google Places API (in production, use actual Google Places API)
-  const simulateGooglePlaces = (input: string) => {
-    if (input.length > 3) {
-      // Simulate API response with coordinates
-      const mockCoordinates = {
-        lat: 40.7128 + (Math.random() - 0.5) * 0.1,
-        lng: -74.006 + (Math.random() - 0.5) * 0.1,
-      };
-
-      if (input.toLowerCase().includes("main")) {
-        mockCoordinates.lat = 40.7589;
-        mockCoordinates.lng = -73.9851;
-      }
-
-      setFormData((prev) => ({
-        ...prev,
-        gpsLat: mockCoordinates.lat.toFixed(6),
-        gpsLng: mockCoordinates.lng.toFixed(6),
-      }));
-    }
-  };
-
-  const handlePhotosChange = (enhancedPhotos: EnhancedPhoto[]) => {
-    setPhotos(enhancedPhotos);
+  const handlePhotosUpdate = (newPhotos: EnhancedPhoto[]) => {
+    setPhotos(newPhotos);
   };
 
   const enhanceDescription = async () => {
-    if (!formData.description.trim()) {
-      toast.error("Please enter a description first");
+    if (!formData.name) {
+      toast.error("Please enter a project name first");
       return;
     }
 
     setIsEnhancingDescription(true);
     try {
-      // Simulate AI enhancement
+      // Simulate AI enhancement - in a real app, this would call an AI service
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const enhanced = generateEnhancedDescription(
-        formData.description,
-        formData.name,
-      );
+      const enhanced = `Comprehensive SEO optimization project for ${formData.name}. This project includes keyword research, on-page optimization, technical SEO improvements, and local search enhancement to improve online visibility and drive qualified traffic.`;
+
       setFormData((prev) => ({ ...prev, description: enhanced }));
-      toast.success("Description enhanced!");
+      toast.success("Description enhanced successfully!");
     } catch (error) {
       toast.error("Failed to enhance description");
     } finally {
@@ -294,551 +231,664 @@ export default function AddProject() {
     }
   };
 
-  const generateKeywordSuggestions = async () => {
-    if (!formData.name && !formData.description) {
-      toast.error("Please enter project name or description first");
+  const generateKeywordSuggestions = () => {
+    if (!formData.name || !formData.city) {
+      toast.error("Please enter project name and city for keyword suggestions");
       return;
     }
 
-    try {
-      // Simulate AI keyword generation
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Simulate keyword generation based on project details
+    const businessType = formData.name.toLowerCase();
+    const location = formData.city;
 
-      const suggestions = generateKeywords(formData.name, formData.description);
-      setSuggestedKeywords(suggestions);
-      toast.success("Keywords suggested!");
-    } catch (error) {
-      toast.error("Failed to generate keywords");
-    }
+    const suggestions = [
+      `${businessType} ${location}`,
+      `best ${businessType} near me`,
+      `${businessType} services ${location}`,
+      `local ${businessType}`,
+      `${businessType} reviews ${location}`,
+    ];
+
+    setSuggestedKeywords(suggestions);
+    toast.success("Keyword suggestions generated!");
   };
 
-  const addKeywordFromSuggestion = (keyword: string) => {
-    const currentKeywords = formData.keywords
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
+  const addKeyword = (keyword: string) => {
+    const currentKeywords = formData.keywords ? formData.keywords.split(",").map(k => k.trim()) : [];
     if (!currentKeywords.includes(keyword)) {
-      const newKeywords = [...currentKeywords, keyword].join(", ");
-      setFormData((prev) => ({ ...prev, keywords: newKeywords }));
+      currentKeywords.push(keyword);
+      setFormData((prev) => ({ ...prev, keywords: currentKeywords.join(", ") }));
     }
-    setSuggestedKeywords((prev) => prev.filter((k) => k !== keyword));
   };
 
-  const generateEnhancedDescription = (
-    original: string,
-    projectName: string,
-  ): string => {
-    // Simple AI simulation - in production, this would call an actual AI service
-    const templates = [
-      `Professional ${projectName.toLowerCase()} featuring ${original}. This comprehensive project showcases exceptional craftsmanship and attention to detail, delivering outstanding results that exceed client expectations.`,
-      `Expert ${projectName.toLowerCase()} project completed with precision and care. ${original} The work demonstrates superior quality construction techniques and modern design principles.`,
-      `High-quality ${projectName.toLowerCase()} transformation including ${original}. This project represents our commitment to excellence and delivers lasting value through skilled workmanship.`,
-    ];
-    return templates[Math.floor(Math.random() * templates.length)];
+  const addObjective = () => {
+    setFormData(prev => ({
+      ...prev,
+      objectives: [...prev.objectives, ""]
+    }));
   };
 
-  const generateKeywords = (name: string, description: string): string[] => {
-    // Simple keyword generation simulation
-    const commonKeywords = [
-      "renovation",
-      "remodel",
-      "construction",
-      "professional",
-      "quality",
-    ];
-    const contextKeywords = [];
+  const updateObjective = (index: number, value: string) => {
+    const newObjectives = [...formData.objectives];
+    newObjectives[index] = value;
+    setFormData(prev => ({ ...prev, objectives: newObjectives }));
+  };
 
-    const text = (name + " " + description).toLowerCase();
-    if (text.includes("kitchen"))
-      contextKeywords.push("kitchen", "cabinets", "countertops");
-    if (text.includes("bathroom"))
-      contextKeywords.push("bathroom", "tiles", "fixtures");
-    if (text.includes("floor"))
-      contextKeywords.push("flooring", "hardwood", "installation");
-    if (text.includes("paint"))
-      contextKeywords.push("painting", "interior", "exterior");
-    if (text.includes("roof"))
-      contextKeywords.push("roofing", "shingles", "repair");
+  const removeObjective = (index: number) => {
+    if (formData.objectives.length > 1) {
+      const newObjectives = formData.objectives.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, objectives: newObjectives }));
+    }
+  };
 
-    return [...commonKeywords, ...contextKeywords].slice(0, 6);
+  const addDeliverable = () => {
+    setFormData(prev => ({
+      ...prev,
+      deliverables: [...prev.deliverables, ""]
+    }));
+  };
+
+  const updateDeliverable = (index: number, value: string) => {
+    const newDeliverables = [...formData.deliverables];
+    newDeliverables[index] = value;
+    setFormData(prev => ({ ...prev, deliverables: newDeliverables }));
+  };
+
+  const removeDeliverable = (index: number) => {
+    if (formData.deliverables.length > 1) {
+      const newDeliverables = formData.deliverables.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, deliverables: newDeliverables }));
+    }
+  };
+
+  const addPhoneNumber = () => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalPhones: [...prev.additionalPhones, ""],
+    }));
+  };
+
+  const removePhoneNumber = (index: number) => {
+    if (formData.additionalPhones.length > 1) {
+      setFormData((prev) => ({
+        ...prev,
+        additionalPhones: prev.additionalPhones.filter((_, i) => i !== index),
+      }));
+    }
+  };
+
+  const updatePhoneNumber = (index: number, value: string) => {
+    const newPhones = [...formData.additionalPhones];
+    newPhones[index] = value;
+    setFormData((prev) => ({ ...prev, additionalPhones: newPhones }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.name.trim()) {
-      toast.error("Project name is required");
+    
+    if (!selectedBusinessId) {
+      toast.error("Please select a business for this project");
       return;
     }
 
-    if (photos.length === 0) {
-      toast.error("Please add at least one photo");
+    if (!formData.name || !formData.description) {
+      toast.error("Please fill in the required fields");
       return;
     }
 
     setIsSubmitting(true);
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const project = {
-        id: generateProjectId(),
-        ...formData,
-        keywords: formData.keywords
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean),
-        photos,
-        documents: [],
-        tasks: [],
-        checklist: [],
-        notes: [],
-        activityLog: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      // Prepare project data
+      const projectData = {
+        business_id: selectedBusinessId,
+        name: formData.name,
+        description: formData.description,
+        type: formData.type,
+        status: 'draft' as const,
+        priority: formData.priority,
+        client_contact: formData.customerName ? {
+          name: formData.customerName,
+          email: formData.customerEmail,
+          phone: formData.mobilePhone
+        } : undefined,
+        objectives: formData.objectives.filter(obj => obj.trim() !== ""),
+        deliverables: formData.deliverables.filter(del => del.trim() !== ""),
+        timeline: {
+          start_date: formData.startDate,
+          end_date: formData.completionDate,
+          estimated_duration: formData.completionDate ? 
+            Math.ceil((new Date(formData.completionDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)) : 
+            null
+        },
+        budget: formData.budget ? {
+          total: parseFloat(formData.budget),
+          spent: 0,
+          currency: 'USD'
+        } : undefined,
+        seo_targets: formData.keywords ? {
+          target_keywords: formData.keywords.split(",").map(k => k.trim()),
+          current_rankings: {},
+          target_rankings: {}
+        } : undefined,
+        metadata: {
+          address: {
+            street: formData.streetAddress,
+            city: formData.city,
+            state: formData.state,
+            zipCode: formData.zipCode,
+            country: formData.country,
+            coordinates: formData.gpsLat && formData.gpsLng ? {
+              lat: parseFloat(formData.gpsLat),
+              lng: parseFloat(formData.gpsLng)
+            } : undefined
+          },
+          photos_count: photos.length,
+          street_view_available: formData.hasStreetView,
+          additional_phones: formData.additionalPhones.filter(phone => phone.trim() !== "")
+        },
+        due_date: formData.dueDate || undefined,
+        started_at: new Date().toISOString()
       };
 
-      // Use mockDataService to properly save the project
-      mockDataService.initialize(); // Ensure initialized
-      mockDataService.addProject(project);
+      // Create the project
+      const project = await dataService.createProject(projectData);
+
+      // Upload photos if any
+      if (photos.length > 0) {
+        toast.info("Uploading photos...");
+        for (const photo of photos) {
+          try {
+            // Convert URL to File object for upload
+            const response = await fetch(photo.url);
+            const blob = await response.blob();
+            const file = new File([blob], photo.enhancedFileName, { type: blob.type });
+            
+            await dataService.uploadProjectPhoto(project.id, file, {
+              category: 'general',
+              description: photo.metadata?.description || '',
+              is_featured: false,
+              metadata: photo.metadata
+            });
+          } catch (error) {
+            console.error("Error uploading photo:", error);
+          }
+        }
+      }
 
       toast.success("Project created successfully!");
-      navigate("/admin/projects");
+      navigate(`/project/${project.id}`);
     } catch (error) {
-      toast.error("Failed to create project");
+      console.error("Error creating project:", error);
+      toast.error("Failed to create project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <AppLayout>
-      <div className="container px-4 py-6 max-w-full overflow-x-hidden">
-        <div className="flex items-center gap-4 mb-6">
-          <Link to="/admin/projects">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="min-h-[44px] min-w-[44px]"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <h1 className="text-xl sm:text-2xl font-bold">Add New Project</h1>
-        </div>
+    <AppLayout
+      title="Add New Project"
+      breadcrumbs={[
+        { label: "Projects", href: "/" },
+        { label: "Add Project", href: "/add-project" },
+      ]}
+    >
+      <div className="max-w-4xl mx-auto space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Business Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Business Selection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="business">Select Business *</Label>
+                <Select value={selectedBusinessId} onValueChange={setSelectedBusinessId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a business for this project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businesses.map((business) => (
+                      <SelectItem key={business.id} value={business.id}>
+                        {business.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {businesses.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No businesses found. <Link to="/add-business" className="text-primary hover:underline">Create a business first</Link>.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        <form
-          onSubmit={handleSubmit}
-          className="max-w-full sm:max-w-2xl mx-auto space-y-6"
-        >
+          {/* Project Details */}
           <Card>
             <CardHeader>
               <CardTitle>Project Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Project Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter project name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Project Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    placeholder="Enter project name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="type">Project Type</Label>
+                  <Select value={formData.type} onValueChange={(value) => handleInputChange("type", value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="seo_audit">SEO Audit</SelectItem>
+                      <SelectItem value="local_optimization">Local Optimization</SelectItem>
+                      <SelectItem value="content_marketing">Content Marketing</SelectItem>
+                      <SelectItem value="reputation_management">Reputation Management</SelectItem>
+                      <SelectItem value="technical_seo">Technical SEO</SelectItem>
+                      <SelectItem value="link_building">Link Building</SelectItem>
+                      <SelectItem value="ongoing_optimization">Ongoing Optimization</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="budget">Budget (USD)</Label>
+                  <Input
+                    id="budget"
+                    type="number"
+                    value={formData.budget}
+                    onChange={(e) => handleInputChange("budget", e.target.value)}
+                    placeholder="10000"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <div className="relative">
+              <div>
+                <Label htmlFor="description">Description *</Label>
+                <div className="space-y-2">
                   <Textarea
                     id="description"
-                    placeholder="Describe the project"
                     value={formData.description}
-                    onChange={(e) =>
-                      handleInputChange("description", e.target.value)
-                    }
-                    rows={3}
+                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    placeholder="Describe the project scope, goals, and requirements..."
+                    rows={4}
+                    required
                   />
-                  {formData.description && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-2 right-2 gap-2"
-                      onClick={enhanceDescription}
-                      disabled={isEnhancingDescription}
-                    >
-                      {isEnhancingDescription ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
-                      {isEnhancingDescription ? "Enhancing..." : "AI Enhance"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {/* Address Search */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label>Address Lookup</Label>
-                    {formData.addressSearch && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={clearAddressData}
-                        title="Clear address and start over"
-                      >
-                        Clear All
-                      </Button>
-                    )}
-                  </div>
-                  <AddressAutocomplete
-                    placeholder="Search for address..."
-                    value={formData.addressSearch}
-                    onChange={(address, placeResult) => {
-                      if (placeResult) {
-                        handleAddressSelect(placeResult);
-                      } else {
-                        setFormData((prev) => ({
-                          ...prev,
-                          addressSearch: address,
-                        }));
-                      }
-                    }}
-                  />
-                  {formData.placeId && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
-                        <CheckCircle className="h-3 w-3" />
-                        Address verified with Google Maps
-                      </div>
-                      {formData.hasStreetView && (
-                        <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded">
-                          <CheckCircle className="h-3 w-3" />
-                          Street View available for this location
-                        </div>
-                      )}
-                      {formData.gpsLat &&
-                        formData.gpsLng &&
-                        !formData.hasStreetView && (
-                          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                            <AlertCircle className="h-3 w-3" />
-                            Street View not available for this location
-                          </div>
-                        )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Address Fields */}
-                <div className="space-y-4">
-                  <Label className="text-base font-medium">
-                    Address Details
-                  </Label>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="streetAddress">Street Address</Label>
-                    <Input
-                      id="streetAddress"
-                      placeholder="123 Main Street"
-                      value={formData.streetAddress}
-                      onChange={(e) =>
-                        handleInputChange("streetAddress", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="city">City</Label>
-                      <Input
-                        id="city"
-                        placeholder="City"
-                        value={formData.city}
-                        onChange={(e) =>
-                          handleInputChange("city", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="state">State/Province</Label>
-                      <USStatesSelect
-                        value={formData.state}
-                        onValueChange={(value) =>
-                          handleInputChange("state", value)
-                        }
-                        placeholder="Select state"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="zipCode">ZIP/Postal Code</Label>
-                      <Input
-                        id="zipCode"
-                        placeholder="12345"
-                        value={formData.zipCode}
-                        onChange={(e) =>
-                          handleInputChange("zipCode", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="country">Country</Label>
-                      <Input
-                        id="country"
-                        placeholder="United States"
-                        value={formData.country}
-                        onChange={(e) =>
-                          handleInputChange("country", e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Technical Details (Collapsible) */}
-                <details className="space-y-4">
-                  <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-                    Technical Details
-                  </summary>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                    {formData.placeId && (
-                      <div className="space-y-2">
-                        <Label htmlFor="placeId">Place ID</Label>
-                        <Input
-                          id="placeId"
-                          value={formData.placeId}
-                          className="bg-muted font-mono text-xs"
-                          readOnly
-                          title="Google Places unique identifier"
-                        />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="gpsLat">GPS Latitude</Label>
-                      <Input
-                        id="gpsLat"
-                        placeholder="40.7128"
-                        value={formData.gpsLat}
-                        onChange={(e) =>
-                          handleInputChange("gpsLat", e.target.value)
-                        }
-                        className={formData.placeId ? "bg-muted" : ""}
-                        readOnly={!!formData.placeId}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="gpsLng">GPS Longitude</Label>
-                      <Input
-                        id="gpsLng"
-                        placeholder="-74.0060"
-                        value={formData.gpsLng}
-                        onChange={(e) =>
-                          handleInputChange("gpsLng", e.target.value)
-                        }
-                        className={formData.placeId ? "bg-muted" : ""}
-                        readOnly={!!formData.placeId}
-                      />
-                    </div>
-                  </div>
-                </details>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Project Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) =>
-                      handleInputChange("startDate", e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Auto-populated with today's date
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="completionDate">
-                    Expected Completion Date{" "}
-                    <span className="text-muted-foreground">(Optional)</span>
-                  </Label>
-                  <Input
-                    id="completionDate"
-                    type="date"
-                    value={formData.completionDate}
-                    onChange={(e) =>
-                      handleInputChange("completionDate", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Customer Name</Label>
-                  <Input
-                    id="customerName"
-                    placeholder="Enter customer full name"
-                    value={formData.customerName}
-                    onChange={(e) =>
-                      handleInputChange("customerName", e.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="mobilePhone">Mobile Phone</Label>
-                  <PhoneInput
-                    id="mobilePhone"
-                    value={formData.mobilePhone}
-                    onChange={(value) =>
-                      handleInputChange("mobilePhone", value)
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <Label>Additional Phone Numbers</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addPhoneField}
-                      className="gap-2 w-full sm:w-auto min-h-[44px]"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Phone
-                    </Button>
-                  </div>
-                  {formData.additionalPhones.map((phone, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder="(555) 123-4567"
-                        value={phone}
-                        onChange={(e) =>
-                          handleAdditionalPhoneChange(index, e.target.value)
-                        }
-                        className="min-h-[44px]"
-                      />
-                      {formData.additionalPhones.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => removePhoneField(index)}
-                          className="min-h-[44px] min-w-[44px] flex-shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <Label htmlFor="keywords">Keywords</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-2 w-full sm:w-auto min-h-[44px]"
-                    onClick={generateKeywordSuggestions}
+                    onClick={enhanceDescription}
+                    disabled={isEnhancingDescription || !formData.name}
                   >
-                    <Lightbulb className="h-4 w-4" />
-                    Suggest Keywords
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {isEnhancingDescription ? "Enhancing..." : "AI Enhance"}
                   </Button>
                 </div>
-                <SmartDropdownInput
-                  fieldName={DROPDOWN_FIELDS.PROJECT_KEYWORDS}
-                  value={formData.keywords}
-                  onChange={(value) => handleInputChange("keywords", value)}
-                  placeholder="renovation, bathroom, kitchen (comma separated)"
-                  allowMultiple={true}
-                  separator=","
-                />
-                {suggestedKeywords.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    <span className="text-sm text-muted-foreground mr-2">
-                      Suggestions:
-                    </span>
-                    {suggestedKeywords.map((keyword) => (
-                      <Badge
-                        key={keyword}
-                        variant="outline"
-                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
-                        onClick={() => addKeywordFromSuggestion(keyword)}
-                      >
-                        + {keyword}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <p className="text-sm text-muted-foreground">
-                  Separate keywords with commas to help organize your projects
-                </p>
               </div>
             </CardContent>
           </Card>
 
+          {/* Client Contact Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Client Contact Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="customerName">Client Name</Label>
+                  <Input
+                    id="customerName"
+                    value={formData.customerName}
+                    onChange={(e) => handleInputChange("customerName", e.target.value)}
+                    placeholder="Enter client name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="customerEmail">Client Email</Label>
+                  <Input
+                    id="customerEmail"
+                    type="email"
+                    value={formData.customerEmail}
+                    onChange={(e) => handleInputChange("customerEmail", e.target.value)}
+                    placeholder="client@example.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="mobilePhone">Primary Phone</Label>
+                <PhoneInput
+                  value={formData.mobilePhone}
+                  onChange={(value) => handleInputChange("mobilePhone", value)}
+                  placeholder="Enter primary phone number"
+                />
+              </div>
+
+              {/* Additional Phone Numbers */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Additional Phone Numbers</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addPhoneNumber}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Phone
+                  </Button>
+                </div>
+                {formData.additionalPhones.map((phone, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <PhoneInput
+                      value={phone}
+                      onChange={(value) => updatePhoneNumber(index, value)}
+                      placeholder="Additional phone number"
+                    />
+                    {formData.additionalPhones.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removePhoneNumber(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Project Objectives */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Objectives</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Objectives</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addObjective}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Objective
+                </Button>
+              </div>
+              {formData.objectives.map((objective, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={objective}
+                    onChange={(e) => updateObjective(index, e.target.value)}
+                    placeholder="Enter project objective"
+                  />
+                  {formData.objectives.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeObjective(index)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Deliverables</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addDeliverable}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Deliverable
+                  </Button>
+                </div>
+                {formData.deliverables.map((deliverable, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      value={deliverable}
+                      onChange={(e) => updateDeliverable(index, e.target.value)}
+                      placeholder="Enter project deliverable"
+                    />
+                    {formData.deliverables.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeDeliverable(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Timeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Timeline</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => handleInputChange("startDate", e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="dueDate">Due Date</Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => handleInputChange("dueDate", e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="completionDate">Expected Completion</Label>
+                  <Input
+                    id="completionDate"
+                    type="date"
+                    value={formData.completionDate}
+                    onChange={(e) => handleInputChange("completionDate", e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Address Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Address Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="addressSearch">Address Search</Label>
+                <AddressAutocomplete
+                  onAddressSelect={handleAddressSelect}
+                  placeholder="Search for address..."
+                  className="w-full"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="streetAddress">Street Address</Label>
+                  <Input
+                    id="streetAddress"
+                    value={formData.streetAddress}
+                    onChange={(e) => handleInputChange("streetAddress", e.target.value)}
+                    placeholder="123 Main St"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange("city", e.target.value)}
+                    placeholder="City name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <USStatesSelect
+                    value={formData.state}
+                    onValueChange={(value) => handleInputChange("state", value)}
+                    placeholder="Select state"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Input
+                    id="zipCode"
+                    value={formData.zipCode}
+                    onChange={(e) => handleInputChange("zipCode", e.target.value)}
+                    placeholder="12345"
+                  />
+                </div>
+              </div>
+
+              {formData.hasStreetView && formData.streetViewUrl && (
+                <div>
+                  <Label>Street View Preview</Label>
+                  <div className="mt-2">
+                    <iframe
+                      src={formData.streetViewUrl}
+                      width="100%"
+                      height="200"
+                      style={{ border: 0 }}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className="rounded-md"
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Keywords */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" />
+                SEO Keywords
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="keywords">Target Keywords</Label>
+                <Textarea
+                  id="keywords"
+                  value={formData.keywords}
+                  onChange={(e) => handleInputChange("keywords", e.target.value)}
+                  placeholder="Enter keywords separated by commas"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={generateKeywordSuggestions}
+                  disabled={!formData.name || !formData.city}
+                >
+                  <Lightbulb className="mr-2 h-4 w-4" />
+                  Generate Suggestions
+                </Button>
+              </div>
+
+              {suggestedKeywords.length > 0 && (
+                <div>
+                  <Label>Suggested Keywords</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {suggestedKeywords.map((keyword, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => addKeyword(keyword)}
+                      >
+                        {keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Photo Capture */}
           <Card>
             <CardHeader>
               <CardTitle>Project Photos</CardTitle>
             </CardHeader>
             <CardContent>
               <ModernPhotoCapture
-                photos={photos}
-                onPhotosChange={handlePhotosChange}
+                onPhotosUpdate={handlePhotosUpdate}
                 projectInfo={{
-                  id: "new-project",
-                  name: formData.name || "New Project",
-                  address: formData.address || "",
-                  customerName: formData.customerName || "",
-                  keywords: formData.keywords
-                    .split(",")
-                    .map((k) => k.trim())
-                    .filter(Boolean),
+                  id: generateProjectId(),
+                  name: formData.name,
+                  address: `${formData.streetAddress}, ${formData.city}, ${formData.state}`,
+                  customerPhone: formData.mobilePhone,
+                  customerEmail: formData.customerEmail,
                 }}
               />
             </CardContent>
           </Card>
 
-          <div className="flex flex-col sm:flex-row justify-end gap-4">
-            <Link to="/admin/projects" className="w-full sm:w-auto">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto min-h-[44px]"
-              >
+          {/* Submit Buttons */}
+          <div className="flex gap-4 justify-end">
+            <Link to="/">
+              <Button type="button" variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
             </Link>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="gap-2 min-w-32 w-full sm:w-auto min-h-[44px]"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save Project
-                </>
-              )}
+            <Button type="submit" disabled={isSubmitting || !selectedBusinessId}>
+              <Save className="mr-2 h-4 w-4" />
+              {isSubmitting ? "Creating..." : "Create Project"}
             </Button>
           </div>
         </form>
