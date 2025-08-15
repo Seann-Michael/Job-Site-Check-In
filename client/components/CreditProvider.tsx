@@ -71,12 +71,12 @@ export function CreditProvider({ children }: CreditProviderProps) {
     }
   }, []); // Remove refreshCredits from dependency array
 
-  const value: CreditContextType = {
+  const value: CreditContextType = useMemo(() => ({
     balance,
     transactions,
     refreshCredits,
     isLoading,
-  };
+  }), [balance, transactions, refreshCredits, isLoading]);
 
   return (
     <CreditContext.Provider value={value}>{children}</CreditContext.Provider>
