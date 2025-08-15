@@ -19,7 +19,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   // Auto-generate breadcrumbs from URL if not provided
   const generateBreadcrumbs = (): BreadcrumbItem[] => {
     const pathSegments = location.pathname.split("/").filter(Boolean);
-    const breadcrumbs: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
+    const breadcrumbs: BreadcrumbItem[] = [{ label: "Home", href: "/admin/projects" }];
 
     let currentPath = "";
     pathSegments.forEach((segment, index) => {
