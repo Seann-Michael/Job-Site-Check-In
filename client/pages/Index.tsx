@@ -99,7 +99,7 @@ export default function Index() {
     };
 
     loadData();
-  }, [track, showAllProjects]);
+  }, [showAllProjects]);
 
   // Apply filters and search to projects
   useEffect(() => {
