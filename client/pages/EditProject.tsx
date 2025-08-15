@@ -223,8 +223,8 @@ export default function EditProject() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      mockDataService.initialize();
-      const existingProject = mockDataService.getProjectById(id!);
+      const projects = await mockApiService.getProjects();
+      const existingProject = projects.find(p => p.id === id!);
       if (existingProject) {
         const updatedProject = {
           ...existingProject,
@@ -235,7 +235,7 @@ export default function EditProject() {
             .filter(Boolean),
           updatedAt: new Date().toISOString(),
         };
-        mockDataService.updateProject(id!, updatedProject);
+        await mockApiService.updateProject(id!, updatedProject);
       }
       toast.success("Project updated successfully!");
       navigate(`/project/${id}`);
