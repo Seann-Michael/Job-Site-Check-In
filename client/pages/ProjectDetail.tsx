@@ -293,13 +293,17 @@ export default function ProjectDetail() {
     toast.success("Project marked as completed!");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this project?")) {
-      mockDataService.initialize();
       if (id) {
-        mockDataService.deleteProject(id);
-        toast.success("Project deleted successfully");
-        navigate("/admin/projects");
+        try {
+          await mockApiService.deleteProject(id);
+          toast.success("Project deleted successfully");
+          navigate("/admin/projects");
+        } catch (error) {
+          console.error("Error deleting project:", error);
+          toast.error("Failed to delete project");
+        }
       }
     }
   };
