@@ -323,8 +323,8 @@ export function AppLayout({
           className={`min-h-screen transition-all duration-300 ${
             showSidebar
               ? sidebarCollapsed
-                ? "lg:ml-16"
-                : "lg:ml-64"
+                ? "md:ml-16"
+                : "md:ml-64"
               : ""
           }`}
         >
