@@ -1277,8 +1277,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <HeaderSearch />
                 </div>
 
-                {/* Credit Display - temporarily disabled to fix infinite loop */}
-                {/* <CreditDisplay /> */}
+                {/* Credit Display */}
+                <CreditDisplay />
 
                 {/* Notifications Dropdown */}
                 <NotificationDropdown />
