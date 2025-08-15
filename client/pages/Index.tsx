@@ -12,7 +12,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectCard } from "@/components/ProjectCard";
 import { EnhancedBroadcastAlert } from "@/components/EnhancedBroadcastAlert";
-import { FolderOpen, Plus, Search, Filter, X, RotateCcw } from "lucide-react";
+import { FolderOpen, Plus, Search, Filter, X, RotateCcw, AlertCircle } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "@/lib/auth";
@@ -23,6 +23,8 @@ import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { dataService, Project, User, Business } from "@/lib/dataService";
+import { fallbackDataService } from "@/lib/fallbackDataService";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -38,6 +40,7 @@ export default function Index() {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [displayedProjects, setDisplayedProjects] = useState<Project[]>([]);
+  const [usingFallbackData, setUsingFallbackData] = useState(false);
 
   const { track, trackPageView, trackFeatureUsage } = useAnalytics();
   const [projectSort, setProjectSort] = useState<
@@ -70,55 +73,148 @@ export default function Index() {
   }, [currentUser, navigate, trackPageView, track, projects.length]);
 
   useEffect(() => {
-    // Load data from Supabase
+    // Load data from Supabase or fallback service
     const loadData = async () => {
       try {
-        console.log("Loading data from Supabase...");
+        console.log("Loading data...");
         setIsLoading(true);
 
-        // Check if user is authenticated
-        const user = await dataService.getCurrentUser();
-        if (!user) {
-          console.warn("User not authenticated, redirecting to login...");
-          navigate("/login");
+        // Check if we should use fallback data
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.warn("⚠️ Supabase not configured, using fallback demo data");
+          setUsingFallbackData(true);
+          
+          // Use fallback data service
+          const businessData = await fallbackDataService.getBusinesses();
+          setBusinesses(businessData);
+          console.log("Loaded businesses (fallback):", businessData.length);
+
+          // Load projects from all businesses
+          const allProjects: Project[] = [];
+          for (const business of businessData) {
+            const businessProjects = await fallbackDataService.getProjects(business.id);
+            allProjects.push(...businessProjects);
+          }
+
+          setProjects(allProjects);
+          setFilteredProjects(allProjects);
+          console.log("Loaded projects (fallback):", allProjects.length);
+
+          // Show initial projects
+          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
+          setDisplayedProjects(initialProjects);
+
+          // Track demo data usage
+          track("demo_data_loaded", {
+            businessCount: businessData.length,
+            projectCount: allProjects.length,
+          });
+
           return;
         }
 
-        // Load businesses first
-        console.log("Loading businesses...");
-        const businessData = await dataService.getBusinesses();
-        setBusinesses(businessData);
-        console.log("Loaded businesses:", businessData.length);
+        // Try to use real Supabase data
+        try {
+          // Check if user is authenticated
+          const user = await dataService.getCurrentUser();
+          if (!user) {
+            console.warn("User not authenticated, using demo data");
+            setUsingFallbackData(true);
+            
+            // Load demo data
+            const businessData = await fallbackDataService.getBusinesses();
+            setBusinesses(businessData);
+            
+            const allProjects: Project[] = [];
+            for (const business of businessData) {
+              const businessProjects = await fallbackDataService.getProjects(business.id);
+              allProjects.push(...businessProjects);
+            }
+            
+            setProjects(allProjects);
+            setFilteredProjects(allProjects);
+            const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
+            setDisplayedProjects(initialProjects);
+            return;
+          }
 
-        // Load projects from all user's businesses
-        const allProjects: Project[] = [];
-        for (const business of businessData) {
-          const businessProjects = await dataService.getProjects(business.id);
-          allProjects.push(...businessProjects);
+          // Load businesses first
+          console.log("Loading businesses from Supabase...");
+          const businessData = await dataService.getBusinesses();
+          setBusinesses(businessData);
+          console.log("Loaded businesses:", businessData.length);
+
+          // Load projects from all user's businesses
+          const allProjects: Project[] = [];
+          for (const business of businessData) {
+            const businessProjects = await dataService.getProjects(business.id);
+            allProjects.push(...businessProjects);
+          }
+
+          setProjects(allProjects);
+          setFilteredProjects(allProjects);
+          console.log("Loaded projects:", allProjects.length);
+
+          // Show initial projects
+          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
+          setDisplayedProjects(initialProjects);
+
+          // Track successful data load
+          track("data_loaded", {
+            businessCount: businessData.length,
+            projectCount: allProjects.length,
+            userRole: user.role,
+          });
+
+        } catch (supabaseError) {
+          console.error("Error loading from Supabase:", supabaseError);
+          console.warn("Falling back to demo data");
+          setUsingFallbackData(true);
+          
+          // Fallback to demo data
+          const businessData = await fallbackDataService.getBusinesses();
+          setBusinesses(businessData);
+          
+          const allProjects: Project[] = [];
+          for (const business of businessData) {
+            const businessProjects = await fallbackDataService.getProjects(business.id);
+            allProjects.push(...businessProjects);
+          }
+          
+          setProjects(allProjects);
+          setFilteredProjects(allProjects);
+          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
+          setDisplayedProjects(initialProjects);
+          
+          toast.info("Using demo data. Configure Supabase for full functionality.");
         }
-
-        setProjects(allProjects);
-        setFilteredProjects(allProjects);
-        console.log("Loaded projects:", allProjects.length);
-
-        // Show initial projects
-        const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
-        setDisplayedProjects(initialProjects);
-
-        // Track successful data load
-        track("data_loaded", {
-          businessCount: businessData.length,
-          projectCount: allProjects.length,
-          userRole: user.role,
-        });
 
       } catch (error) {
         console.error("Error loading data:", error);
-        toast.error("Failed to load projects. Please try again.");
+        toast.error("Failed to load projects. Using demo data instead.");
+        setUsingFallbackData(true);
         
-        // If we can't load from Supabase, check if it's a connection issue
-        if (error instanceof Error && error.message.includes("Missing Supabase")) {
-          toast.error("Supabase is not properly configured. Please check your environment variables.");
+        // Load fallback data as last resort
+        try {
+          const businessData = await fallbackDataService.getBusinesses();
+          setBusinesses(businessData);
+          
+          const allProjects: Project[] = [];
+          for (const business of businessData) {
+            const businessProjects = await fallbackDataService.getProjects(business.id);
+            allProjects.push(...businessProjects);
+          }
+          
+          setProjects(allProjects);
+          setFilteredProjects(allProjects);
+          const initialProjects = allProjects.slice(0, showAllProjects ? allProjects.length : 6);
+          setDisplayedProjects(initialProjects);
+        } catch (fallbackError) {
+          console.error("Even fallback data failed:", fallbackError);
+          toast.error("Unable to load any data. Please check your configuration.");
         }
       } finally {
         setIsLoading(false);
@@ -227,7 +323,11 @@ export default function Index() {
 
   const handleDeleteProject = async (id: string) => {
     try {
-      await dataService.deleteProject(id);
+      if (usingFallbackData) {
+        await fallbackDataService.deleteProject(id);
+      } else {
+        await dataService.deleteProject(id);
+      }
       setProjects(prev => prev.filter(p => p.id !== id));
       toast.success("Project deleted successfully");
       track("project_deleted", { projectId: id });
@@ -295,6 +395,16 @@ export default function Index() {
       ]}
     >
       <div className="space-y-6">
+        {/* Demo Mode Alert */}
+        {usingFallbackData && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Demo Mode:</strong> You're viewing sample data. To access full functionality, configure Supabase by setting up your environment variables and running <code>npm run setup</code>.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <EnhancedBroadcastAlert 
           onDismiss={() => trackFeatureUsage("broadcast_alert_dismissed")}
         />
