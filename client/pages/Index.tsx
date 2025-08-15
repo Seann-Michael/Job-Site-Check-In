@@ -293,14 +293,14 @@ export default function Index() {
     }
   }, [projects, searchQuery, filters, projectSort, showAllProjects, currentUser, trackFeatureUsage]);
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
     trackFeatureUsage("project_search", { queryLength: value.length });
-  };
+  }, [trackFeatureUsage]);
 
-  const handleFilterChange = (key: string, value: string) => {
+  const handleFilterChange = useCallback((key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
   const clearFilters = () => {
     setFilters({
