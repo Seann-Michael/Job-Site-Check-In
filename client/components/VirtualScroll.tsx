@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAnalytics } from "@/lib/analytics";
+import { ProjectCard } from "@/components/ProjectCard";
 
 interface VirtualScrollProps<T> {
   items: T[];
@@ -16,7 +17,7 @@ interface VirtualScrollProps<T> {
 }
 
 export function VirtualScroll<T>({
-  items,
+  items = [], // Add default empty array
   itemHeight,
   containerHeight,
   renderItem,
@@ -35,18 +36,21 @@ export function VirtualScroll<T>({
   const lastScrollTopRef = useRef(0);
   const { trackPerformance } = useAnalytics();
 
-  const totalHeight = items.length * (itemHeight + gap);
+  // Add safety check for items array
+  const safeItems = Array.isArray(items) ? items : [];
+  
+  const totalHeight = safeItems.length * (itemHeight + gap);
   const visibleItemCount = Math.ceil(containerHeight / (itemHeight + gap));
   const startIndex = Math.max(
     0,
     Math.floor(scrollTop / (itemHeight + gap)) - overscan,
   );
   const endIndex = Math.min(
-    items.length - 1,
+    safeItems.length - 1,
     startIndex + visibleItemCount + overscan * 2,
   );
 
-  const visibleItems = items.slice(startIndex, endIndex + 1);
+  const visibleItems = safeItems.slice(startIndex, endIndex + 1);
   const offsetY = startIndex * (itemHeight + gap);
 
   const handleScroll = useCallback(
@@ -104,13 +108,13 @@ export function VirtualScroll<T>({
 
   // Performance monitoring
   useEffect(() => {
-    if (items.length > 0) {
+    if (safeItems.length > 0) {
       trackPerformance(
         "virtual_scroll_render_count",
         endIndex - startIndex + 1,
       );
     }
-  }, [startIndex, endIndex, items.length, trackPerformance]);
+  }, [startIndex, endIndex, safeItems.length, trackPerformance]);
 
   return (
     <div
@@ -170,7 +174,7 @@ export function VirtualScroll<T>({
 
 // Hook for managing virtual scroll state
 export function useVirtualScroll<T>(
-  allItems: T[],
+  allItems: T[] = [], // Add default empty array
   pageSize: number = 50,
   initialLoad: number = 100,
 ) {
@@ -178,12 +182,15 @@ export function useVirtualScroll<T>(
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+  // Add safety check for allItems
+  const safeAllItems = Array.isArray(allItems) ? allItems : [];
+
   useEffect(() => {
     // Initial load
-    const initial = allItems.slice(0, initialLoad);
+    const initial = safeAllItems.slice(0, initialLoad);
     setItems(initial);
-    setHasMore(allItems.length > initialLoad);
-  }, [allItems, initialLoad]);
+    setHasMore(safeAllItems.length > initialLoad);
+  }, [safeAllItems, initialLoad]);
 
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;
@@ -193,13 +200,13 @@ export function useVirtualScroll<T>(
     // Simulate async loading
     setTimeout(() => {
       const currentLength = items.length;
-      const nextItems = allItems.slice(currentLength, currentLength + pageSize);
+      const nextItems = safeAllItems.slice(currentLength, currentLength + pageSize);
 
       setItems((prev) => [...prev, ...nextItems]);
-      setHasMore(currentLength + nextItems.length < allItems.length);
+      setHasMore(currentLength + nextItems.length < safeAllItems.length);
       setLoading(false);
     }, 100);
-  }, [allItems, items.length, pageSize, loading, hasMore]);
+  }, [safeAllItems, items.length, pageSize, loading, hasMore]);
 
   return {
     items,
@@ -207,25 +214,27 @@ export function useVirtualScroll<T>(
     hasMore,
     loadMore,
     reset: () => {
-      const initial = allItems.slice(0, initialLoad);
+      const initial = safeAllItems.slice(0, initialLoad);
       setItems(initial);
-      setHasMore(allItems.length > initialLoad);
+      setHasMore(safeAllItems.length > initialLoad);
       setLoading(false);
     },
   };
 }
 
-// Optimized list component for projects
+// Optimized list component for projects - Updated to match usage in Index.tsx
 interface VirtualProjectListProps {
   projects: any[];
-  renderProject: (project: any, index: number) => React.ReactNode;
+  onDeleteProject: (id: string) => void;
+  cardSize?: "small" | "medium" | "large";
   className?: string;
   onScroll?: (scrollTop: number, direction: "up" | "down") => void;
 }
 
 export function VirtualProjectList({
-  projects,
-  renderProject,
+  projects = [], // Add default empty array
+  onDeleteProject,
+  cardSize = "small",
   className = "",
   onScroll,
 }: VirtualProjectListProps) {
@@ -235,10 +244,40 @@ export function VirtualProjectList({
     50,
   );
 
+  // Render function for project cards
+  const renderProject = useCallback((project: any, index: number) => {
+    return (
+      <ProjectCard
+        key={project.id}
+        project={project}
+        onDelete={() => onDeleteProject(project.id)}
+      />
+    );
+  }, [onDeleteProject]);
+
+  // If no projects, show a simple message instead of the virtual scroll
+  if (!Array.isArray(projects) || projects.length === 0) {
+    return (
+      <div className={`flex items-center justify-center p-8 text-muted-foreground ${className}`}>
+        No projects to display
+      </div>
+    );
+  }
+
+  // Adjust height based on card size
+  const getItemHeight = () => {
+    switch (cardSize) {
+      case "small": return 280;
+      case "medium": return 320;
+      case "large": return 380;
+      default: return 280;
+    }
+  };
+
   return (
     <VirtualScroll
       items={items}
-      itemHeight={280} // Approximate height of project card
+      itemHeight={getItemHeight()}
       containerHeight={600}
       renderItem={renderProject}
       overscan={3}
@@ -265,7 +304,7 @@ interface VirtualGridProps<T> {
 }
 
 export function VirtualGrid<T>({
-  items,
+  items = [], // Add default empty array
   renderItem,
   itemWidth,
   itemHeight,
@@ -276,9 +315,12 @@ export function VirtualGrid<T>({
 }: VirtualGridProps<T>) {
   const [scrollTop, setScrollTop] = useState(0);
 
+  // Add safety check for items
+  const safeItems = Array.isArray(items) ? items : [];
+
   const columnsPerRow = Math.floor((containerWidth + gap) / (itemWidth + gap));
   const rowHeight = itemHeight + gap;
-  const totalRows = Math.ceil(items.length / columnsPerRow);
+  const totalRows = Math.ceil(safeItems.length / columnsPerRow);
   const totalHeight = totalRows * rowHeight;
 
   const startRow = Math.floor(scrollTop / rowHeight);
@@ -297,9 +339,9 @@ export function VirtualGrid<T>({
   for (let row = startRow; row <= endRow; row++) {
     for (let col = 0; col < columnsPerRow; col++) {
       const index = row * columnsPerRow + col;
-      if (index < items.length) {
+      if (index < safeItems.length) {
         visibleItems.push({
-          item: items[index],
+          item: safeItems[index],
           index,
           row,
           col,
