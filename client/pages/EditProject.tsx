@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/GoogleMaps";
-import { mockApiService } from "@/lib/mockApiService";
+import { dataService } from "@/lib/dataService";
 
 interface Project {
   id: string;
@@ -223,7 +223,7 @@ export default function EditProject() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const projects = await mockApiService.getProjects();
+      const projects = await dataService.getProjects();
       const existingProject = projects.find(p => p.id === id!);
       if (existingProject) {
         const updatedProject = {
@@ -235,7 +235,7 @@ export default function EditProject() {
             .filter(Boolean),
           updatedAt: new Date().toISOString(),
         };
-        await mockApiService.updateProject(id!, updatedProject);
+        await dataService.updateProject(id!, updatedProject);
       }
       toast.success("Project updated successfully!");
       navigate(`/project/${id}`);
