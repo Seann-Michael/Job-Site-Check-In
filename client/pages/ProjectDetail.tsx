@@ -73,7 +73,7 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
-import { mockApiService } from "@/lib/mockApiService";
+import { dataService } from "@/lib/dataService";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
@@ -211,7 +211,7 @@ export default function ProjectDetail() {
   useEffect(() => {
     const loadProject = async () => {
       try {
-        const projects = await mockApiService.getProjects();
+        const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id);
         if (foundProject) {
           // Ensure all required arrays exist
@@ -297,7 +297,7 @@ export default function ProjectDetail() {
     if (confirm("Are you sure you want to delete this project?")) {
       if (id) {
         try {
-          await mockApiService.deleteProject(id);
+          await dataService.deleteProject(id);
           toast.success("Project deleted successfully");
           navigate("/admin/projects");
         } catch (error) {
@@ -850,7 +850,7 @@ export default function ProjectDetail() {
 
   const updateProject = async (updatedProject: Project) => {
     try {
-      await mockApiService.updateProject(updatedProject.id, updatedProject);
+      await dataService.updateProject(updatedProject.id, updatedProject);
       setProject({ ...updatedProject });
     } catch (error) {
       console.error('Error updating project:', error);
