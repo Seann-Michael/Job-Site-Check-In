@@ -347,6 +347,17 @@ export const analytics = {
       console.error("Analytics identify failed:", error);
     }
   },
+
+  trackPerformance: (name: string, value: number) => {
+    try {
+      if (!analyticsInstance) {
+        analyticsInstance = new AnalyticsService();
+      }
+      analyticsInstance.trackPerformance(name, value);
+    } catch (error) {
+      console.error("Analytics trackPerformance failed:", error);
+    }
+  },
 };
 
 // React hook for analytics
