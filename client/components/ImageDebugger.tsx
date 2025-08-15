@@ -14,14 +14,14 @@ export function ImageDebugger({ projectId = "project-1" }: ImageDebuggerProps) {
     localStorage.removeItem('projects');
     localStorage.removeItem('users');
     localStorage.removeItem('clients');
-    mockDataService.forceReinitialize();
+    dataService.forceReinitialize();
     window.location.reload(); // Reload to see fresh data
   };
 
   useEffect(() => {
     // Force initialize mock data service
     try {
-      mockDataService.initialize();
+      dataService.initialize();
     } catch (error) {
       console.error('Error initializing mock data:', error);
     }
@@ -34,7 +34,7 @@ export function ImageDebugger({ projectId = "project-1" }: ImageDebuggerProps) {
     const project = projectsArray.find((p: any) => p.id === projectId);
 
     // Get project from mock service
-    const mockProject = mockDataService.getProject(projectId);
+    const mockProject = dataService.getProject(projectId);
 
     // Test multiple image URLs including control URLs
     const imageTests: any[] = [];
