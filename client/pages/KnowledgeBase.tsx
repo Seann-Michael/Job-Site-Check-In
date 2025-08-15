@@ -926,10 +926,10 @@ Contact our billing support team:
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" asChild>
-                  <a href="/signin">Sign In</a>
+                  <Link to="/signin">Sign In</Link>
                 </Button>
                 <Button asChild>
-                  <a href="/signup">Get Started</a>
+                  <Link to="/signup">Get Started</Link>
                 </Button>
               </div>
             </div>
