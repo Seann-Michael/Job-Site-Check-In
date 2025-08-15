@@ -844,10 +844,14 @@ export default function ProjectDetail() {
     setMentionQuery("");
   };
 
-  const updateProject = (updatedProject: Project) => {
-    mockDataService.initialize();
-    mockDataService.updateProject(updatedProject.id, updatedProject);
-    setProject({ ...updatedProject });
+  const updateProject = async (updatedProject: Project) => {
+    try {
+      await mockApiService.updateProject(updatedProject.id, updatedProject);
+      setProject({ ...updatedProject });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast.error('Failed to update project');
+    }
   };
 
   const shareProject = () => {
