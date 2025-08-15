@@ -129,7 +129,7 @@ export function VirtualScroll<T>({
   return (
     <div
       ref={containerRef}
-      className={`overflow-auto ${className}`}
+      className={`virtual-scroll-container overflow-auto ${className}`}
       style={{ height: containerHeight }}
       onScroll={handleScroll}
     >
@@ -362,7 +362,7 @@ export function VirtualGrid<T>({
 
   return (
     <div
-      className={`overflow-auto ${className}`}
+      className={`virtual-scroll-container overflow-auto ${className}`}
       style={{ height: containerHeight }}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
     >
