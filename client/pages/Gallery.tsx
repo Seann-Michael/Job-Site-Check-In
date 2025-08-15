@@ -113,68 +113,81 @@ export default function Gallery() {
   });
 
   useEffect(() => {
-    // Force initialize mock data service to ensure we have projects
-    try {
-      mockDataService.initialize();
-    } catch (error) {
-      console.error("Error initializing mock data:", error);
-    }
+    const loadGalleryData = async () => {
+      try {
+        setLoading(true);
+        const projectsData = await mockApiService.getProjects();
+        const allPhotos: PhotoWithMetadata[] = [];
+        const projectOptions: Array<{ id: string; name: string }> = [];
+        const userSet = new Set<string>();
+        const tagSet = new Set<string>();
 
-    const projectsData = JSON.parse(localStorage.getItem("projects") || "[]");
-    const allPhotos: PhotoWithMetadata[] = [];
-    const projectOptions: Array<{ id: string; name: string }> = [];
-    const userSet = new Set<string>();
-    const tagSet = new Set<string>();
+        projectsData.forEach((project: any) => {
+          projectOptions.push({ id: project.id, name: project.name });
 
-    projectsData.forEach((project: any) => {
-      projectOptions.push({ id: project.id, name: project.name });
+          // Handle different photo fields from the business projects
+          const photoSources = [
+            ...(project.photos || []),
+            ...(project.before_photos || []),
+            ...(project.after_photos || []),
+            ...(project.progress_photos || [])
+          ];
 
-      if (project.photos && project.photos.length > 0) {
-        project.photos.forEach((photo: any) => {
-          const photoUrl = typeof photo === "string" ? photo : photo.url;
-          const photoData = typeof photo === "string" ? {} : photo;
+          if (photoSources.length > 0) {
+            photoSources.forEach((photo: any) => {
+              const photoUrl = typeof photo === "string" ? photo : photo.url;
+              const photoData = typeof photo === "string" ? {} : photo;
 
-          // Determine file type and size based on URL or data
-          const isVideo =
-            photoUrl.includes(".mp4") ||
-            photoUrl.includes(".mov") ||
-            photoUrl.includes(".webm");
-          const fileSize =
-            photoData.size ||
-            (Math.random() > 0.6
-              ? "large"
-              : Math.random() > 0.3
-                ? "medium"
-                : "small");
+              // Determine file type and size based on URL or data
+              const isVideo =
+                photoUrl.includes(".mp4") ||
+                photoUrl.includes(".mov") ||
+                photoUrl.includes(".webm");
+              const fileSize =
+                photoData.size ||
+                (Math.random() > 0.6
+                  ? "large"
+                  : Math.random() > 0.3
+                    ? "medium"
+                    : "small");
 
-          const uploadedBy = photoData.uploadedBy || "John Doe";
-          userSet.add(uploadedBy);
+              const uploadedBy = photoData.uploadedBy || "John Doe";
+              userSet.add(uploadedBy);
 
-          const photoTags = photoData.tags || [];
-          photoTags.forEach((tag: string) => tagSet.add(tag));
+              const photoTags = photoData.tags || [];
+              photoTags.forEach((tag: string) => tagSet.add(tag));
 
-          allPhotos.push({
-            url: photoUrl,
-            projectId: project.id,
-            projectName: project.name,
-            projectAddress: project.address,
-            uploadedAt: photoData.uploadedAt || project.createdAt,
-            uploadedBy: uploadedBy,
-            tags: photoTags,
-            isPrimary: photoData.isPrimary || false,
-            type: isVideo ? "video" : "photo",
-            size: fileSize as "small" | "medium" | "large",
-            // Preserve metadata with fallback URLs for ImageWithFallback component
-            metadata: photoData.metadata,
-          });
+              allPhotos.push({
+                url: photoUrl,
+                projectId: project.id,
+                projectName: project.name,
+                projectAddress: project.location || project.address,
+                uploadedAt: photoData.uploadedAt || project.created_at,
+                uploadedBy: uploadedBy,
+                tags: photoTags,
+                isPrimary: photoData.isPrimary || false,
+                type: isVideo ? "video" : "photo",
+                size: fileSize as "small" | "medium" | "large",
+                // Preserve metadata with fallback URLs for ImageWithFallback component
+                metadata: photoData.metadata,
+              });
+            });
+          }
         });
-      }
-    });
 
-    setProjects(projectOptions);
-    setUsers(Array.from(userSet));
-    setAllTags(Array.from(tagSet));
-    setPhotos(allPhotos);
+        setProjects(projectOptions);
+        setUsers(Array.from(userSet));
+        setAllTags(Array.from(tagSet));
+        setPhotos(allPhotos);
+      } catch (error) {
+        console.error("Error loading gallery data:", error);
+        toast.error("Failed to load gallery data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGalleryData();
   }, []);
 
   // Apply pagination whenever filteredPhotos change
