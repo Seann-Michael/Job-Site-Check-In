@@ -1000,6 +1000,10 @@ const App = () => (
                   element={<Navigate to="/agency/admin/tasks" replace />}
                 />
                 <Route
+                  path="/AgencyProjectCreate"
+                  element={<Navigate to="/agency/admin/projects/create" replace />}
+                />
+                <Route
                   path="/RecurringScans"
                   element={
                     <Navigate to="/admin/audits/recurring-scans" replace />
