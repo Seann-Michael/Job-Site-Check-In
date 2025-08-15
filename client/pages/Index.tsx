@@ -358,6 +358,9 @@ export default function Index() {
     };
   }, [projects, businesses]);
 
+  // Memoize the displayed projects to prevent unnecessary re-renders
+  const memoizedDisplayedProjects = useMemo(() => displayedProjects, [displayedProjects]);
+
   if (isLoading) {
     return (
       <AppLayout
