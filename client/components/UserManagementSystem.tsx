@@ -75,6 +75,8 @@ interface User {
   department?: string;
   permissions?: string[];
   hasCustomPermissions: boolean;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface UserGroup {
