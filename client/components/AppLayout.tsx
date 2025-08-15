@@ -101,9 +101,6 @@ export function AppLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
-  const currentBusiness = getCurrentBusiness();
-  const userBusinesses = getUserBusinesses();
-  const canSwitch = canSwitchBusinesses();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [auditsDropdownOpen, setAuditsDropdownOpen] = useState(false);
