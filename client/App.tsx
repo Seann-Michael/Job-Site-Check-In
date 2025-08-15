@@ -917,6 +917,20 @@ const App = () => (
                   path="/StatusPage"
                   element={<Navigate to="/status" replace />}
                 />
+
+                {/* Additional Admin Routes */}
+                <Route
+                  path="/AddressTest"
+                  element={<Navigate to="/admin/address-test" replace />}
+                />
+                <Route
+                  path="/AppPages"
+                  element={<Navigate to="/admin/app-pages" replace />}
+                />
+                <Route
+                  path="/CrashLogs"
+                  element={<Navigate to="/admin/crash-logs" replace />}
+                />
                 <Route
                   path="/AdminProjects"
                   element={<Navigate to="/admin/projects" replace />}
