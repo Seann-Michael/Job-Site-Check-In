@@ -321,7 +321,7 @@ export default function Index() {
            );
   }, [searchQuery, filters]);
 
-  const handleDeleteProject = async (id: string) => {
+  const handleDeleteProject = useCallback(async (id: string) => {
     try {
       if (usingFallbackData) {
         await fallbackDataService.deleteProject(id);
@@ -335,7 +335,7 @@ export default function Index() {
       console.error("Error deleting project:", error);
       toast.error("Failed to delete project");
     }
-  };
+  }, [usingFallbackData, track]);
 
   const handleAdvancedSearch = (searchCriteria: any) => {
     console.log("Advanced search:", searchCriteria);
