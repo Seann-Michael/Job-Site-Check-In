@@ -478,6 +478,12 @@ export class DataService {
   // Project methods
   async getProjects(businessId?: string, filters: any = {}): Promise<Project[]> {
     try {
+      // Check if Supabase is configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('Supabase not configured, returning mock projects');
+        return this.getMockProjects();
+      }
+
       this.checkSupabaseConfig();
 
       let query = supabase.from('projects').select('*');
