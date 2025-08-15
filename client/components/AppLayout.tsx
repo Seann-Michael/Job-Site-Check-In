@@ -243,11 +243,11 @@ export function AppLayout({
         {/* Sidebar */}
         {showSidebar && (
           <aside
-            className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-200 transition-all duration-300 lg:relative lg:translate-x-0 ${
+            className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-200 transition-all duration-300 md:relative md:translate-x-0 ${
               sidebarCollapsed ? "w-16" : "w-64"
             } ${
               mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } lg:translate-x-0`}
+            } md:translate-x-0`}
           >
             <div className="flex flex-col h-full">
               {/* Sidebar Header */}
