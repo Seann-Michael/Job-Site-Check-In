@@ -367,11 +367,16 @@ export function useAnalytics() {
     analytics.trackError(error, context);
   };
 
+  const trackPerformance = (name: string, value: number) => {
+    analytics.trackPerformance(name, value);
+  };
+
   return {
     track,
     trackPageView,
     trackFeatureUsage,
     trackError,
+    trackPerformance,
   };
 }
 
