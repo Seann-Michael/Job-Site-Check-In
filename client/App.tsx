@@ -981,6 +981,10 @@ const App = () => (
                   path="/ReportGenerator"
                   element={<Navigate to="/admin/report-generator" replace />}
                 />
+                <Route
+                  path="/GridOverlayDemo"
+                  element={<Navigate to="/admin/grid-demo" replace />}
+                />
 
                 {/* Agency Admin Legacy URL Redirects */}
                 <Route
