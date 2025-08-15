@@ -460,7 +460,7 @@ export default function AddProject() {
                 </Select>
                 {businesses.length === 0 && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    No businesses found. <Link to="/add-business" className="text-primary hover:underline">Create a business first</Link>.
+                    No businesses found. <Link to="/super-admin/businesses" className="text-primary hover:underline">Go to business management</Link>.
                   </p>
                 )}
               </div>
