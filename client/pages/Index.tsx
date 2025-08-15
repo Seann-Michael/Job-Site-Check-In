@@ -39,7 +39,6 @@ export default function Index() {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [displayedProjects, setDisplayedProjects] = useState<Project[]>([]);
-  const [usingFallbackData, setUsingFallbackData] = useState(false);
 
   const { track, trackPageView, trackFeatureUsage } = useAnalytics();
   const [projectSort, setProjectSort] = useState<
