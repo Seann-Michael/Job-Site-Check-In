@@ -1014,6 +1014,60 @@ const App = () => (
                   element={<Navigate to="/support" replace />}
                 />
 
+                {/* Super Admin Compatibility Routes */}
+                <Route
+                  path="/SuperAdmin"
+                  element={<Navigate to="/super-admin" replace />}
+                />
+                <Route
+                  path="/SuperAdminBusinesses"
+                  element={<Navigate to="/super-admin/businesses" replace />}
+                />
+                <Route
+                  path="/SuperAdminAgencies"
+                  element={<Navigate to="/super-admin/agencies" replace />}
+                />
+                <Route
+                  path="/SuperAdminSettings"
+                  element={<Navigate to="/super-admin/settings" replace />}
+                />
+                <Route
+                  path="/SuperAdminStaff"
+                  element={<Navigate to="/super-admin/staff" replace />}
+                />
+                <Route
+                  path="/SuperAdminIdeas"
+                  element={<Navigate to="/super-admin/ideas" replace />}
+                />
+                <Route
+                  path="/SuperAdminBroadcast"
+                  element={<Navigate to="/super-admin/broadcast" replace />}
+                />
+                <Route
+                  path="/SuperAdminAnalytics"
+                  element={<Navigate to="/super-admin/analytics" replace />}
+                />
+                <Route
+                  path="/SuperAdminAutomation"
+                  element={<Navigate to="/super-admin/automation" replace />}
+                />
+                <Route
+                  path="/SuperAdminAPI"
+                  element={<Navigate to="/super-admin/api" replace />}
+                />
+                <Route
+                  path="/SuperAdminPerformance"
+                  element={<Navigate to="/super-admin/performance" replace />}
+                />
+                <Route
+                  path="/SuperAdminSupport"
+                  element={<Navigate to="/super-admin/support" replace />}
+                />
+                <Route
+                  path="/SuperAdminUsers"
+                  element={<Navigate to="/super-admin/users" replace />}
+                />
+
                 {/* Agency Admin Legacy URL Redirects */}
                 <Route
                   path="/agency"
