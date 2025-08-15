@@ -273,7 +273,7 @@ export function AppLayout({
                   variant="ghost"
                   size="icon"
                   onClick={() => setMobileSidebarOpen(false)}
-                  className="lg:hidden"
+                  className="md:hidden"
                 >
                   <X className="h-4 w-4" />
                 </Button>
