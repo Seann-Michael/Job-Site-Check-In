@@ -232,6 +232,44 @@ export class SecureInput {
       return "file";
     }
   }
+
+  static validatePassword(password: string): { valid: boolean; errors?: string[]; error?: string } {
+    try {
+      const errors: string[] = [];
+
+      if (!password) {
+        return { valid: false, error: "Password is required" };
+      }
+
+      if (password.length < 8) {
+        errors.push("Password must be at least 8 characters long");
+      }
+
+      if (!/[A-Z]/.test(password)) {
+        errors.push("Password must contain at least one uppercase letter");
+      }
+
+      if (!/[a-z]/.test(password)) {
+        errors.push("Password must contain at least one lowercase letter");
+      }
+
+      if (!/\d/.test(password)) {
+        errors.push("Password must contain at least one number");
+      }
+
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        errors.push("Password must contain at least one special character");
+      }
+
+      if (errors.length > 0) {
+        return { valid: false, errors, error: errors.join(", ") };
+      }
+
+      return { valid: true };
+    } catch {
+      return { valid: false, error: "Password validation failed" };
+    }
+  }
 }
 
 // Minimal Audit Logger
