@@ -73,7 +73,7 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
-import { mockDataService } from "@/lib/mockData";
+import { mockApiService } from "@/lib/mockApiService";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
@@ -209,23 +209,31 @@ export default function ProjectDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const projects = JSON.parse(localStorage.getItem("projects") || "[]");
-    const foundProject = projects.find((p: Project) => p.id === id);
-    if (foundProject) {
-      // Ensure all required arrays exist
-      const projectWithDefaults = {
-        ...foundProject,
-        notes: foundProject.notes || [],
-        activityLog: foundProject.activityLog || [],
-        tasks: foundProject.tasks || [],
-        checklist: foundProject.checklist || [],
-        keywords: foundProject.keywords || [],
-        photos: foundProject.photos || [],
-        documents: foundProject.documents || [],
-        additionalPhones: foundProject.additionalPhones || [],
-      };
-      setProject(projectWithDefaults);
-    }
+    const loadProject = async () => {
+      try {
+        const projects = await mockApiService.getProjects();
+        const foundProject = projects.find((p: any) => p.id === id);
+        if (foundProject) {
+          // Ensure all required arrays exist
+          const projectWithDefaults = {
+            ...foundProject,
+            notes: foundProject.notes || [],
+            activityLog: foundProject.activityLog || [],
+            tasks: foundProject.tasks || [],
+            checklist: foundProject.checklist || [],
+            keywords: foundProject.keywords || [],
+            photos: foundProject.photos || foundProject.before_photos || foundProject.after_photos || foundProject.progress_photos || [],
+            documents: foundProject.documents || [],
+            additionalPhones: foundProject.additionalPhones || [],
+          };
+          setProject(projectWithDefaults);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+      }
+    };
+
+    loadProject();
   }, [id]);
 
   const getCurrentUser = () => ({
