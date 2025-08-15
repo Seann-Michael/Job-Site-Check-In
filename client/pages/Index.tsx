@@ -152,7 +152,7 @@ export default function Index() {
         resultCount: filtered.length
       });
     }
-  }, [projects, searchQuery, filters, projectSort, currentUser, trackFeatureUsage]);
+  }, [projects, searchQuery, filters, projectSort, currentUser]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
