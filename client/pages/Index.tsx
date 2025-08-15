@@ -74,16 +74,12 @@ export default function Index() {
         setIsLoading(true);
 
         // Load businesses first
-        const businessData = await dataService.getBusinesses();
+        const businessData = await mockApiService.getBusinesses();
         setBusinesses(businessData);
         console.log("Loaded businesses:", businessData.length);
 
-        // Load projects from all businesses
-        const allProjects: Project[] = [];
-        for (const business of businessData) {
-          const businessProjects = await dataService.getProjects(business.id);
-          allProjects.push(...businessProjects);
-        }
+        // Load all projects
+        const allProjects = await mockApiService.getProjects();
 
         setProjects(allProjects);
         setFilteredProjects(allProjects);
