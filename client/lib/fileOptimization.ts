@@ -25,7 +25,7 @@ interface DocumentOptimizationOptions {
   optimizeText?: boolean;
 }
 
-interface OptimizedFile {
+export interface OptimizedFile {
   original: File;
   optimized: Blob;
   thumbnail?: Blob;
