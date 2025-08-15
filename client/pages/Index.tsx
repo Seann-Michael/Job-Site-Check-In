@@ -13,7 +13,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProjectCard } from "@/components/ProjectCard";
 import { EnhancedBroadcastAlert } from "@/components/EnhancedBroadcastAlert";
 import { FolderOpen, Plus, Search, Filter, X, RotateCcw, AlertCircle } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
