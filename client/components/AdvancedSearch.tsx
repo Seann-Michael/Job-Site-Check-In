@@ -266,7 +266,7 @@ export function AdvancedSearch({
         filter.id === filterId ? { ...filter, value } : filter,
       ),
     );
-    trackFeatureUsage("advanced_search_filter", {
+    trackFeatureUsage("advanced_search_filter", "filter_changed", {
       filterId,
       hasValue: !!value,
     });
@@ -306,20 +306,20 @@ export function AdvancedSearch({
     localStorage.setItem("savedSearches", JSON.stringify(updated));
     setSaveSearchName("");
     setShowSaveDialog(false);
-    trackFeatureUsage("advanced_search_save", { name: saveSearchName });
+    trackFeatureUsage("advanced_search_save", "save_search", { name: saveSearchName });
   };
 
   const loadSavedSearch = (search: SavedSearch) => {
     setQuery(search.query);
     setFilters(search.filters);
-    trackFeatureUsage("advanced_search_load", { searchId: search.id });
+    trackFeatureUsage("advanced_search_load", "load_search", { searchId: search.id });
   };
 
   const deleteSavedSearch = (searchId: string) => {
     const updated = savedSearches.filter((s) => s.id !== searchId);
     setSavedSearches(updated);
     localStorage.setItem("savedSearches", JSON.stringify(updated));
-    trackFeatureUsage("advanced_search_delete", { searchId });
+    trackFeatureUsage("advanced_search_delete", "delete_search", { searchId });
   };
 
   const activeFiltersCount = filters.filter((filter) => {
