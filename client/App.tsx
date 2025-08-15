@@ -887,6 +887,36 @@ const App = () => (
                   path="/AddAgencyClient"
                   element={<Navigate to="/agency/admin/business-owners/add" replace />}
                 />
+
+                {/* Auth and Public Routes */}
+                <Route
+                  path="/SignIn"
+                  element={<Navigate to="/signin" replace />}
+                />
+                <Route
+                  path="/Login"
+                  element={<Navigate to="/login" replace />}
+                />
+                <Route
+                  path="/SignUp"
+                  element={<Navigate to="/signup" replace />}
+                />
+                <Route
+                  path="/AgencySignup"
+                  element={<Navigate to="/agency-signup" replace />}
+                />
+                <Route
+                  path="/ForgotPassword"
+                  element={<Navigate to="/forgot-password" replace />}
+                />
+                <Route
+                  path="/KnowledgeBase"
+                  element={<Navigate to="/knowledge-base" replace />}
+                />
+                <Route
+                  path="/StatusPage"
+                  element={<Navigate to="/status" replace />}
+                />
                 <Route
                   path="/AdminProjects"
                   element={<Navigate to="/admin/projects" replace />}
