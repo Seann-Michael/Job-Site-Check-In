@@ -183,46 +183,40 @@ export function AppLayout({
   // Navigation items with conditional visibility
   const navigationItems: NavItem[] = [
     {
-      label: "Dashboard",
-      href: "/",
-      icon: Home,
-      isActive: location.pathname === "/",
-    },
-    {
       label: "Projects",
-      href: "/projects",
+      href: "/admin/projects",
       icon: FolderOpen,
-      isActive: location.pathname.startsWith("/project"),
+      isActive: location.pathname === "/admin/projects" || location.pathname.startsWith("/project"),
     },
     {
       label: "Gallery",
-      href: "/gallery",
+      href: "/admin/gallery",
       icon: Camera,
-      isActive: location.pathname === "/gallery",
-    },
-    {
-      label: "Communications",
-      href: "/communications",
-      icon: MessageSquare,
-      isActive: location.pathname === "/communications",
+      isActive: location.pathname === "/admin/gallery",
     },
     {
       label: "Reports",
-      href: "/reports",
+      href: "/admin/reports",
       icon: BarChart3,
-      isActive: location.pathname === "/reports",
+      isActive: location.pathname === "/admin/reports",
+    },
+    {
+      label: "Audits",
+      href: "/admin/audits",
+      icon: Shield,
+      isActive: location.pathname.startsWith("/admin/audits"),
     },
     {
       label: "Maps",
-      href: "/maps",
+      href: "/admin/maps",
       icon: MapPin,
-      isActive: location.pathname === "/maps",
+      isActive: location.pathname.startsWith("/admin/maps"),
     },
     {
       label: "Settings",
-      href: "/settings",
+      href: "/admin/settings",
       icon: Settings,
-      isActive: location.pathname === "/settings",
+      isActive: location.pathname === "/admin/settings",
     },
   ];
 
