@@ -880,7 +880,7 @@ export default function AddProject() {
 
           {/* Submit Buttons */}
           <div className="flex gap-4 justify-end">
-            <Link to="/">
+            <Link to="/admin/projects">
               <Button type="button" variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Cancel
