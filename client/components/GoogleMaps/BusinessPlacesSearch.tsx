@@ -76,7 +76,7 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
       setApiKeyAvailable(!!apiKey);
       if (!apiKey) {
         console.warn(
-          "❌ BusinessPlacesSearch: Google Maps API key not configured.",
+          "BusinessPlacesSearch: Google Maps API key not configured.",
         );
       }
     };
@@ -157,7 +157,7 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
 
       service.textSearch(request, (results, status) => {
         console.log(
-          "🏢 Business search - Status:",
+          "Business search - Status:",
           status,
           "Results:",
           results?.length,
@@ -204,12 +204,12 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
             });
 
           console.log(
-            "✅ Business search results processed:",
+            "Business search results processed:",
             businessResults.length,
           );
           setSuggestions(businessResults);
         } else {
-          console.log("❌ No business results or bad status:", status);
+          console.log("No business results or bad status:", status);
           setSuggestions([]);
         }
         setIsLoading(false);
