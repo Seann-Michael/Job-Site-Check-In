@@ -76,6 +76,11 @@ export default function StatusPage() {
   }, []);
 
   const loadSystemStatus = async (isManualRefresh = false) => {
+    // Prevent multiple concurrent requests
+    if (isLoading && !isManualRefresh) {
+      return;
+    }
+
     if (isManualRefresh) {
       setIsRefreshing(true);
     } else if (systems.length === 0) {
