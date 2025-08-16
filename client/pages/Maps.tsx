@@ -365,6 +365,55 @@ export default function Maps() {
     return markers;
   }, [rankingData, business, activeKeyword, centerLocation]);
 
+  const handleCompare = (results: any[]) => {
+    setCompareResults(results);
+    setShowCompareView(true);
+    logBulkAction('compare', results.length, 'current-user', {
+      keywords: results.map(r => r.keyword),
+      businesses: results.map(r => r.businessName),
+    });
+  };
+
+  const handleDownload = (results: any[]) => {
+    // Simulate download
+    const dataStr = JSON.stringify(results, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `geo-grid-results-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    logBulkAction('download', results.length, 'current-user', {
+      format: 'json',
+      keywords: results.map(r => r.keyword),
+    });
+  };
+
+  const handleArchive = (results: any[]) => {
+    // Simulate archive operation
+    console.log('Archiving results:', results);
+
+    logBulkAction('archive', results.length, 'current-user', {
+      keywords: results.map(r => r.keyword),
+      businesses: results.map(r => r.businessName),
+    });
+  };
+
+  if (showCompareView) {
+    return (
+      <AppLayout>
+        <GeoGridCompareView
+          results={compareResults}
+          onClose={() => setShowCompareView(false)}
+        />
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <TooltipProvider>
