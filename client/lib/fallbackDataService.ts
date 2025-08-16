@@ -1,4 +1,4 @@
-import { Project, Business, User, ProjectTask, ProjectPhoto, ProjectDocument, Review } from './dataService';
+import type { Project, Business, User, ProjectTask, ProjectPhoto, ProjectDocument, Review } from './dataService';
 
 // Sample data for demonstration when Supabase is not configured
 const sampleUser: User = {
