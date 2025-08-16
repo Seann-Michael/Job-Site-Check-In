@@ -55,6 +55,7 @@ interface CompetitorData {
 interface GeoGridScanData {
   id: string;
   businessName: string;
+  businessLocation: { lat: number; lng: number };
   gmbProfileUrl: string;
   scanDate: string;
   scanType: string;
