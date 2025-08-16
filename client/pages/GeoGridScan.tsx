@@ -37,7 +37,7 @@ import {
   Loader2,
   Calendar,
   Repeat,
-  Calendar1,
+  CalendarDays,
 } from "lucide-react";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { toast } from "sonner";
