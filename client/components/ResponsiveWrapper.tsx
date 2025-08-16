@@ -330,7 +330,7 @@ export function ResponsiveImage({
 
   return (
     <div
-      ref={elementRef}
+      ref={elementRef as React.RefObject<HTMLDivElement>}
       className={cn("overflow-hidden", className)}
       style={aspectRatio ? { aspectRatio } : undefined}
     >
