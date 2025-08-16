@@ -931,6 +931,15 @@ export default function Maps() {
             </div>
           </div>
         </div>
+
+        {/* Geo Grid Results Section */}
+        <div className="p-6 bg-gray-50 border-t">
+          <GeoGridResultsTable
+            onCompare={handleCompare}
+            onDownload={handleDownload}
+            onArchive={handleArchive}
+          />
+        </div>
       </TooltipProvider>
     </AppLayout>
   );
