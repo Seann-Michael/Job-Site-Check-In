@@ -255,10 +255,10 @@ export function AppLayout({
       comingSoon: false,
       subItems: [
         {
-          id: "one-time-scan",
-          label: "One Time Scan",
-          href: "/admin/maps/one-time-scan",
-          active: location.pathname === "/admin/maps/one-time-scan",
+          id: "geo-grid-scan",
+          label: "Geo Grid Scan",
+          href: "/admin/maps/geo-grid-scan",
+          active: location.pathname === "/admin/maps/geo-grid-scan",
         },
         {
           id: "recurring-scans",
