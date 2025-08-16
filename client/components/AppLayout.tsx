@@ -341,11 +341,11 @@ export function AppLayout({
             )}
           >
             <div className="flex flex-col h-full">
-              {/* Desktop Sidebar Header - Exact copy from AgencyLayout */}
+              {/* Desktop Sidebar Header */}
               <div
                 className={cn(
-                  "p-4 border-b bg-primary/5 flex items-center",
-                  sidebarCollapsed ? "justify-center" : "justify-between",
+                  "p-4 bg-primary/5 flex items-center",
+                  sidebarCollapsed ? "justify-center border-b" : "justify-between",
                 )}
               >
                 {!sidebarCollapsed && (
@@ -379,6 +379,9 @@ export function AppLayout({
                   )}
                 </Button>
               </div>
+
+              {/* Company Selector for Desktop */}
+              <CompanySelector collapsed={sidebarCollapsed} />
 
               {/* Desktop Sidebar Items - Exact copy from AgencyLayout */}
               <div className="flex-1 p-4 space-y-2 overflow-y-auto">
