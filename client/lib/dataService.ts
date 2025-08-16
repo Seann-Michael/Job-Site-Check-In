@@ -357,7 +357,7 @@ export class DataService {
         .eq("id", data.user.id)
         .single();
 
-      this.currentUser = userProfile as User;
+      this.currentUser = userProfile as unknown as User;
     }
 
     return data;
