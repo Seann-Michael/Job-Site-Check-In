@@ -854,13 +854,21 @@ export default function Settings() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                navigator.clipboard.writeText(
-                                  settings.subAccountId,
-                                );
-                                toast.success(
-                                  "Business Account ID copied to clipboard",
-                                );
+                              onClick={async () => {
+                                try {
+                                  if (navigator.clipboard) {
+                                    await navigator.clipboard.writeText(
+                                      settings.subAccountId,
+                                    );
+                                    toast.success(
+                                      "Business Account ID copied to clipboard",
+                                    );
+                                  } else {
+                                    toast.error("Clipboard not available");
+                                  }
+                                } catch (error) {
+                                  toast.error("Failed to copy to clipboard");
+                                }
                               }}
                               className="h-6 w-6 p-0"
                             >
