@@ -89,6 +89,11 @@ export default function StatusPage() {
 
     setError(null);
 
+    // Check if fetch API is available
+    if (typeof fetch === 'undefined') {
+      throw new Error('Fetch API is not available in this environment');
+    }
+
     try {
       // Add timeout to prevent hanging
       let timeoutId: NodeJS.Timeout | undefined;
