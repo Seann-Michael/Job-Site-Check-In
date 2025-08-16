@@ -54,8 +54,6 @@ import {
   Globe,
   Smartphone,
   Monitor,
-  Menu,
-  X,
   Maximize2,
   Minimize2,
 } from "lucide-react";
