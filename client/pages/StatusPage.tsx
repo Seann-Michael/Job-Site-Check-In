@@ -70,9 +70,16 @@ export default function StatusPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('StatusPage mounted, starting initial load...');
     loadSystemStatus();
-    const interval = setInterval(loadSystemStatus, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing status...');
+      loadSystemStatus();
+    }, 30000); // Refresh every 30 seconds
+    return () => {
+      console.log('StatusPage unmounting, cleaning up interval...');
+      clearInterval(interval);
+    };
   }, []);
 
   const loadSystemStatus = async (isManualRefresh = false) => {
