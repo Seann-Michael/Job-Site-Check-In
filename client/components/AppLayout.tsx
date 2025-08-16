@@ -193,6 +193,25 @@ export function AppLayout({
     toast.success(`Zoom set to ${newZoom}%`);
   };
 
+  const toggleMenuExpansion = (menuId: string) => {
+    setExpandedMenus(prev =>
+      prev.includes(menuId)
+        ? prev.filter(id => id !== menuId)
+        : [...prev, menuId]
+    );
+  };
+
+  const isMenuExpanded = (menuId: string) => {
+    return expandedMenus.includes(menuId);
+  };
+
+  // Auto-expand Maps menu if we're on a Maps sub-page
+  React.useEffect(() => {
+    if (location.pathname.startsWith("/admin/maps/") && !expandedMenus.includes("maps")) {
+      setExpandedMenus(prev => [...prev, "maps"]);
+    }
+  }, [location.pathname, expandedMenus]);
+
   // Navigation items with conditional visibility
   const sidebarItems = [
     {
