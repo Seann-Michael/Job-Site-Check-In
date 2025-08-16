@@ -759,7 +759,6 @@ export default function GeoGridScan() {
                                 onCheckedChange={() =>
                                   handleWaypointToggle(waypoint.id)
                                 }
-                                size="sm"
                               />
                               <span className={waypoint.isCenter ? "font-bold" : ""}>
                                 {waypoint.isCenter
