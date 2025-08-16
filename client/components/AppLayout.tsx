@@ -342,25 +342,65 @@ export function AppLayout({
           {/* Mobile Sidebar Items */}
           <div className="flex-1 p-4 space-y-2 overflow-y-auto">
             {sidebarItems.map((item) => (
-              <Link
-                key={item.id}
-                to={item.href}
-                onClick={() => setMobileSidebarOpen(false)}
-                className={cn(
-                  "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]",
-                  item.active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              <div key={item.id}>
+                {/* Main Menu Item */}
+                <div className="flex items-center">
+                  <Link
+                    to={item.href}
+                    onClick={() => !item.subItems && setMobileSidebarOpen(false)}
+                    className={cn(
+                      "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] flex-1",
+                      item.active && !item.subItems?.some(sub => sub.active)
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    <span>{item.label}</span>
+                    {item.comingSoon && (
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        Soon
+                      </Badge>
+                    )}
+                  </Link>
+                  {/* Expand/Collapse Button for items with subItems */}
+                  {item.subItems && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleMenuExpansion(item.id)}
+                      className="h-8 w-8 p-0 ml-1"
+                    >
+                      {isMenuExpanded(item.id) ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Sub Menu Items */}
+                {item.subItems && isMenuExpanded(item.id) && (
+                  <div className="ml-8 mt-2 space-y-1">
+                    {item.subItems.map((subItem) => (
+                      <Link
+                        key={subItem.id}
+                        to={subItem.href}
+                        onClick={() => setMobileSidebarOpen(false)}
+                        className={cn(
+                          "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[40px]",
+                          subItem.active
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                        )}
+                      >
+                        <span>{subItem.label}</span>
+                      </Link>
+                    ))}
+                  </div>
                 )}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span>{item.label}</span>
-                {item.comingSoon && (
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    Soon
-                  </Badge>
-                )}
-              </Link>
+              </div>
             ))}
           </div>
 
