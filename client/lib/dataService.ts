@@ -434,7 +434,7 @@ export class DataService {
         );
         return this.getMockUsers();
       }
-      return data || [];
+      return (data as User[]) || [];
     } catch (error) {
       console.error("Error fetching users:", error);
       return this.getMockUsers();
