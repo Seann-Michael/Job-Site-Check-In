@@ -498,7 +498,7 @@ export class DataService {
         if (error.code === "PGRST116") return null; // Not found
         throw error;
       }
-      return data;
+      return data as unknown as Business;
     } catch (error) {
       console.error("Error fetching business:", error);
       return null;
