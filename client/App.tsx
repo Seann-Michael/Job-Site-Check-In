@@ -14,10 +14,13 @@ const AddProject = lazy(() => import("./pages/AddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
 const Gallery = lazy(() => import("./pages/Gallery"));
-const Settings = lazy(() => import("./pages/MinimalTest"));
+// const Settings = lazy(() => import("./pages/MinimalTest"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Audits = lazy(() => import("./pages/Audits"));
+
+// Import Settings directly to test lazy loading
+import MinimalTest from "./pages/MinimalTest";
 const Maps = lazy(() => import("./pages/Maps"));
 const OneTimeScan = lazy(() => import("./pages/OneTimeScanEnhanced"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
