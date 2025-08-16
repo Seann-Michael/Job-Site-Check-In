@@ -1075,7 +1075,7 @@ export class DataService {
         name: "Backyard Deck Installation",
         description: "Installing a new wooden deck in the backyard",
         type: "construction" as any,
-        status: "planning",
+        status: "active",
         priority: "medium",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
