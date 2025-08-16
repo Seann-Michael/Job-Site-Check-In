@@ -137,6 +137,8 @@ export default function AuditReport() {
   const navigate = useNavigate();
   const [scanData, setScanData] = useState<GeoGridScanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCompetitorResults, setShowCompetitorResults] = useState(false);
+  const [showCompetitorLocations, setShowCompetitorLocations] = useState(false);
 
   useEffect(() => {
     // Simulate API call to fetch geo scan data
