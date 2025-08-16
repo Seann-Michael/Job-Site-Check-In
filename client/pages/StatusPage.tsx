@@ -86,18 +86,36 @@ export default function StatusPage() {
 
     try {
       // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      let timeoutId: NodeJS.Timeout | undefined;
+      let controller: AbortController | undefined;
 
-      const response = await fetch('/.netlify/functions/system-status', {
+      // Check if AbortController is available
+      if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          if (controller) {
+            controller.abort();
+          }
+        }, 10000); // 10 second timeout
+      }
+
+      const fetchOptions: RequestInit = {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        signal: controller.signal,
-      });
+      };
 
-      clearTimeout(timeoutId);
+      // Add signal only if AbortController is available
+      if (controller) {
+        fetchOptions.signal = controller.signal;
+      }
+
+      const response = await fetch('/.netlify/functions/system-status', fetchOptions);
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         // Try to get error details from response body
