@@ -7,8 +7,8 @@
 // To populate sample data for demonstration, run:
 // npm run populate-data
 
-// Import specific exports to avoid circular dependencies
-export { dataService as mockDataService } from './dataService';
-
-// Legacy mock project type export for compatibility
+// Legacy mock project type export for compatibility - using type-only import to avoid circular dependency
 export type MockProject = import('./dataService').Project;
+
+// Note: mockDataService has been replaced with dataService
+// Use: import { dataService } from '@/lib/dataService';
