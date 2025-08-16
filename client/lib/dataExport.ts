@@ -91,7 +91,6 @@ export class DataExportService {
     if (options.includeMedia) {
       backupData.metadata = {
         ...backupData.metadata,
-        note: "Media files included as base64 encoded data",
       };
       // Note: In a real implementation, you'd handle media files differently
       // This is a simplified approach for demo purposes
@@ -251,7 +250,6 @@ export class DataExportService {
       // In a real implementation, you'd handle media files properly
       exportData.metadata = {
         ...exportData.metadata,
-        note: "Media files would be included in a production implementation",
       };
     }
 
