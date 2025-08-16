@@ -416,11 +416,11 @@ export function QuickIconReference({
   const getContextIcons = () => {
     switch (context) {
       case "projects":
-        return ["navigation", "actions", "status"] as const;
+        return ["navigation", "actions", "status"];
       case "leads":
-        return ["actions", "status", "communication"] as const;
+        return ["actions", "status", "communication"];
       default:
-        return ["navigation", "actions", "status"] as const;
+        return ["navigation", "actions", "status"];
     }
   };
 
