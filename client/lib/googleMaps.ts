@@ -337,15 +337,15 @@ export const validateGoogleMapsApiKey = async (
   apiKey: string,
 ): Promise<{ valid: boolean; error?: string }> => {
   try {
-    console.log("🔍 Validating API key with direct request...");
+    console.log(" Validating API key with direct request...");
 
     const testUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=1600+Amphitheatre+Parkway,+Mountain+View,+CA&key=${apiKey}`;
 
     const response = await fetch(testUrl);
     const data = await response.json();
 
-    console.log("📡 API response status:", data.status);
-    console.log("📡 API response:", data);
+    console.log(" API response status:", data.status);
+    console.log(" API response:", data);
 
     if (data.status === "OK") {
       return { valid: true };
@@ -363,7 +363,7 @@ export const validateGoogleMapsApiKey = async (
       };
     }
   } catch (error) {
-    console.error("💥 API key validation failed:", error);
+    console.error(" API key validation failed:", error);
     return { valid: false, error: `Network error: ${error.message}` };
   }
 };
@@ -371,38 +371,38 @@ export const validateGoogleMapsApiKey = async (
 // Test API key connection
 export const testGoogleMapsConnection = async (): Promise<boolean> => {
   try {
-    console.log("🧪 Starting Google Maps API connection test...");
+    console.log(" Starting Google Maps API connection test...");
 
     const apiKey = getGoogleMapsApiKey();
     if (!apiKey) {
-      console.error("❌ No API key available for testing");
+      console.error(" No API key available for testing");
       toast.error("Google Maps API key not configured");
       return false;
     }
 
-    console.log("🔑 API key found, validating API key first...");
+    console.log(" API key found, validating API key first...");
 
     // Validate API key first with direct request
     const validation = await validateGoogleMapsApiKey(apiKey);
     if (!validation.valid) {
-      console.error("❌ API key validation failed:", validation.error);
+      console.error(" API key validation failed:", validation.error);
       toast.error(`Google Maps API key invalid: ${validation.error}`);
       return false;
     }
 
-    console.log("✅ API key is valid, testing API loading...");
+    console.log(" API key is valid, testing API loading...");
 
     // Test API loading
     try {
       await loadGoogleMapsAPI();
-      console.log("✅ Google Maps API loaded successfully");
+      console.log(" Google Maps API loaded successfully");
     } catch (loadError) {
-      console.error("💥 Failed to load Google Maps API:", loadError);
+      console.error(" Failed to load Google Maps API:", loadError);
       toast.error(`Google Maps API load failed: ${loadError.message}`);
       return false;
     }
 
-    console.log("🌍 Testing geocoding functionality...");
+    console.log(" Testing geocoding functionality...");
 
     // Test with a simple geocoding request
     try {
@@ -411,21 +411,21 @@ export const testGoogleMapsConnection = async (): Promise<boolean> => {
       );
 
       if (result) {
-        console.log("✅ Geocoding test successful:", result);
+        console.log(" Geocoding test successful:", result);
         toast.success("Google Maps API connection successful");
         return true;
       } else {
-        console.error("❌ Geocoding returned no results");
+        console.error(" Geocoding returned no results");
         toast.error("Google Maps API test failed - no geocoding results");
         return false;
       }
     } catch (geocodeError) {
-      console.error("💥 Geocoding test failed:", geocodeError);
+      console.error(" Geocoding test failed:", geocodeError);
       toast.error(`Google Maps geocoding failed: ${geocodeError.message}`);
       return false;
     }
   } catch (error) {
-    console.error("💥 Google Maps API test failed:", error);
+    console.error(" Google Maps API test failed:", error);
     toast.error(`Google Maps API connection failed: ${error.message}`);
     return false;
   }
