@@ -68,7 +68,7 @@ const HOME_SERVICE_TYPES = [
 export default function AdminAddProject() {
   const navigate = useNavigate();
   const [photos, setPhotos] = useState<EnhancedPhoto[]>([]);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [businesses, setBusinesses] = useState<any[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
