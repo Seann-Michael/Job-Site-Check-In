@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/AppLayout";
-import { ModernPhotoCapture } from "@/components/ModernPhotoCapture";
+// import { ModernPhotoCapture } from "@/components/ModernPhotoCapture";
 import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
