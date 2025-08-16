@@ -193,7 +193,6 @@ export default function GeoGridScan() {
             scanType,
             waypointCount: enabledWaypoints.length,
             keywordCount: 1,
-            recurringSettings: scanType === "recurring" ? recurringSettings : undefined,
           },
         );
 
