@@ -27,7 +27,7 @@ import Audits from "./pages/Audits";
 import Gallery from "./pages/Gallery";
 import Maps from "./pages/Maps";
 import Index from "./pages/Index";
-import AddProject from "./pages/AddProject";
+import AddProject from "./pages/AddProjectSimple";
 import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
 const OneTimeScan = lazy(() => import("./pages/OneTimeScanEnhanced"));
