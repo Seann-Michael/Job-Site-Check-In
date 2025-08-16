@@ -1115,12 +1115,13 @@ export class DataService {
 export const dataService = DataService.getInstance();
 
 // Export types for use in components
-export type {
-  Project,
-  Business,
-  User,
-  ProjectTask,
-  ProjectPhoto,
-  ProjectDocument,
-  Review,
-};
+// Commented out to avoid conflicts - types are already exported elsewhere
+// export type {
+//   Project,
+//   Business,
+//   User,
+//   ProjectTask,
+//   ProjectPhoto,
+//   ProjectDocument,
+//   Review,
+// };
