@@ -1,13 +1,34 @@
 [build]
   command = "npm run build:client"
   functions = "netlify/functions"
-  publish = "dist/spa"
+  publish = "dist"
 
+[build.environment]
+  # Supabase Configuration
+  SUPABASE_URL = ""
+  SUPABASE_SERVICE_ROLE_KEY = ""
+  SUPABASE_STORAGE_BUCKET = "media"
+
+  # Google Maps API
+  VITE_GOOGLE_MAPS_API_KEY = ""
+
+  # Twilio SMS Configuration
+  TWILIO_ACCOUNT_SID = ""
+  TWILIO_AUTH_TOKEN = ""
+  TWILIO_PHONE_NUMBER = ""
+
+  # Mailgun Email Configuration
+  MAILGUN_API_KEY = ""
+  MAILGUN_DOMAIN = ""
+  FROM_EMAIL = ""
+
+  # DataForSEO API Configuration
+  DATAFORSEO_API_KEY = ""
 
 [functions]
   external_node_modules = ["express"]
   node_bundler = "esbuild"
-  
+
 [[redirects]]
   force = true
   from = "/api/*"
