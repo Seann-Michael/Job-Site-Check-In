@@ -48,7 +48,7 @@ export function useDebounce<T>(value: T, delay: number): T {
 }
 
 // Throttled callback hook
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends Function>(
   callback: T,
   delay: number,
 ): T {
