@@ -15,7 +15,12 @@ import {
   RefreshCw,
   Calendar,
   MapPin,
+  Mail,
+  BarChart3,
+  Loader2,
+  AlertCircleIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface SystemStatus {
   name: string;
@@ -24,6 +29,7 @@ interface SystemStatus {
   lastChecked: string;
   responseTime?: number;
   uptime?: number;
+  error?: string;
 }
 
 interface Incident {
@@ -41,6 +47,15 @@ interface Incident {
   }[];
 }
 
+interface SystemStatusResponse {
+  systems: SystemStatus[];
+  incidents: Incident[];
+  overallStatus: "operational" | "degraded" | "outage";
+  overallUptime: number;
+  lastUpdated: string;
+  servicesMonitored: number;
+}
+
 export default function StatusPage() {
   const [systems, setSystems] = useState<SystemStatus[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -48,6 +63,11 @@ export default function StatusPage() {
   const [overallStatus, setOverallStatus] = useState<
     "operational" | "degraded" | "outage"
   >("operational");
+  const [overallUptime, setOverallUptime] = useState<number>(99.9);
+  const [servicesMonitored, setServicesMonitored] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSystemStatus();
@@ -55,119 +75,65 @@ export default function StatusPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const loadSystemStatus = async () => {
-    // Mock system status data
-    const mockSystems: SystemStatus[] = [
-      {
-        name: "Core Application",
-        status: "operational",
-        description: "Main application services",
-        lastChecked: new Date().toISOString(),
-        responseTime: 145,
-        uptime: 99.9,
-      },
-      {
-        name: "Database",
-        status: "operational",
-        description: "Primary database cluster",
-        lastChecked: new Date().toISOString(),
-        responseTime: 12,
-        uptime: 99.95,
-      },
-      {
-        name: "API Services",
-        status: "operational",
-        description: "REST API endpoints",
-        lastChecked: new Date().toISOString(),
-        responseTime: 89,
-        uptime: 99.8,
-      },
-      {
-        name: "Twilio SMS",
-        status: "operational",
-        description: "SMS notification service",
-        lastChecked: new Date().toISOString(),
-        responseTime: 234,
-        uptime: 99.7,
-      },
-      {
-        name: "Google Maps API",
-        status: "operational",
-        description: "Location and mapping services",
-        lastChecked: new Date().toISOString(),
-        responseTime: 178,
-        uptime: 99.85,
-      },
-      {
-        name: "Stripe Payments",
-        status: "operational",
-        description: "Payment processing",
-        lastChecked: new Date().toISOString(),
-        responseTime: 156,
-        uptime: 99.9,
-      },
-      {
-        name: "File Storage",
-        status: "operational",
-        description: "Image and document storage",
-        lastChecked: new Date().toISOString(),
-        responseTime: 98,
-        uptime: 99.95,
-      },
-      {
-        name: "Email Service",
-        status: "degraded",
-        description: "Email notifications and delivery",
-        lastChecked: new Date().toISOString(),
-        responseTime: 2340,
-        uptime: 98.2,
-      },
-    ];
+  const loadSystemStatus = async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setIsRefreshing(true);
+    } else if (systems.length === 0) {
+      setIsLoading(true);
+    }
+    
+    setError(null);
 
-    // Mock incidents
-    const mockIncidents: Incident[] = [
-      {
-        id: "inc-001",
-        title: "Email Delivery Delays",
-        status: "monitoring",
-        severity: "medium",
-        description:
-          "Some users may experience delays in receiving email notifications",
-        startTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        updates: [
+    try {
+      const response = await fetch('/.netlify/functions/system-status', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data: SystemStatusResponse = await response.json();
+
+      setSystems(data.systems);
+      setIncidents(data.incidents);
+      setOverallStatus(data.overallStatus);
+      setOverallUptime(data.overallUptime);
+      setServicesMonitored(data.servicesMonitored);
+      setLastUpdated(data.lastUpdated);
+
+      if (isManualRefresh) {
+        toast.success("System status updated successfully");
+      }
+
+    } catch (error) {
+      console.error('Failed to load system status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      
+      if (isManualRefresh) {
+        toast.error(`Failed to update status: ${errorMessage}`);
+      }
+
+      // Fallback to show at least some indication that services exist
+      if (systems.length === 0) {
+        setSystems([
           {
-            time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            message: "We are investigating reports of delayed email delivery",
-            status: "investigating",
-          },
-          {
-            time: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-            message: "Issue identified with email service provider",
-            status: "identified",
-          },
-          {
-            time: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-            message: "Fix implemented, monitoring email delivery",
-            status: "monitoring",
-          },
-        ],
-      },
-    ];
-
-    setSystems(mockSystems);
-    setIncidents(mockIncidents);
-    setLastUpdated(new Date().toISOString());
-
-    // Calculate overall status
-    const hasOutage = mockSystems.some((s) => s.status === "outage");
-    const hasDegraded = mockSystems.some((s) => s.status === "degraded");
-
-    if (hasOutage) {
-      setOverallStatus("outage");
-    } else if (hasDegraded) {
-      setOverallStatus("degraded");
-    } else {
-      setOverallStatus("operational");
+            name: "Core Application",
+            status: "outage",
+            description: "Unable to check status",
+            lastChecked: new Date().toISOString(),
+            error: "Status check failed"
+          }
+        ]);
+        setOverallStatus("outage");
+      }
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -189,13 +155,13 @@ export default function StatusPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "operational":
-        return <Badge className="bg-green-500">Operational</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">Operational</Badge>;
       case "degraded":
-        return <Badge className="bg-yellow-500">Degraded</Badge>;
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Degraded</Badge>;
       case "outage":
         return <Badge variant="destructive">Outage</Badge>;
       case "maintenance":
-        return <Badge className="bg-blue-500">Maintenance</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Maintenance</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -206,9 +172,9 @@ export default function StatusPage() {
       case "critical":
         return <Badge variant="destructive">Critical</Badge>;
       case "high":
-        return <Badge className="bg-red-500">High</Badge>;
+        return <Badge className="bg-red-500 hover:bg-red-600">High</Badge>;
       case "medium":
-        return <Badge className="bg-yellow-500">Medium</Badge>;
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Medium</Badge>;
       case "low":
         return <Badge variant="secondary">Low</Badge>;
       default:
@@ -217,15 +183,51 @@ export default function StatusPage() {
   };
 
   const getSystemIcon = (systemName: string) => {
-    if (systemName.includes("Database")) return Database;
-    if (systemName.includes("API")) return Globe;
-    if (systemName.includes("SMS") || systemName.includes("Twilio"))
-      return Phone;
-    if (systemName.includes("Maps")) return MapPin;
-    if (systemName.includes("Payment") || systemName.includes("Stripe"))
-      return CreditCard;
+    if (systemName.includes("Database") || systemName.includes("Supabase")) return Database;
+    if (systemName.includes("API") || systemName.includes("Netlify")) return Globe;
+    if (systemName.includes("SMS") || systemName.includes("Twilio")) return Phone;
+    if (systemName.includes("Maps") || systemName.includes("Google")) return MapPin;
+    if (systemName.includes("Payment") || systemName.includes("Stripe")) return CreditCard;
+    if (systemName.includes("Email") || systemName.includes("Mailgun")) return Mail;
+    if (systemName.includes("SEO") || systemName.includes("DataForSEO")) return BarChart3;
     return Activity;
   };
+
+  const formatUptime = (uptime?: number) => {
+    if (uptime === undefined) return "N/A";
+    return `${uptime.toFixed(2)}%`;
+  };
+
+  const formatResponseTime = (responseTime?: number) => {
+    if (responseTime === undefined) return "N/A";
+    return `${responseTime}ms`;
+  };
+
+  const getResponseTimeColor = (responseTime?: number) => {
+    if (responseTime === undefined) return "text-gray-500";
+    if (responseTime > 2000) return "text-red-500";
+    if (responseTime > 1000) return "text-yellow-500";
+    return "text-green-500";
+  };
+
+  const getUptimeColor = (uptime?: number) => {
+    if (uptime === undefined) return "text-gray-500";
+    if (uptime < 99) return "text-red-500";
+    if (uptime < 99.5) return "text-yellow-500";
+    return "text-green-500";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <h2 className="text-xl font-semibold mb-2">Loading System Status</h2>
+          <p className="text-muted-foreground">Checking all services...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -234,7 +236,7 @@ export default function StatusPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2">System Status</h1>
           <p className="text-muted-foreground mb-4">
-            Current status and uptime of all systems
+            Real-time status and uptime of all systems
           </p>
           <div className="flex items-center justify-center gap-4">
             <div className="flex items-center gap-2">
@@ -250,15 +252,28 @@ export default function StatusPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadSystemStatus}
+              onClick={() => loadSystemStatus(true)}
+              disabled={isRefreshing}
               className="gap-2"
             >
-              <RefreshCw className="h-4 w-4" />
+              {isRefreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
               Refresh
             </Button>
           </div>
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+              <div className="flex items-center gap-2 justify-center">
+                <AlertCircleIcon className="h-4 w-4" />
+                Status check error: {error}
+              </div>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground mt-2">
-            Last updated: {new Date(lastUpdated).toLocaleString()}
+            Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : "Never"}
           </p>
         </div>
 
@@ -268,7 +283,7 @@ export default function StatusPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                Active Incidents
+                Active Incidents ({incidents.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -317,7 +332,7 @@ export default function StatusPage() {
           {systems.map((system) => {
             const Icon = getSystemIcon(system.name);
             return (
-              <Card key={system.name}>
+              <Card key={system.name} className={system.status === "outage" ? "border-red-200" : system.status === "degraded" ? "border-yellow-200" : ""}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -334,44 +349,29 @@ export default function StatusPage() {
                       <span>Status:</span>
                       {getStatusBadge(system.status)}
                     </div>
-                    {system.responseTime && (
-                      <div className="flex justify-between text-sm">
-                        <span>Response Time:</span>
-                        <span
-                          className={
-                            system.responseTime > 1000
-                              ? "text-red-500"
-                              : system.responseTime > 500
-                                ? "text-yellow-500"
-                                : "text-green-500"
-                          }
-                        >
-                          {system.responseTime}ms
-                        </span>
-                      </div>
-                    )}
-                    {system.uptime && (
-                      <div className="flex justify-between text-sm">
-                        <span>Uptime:</span>
-                        <span
-                          className={
-                            system.uptime < 99
-                              ? "text-red-500"
-                              : system.uptime < 99.5
-                                ? "text-yellow-500"
-                                : "text-green-500"
-                          }
-                        >
-                          {system.uptime.toFixed(2)}%
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex justify-between text-sm">
+                      <span>Response Time:</span>
+                      <span className={getResponseTimeColor(system.responseTime)}>
+                        {formatResponseTime(system.responseTime)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Uptime:</span>
+                      <span className={getUptimeColor(system.uptime)}>
+                        {formatUptime(system.uptime)}
+                      </span>
+                    </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Last checked:</span>
                       <span>
                         {new Date(system.lastChecked).toLocaleTimeString()}
                       </span>
                     </div>
+                    {system.error && (
+                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                        Error: {system.error}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -382,31 +382,40 @@ export default function StatusPage() {
         {/* Historical Uptime Summary */}
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>30-Day Uptime History</CardTitle>
+            <CardTitle>Real-Time Statistics</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">99.9%</div>
+                <div className={`text-2xl font-bold ${getUptimeColor(overallUptime)}`}>
+                  {formatUptime(overallUptime)}
+                </div>
                 <p className="text-sm text-muted-foreground">Overall Uptime</p>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {systems.length}
+                  {servicesMonitored}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Services Monitored
                 </p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">2</div>
+                <div className={`text-2xl font-bold ${incidents.length > 0 ? "text-red-600" : "text-green-600"}`}>
+                  {incidents.length}
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Incidents This Month
+                  Active Incidents
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Auto-refresh Notice */}
+        <div className="text-center mt-6 text-xs text-muted-foreground">
+          Status updates automatically every 30 seconds
+        </div>
       </div>
     </div>
   );
