@@ -674,7 +674,7 @@ export default function Settings() {
                         <GoogleBusinessProfileFinder
                           onProfileFound={(profile) => {
                             console.log(
-                              "🏢 Google Business Profile found:",
+                              "Google Business Profile found:",
                               profile,
                             );
 
@@ -1023,7 +1023,7 @@ export default function Settings() {
                       />
                       {settings.googlePlaceId && (
                         <p className="text-xs text-green-600">
-                          ✓ Categories detected from Google Business Profile
+                          Categories detected from Google Business Profile
                         </p>
                       )}
                     </div>
