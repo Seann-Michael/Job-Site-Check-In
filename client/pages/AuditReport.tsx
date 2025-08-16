@@ -242,7 +242,7 @@ export default function AuditReport() {
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="h-4 w-4" />
                   <span className="text-sm">
-                    {scanData.scanType} •{" "}
+                    {scanData.scanType} &#8226;{" "}
                     {new Date(scanData.scanDate).toLocaleString()}
                   </span>
                 </div>

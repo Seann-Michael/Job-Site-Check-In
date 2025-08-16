@@ -492,7 +492,7 @@ export default function BasicReportGenerator() {
               </Button>
               {currentConfig && (
                 <div className="text-sm text-muted-foreground">
-                  {currentConfig.category} • {currentConfig.name}
+                  {currentConfig.category} &#8226; {currentConfig.name}
                 </div>
               )}
             </div>

@@ -73,8 +73,8 @@ export default function AuditReportSimple() {
                   {mockData.businessName}
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Audit Report •{" "}
-                  {new Date(mockData.scanDate).toLocaleDateString()} •{" "}
+                  Audit Report &#8226;{" "}
+                  {new Date(mockData.scanDate).toLocaleDateString()} &#8226;{" "}
                   {mockData.location}
                 </p>
               </div>
