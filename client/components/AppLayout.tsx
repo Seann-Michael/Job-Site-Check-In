@@ -61,6 +61,7 @@ import React, { useState, useEffect, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentUser, signOut } from "@/lib/auth";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -104,8 +105,6 @@ export function AppLayout({
   const currentUser = getCurrentUser();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [auditsDropdownOpen, setAuditsDropdownOpen] = useState(false);
-  const [profileSearchQuery, setProfileSearchQuery] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [zoomLevel, setZoomLevel] = useState(100);
 
@@ -162,7 +161,18 @@ export function AppLayout({
     };
   }, []);
 
-  // Business switching temporarily disabled
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileSidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [mobileSidebarOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -182,42 +192,54 @@ export function AppLayout({
   };
 
   // Navigation items with conditional visibility
-  const navigationItems: NavItem[] = [
+  const sidebarItems = [
     {
+      id: "projects",
       label: "Projects",
       href: "/admin/projects",
       icon: FolderOpen,
-      isActive: location.pathname === "/admin/projects" || location.pathname.startsWith("/project"),
+      active: location.pathname === "/admin/projects" || location.pathname.startsWith("/project"),
+      comingSoon: false,
     },
     {
+      id: "gallery",
       label: "Gallery",
       href: "/admin/gallery",
       icon: Camera,
-      isActive: location.pathname === "/admin/gallery",
+      active: location.pathname === "/admin/gallery",
+      comingSoon: false,
     },
     {
+      id: "reports",
       label: "Reports",
       href: "/admin/reports",
       icon: BarChart3,
-      isActive: location.pathname === "/admin/reports",
+      active: location.pathname === "/admin/reports",
+      comingSoon: false,
     },
     {
+      id: "audits",
       label: "Audits",
       href: "/admin/audits",
       icon: Shield,
-      isActive: location.pathname.startsWith("/admin/audits"),
+      active: location.pathname.startsWith("/admin/audits"),
+      comingSoon: false,
     },
     {
+      id: "maps",
       label: "Maps",
       href: "/admin/maps",
       icon: MapPin,
-      isActive: location.pathname.startsWith("/admin/maps"),
+      active: location.pathname.startsWith("/admin/maps"),
+      comingSoon: false,
     },
     {
+      id: "settings",
       label: "Settings",
       href: "/admin/settings",
       icon: Settings,
-      isActive: location.pathname === "/admin/settings",
+      active: location.pathname === "/admin/settings",
+      comingSoon: false,
     },
   ];
 
@@ -232,45 +254,120 @@ export function AppLayout({
 
   return (
     <CreditProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-[100dvh] bg-background flex w-full">
         {/* Mobile Sidebar Overlay */}
         {mobileSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            className="md:hidden fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm touch-none"
             onClick={() => setMobileSidebarOpen(false)}
+            onTouchStart={(e) => e.preventDefault()}
           />
         )}
 
-        {/* Sidebar */}
+        {/* Mobile Sidebar */}
+        <div
+          className={cn(
+            "md:hidden fixed inset-y-0 left-0 z-[70] w-60 bg-card border-r shadow-lg transform transition-transform duration-300 flex flex-col",
+            mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          {/* Mobile Sidebar Header */}
+          <div className="p-4 border-b bg-primary/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
+                  <Building2 className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <span className="font-bold text-base text-foreground">
+                    {businessName}
+                  </span>
+                  <p className="text-xs text-muted-foreground">Pro Plan</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="h-10 w-10 min-h-[44px] min-w-[44px] hover:bg-muted text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile Sidebar Items */}
+          <div className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {sidebarItems.map((item) => (
+              <Link
+                key={item.id}
+                to={item.href}
+                onClick={() => setMobileSidebarOpen(false)}
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]",
+                  item.active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                )}
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span>{item.label}</span>
+                {item.comingSoon && (
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    Soon
+                  </Badge>
+                )}
+              </Link>
+            ))}
+          </div>
+
+          {/* Mobile Sidebar Footer */}
+          <div className="p-4 border-t">
+            <div className="text-xs text-muted-foreground text-center">
+              Local SEO Ranker v2.0
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Sidebar */}
         {showSidebar && (
-          <aside
-            className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-200 transition-all duration-300 md:relative md:translate-x-0 ${
-              sidebarCollapsed ? "w-16" : "w-64"
-            } ${
-              mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } md:translate-x-0`}
+          <div
+            className={cn(
+              "hidden md:block md:fixed md:inset-y-0 md:left-0 bg-card border-r shadow-sm transition-all duration-300 z-20",
+              sidebarCollapsed ? "md:w-16" : "md:w-60",
+            )}
           >
             <div className="flex flex-col h-full">
-              {/* Sidebar Header - Match Agency Layout */}
-              <div className="flex items-center justify-between p-4 border-b">
+              {/* Desktop Sidebar Header - Exact copy from AgencyLayout */}
+              <div
+                className={cn(
+                  "p-4 border-b bg-primary/5 flex items-center",
+                  sidebarCollapsed ? "justify-center" : "justify-between",
+                )}
+              >
                 {!sidebarCollapsed && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
                       <Building2 className="h-5 w-5 text-primary-foreground" />
                     </div>
                     <div>
-                      <h1 className="text-lg font-bold text-gray-900">
+                      <span className="font-bold text-base text-foreground">
                         {businessName}
-                      </h1>
-                      <p className="text-xs text-gray-500">Pro Plan</p>
+                      </span>
+                      <p className="text-xs text-muted-foreground">Pro Plan</p>
                     </div>
+                  </div>
+                )}
+                {sidebarCollapsed && (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
+                    <Building2 className="h-5 w-5 text-primary-foreground" />
                   </div>
                 )}
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="hidden md:flex h-8 w-8"
+                  className="h-8 w-8 hover:bg-muted"
                 >
                   {sidebarCollapsed ? (
                     <ChevronRight className="h-4 w-4" />
@@ -278,114 +375,102 @@ export function AppLayout({
                     <ChevronLeft className="h-4 w-4" />
                   )}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className="md:hidden h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
 
-              {/* Navigation */}
-              <nav className="flex-1 p-4 space-y-2">
-                {navigationItems.map((item) => (
+              {/* Desktop Sidebar Items - Exact copy from AgencyLayout */}
+              <div className="flex-1 p-4 space-y-2 overflow-y-auto">
+                {sidebarItems.map((item) => (
                   <Link
-                    key={item.href}
+                    key={item.id}
                     to={item.href}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      item.isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-gray-700 hover:bg-gray-100"
-                    } ${sidebarCollapsed ? "justify-center" : ""}`}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    className={cn(
+                      "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      sidebarCollapsed ? "justify-center" : "",
+                      item.active
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    )}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
                     {!sidebarCollapsed && (
                       <>
-                        <span className="flex-1">{item.label}</span>
-                        {item.badge && (
-                          <Badge variant="secondary" className="text-xs">
-                            {item.badge}
+                        <span>{item.label}</span>
+                        {item.comingSoon && (
+                          <Badge variant="secondary" className="ml-auto text-xs">
+                            Soon
                           </Badge>
                         )}
                       </>
                     )}
                   </Link>
                 ))}
-              </nav>
+              </div>
 
-              {/* Sidebar Footer */}
+              {/* Desktop Sidebar Footer - Exact copy from AgencyLayout */}
               <div className="p-4 border-t">
                 {!sidebarCollapsed && (
-                  <div className="text-xs text-gray-500 text-center">
+                  <div className="text-xs text-muted-foreground text-center">
                     Local SEO Ranker v2.0
                   </div>
                 )}
               </div>
             </div>
-          </aside>
+          </div>
         )}
 
         {/* Main Content */}
         <div
-          className={`min-h-screen transition-all duration-300 ${
-            showSidebar
-              ? sidebarCollapsed
-                ? "md:ml-16"
-                : "md:ml-64"
-              : ""
-          }`}
+          className={cn(
+            "flex-1 flex flex-col transition-all duration-300 min-w-0",
+            sidebarCollapsed ? "md:ml-16" : "md:ml-60",
+          )}
         >
           {/* Header */}
           {showHeader && (
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-              <div className="flex items-center justify-between px-6 py-4">
-                <div className="flex items-center gap-4">
-                  {/* Mobile Menu Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setMobileSidebarOpen(true)}
-                    className="md:hidden"
-                  >
-                    <Menu className="h-5 w-5" />
-                  </Button>
+            <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+              <div className="flex h-16 items-center gap-4 px-4">
+                {/* Mobile Menu Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden h-10 w-10 min-h-[44px] min-w-[44px]"
+                  onClick={() => setMobileSidebarOpen(true)}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
 
-                  {/* Breadcrumbs */}
-                  {breadcrumbs.length > 0 && (
-                    <Breadcrumb>
-                      <BreadcrumbList>
-                        {breadcrumbs.map((crumb, index) => (
-                          <React.Fragment key={index}>
-                            <BreadcrumbItem>
-                              {crumb.href ? (
-                                <BreadcrumbLink href={crumb.href}>
-                                  {crumb.label}
-                                </BreadcrumbLink>
-                              ) : (
-                                <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                              )}
-                            </BreadcrumbItem>
-                            {index < breadcrumbs.length - 1 && (
-                              <BreadcrumbSeparator />
+                {/* Breadcrumbs */}
+                {breadcrumbs.length > 0 && (
+                  <Breadcrumb className="hidden md:flex">
+                    <BreadcrumbList>
+                      {breadcrumbs.map((crumb, index) => (
+                        <React.Fragment key={index}>
+                          {index > 0 && <BreadcrumbSeparator />}
+                          <BreadcrumbItem>
+                            {crumb.href ? (
+                              <BreadcrumbLink href={crumb.href}>
+                                {crumb.label}
+                              </BreadcrumbLink>
+                            ) : (
+                              <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                             )}
-                          </React.Fragment>
-                        ))}
-                      </BreadcrumbList>
-                    </Breadcrumb>
-                  )}
+                          </BreadcrumbItem>
+                        </React.Fragment>
+                      ))}
+                    </BreadcrumbList>
+                  </Breadcrumb>
+                )}
 
-                  {/* Page Title */}
-                  {title && !breadcrumbs.length && (
-                    <h1 className="text-xl font-semibold text-gray-900">
-                      {title}
-                    </h1>
-                  )}
-                </div>
+                {/* Page Title */}
+                {title && !breadcrumbs.length && (
+                  <h1 className="text-xl font-semibold text-foreground">
+                    {title}
+                  </h1>
+                )}
 
                 {/* Header Actions */}
-                <div className="flex items-center gap-3">
+                <div className="ml-auto flex items-center space-x-2">
                   {/* Search */}
                   <HeaderSearch />
 
@@ -426,12 +511,38 @@ export function AppLayout({
           )}
 
           {/* Page Content */}
-          <main className={`${maxWidthClass} mx-auto ${className}`}>
-            {children}
+          <main className="flex-1 overflow-auto w-full">
+            <div
+              className="w-full mobile-bottom-safe"
+              style={{ minWidth: "max-content" }}
+            >
+              {children}
+            </div>
           </main>
 
           {/* Footer */}
           {showFooter && <Footer />}
+
+          {/* Mobile Bottom Navigation */}
+          <div className="md:hidden border-t bg-background p-2 mobile-bottom-safe">
+            <div className="grid grid-cols-4 gap-1">
+              {sidebarItems.slice(0, 4).map((item) => (
+                <Link
+                  key={item.id}
+                  to={item.href}
+                  className={cn(
+                    "flex flex-col items-center space-y-1 px-2 py-3 rounded-lg text-xs font-medium transition-colors min-h-[60px] justify-center",
+                    item.active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-xs truncate">{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* App Notifications */}
