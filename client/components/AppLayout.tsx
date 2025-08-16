@@ -52,6 +52,7 @@ import {
   MapPin,
   Calendar,
   CreditCard,
+  HelpCircle,
   Globe,
   Smartphone,
   Monitor,
