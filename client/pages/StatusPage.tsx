@@ -211,7 +211,7 @@ export default function StatusPage() {
               status: "monitoring"
             }]
           }]);
-          setError("Development mode: Using mock data because system-status API is unavailable");
+          setError("Development mode: Using mock data because system-status API is unavailable. Deploy to production to see real status data.");
         } else {
           // Production error state
           setSystems([
