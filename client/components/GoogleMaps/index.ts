@@ -1,25 +1,8 @@
+// Export only the components to avoid circular dependencies
+// For hooks, import directly from "@/hooks/useGoogleMaps"
+// For utilities, import directly from "@/lib/googleMaps"
+
 export { GoogleMapComponent } from "./GoogleMapComponent";
 export { AddressAutocomplete } from "./AddressAutocomplete";
 export { BusinessPlacesSearch } from "./BusinessPlacesSearch";
 export { GoogleBusinessProfileFinder } from "./GoogleBusinessProfileFinder";
-
-// Re-export hooks and utilities for convenience
-export {
-  useGoogleMaps,
-  useGooglePlacesAutocomplete,
-  useAddressSearch,
-  useGeolocation,
-  useBusinessPlacesSearch,
-} from "@/hooks/useGoogleMaps";
-export {
-  loadGoogleMapsAPI,
-  initializeMap,
-  initializeAutocomplete,
-  geocodeAddress,
-  reverseGeocode,
-  getDirections,
-  createMapEmbedUrl,
-  testGoogleMapsConnection,
-  getGoogleMapsApiKey,
-  type PlaceResult,
-} from "@/lib/googleMaps";
