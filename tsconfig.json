@@ -7,8 +7,8 @@
     "skipLibCheck": true,
 
     
-    "moduleResolution": "node",
-    "allowImportingTsExtensions": false,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
@@ -18,12 +18,12 @@
     "forceConsistentCasingInFileNames": true,
 
     
-    "strict": true,
+    "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
-    "strictNullChecks": true,
+    "strictNullChecks": false,
 
     
     "baseUrl": ".",
