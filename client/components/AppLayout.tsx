@@ -39,6 +39,8 @@ import {
   CheckCircle,
   Home,
   Building2,
+  X,
+  Menu,
   MessageSquare,
   BarChart3,
   FileText,
