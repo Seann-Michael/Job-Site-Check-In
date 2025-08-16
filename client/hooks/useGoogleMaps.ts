@@ -346,22 +346,6 @@ export const useBusinessPlacesSearch = () => {
 
       const request: google.maps.places.TextSearchRequest = {
         query: query,
-        type: "establishment",
-        fields: [
-          "place_id",
-          "name",
-          "formatted_address",
-          "business_status",
-          "types",
-          "rating",
-          "user_ratings_total",
-          "formatted_phone_number",
-          "website",
-          "opening_hours",
-          "geometry",
-          "photos",
-          "url",
-        ],
       };
 
       service.textSearch(request, (results, status) => {
