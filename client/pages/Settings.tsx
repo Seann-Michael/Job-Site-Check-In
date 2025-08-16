@@ -1431,11 +1431,19 @@ export default function Settings() {
                           />
                           <Button
                             variant="outline"
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                `${window.location.origin}/api/rss/${settings.subAccountId}`,
-                              );
-                              toast.success("RSS URL copied to clipboard");
+                            onClick={async () => {
+                              try {
+                                if (navigator.clipboard) {
+                                  await navigator.clipboard.writeText(
+                                    `${window.location.origin}/api/rss/${settings.subAccountId}`,
+                                  );
+                                  toast.success("RSS URL copied to clipboard");
+                                } else {
+                                  toast.error("Clipboard not available");
+                                }
+                              } catch (error) {
+                                toast.error("Failed to copy to clipboard");
+                              }
                             }}
                           >
                             <Copy className="h-4 w-4" />
