@@ -463,33 +463,72 @@ export function AppLayout({
               {/* Company Selector for Desktop */}
               <CompanySelector collapsed={sidebarCollapsed} />
 
-              {/* Desktop Sidebar Items - Exact copy from AgencyLayout */}
+              {/* Desktop Sidebar Items */}
               <div className="flex-1 p-4 space-y-2 overflow-y-auto">
                 {sidebarItems.map((item) => (
-                  <Link
-                    key={item.id}
-                    to={item.href}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    className={cn(
-                      "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                      sidebarCollapsed ? "justify-center" : "",
-                      item.active
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!sidebarCollapsed && (
-                      <>
-                        <span>{item.label}</span>
-                        {item.comingSoon && (
-                          <Badge variant="secondary" className="ml-auto text-xs">
-                            Soon
-                          </Badge>
+                  <div key={item.id}>
+                    {/* Main Menu Item */}
+                    <div className="flex items-center">
+                      <Link
+                        to={item.href}
+                        title={sidebarCollapsed ? item.label : undefined}
+                        className={cn(
+                          "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1",
+                          sidebarCollapsed ? "justify-center" : "",
+                          item.active && !item.subItems?.some(sub => sub.active)
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted",
                         )}
-                      </>
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        {!sidebarCollapsed && (
+                          <>
+                            <span>{item.label}</span>
+                            {item.comingSoon && (
+                              <Badge variant="secondary" className="ml-auto text-xs">
+                                Soon
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </Link>
+                      {/* Expand/Collapse Button for items with subItems */}
+                      {item.subItems && !sidebarCollapsed && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleMenuExpansion(item.id)}
+                          className="h-8 w-8 p-0 ml-1"
+                        >
+                          {isMenuExpanded(item.id) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Sub Menu Items */}
+                    {item.subItems && !sidebarCollapsed && isMenuExpanded(item.id) && (
+                      <div className="ml-8 mt-2 space-y-1">
+                        {item.subItems.map((subItem) => (
+                          <Link
+                            key={subItem.id}
+                            to={subItem.href}
+                            className={cn(
+                              "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                              subItem.active
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                            )}
+                          >
+                            <span>{subItem.label}</span>
+                          </Link>
+                        ))}
+                      </div>
                     )}
-                  </Link>
+                  </div>
                 ))}
               </div>
 
