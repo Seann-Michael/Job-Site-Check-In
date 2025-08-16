@@ -198,6 +198,8 @@ export default function Maps() {
 
   const [analysisComplete, setAnalysisComplete] = useState(true);
   const [rankingData] = useState(MOCK_RANKING_DATA);
+  const [showCompareView, setShowCompareView] = useState(false);
+  const [compareResults, setCompareResults] = useState<any[]>([]);
 
   // Calculated stats with null checks
   const totalLocations = (rankingData || []).length;
