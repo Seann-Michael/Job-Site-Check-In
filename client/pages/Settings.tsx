@@ -4458,7 +4458,7 @@ export default function Settings() {
                             </td>
                             <td className="p-3">2023-12-15</td>
                             <td className="p-3 font-medium">$49.00</td>
-                            <td className="p-3">Visa •��•��� 4242</td>
+                            <td className="p-3">Visa •••• 4242</td>
                             <td className="p-3">
                               <Badge variant="secondary">Refunded</Badge>
                             </td>
