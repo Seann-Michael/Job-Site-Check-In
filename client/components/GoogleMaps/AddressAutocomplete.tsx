@@ -51,11 +51,11 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     const checkApiKey = () => {
       const apiKey = getGoogleMapsApiKey();
       console.log(
-        "🔍 AddressAutocomplete: API key check result:",
+        "AddressAutocomplete: API key check result:",
         apiKey ? "FOUND" : "NOT_FOUND",
       );
       console.log(
-        "🔍 AddressAutocomplete: API key value:",
+        "AddressAutocomplete: API key value:",
         apiKey
           ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}`
           : "NONE",
@@ -63,11 +63,11 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
       setApiKeyAvailable(!!apiKey);
       if (!apiKey) {
         console.warn(
-          "❌ AddressAutocomplete: Google Maps API key not configured. Address autocomplete disabled.",
+          "AddressAutocomplete: Google Maps API key not configured. Address autocomplete disabled.",
         );
       } else {
         console.log(
-          "✅ AddressAutocomplete: API key available, autocomplete enabled",
+          "AddressAutocomplete: API key available, autocomplete enabled",
         );
       }
     };
@@ -87,18 +87,18 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     const timer = setTimeout(() => {
       if (inputValue && inputValue.length >= 3 && apiKeyAvailable) {
         console.log(
-          "🔍 AddressAutocomplete: Searching for address:",
+          "AddressAutocomplete: Searching for address:",
           inputValue,
         );
         searchAddress(inputValue);
         setShowSuggestions(true);
       } else if (!apiKeyAvailable) {
         console.log(
-          "❌ AddressAutocomplete: Search skipped - API key not available",
+          "AddressAutocomplete: Search skipped - API key not available",
         );
       } else if (inputValue && inputValue.length < 3) {
         console.log(
-          "⚠️ AddressAutocomplete: Input too short for search:",
+          "AddressAutocomplete: Input too short for search:",
           inputValue,
         );
       }
@@ -125,7 +125,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    console.log("📝 AddressAutocomplete: Input changed to:", newValue);
+    console.log("AddressAutocomplete: Input changed to:", newValue);
 
     setInputValue(newValue);
 
