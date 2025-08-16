@@ -122,7 +122,7 @@ class AuditLogService {
       return [];
     }
 
-    return (data as AuditLogEntry[]) || [];
+    return (data as unknown as AuditLogEntry[]) || [];
   }
 
   /**
@@ -141,7 +141,7 @@ class AuditLogService {
       return [];
     }
 
-    return (data as AuditLogEntry[]) || [];
+    return (data as unknown as AuditLogEntry[]) || [];
   }
 
   /**
@@ -160,7 +160,7 @@ class AuditLogService {
       return [];
     }
 
-    return (data as AuditLogEntry[]) || [];
+    return (data as unknown as AuditLogEntry[]) || [];
   }
 
   /**
