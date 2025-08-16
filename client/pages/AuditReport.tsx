@@ -149,6 +149,21 @@ const mockGeoScanData: GeoGridScanData = {
         "Optimize for 'outdoor seating' queries",
       ],
     },
+    scanLocations: [
+      { id: "1", position: { lat: 40.7614, lng: -73.9776 }, rank: 1, searchTerm: "restaurant near me" },
+      { id: "2", position: { lat: 40.7505, lng: -73.9934 }, rank: 3, searchTerm: "best local food" },
+      { id: "3", position: { lat: 40.7648, lng: -73.9808 }, rank: 2, searchTerm: "downtown dining" },
+      { id: "4", position: { lat: 40.7580, lng: -73.9855 }, rank: 4, searchTerm: "family restaurant" },
+      { id: "5", position: { lat: 40.7549, lng: -73.9840 }, rank: 1, searchTerm: "lunch specials" },
+      { id: "6", position: { lat: 40.7622, lng: -73.9789 }, rank: 5, searchTerm: "outdoor dining" },
+    ],
+    competitors: [
+      { id: "c1", name: "Bella Vista Italian", position: { lat: 40.7591, lng: -73.9857 }, rank: 1, visibility: 85, category: "Italian Restaurant" },
+      { id: "c2", name: "Corner Bistro", position: { lat: 40.7601, lng: -73.9841 }, rank: 2, visibility: 78, category: "American Bistro" },
+      { id: "c3", name: "Metro Diner", position: { lat: 40.7578, lng: -73.9863 }, rank: 3, visibility: 72, category: "Casual Dining" },
+      { id: "c4", name: "Urban Grill House", position: { lat: 40.7595, lng: -73.9848 }, rank: 4, visibility: 65, category: "Steakhouse" },
+      { id: "c5", name: "Rooftop Café", position: { lat: 40.7585, lng: -73.9839 }, rank: 6, visibility: 58, category: "Café" },
+    ],
   },
 };
 
