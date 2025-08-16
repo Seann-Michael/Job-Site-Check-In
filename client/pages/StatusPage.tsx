@@ -164,6 +164,10 @@ export default function StatusPage() {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           errorMessage = 'Request timeout (10s) - API may be unavailable';
+        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          errorMessage = 'Network error - Unable to connect to API endpoint';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error - API endpoint not accessible';
         } else {
           errorMessage = error.message;
         }
