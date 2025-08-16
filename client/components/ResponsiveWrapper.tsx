@@ -319,7 +319,7 @@ export function ResponsiveImage({
 
   // Generate srcSet for responsive images
   const generateSrcSet = () => {
-    return Object.values(sizes)
+    return Object.values(responsiveSizes)
       .sort((a, b) => a - b)
       .map((size) => `${src}?w=${size} ${size}w`)
       .join(", ");
