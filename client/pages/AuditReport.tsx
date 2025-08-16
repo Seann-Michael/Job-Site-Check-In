@@ -771,6 +771,44 @@ export default function AuditReport() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Competitor Results Section */}
+          {showCompetitorResults && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Competitor Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {scanData.scanResults.competitors.map((competitor) => (
+                    <div key={competitor.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">{competitor.name}</h4>
+                        <p className="text-sm text-gray-600">{competitor.category}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-center">
+                          <div className="text-sm font-medium">Rank</div>
+                          <Badge variant={competitor.rank <= 3 ? "default" : "secondary"}>
+                            #{competitor.rank}
+                          </Badge>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-medium">Visibility</div>
+                          <Badge variant={getVisibilityVariant(competitor.visibility)}>
+                            {competitor.visibility}%
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </AppLayout>
