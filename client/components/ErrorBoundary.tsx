@@ -208,8 +208,14 @@ Additional Info:
                 <Shield className="h-4 w-4" />
                 <AlertTitle>Error Detected</AlertTitle>
                 <AlertDescription>
-                  We've encountered an unexpected error. Don't worry, your data
-                  is safe. You can try the actions below to resolve this issue.
+                  <div className="space-y-2">
+                    <p>We've encountered an unexpected error. Don't worry, your data is safe.</p>
+                    {error && (
+                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
+                        <strong>Error Message:</strong> {error.message}
+                      </div>
+                    )}
+                  </div>
                 </AlertDescription>
               </Alert>
 
