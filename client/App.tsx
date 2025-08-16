@@ -345,11 +345,7 @@ const App = () => (
                 {/* Audits routes */}
                 <Route
                   path="/admin/audits/one-time-scan"
-                  element={
-                    <ProtectedRoute>
-                      <OneTimeScan />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
                 <Route
                   path="/admin/grid-demo"
