@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponent";
 import {
   Card,
   CardContent,
