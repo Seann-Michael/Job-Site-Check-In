@@ -361,27 +361,23 @@ export default function AuditReportEnhanced() {
                 </div>
                 
                 {/* Competitor Controls */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="competitor-results"
-                      checked={showCompetitorResults}
-                      onCheckedChange={setShowCompetitorResults}
-                    />
-                    <Label htmlFor="competitor-results" className="text-sm">
-                      Show Competitor Results
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="competitor-locations"
-                      checked={showCompetitorLocations}
-                      onCheckedChange={setShowCompetitorLocations}
-                    />
-                    <Label htmlFor="competitor-locations" className="text-sm">
-                      Show Competitor Pins
-                    </Label>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showCompetitorResults ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowCompetitorResults(!showCompetitorResults)}
+                  >
+                    {showCompetitorResults ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                    Competitor Results
+                  </Button>
+                  <Button
+                    variant={showCompetitorLocations ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowCompetitorLocations(!showCompetitorLocations)}
+                  >
+                    {showCompetitorLocations ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                    Competitor Pins
+                  </Button>
                 </div>
               </div>
             </div>
