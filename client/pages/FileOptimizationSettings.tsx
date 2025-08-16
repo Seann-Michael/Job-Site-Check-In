@@ -406,7 +406,7 @@ export default function FileOptimizationSettings() {
               <CardContent className="space-y-6">
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <h4 className="font-medium text-yellow-900 mb-2">
-                    ⚡ Enhanced File Optimization Available
+                    &#9889; Enhanced File Optimization Available
                   </h4>
                   <p className="text-sm text-yellow-800 mb-4">
                     The new OptimizedPhotoCapture component is now available for
