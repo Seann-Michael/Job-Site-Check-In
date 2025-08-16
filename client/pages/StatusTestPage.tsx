@@ -66,8 +66,19 @@ export default function StatusTestPage() {
             <CardTitle>API Test</CardTitle>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={testStatusAPI} 
+            <div className="mb-4">
+              <Button
+                onClick={testNetlifyFunctions}
+                variant="outline"
+                className="mr-2"
+              >
+                Test Netlify Functions
+              </Button>
+              <span className="text-sm text-gray-600">{netlifyStat}</span>
+            </div>
+
+            <Button
+              onClick={testStatusAPI}
               disabled={isLoading}
               className="mb-4"
             >
