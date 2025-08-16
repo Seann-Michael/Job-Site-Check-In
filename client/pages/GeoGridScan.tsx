@@ -328,7 +328,7 @@ export default function GeoGridScan() {
                   <div className="flex items-center space-x-2 border rounded-lg p-4 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-200">
                     <RadioGroupItem value="one-time" id="one-time" />
                     <Label htmlFor="one-time" className="flex items-center gap-2 cursor-pointer">
-                      <Calendar1 className="h-4 w-4" />
+                      <CalendarDays className="h-4 w-4" />
                       <div>
                         <div className="font-medium">One-Time Scan</div>
                         <div className="text-sm text-gray-500">Run scan once</div>
