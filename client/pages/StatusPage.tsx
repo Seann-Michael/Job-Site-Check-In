@@ -185,7 +185,7 @@ export default function StatusPage() {
       const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('fly.dev');
 
       if (systems.length === 0) {
-        if (isDevelopment && (errorMessage.includes('404') || errorMessage.includes('Failed to fetch') || errorMessage.includes('timeout'))) {
+        if (isDevelopment && (errorMessage.includes('404') || errorMessage.includes('Failed to fetch') || errorMessage.includes('timeout') || errorMessage.includes('Network error') || errorMessage.includes('not accessible'))) {
           // Fallback to mock data during development
           console.warn('Using fallback mock data for development');
           const mockSystems = [
