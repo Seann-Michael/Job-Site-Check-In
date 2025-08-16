@@ -31,17 +31,17 @@ import {
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import type { ProjectInfo } from "@/lib/mediaMetadata";
-import { generateProjectId } from "@/lib/idGenerator";
-import { AddressAutocomplete } from "@/components/GoogleMaps";
-import { USStatesSelect } from "@/components/ui/us-states-select";
-import { dataService, Business } from "@/lib/dataService";
-import {
-  getGoogleMapsApiKey,
-  validateGoogleMapsApiKey,
-  createStreetViewEmbedUrl,
-  checkStreetViewAvailability,
-} from "@/lib/googleMaps";
+// import type { ProjectInfo } from "@/lib/mediaMetadata";
+// import { generateProjectId } from "@/lib/idGenerator";
+// import { AddressAutocomplete } from "@/components/GoogleMaps";
+// import { USStatesSelect } from "@/components/ui/us-states-select";
+// import { dataService, Business } from "@/lib/dataService";
+// import {
+//   getGoogleMapsApiKey,
+//   validateGoogleMapsApiKey,
+//   createStreetViewEmbedUrl,
+//   checkStreetViewAvailability,
+// } from "@/lib/googleMaps";
 
 interface EnhancedPhoto {
   url: string;
