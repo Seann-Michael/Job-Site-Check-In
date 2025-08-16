@@ -124,7 +124,7 @@ export function PhoneInput({
         </p>
       )}
       {isValid && touched && value && getDigitsOnly(value).length === 10 && (
-        <p className="text-sm text-green-600">✓ Valid phone number</p>
+        <p className="text-sm text-green-600">&#10003; Valid phone number</p>
       )}
     </div>
   );
