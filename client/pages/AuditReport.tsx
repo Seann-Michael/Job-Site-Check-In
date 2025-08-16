@@ -365,6 +365,7 @@ export default function AuditReport() {
             </div>
           </CardHeader>
           <CardContent>
+{/* Temporarily commenting out for testing
             <GoogleMapComponent
               center={scanData.businessLocation}
               zoom={13}
@@ -374,6 +375,10 @@ export default function AuditReport() {
               showDirectionsButton={false}
               className="mb-4"
             />
+            */}
+            <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+              <p className="text-gray-500">Interactive map will be displayed here</p>
+            </div>
 
             {/* Map Legend */}
             <div className="flex flex-wrap gap-4 pt-4 border-t">
