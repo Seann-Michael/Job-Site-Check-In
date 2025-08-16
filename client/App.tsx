@@ -204,7 +204,7 @@ const App = () => (
                   path="/admin/add-project"
                   element={
                     <ProtectedRoute>
-                      <AdminAddProject />
+                      <AdminAddProjectSimple />
                     </ProtectedRoute>
                   }
                 />
