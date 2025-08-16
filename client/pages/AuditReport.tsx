@@ -193,6 +193,54 @@ export default function AuditReport() {
   const [showCompetitorResults, setShowCompetitorResults] = useState(false);
   const [showCompetitorLocations, setShowCompetitorLocations] = useState(false);
 
+  // Generate map markers based on current toggles
+  const getMapMarkers = (): MapMarker[] => {
+    if (!scanData) return [];
+
+    const markers: MapMarker[] = [];
+
+    // Always show business location
+    markers.push({
+      id: "business",
+      position: scanData.businessLocation,
+      title: scanData.businessName,
+      content: `<div class="p-2"><h3 class="font-medium">${scanData.businessName}</h3><p class="text-sm text-gray-600">Your Business Location</p></div>`,
+      color: "#3B82F6",
+      icon: "business",
+      type: "business",
+    });
+
+    // Add scan location markers
+    scanData.scanResults.scanLocations.forEach((location) => {
+      markers.push({
+        id: location.id,
+        position: location.position,
+        title: `Rank #${location.rank} - ${location.searchTerm}`,
+        content: `<div class="p-2"><h4 class="font-medium">Rank #${location.rank}</h4><p class="text-sm text-gray-600">${location.searchTerm}</p></div>`,
+        color: getRankColor(location.rank),
+        rank: location.rank,
+        type: "scan",
+      });
+    });
+
+    // Add competitor locations if toggle is enabled
+    if (showCompetitorLocations && scanData.scanResults.competitors) {
+      scanData.scanResults.competitors.forEach((competitor) => {
+        markers.push({
+          id: competitor.id,
+          position: competitor.position,
+          title: `${competitor.name} - Rank #${competitor.rank}`,
+          content: `<div class="p-2"><h4 class="font-medium">${competitor.name}</h4><p class="text-sm text-gray-600">${competitor.category}</p><p class="text-sm text-gray-600">Rank: #${competitor.rank} | Visibility: ${competitor.visibility}%</p></div>`,
+          color: "#8B5CF6",
+          rank: competitor.rank,
+          type: "competitor",
+        });
+      });
+    }
+
+    return markers;
+  };
+
   useEffect(() => {
     // Simulate API call to fetch geo scan data
     const fetchGeoScanData = async () => {
