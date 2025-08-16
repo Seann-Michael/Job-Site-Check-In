@@ -49,6 +49,9 @@ import {
 } from "lucide-react";
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
+import { GeoGridResultsTable } from "@/components/GeoGridResultsTable";
+import { GeoGridCompareView } from "@/components/GeoGridCompareView";
+import { logGeoGridScan, logBulkAction } from "@/lib/auditLog";
 
 // Mock data for demonstration
 const MOCK_BUSINESS = {
