@@ -205,8 +205,8 @@ export function ResponsiveText({
 
     for (let i = startIndex; i < breakpointOrder.length; i++) {
       const bp = breakpointOrder[i];
-      if (responsiveSizes[bp] !== undefined) {
-        return responsiveSizes[bp];
+      if (sizes[bp] !== undefined) {
+        return sizes[bp];
       }
     }
     return "text-base";
