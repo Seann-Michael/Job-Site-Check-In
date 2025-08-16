@@ -191,6 +191,7 @@ const App = () => (
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
                 <Route path="/status" element={<StatusPage />} />
+                <Route path="/status-test" element={<StatusTestPage />} />
 
                 {/* Protected routes */}
                 <Route
