@@ -81,16 +81,23 @@ export default function StatusPage() {
     } else if (systems.length === 0) {
       setIsLoading(true);
     }
-    
+
     setError(null);
 
     try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch('/.netlify/functions/system-status', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         // Try to get error details from response body
