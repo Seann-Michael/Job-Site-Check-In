@@ -251,36 +251,41 @@ export function AppLayout({
             } md:translate-x-0`}
           >
             <div className="flex flex-col h-full">
-              {/* Sidebar Header */}
-              <div className="border-b">
-                {/* Company Selector */}
-                <div className="p-4">
-                  <CompanySelector collapsed={sidebarCollapsed} />
-                </div>
-
-                {/* Collapse/Close Controls */}
-                <div className="flex items-center justify-end px-4 pb-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    className="hidden md:flex h-8 w-8"
-                  >
-                    {sidebarCollapsed ? (
-                      <ChevronRight className="h-4 w-4" />
-                    ) : (
-                      <ChevronLeft className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setMobileSidebarOpen(false)}
-                    className="md:hidden h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+              {/* Sidebar Header - Match Agency Layout */}
+              <div className="flex items-center justify-between p-4 border-b">
+                {!sidebarCollapsed && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <h1 className="text-lg font-bold text-gray-900">
+                        {businessName}
+                      </h1>
+                      <p className="text-xs text-gray-500">Pro Plan</p>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="hidden md:flex h-8 w-8"
+                >
+                  {sidebarCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="md:hidden h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* Navigation */}
