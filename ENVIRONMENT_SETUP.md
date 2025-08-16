@@ -5,6 +5,7 @@ This document outlines the environment variables and storage setup required for 
 ## 🔑 Environment Variables
 
 ### Local Development (.env.local)
+
 Copy the `.env.local` file and replace the demo values with your actual API keys:
 
 ```bash
@@ -15,24 +16,29 @@ cp .env.local .env.production.local
 ### Required API Keys
 
 #### 1. Supabase Configuration
+
 - **Frontend**: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 - **Backend**: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
 - **Setup**: Create project at [supabase.com/dashboard](https://supabase.com/dashboard)
 
 #### 2. Google Maps API
+
 - **Variable**: `VITE_GOOGLE_MAPS_API_KEY`
 - **Setup**: Get key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 - **Required APIs**: Maps JavaScript API, Places API, Geocoding API
 
 #### 3. Twilio SMS
+
 - **Variables**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
 - **Setup**: Get credentials from [Twilio Console](https://console.twilio.com/)
 
 #### 4. Mailgun Email
+
 - **Variables**: `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `FROM_EMAIL`
 - **Setup**: Get API key from [Mailgun Dashboard](https://app.mailgun.com/app/sending/domains)
 
 #### 5. DataForSEO API
+
 - **Variable**: `DATAFORSEO_API_KEY` (format: `login:password`)
 - **Setup**: Get credentials from [DataForSEO Dashboard](https://app.dataforseo.com/api-access)
 
@@ -43,21 +49,24 @@ cp .env.local .env.production.local
 The application requires the following storage buckets in your Supabase project:
 
 #### 1. Media Bucket (`media`)
+
 - **Purpose**: General file uploads (images, videos, documents)
 - **Public Access**: Yes
 - **Max File Size**: 50MB
-- **RLS Policies**: 
+- **RLS Policies**:
   - Allow authenticated users to upload
   - Allow public read access
   - Allow users to delete their own files
 
 #### 2. Avatars Bucket (`avatars`)
+
 - **Purpose**: User profile pictures
-- **Public Access**: Yes  
+- **Public Access**: Yes
 - **Max File Size**: 2MB
 - **Allowed Types**: Images only
 
 #### 3. Project Assets Bucket (`project-assets`)
+
 - **Purpose**: Project-specific files
 - **Public Access**: No (private with signed URLs)
 - **Max File Size**: 100MB
@@ -79,7 +88,7 @@ For each bucket, set up the following policies via the Supabase Dashboard:
 -- Allow authenticated uploads to media bucket
 CREATE POLICY "Allow authenticated uploads" ON storage.objects
 FOR INSERT WITH CHECK (
-  bucket_id = 'media' AND 
+  bucket_id = 'media' AND
   auth.role() = 'authenticated'
 );
 
@@ -91,6 +100,7 @@ FOR SELECT USING (bucket_id = 'media');
 ## 🧪 Testing API Functions
 
 ### 1. Test Email Function
+
 ```bash
 curl -X POST https://your-site.netlify.app/.netlify/functions/send-email \
   -H "Content-Type: application/json" \
@@ -106,6 +116,7 @@ curl -X POST https://your-site.netlify.app/.netlify/functions/send-email \
 ```
 
 ### 2. Test SMS Function
+
 ```bash
 curl -X POST https://your-site.netlify.app/.netlify/functions/send-sms \
   -H "Content-Type: application/json" \
@@ -122,6 +133,7 @@ curl -X POST https://your-site.netlify.app/.netlify/functions/send-sms \
 ```
 
 ### 3. Test DataForSEO Function
+
 ```bash
 curl -X POST https://your-site.netlify.app/.netlify/functions/dataforseo-service \
   -H "Content-Type: application/json" \
@@ -134,6 +146,7 @@ curl -X POST https://your-site.netlify.app/.netlify/functions/dataforseo-service
 ```
 
 ### 4. Test Media Storage Function
+
 ```bash
 # Upload a file
 curl -X POST https://your-site.netlify.app/.netlify/functions/media-storage \

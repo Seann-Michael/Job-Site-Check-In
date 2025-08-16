@@ -149,19 +149,84 @@ const mockGeoScanData: GeoGridScanData = {
       ],
     },
     scanLocations: [
-      { id: "1", position: { lat: 40.7614, lng: -73.9776 }, rank: 1, searchTerm: "restaurant near me" },
-      { id: "2", position: { lat: 40.7505, lng: -73.9934 }, rank: 3, searchTerm: "best local food" },
-      { id: "3", position: { lat: 40.7648, lng: -73.9808 }, rank: 2, searchTerm: "downtown dining" },
-      { id: "4", position: { lat: 40.7580, lng: -73.9855 }, rank: 4, searchTerm: "family restaurant" },
-      { id: "5", position: { lat: 40.7549, lng: -73.9840 }, rank: 1, searchTerm: "lunch specials" },
-      { id: "6", position: { lat: 40.7622, lng: -73.9789 }, rank: 5, searchTerm: "outdoor dining" },
+      {
+        id: "1",
+        position: { lat: 40.7614, lng: -73.9776 },
+        rank: 1,
+        searchTerm: "restaurant near me",
+      },
+      {
+        id: "2",
+        position: { lat: 40.7505, lng: -73.9934 },
+        rank: 3,
+        searchTerm: "best local food",
+      },
+      {
+        id: "3",
+        position: { lat: 40.7648, lng: -73.9808 },
+        rank: 2,
+        searchTerm: "downtown dining",
+      },
+      {
+        id: "4",
+        position: { lat: 40.758, lng: -73.9855 },
+        rank: 4,
+        searchTerm: "family restaurant",
+      },
+      {
+        id: "5",
+        position: { lat: 40.7549, lng: -73.984 },
+        rank: 1,
+        searchTerm: "lunch specials",
+      },
+      {
+        id: "6",
+        position: { lat: 40.7622, lng: -73.9789 },
+        rank: 5,
+        searchTerm: "outdoor dining",
+      },
     ],
     competitors: [
-      { id: "c1", name: "Bella Vista Italian", position: { lat: 40.7591, lng: -73.9857 }, rank: 1, visibility: 85, category: "Italian Restaurant" },
-      { id: "c2", name: "Corner Bistro", position: { lat: 40.7601, lng: -73.9841 }, rank: 2, visibility: 78, category: "American Bistro" },
-      { id: "c3", name: "Metro Diner", position: { lat: 40.7578, lng: -73.9863 }, rank: 3, visibility: 72, category: "Casual Dining" },
-      { id: "c4", name: "Urban Grill House", position: { lat: 40.7595, lng: -73.9848 }, rank: 4, visibility: 65, category: "Steakhouse" },
-      { id: "c5", name: "Rooftop Café", position: { lat: 40.7585, lng: -73.9839 }, rank: 6, visibility: 58, category: "Café" },
+      {
+        id: "c1",
+        name: "Bella Vista Italian",
+        position: { lat: 40.7591, lng: -73.9857 },
+        rank: 1,
+        visibility: 85,
+        category: "Italian Restaurant",
+      },
+      {
+        id: "c2",
+        name: "Corner Bistro",
+        position: { lat: 40.7601, lng: -73.9841 },
+        rank: 2,
+        visibility: 78,
+        category: "American Bistro",
+      },
+      {
+        id: "c3",
+        name: "Metro Diner",
+        position: { lat: 40.7578, lng: -73.9863 },
+        rank: 3,
+        visibility: 72,
+        category: "Casual Dining",
+      },
+      {
+        id: "c4",
+        name: "Urban Grill House",
+        position: { lat: 40.7595, lng: -73.9848 },
+        rank: 4,
+        visibility: 65,
+        category: "Steakhouse",
+      },
+      {
+        id: "c5",
+        name: "Rooftop Café",
+        position: { lat: 40.7585, lng: -73.9839 },
+        rank: 6,
+        visibility: 58,
+        category: "Café",
+      },
     ],
   },
 };
@@ -347,24 +412,36 @@ export default function AuditReport() {
                 <Button
                   variant={showCompetitorResults ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setShowCompetitorResults(!showCompetitorResults)}
+                  onClick={() =>
+                    setShowCompetitorResults(!showCompetitorResults)
+                  }
                 >
-                  {showCompetitorResults ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                  {showCompetitorResults ? (
+                    <Eye className="h-4 w-4 mr-1" />
+                  ) : (
+                    <EyeOff className="h-4 w-4 mr-1" />
+                  )}
                   Competitor Results
                 </Button>
                 <Button
                   variant={showCompetitorLocations ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setShowCompetitorLocations(!showCompetitorLocations)}
+                  onClick={() =>
+                    setShowCompetitorLocations(!showCompetitorLocations)
+                  }
                 >
-                  {showCompetitorLocations ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                  {showCompetitorLocations ? (
+                    <Eye className="h-4 w-4 mr-1" />
+                  ) : (
+                    <EyeOff className="h-4 w-4 mr-1" />
+                  )}
                   Competitor Pins
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-{/* Temporarily commenting out for testing
+            {/* Temporarily commenting out for testing
             <GoogleMapComponent
               center={scanData.businessLocation}
               zoom={13}
@@ -376,7 +453,9 @@ export default function AuditReport() {
             />
             */}
             <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-              <p className="text-gray-500">Interactive map will be displayed here</p>
+              <p className="text-gray-500">
+                Interactive map will be displayed here
+              </p>
             </div>
 
             {/* Map Legend */}
@@ -788,21 +867,34 @@ export default function AuditReport() {
               <CardContent>
                 <div className="space-y-4">
                   {scanData.scanResults.competitors.map((competitor) => (
-                    <div key={competitor.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div
+                      key={competitor.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
                       <div>
                         <h4 className="font-medium">{competitor.name}</h4>
-                        <p className="text-sm text-gray-600">{competitor.category}</p>
+                        <p className="text-sm text-gray-600">
+                          {competitor.category}
+                        </p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-center">
                           <div className="text-sm font-medium">Rank</div>
-                          <Badge variant={competitor.rank <= 3 ? "default" : "secondary"}>
+                          <Badge
+                            variant={
+                              competitor.rank <= 3 ? "default" : "secondary"
+                            }
+                          >
                             #{competitor.rank}
                           </Badge>
                         </div>
                         <div className="text-center">
                           <div className="text-sm font-medium">Visibility</div>
-                          <Badge variant={getVisibilityVariant(competitor.visibility)}>
+                          <Badge
+                            variant={getVisibilityVariant(
+                              competitor.visibility,
+                            )}
+                          >
                             {competitor.visibility}%
                           </Badge>
                         </div>
