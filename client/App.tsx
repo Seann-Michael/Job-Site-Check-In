@@ -13,17 +13,19 @@ const Index = lazy(() => import("./pages/Index"));
 const AddProject = lazy(() => import("./pages/AddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
-const Gallery = lazy(() => import("./pages/Gallery"));
+// const Gallery = lazy(() => import("./pages/Gallery"));
 // const Settings = lazy(() => import("./pages/MinimalTest"));
 const Automation = lazy(() => import("./pages/Automation"));
 // const Reports = lazy(() => import("./pages/Reports"));
 // const Audits = lazy(() => import("./pages/Audits"));
+// const Maps = lazy(() => import("./pages/Maps"));
 
 // Import components directly to fix lazy loading issues
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Audits from "./pages/Audits";
-const Maps = lazy(() => import("./pages/Maps"));
+import Gallery from "./pages/Gallery";
+import Maps from "./pages/Maps";
 const OneTimeScan = lazy(() => import("./pages/OneTimeScanEnhanced"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
 const RecurringScans = lazy(() => import("./pages/RecurringScans"));
