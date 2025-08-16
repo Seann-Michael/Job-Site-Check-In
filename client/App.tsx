@@ -268,7 +268,7 @@ const App = () => (
                   path="/admin/settings"
                   element={
                     <ProtectedRoute>
-                      <Settings />
+                      <MinimalTest />
                     </ProtectedRoute>
                   }
                 />
