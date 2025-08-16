@@ -517,17 +517,17 @@ export function AppLayout({
           )}
 
           {/* Page Content */}
-          <main className="flex-1 overflow-auto w-full">
+          <main className="flex-1 flex flex-col overflow-auto w-full">
             <div
-              className="w-full mobile-bottom-safe"
+              className="flex-1 w-full mobile-bottom-safe"
               style={{ minWidth: "max-content" }}
             >
               {children}
             </div>
-          </main>
 
-          {/* Footer */}
-          {showFooter && <Footer />}
+            {/* Footer - Always at bottom */}
+            {showFooter && <Footer />}
+          </main>
 
           {/* Mobile Bottom Navigation */}
           <div className="md:hidden border-t bg-background p-2 mobile-bottom-safe">
