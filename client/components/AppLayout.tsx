@@ -213,6 +213,13 @@ export function AppLayout({
     }
   }, [location.pathname, expandedMenus]);
 
+  // Auto-expand Automation menu if we're on an automation page
+  React.useEffect(() => {
+    if ((location.pathname.startsWith("/admin/automation") || location.pathname.startsWith("/admin/workflow-builder")) && !expandedMenus.includes("automation")) {
+      setExpandedMenus(prev => [...prev, "automation"]);
+    }
+  }, [location.pathname, expandedMenus]);
+
   // Navigation items with conditional visibility
   const sidebarItems = [
     {
