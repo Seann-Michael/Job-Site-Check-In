@@ -136,23 +136,77 @@ export default function StatusPage() {
       console.error('Failed to load system status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setError(errorMessage);
-      
+
       if (isManualRefresh) {
         toast.error(`Failed to update status: ${errorMessage}`);
       }
 
-      // Fallback to show at least some indication that services exist
+      // Development fallback - show mock data if in development mode and API fails
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('fly.dev');
+
       if (systems.length === 0) {
-        setSystems([
-          {
-            name: "Core Application",
-            status: "outage",
-            description: "Unable to check status",
-            lastChecked: new Date().toISOString(),
-            error: "Status check failed"
-          }
-        ]);
-        setOverallStatus("outage");
+        if (isDevelopment && errorMessage.includes('404')) {
+          // Fallback to mock data during development
+          console.warn('Using fallback mock data for development');
+          const mockSystems = [
+            {
+              name: "Core Application",
+              status: "operational" as const,
+              description: "Main application services (Development Mode)",
+              lastChecked: new Date().toISOString(),
+              responseTime: 145,
+              uptime: 99.9,
+            },
+            {
+              name: "Database",
+              status: "operational" as const,
+              description: "Database services (Mock)",
+              lastChecked: new Date().toISOString(),
+              responseTime: 12,
+              uptime: 99.95,
+            },
+            {
+              name: "API Services",
+              status: "degraded" as const,
+              description: "API endpoint unavailable in development",
+              lastChecked: new Date().toISOString(),
+              responseTime: 5000,
+              uptime: 95.0,
+              error: "Development mode - API function not running"
+            }
+          ];
+
+          setSystems(mockSystems);
+          setOverallStatus("degraded");
+          setOverallUptime(98.2);
+          setServicesMonitored(mockSystems.length);
+          setIncidents([{
+            id: "dev-001",
+            title: "Development Mode Active",
+            status: "monitoring",
+            severity: "low",
+            description: "System is running in development mode with limited functionality",
+            startTime: new Date().toISOString(),
+            updates: [{
+              time: new Date().toISOString(),
+              message: "Using fallback data due to API unavailability in development",
+              status: "monitoring"
+            }]
+          }]);
+          setError("Development mode: Using mock data because system-status API is unavailable");
+        } else {
+          // Production error state
+          setSystems([
+            {
+              name: "Core Application",
+              status: "outage",
+              description: "Unable to check status",
+              lastChecked: new Date().toISOString(),
+              error: "Status check failed"
+            }
+          ]);
+          setOverallStatus("outage");
+        }
       }
     } finally {
       setIsLoading(false);
