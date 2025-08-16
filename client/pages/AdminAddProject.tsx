@@ -815,7 +815,7 @@ export default function AdminAddProject() {
               <CardTitle>Project Photos</CardTitle>
             </CardHeader>
             <CardContent>
-              <ModernPhotoCapture
+              {/* <ModernPhotoCapture
                 photos={photos}
                 onPhotosChange={handlePhotosUpdate}
                 projectInfo={{
@@ -825,7 +825,10 @@ export default function AdminAddProject() {
                   customerName: formData.customerName,
                   keywords: [formData.type, formData.name],
                 }}
-              />
+              /> */}
+              <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                <p className="text-gray-500">Photo capture feature coming soon for home services projects</p>
+              </div>
             </CardContent>
           </Card>
 
