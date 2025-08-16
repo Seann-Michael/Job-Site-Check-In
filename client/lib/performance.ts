@@ -338,10 +338,10 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 // Throttle utility for performance
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends Function>(
   func: T,
   delay: number,
-): (...args: Parameters<T>) => void {
+): T {
   let lastCall = 0;
 
   return (...args: Parameters<T>) => {
