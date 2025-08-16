@@ -27,7 +27,30 @@ import {
   Globe,
   Smartphone,
   Search,
+  Users,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+
+interface MapMarker {
+  id: string;
+  position: { lat: number; lng: number };
+  title: string;
+  content?: string;
+  color?: string;
+  rank?: number | null;
+  icon?: string;
+  type: "business" | "competitor" | "scan";
+}
+
+interface CompetitorData {
+  id: string;
+  name: string;
+  position: { lat: number; lng: number };
+  rank: number;
+  visibility: number;
+  category: string;
+}
 
 interface GeoGridScanData {
   id: string;
