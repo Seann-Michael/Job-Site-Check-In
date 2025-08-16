@@ -58,7 +58,15 @@ export class ErrorBoundary extends Component<Props, State> {
       message: error.message,
       stack: error.stack,
       errorInfo: errorInfo,
-      componentStack: errorInfo.componentStack
+      componentStack: errorInfo.componentStack,
+      url: window.location.href,
+      timestamp: new Date().toISOString()
+    });
+
+    // Also log to toast for immediate visibility
+    toast.error(`ERROR: ${error.message.substring(0, 100)}...`, {
+      duration: 10000,
+      description: `Check console for full details. Page: ${window.location.pathname}`
     });
 
     // Call custom error handler
