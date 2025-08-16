@@ -7,7 +7,7 @@
 // To populate sample data for demonstration, run:
 // npm run populate-data
 
-export * from './dataService';
+// Import specific exports to avoid circular dependencies
 export { dataService as mockDataService } from './dataService';
 
 // Legacy mock project type export for compatibility
