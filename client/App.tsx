@@ -83,6 +83,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import ReviewGate from "./pages/ReviewGate";
 import AdminReviews from "./pages/AdminReviews";
 import StatusPage from "./pages/StatusPage";
+import StatusTestPage from "./pages/StatusTestPage";
 import Ideas from "./pages/Ideas";
 import IdeaDetail from "./pages/IdeaDetail";
 import SuperAdminIdeas from "./pages/SuperAdminIdeas";
