@@ -398,7 +398,7 @@ export class DataService {
         .single();
 
       if (profileError) throw profileError;
-      this.currentUser = userProfile;
+      this.currentUser = userProfile as User;
     }
 
     return data;
