@@ -201,7 +201,7 @@ export function ReviewRequest({
               <Checkbox
                 id="custom-message"
                 checked={useCustomMessage}
-                onCheckedChange={setUseCustomMessage}
+                onCheckedChange={(checked) => setUseCustomMessage(checked === true)}
               />
               <Label htmlFor="custom-message" className="text-sm font-medium">
                 Use custom message
