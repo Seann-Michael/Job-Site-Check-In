@@ -326,15 +326,7 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                {/* Audits routes (same components as Maps) */}
-                <Route
-                  path="/admin/audits"
-                  element={
-                    <ProtectedRoute>
-                      <Maps />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* Audits routes */}
                 <Route
                   path="/admin/audits/one-time-scan"
                   element={
