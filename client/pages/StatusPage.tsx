@@ -83,8 +83,11 @@ export default function StatusPage() {
   }, []);
 
   const loadSystemStatus = async (isManualRefresh = false) => {
+    console.log('loadSystemStatus called:', { isManualRefresh, isLoading, systemsCount: systems.length });
+
     // Prevent multiple concurrent requests
     if (isLoading && !isManualRefresh) {
+      console.log('Skipping request - already loading');
       return;
     }
 
