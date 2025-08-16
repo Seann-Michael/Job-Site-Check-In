@@ -205,9 +205,9 @@ export function AppLayout({
     return expandedMenus.includes(menuId);
   };
 
-  // Auto-expand Maps menu if we're on a Maps sub-page
+  // Auto-expand Maps menu if we're on a Maps page (including main Maps page and sub-pages)
   React.useEffect(() => {
-    if (location.pathname.startsWith("/admin/maps/") && !expandedMenus.includes("maps")) {
+    if (location.pathname.startsWith("/admin/maps") && !expandedMenus.includes("maps")) {
       setExpandedMenus(prev => [...prev, "maps"]);
     }
   }, [location.pathname, expandedMenus]);
