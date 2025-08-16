@@ -1634,7 +1634,7 @@ export default function Settings() {
                                     label: "Project Created",
                                     description:
                                       "When a new project is created",
-                                    icon: "����",
+                                    icon: "🔧",
                                   },
                                   {
                                     id: "project.completed",
