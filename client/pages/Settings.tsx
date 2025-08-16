@@ -688,10 +688,12 @@ export default function Settings() {
                               const fullAddress = addressParts
                                 .slice(0, -2)
                                 .join(", ");
-                              const city =
-                                addressParts[addressParts.length - 2];
-                              const stateZip =
-                                addressParts[addressParts.length - 1];
+                              const city = addressParts.length > 1
+                                ? addressParts[addressParts.length - 2]
+                                : "";
+                              const stateZip = addressParts.length > 0
+                                ? addressParts[addressParts.length - 1]
+                                : "";
 
                               let state = "";
                               let zipCode = "";
