@@ -331,8 +331,8 @@ export class DataService {
         return null;
       }
 
-      this.currentUser = data as User;
-      return data as User;
+      this.currentUser = data as unknown as User;
+      return data as unknown as User;
     } catch (error) {
       console.error("Error in getCurrentUser:", error);
       return null;
