@@ -599,20 +599,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
               strokeOpacity: 0.4,
               strokeWeight: 2,
               geodesic: true,
-              strokePattern:
-                gridType === "circle" && line.id.startsWith("ring")
-                  ? undefined
-                  : [
-                      {
-                        icon: {
-                          path: "M 0,-1 0,1",
-                          strokeOpacity: 1,
-                          scale: 4,
-                        },
-                        offset: "0",
-                        repeat: "20px",
-                      },
-                    ],
             }}
           />
         ))}
