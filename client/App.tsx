@@ -9,10 +9,10 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { analytics } from "@/lib/analytics";
 
 // Lazy load pages for better performance
-const Index = lazy(() => import("./pages/Index"));
-const AddProject = lazy(() => import("./pages/AddProject"));
-const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
-const EditProject = lazy(() => import("./pages/EditProject"));
+// const Index = lazy(() => import("./pages/Index"));
+// const AddProject = lazy(() => import("./pages/AddProject"));
+// const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+// const EditProject = lazy(() => import("./pages/EditProject"));
 // const Gallery = lazy(() => import("./pages/Gallery"));
 // const Settings = lazy(() => import("./pages/MinimalTest"));
 const Automation = lazy(() => import("./pages/Automation"));
@@ -26,6 +26,10 @@ import Reports from "./pages/Reports";
 import Audits from "./pages/Audits";
 import Gallery from "./pages/Gallery";
 import Maps from "./pages/Maps";
+import Index from "./pages/Index";
+import AddProject from "./pages/AddProject";
+import ProjectDetail from "./pages/ProjectDetail";
+import EditProject from "./pages/EditProject";
 const OneTimeScan = lazy(() => import("./pages/OneTimeScanEnhanced"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
 const RecurringScans = lazy(() => import("./pages/RecurringScans"));
