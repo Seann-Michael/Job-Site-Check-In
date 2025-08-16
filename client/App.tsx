@@ -31,7 +31,7 @@ import AddProject from "./pages/AddProject";
 import AdminAddProjectMinimal from "./pages/AdminAddProjectMinimal";
 import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
-const OneTimeScan = lazy(() => import("./pages/OneTimeScanEnhanced"));
+const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
 const RecurringScans = lazy(() => import("./pages/RecurringScans"));
 const ScanHistory = lazy(() => import("./pages/ScanHistory"));
