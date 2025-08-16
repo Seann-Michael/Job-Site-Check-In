@@ -76,6 +76,7 @@ interface GeoGridScanData {
 const mockGeoScanData: GeoGridScanData = {
   id: "3",
   businessName: "Local Restaurant & Grill",
+  businessLocation: { lat: 40.7589, lng: -73.9851 }, // Times Square area
   gmbProfileUrl: "https://business.google.com/n/12345678901234567890",
   scanDate: "2024-01-20T10:30:00Z",
   scanType: "5km Grid Scan - Downtown Area",
