@@ -116,7 +116,15 @@ export default function StatusPage() {
         fetchOptions.signal = controller.signal;
       }
 
-      const response = await fetch('/.netlify/functions/system-status', fetchOptions);
+      let response: Response;
+      try {
+        response = await fetch('/.netlify/functions/system-status', fetchOptions);
+      } catch (fetchError) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        throw new Error(`Network request failed: ${fetchError instanceof Error ? fetchError.message : 'Unknown network error'}`);
+      }
 
       if (timeoutId) {
         clearTimeout(timeoutId);
