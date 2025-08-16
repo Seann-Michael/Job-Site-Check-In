@@ -93,10 +93,33 @@ export default function StatusPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Try to get error details from response body
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't read the error body
+        }
+        throw new Error(errorMessage);
       }
 
-      const data: SystemStatusResponse = await response.json();
+      // Check if response has content
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        throw new Error(`Invalid response format: Expected JSON, got ${contentType || 'unknown'}. Response: ${responseText.substring(0, 200)}`);
+      }
+
+      let data: SystemStatusResponse;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        const responseText = await response.text();
+        throw new Error(`Failed to parse JSON response: ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}. Response: ${responseText.substring(0, 200)}`);
+      }
 
       setSystems(data.systems);
       setIncidents(data.incidents);
