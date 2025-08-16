@@ -179,6 +179,12 @@ const getVisibilityVariant = (score: number) => {
   return "destructive";
 };
 
+const getRankColor = (rank: number) => {
+  if (rank <= 3) return "#10b981"; // green
+  if (rank <= 10) return "#f59e0b"; // yellow
+  return "#ef4444"; // red
+};
+
 export default function AuditReport() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
