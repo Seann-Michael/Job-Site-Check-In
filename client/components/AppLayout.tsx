@@ -422,9 +422,7 @@ export function AppLayout({
 
           {/* Page Content */}
           <main className={`${maxWidthClass} mx-auto ${className}`}>
-            <div className="px-6 py-6">
-              {children}
-            </div>
+            {children}
           </main>
 
           {/* Footer */}
