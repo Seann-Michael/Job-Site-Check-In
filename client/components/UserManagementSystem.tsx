@@ -502,6 +502,7 @@ export function UserManagementSystem() {
                           <span className="text-sm font-medium text-primary">
                             {user.name
                               .split(" ")
+                              .filter(n => n && n.length > 0)
                               .map((n) => n[0])
                               .join("")}
                           </span>
