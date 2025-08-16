@@ -15,15 +15,31 @@ export default function StatusTestPage() {
     setResult(null);
 
     try {
+      console.log('Testing API at:', '/.netlify/functions/system-status');
+
       const response = await fetch('/.netlify/functions/system-status');
-      
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${response.statusText}. Body: ${errorText}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      console.log('Content-Type:', contentType);
+
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        throw new Error(`Expected JSON, got ${contentType}. Response: ${responseText}`);
       }
 
       const data = await response.json();
+      console.log('Parsed data:', data);
       setResult(data);
     } catch (err) {
+      console.error('API test error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
