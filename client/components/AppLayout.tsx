@@ -108,6 +108,7 @@ export function AppLayout({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
   // Check if current user is a superadmin (but exclude impersonated accounts)
   const showSuperAdmin =
