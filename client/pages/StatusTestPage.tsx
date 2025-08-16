@@ -8,6 +8,16 @@ export default function StatusTestPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [netlifyStat, setNetlifyStat] = useState<string>('Not tested');
+
+  const testNetlifyFunctions = async () => {
+    try {
+      const response = await fetch('/.netlify/functions/api');
+      setNetlifyStat(`API function: ${response.status} ${response.statusText}`);
+    } catch (err) {
+      setNetlifyStat(`Netlify functions unavailable: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
 
   const testStatusAPI = async () => {
     setIsLoading(true);
