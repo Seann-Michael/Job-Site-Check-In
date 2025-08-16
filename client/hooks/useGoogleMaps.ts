@@ -155,7 +155,7 @@ export const useAddressSearch = () => {
     console.log("🔍 Starting address search for:", query);
 
     if (!query || query.length < 3) {
-      console.log("❌ Query too short, clearing suggestions");
+      console.log("�� Query too short, clearing suggestions");
       setSuggestions([]);
       return;
     }
@@ -201,7 +201,6 @@ export const useAddressSearch = () => {
         // Enhance component restrictions for specific state
         requestOptions.componentRestrictions = {
           country: "us",
-          administrativeArea: state,
         };
       }
 
