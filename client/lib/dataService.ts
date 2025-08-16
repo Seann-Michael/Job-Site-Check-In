@@ -588,7 +588,7 @@ export class DataService {
         );
         return this.getMockProjects();
       }
-      return data || [];
+      return (data as unknown as Project[]) || [];
     } catch (error) {
       console.error("Error fetching projects:", error);
       return this.getMockProjects();
