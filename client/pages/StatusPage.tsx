@@ -405,6 +405,14 @@ export default function StatusPage() {
                 <AlertCircleIcon className="h-4 w-4" />
                 Status check error: {error}
               </div>
+              <div className="mt-2 text-center">
+                <a
+                  href="/status-test"
+                  className="text-blue-600 hover:text-blue-800 underline text-xs"
+                >
+                  Open diagnostic page for detailed debugging
+                </a>
+              </div>
             </div>
           )}
           <p className="text-xs text-muted-foreground mt-2">
