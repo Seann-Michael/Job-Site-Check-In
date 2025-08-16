@@ -1086,7 +1086,7 @@ export default function ReportGenerator() {
       case "percentage":
         return `${Number(value).toFixed(1)}%`;
       case "rating":
-        return `⭐ ${Number(value).toFixed(1)}`;
+        return `★ ${Number(value).toFixed(1)}`;
       case "status":
         const getStatusVariant = (status: string) => {
           const positive = [

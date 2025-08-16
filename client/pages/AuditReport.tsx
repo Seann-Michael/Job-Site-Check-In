@@ -524,7 +524,7 @@ export default function AuditReport() {
                   {scanData.scanResults.keywordPerformance.improvementOpportunities.map(
                     (opportunity, index) => (
                       <li key={index} className="flex items-start gap-2">
-                        <span className="text-blue-500 mt-1">•</span>
+                        <span className="text-blue-500 mt-1">&#8226;</span>
                         {opportunity}
                       </li>
                     ),
