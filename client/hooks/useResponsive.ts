@@ -244,7 +244,7 @@ export function useViewport() {
 }
 
 // Utility function for throttling
-function throttle<T extends Function>(
+function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number,
 ): T {
