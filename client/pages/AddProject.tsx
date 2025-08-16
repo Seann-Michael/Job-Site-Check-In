@@ -865,7 +865,7 @@ export default function AddProject() {
               <CardTitle>Project Photos</CardTitle>
             </CardHeader>
             <CardContent>
-              <ModernPhotoCapture
+              {/* <ModernPhotoCapture
                 onPhotosUpdate={handlePhotosUpdate}
                 projectInfo={{
                   id: generateProjectId(),
@@ -874,7 +874,10 @@ export default function AddProject() {
                   customerPhone: formData.mobilePhone,
                   customerEmail: formData.customerEmail,
                 }}
-              />
+              /> */}
+              <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                <p className="text-gray-500">Photo capture temporarily disabled for debugging</p>
+              </div>
             </CardContent>
           </Card>
 
