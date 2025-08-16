@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+// Test file - vitest not available in production build
+// import { describe, it, expect } from "vitest";
 import { cn } from "./utils";
 
 describe("cn function", () => {
