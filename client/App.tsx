@@ -270,7 +270,7 @@ const App = () => (
                   path="/admin/settings"
                   element={
                     <ProtectedRoute>
-                      <MinimalTest />
+                      <Settings />
                     </ProtectedRoute>
                   }
                 />
