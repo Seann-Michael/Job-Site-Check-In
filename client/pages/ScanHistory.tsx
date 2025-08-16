@@ -4,6 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,10 +34,17 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  MoreHorizontal,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ScanHistoryItem {
   id: string;
@@ -128,6 +143,52 @@ const mockHistory: ScanHistoryItem[] = [
     improvementChange: 2.1,
     creditsUsed: 3840,
   },
+  {
+    id: "6",
+    scanName: "Geo Grid Scan - Pizza Restaurant",
+    business: "Joe's Pizza & More",
+    keywords: ["pizza restaurant"],
+    scanType: "one-time",
+    status: "completed",
+    startTime: "2024-01-17T11:15:00Z",
+    endTime: "2024-01-17T11:28:00Z",
+    duration: "13m 45s",
+    locationsScanned: 25,
+    averageRank: 2.8,
+    topRankings: 12,
+    improvementChange: 1.5,
+    creditsUsed: 1200,
+  },
+  {
+    id: "7",
+    scanName: "Geo Grid Scan - Italian Food",
+    business: "Joe's Pizza & More",
+    keywords: ["italian food"],
+    scanType: "one-time",
+    status: "completed",
+    startTime: "2024-01-17T11:15:00Z",
+    endTime: "2024-01-17T11:28:00Z",
+    duration: "13m 45s",
+    locationsScanned: 25,
+    averageRank: 4.2,
+    topRankings: 7,
+    improvementChange: 0.8,
+    creditsUsed: 1200,
+  },
+  {
+    id: "8",
+    scanName: "Weekly Rankings Check",
+    business: "Joe's Pizza & More",
+    keywords: ["pizza delivery", "pizza near me"],
+    scanType: "recurring",
+    status: "running",
+    startTime: "2024-01-18T16:00:00Z",
+    locationsScanned: 0,
+    averageRank: 0,
+    topRankings: 0,
+    improvementChange: 0,
+    creditsUsed: 0,
+  },
 ];
 
 export default function ScanHistory() {
@@ -166,6 +227,19 @@ export default function ScanHistory() {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>;
+      case "running":
+        return <Badge variant="default" className="bg-blue-100 text-blue-800">Running</Badge>;
+      case "failed":
+        return <Badge variant="destructive">Failed</Badge>;
+      default:
+        return <Badge variant="secondary">Unknown</Badge>;
+    }
+  };
+
   const getChangeIcon = (change: number) => {
     if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
     if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
@@ -183,6 +257,17 @@ export default function ScanHistory() {
     }
   };
 
+  const duplicateScan = (scanId: string) => {
+    const scan = history.find((s) => s.id === scanId);
+    if (scan) {
+      toast.success(`Duplicating scan "${scan.scanName}"`);
+      // Navigate to scan configuration with pre-filled data
+      navigate("/admin/maps/geo-grid-scan", {
+        state: { duplicateFrom: scan }
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
@@ -191,6 +276,11 @@ export default function ScanHistory() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const formatChange = (change: number) => {
+    if (change === 0) return "—";
+    return `${change > 0 ? "+" : ""}${change.toFixed(1)}`;
   };
 
   // Calculate summary stats
@@ -310,6 +400,7 @@ export default function ScanHistory() {
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="running">Running</SelectItem>
                     <SelectItem value="failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
@@ -341,7 +432,7 @@ export default function ScanHistory() {
           </CardContent>
         </Card>
 
-        {/* History List */}
+        {/* Data Table */}
         <Card>
           <CardHeader>
             <CardTitle>
@@ -349,140 +440,7 @@ export default function ScanHistory() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {filteredHistory.map((item) => (
-                <div key={item.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="font-medium">{item.scanName}</div>
-                      <div className="text-sm text-gray-500">
-                        {item.business}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Badge
-                        variant={
-                          item.scanType === "one-time" ? "default" : "secondary"
-                        }
-                      >
-                        {item.scanType === "one-time"
-                          ? "One Time"
-                          : "Recurring"}
-                      </Badge>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(item.status)}
-                        <span className="capitalize text-sm">
-                          {item.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {item.keywords.slice(0, 3).map((keyword) => (
-                      <Badge
-                        key={keyword}
-                        variant="outline"
-                        className="text-xs"
-                      >
-                        {keyword}
-                      </Badge>
-                    ))}
-                    {item.keywords.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{item.keywords.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3 text-sm">
-                    <div>
-                      <div className="text-xs text-gray-500">Date & Time</div>
-                      <div>{formatDate(item.startTime)}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500">Duration</div>
-                      <div>{item.duration || "N/A"}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500">Locations</div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3 text-gray-400" />
-                        {item.locationsScanned}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500">Avg Rank</div>
-                      {item.status === "completed" ? (
-                        <Badge
-                          variant={
-                            item.averageRank <= 3
-                              ? "default"
-                              : item.averageRank <= 10
-                                ? "secondary"
-                                : "destructive"
-                          }
-                        >
-                          #{item.averageRank.toFixed(1)}
-                        </Badge>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500">Change</div>
-                      <div className="flex items-center gap-1">
-                        {getChangeIcon(item.improvementChange)}
-                        <span
-                          className={`text-sm ${
-                            item.improvementChange > 0
-                              ? "text-green-600"
-                              : item.improvementChange < 0
-                                ? "text-red-600"
-                                : "text-gray-600"
-                          }`}
-                        >
-                          {item.improvementChange > 0 ? "+" : ""}
-                          {item.improvementChange.toFixed(1)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500">Credits</div>
-                      <div>{item.creditsUsed.toLocaleString()}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => viewScanDetails(item.id)}
-                      disabled={item.status !== "completed"}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => exportScanData(item.id)}
-                      disabled={item.status !== "completed"}
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {filteredHistory.length === 0 && (
+            {filteredHistory.length === 0 ? (
               <div className="text-center py-12">
                 <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -497,11 +455,178 @@ export default function ScanHistory() {
                   filterStatus === "all" &&
                   filterType === "all" && (
                     <Button
-                      onClick={() => navigate("/admin/maps/one-time-scan")}
+                      onClick={() => navigate("/admin/maps/geo-grid-scan")}
                     >
                       Run Your First Scan
                     </Button>
                   )}
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Scan Details</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date & Time</TableHead>
+                      <TableHead>Locations</TableHead>
+                      <TableHead>Avg Rank</TableHead>
+                      <TableHead>Top 3</TableHead>
+                      <TableHead>Change</TableHead>
+                      <TableHead>Credits</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHistory.map((item) => (
+                      <TableRow 
+                        key={item.id} 
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => item.status === "completed" && viewScanDetails(item.id)}
+                      >
+                        <TableCell>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {item.scanName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {item.business}
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.keywords.slice(0, 2).map((keyword) => (
+                                <Badge
+                                  key={keyword}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  {keyword}
+                                </Badge>
+                              ))}
+                              {item.keywords.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.keywords.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              item.scanType === "one-time" ? "default" : "secondary"
+                            }
+                          >
+                            {item.scanType === "one-time"
+                              ? "One Time"
+                              : "Recurring"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(item.status)}
+                            {getStatusBadge(item.status)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{formatDate(item.startTime)}</div>
+                            {item.duration && (
+                              <div className="text-gray-500">{item.duration}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-gray-400" />
+                            <span className="text-sm">{item.locationsScanned}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {item.status === "completed" ? (
+                            <Badge
+                              variant={
+                                item.averageRank <= 3
+                                  ? "default"
+                                  : item.averageRank <= 10
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                            >
+                              #{item.averageRank.toFixed(1)}
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {item.status === "completed" ? item.topRankings : "—"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {getChangeIcon(item.improvementChange)}
+                            <span
+                              className={`text-sm ${
+                                item.improvementChange > 0
+                                  ? "text-green-600"
+                                  : item.improvementChange < 0
+                                    ? "text-red-600"
+                                    : "text-gray-600"
+                              }`}
+                            >
+                              {formatChange(item.improvementChange)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{item.creditsUsed.toLocaleString()}</div>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  viewScanDetails(item.id);
+                                }}
+                                disabled={item.status !== "completed"}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  exportScanData(item.id);
+                                }}
+                                disabled={item.status !== "completed"}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Export Data
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateScan(item.id);
+                                }}
+                              >
+                                <Target className="h-4 w-4 mr-2" />
+                                Duplicate Scan
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
