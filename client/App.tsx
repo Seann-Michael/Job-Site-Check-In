@@ -878,7 +878,7 @@ const App = () => (
                 <Route
                   path="/OneTimeScan"
                   element={
-                    <Navigate to="/admin/audits/one-time-scan" replace />
+                    <Navigate to="/admin/maps/geo-grid-scan" replace />
                   }
                 />
 
@@ -1058,7 +1058,7 @@ const App = () => (
                 <Route
                   path="/OneTimeScan"
                   element={
-                    <Navigate to="/admin/audits/one-time-scan" replace />
+                    <Navigate to="/admin/maps/geo-grid-scan" replace />
                   }
                 />
                 <Route
