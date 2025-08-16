@@ -331,6 +331,78 @@ export default function AuditReport() {
           </div>
         </div>
 
+        {/* Interactive Map Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Geo Grid Scan Results
+                </CardTitle>
+                <CardDescription>
+                  Interactive map showing scan locations and competitor analysis
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={showCompetitorResults ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowCompetitorResults(!showCompetitorResults)}
+                >
+                  {showCompetitorResults ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                  Competitor Results
+                </Button>
+                <Button
+                  variant={showCompetitorLocations ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowCompetitorLocations(!showCompetitorLocations)}
+                >
+                  {showCompetitorLocations ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                  Competitor Pins
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <GoogleMapComponent
+              center={scanData.businessLocation}
+              zoom={13}
+              height="400px"
+              markers={getMapMarkers()}
+              showControls={true}
+              showDirectionsButton={false}
+              className="mb-4"
+            />
+
+            {/* Map Legend */}
+            <div className="flex flex-wrap gap-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">Your Business</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">Top 3 Rankings</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">Top 10 Rankings</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">Below Top 10</span>
+              </div>
+              {showCompetitorLocations && (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+                  <span className="text-sm text-gray-600">Competitors</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Business Info & Overall Visibility */}
         <Card>
           <CardHeader>
