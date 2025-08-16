@@ -398,6 +398,7 @@ export function AppLayout({
                           {currentUser?.name ? (
                             currentUser.name
                               .split(" ")
+                              .filter(n => n && n.length > 0)
                               .map((n) => n[0])
                               .join("")
                           ) : (
