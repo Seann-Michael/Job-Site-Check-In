@@ -477,7 +477,7 @@ export class DataService {
         );
         return this.getMockBusinesses();
       }
-      return data || [];
+      return (data as Business[]) || [];
     } catch (error) {
       console.error("Error fetching businesses:", error);
       return this.getMockBusinesses();
