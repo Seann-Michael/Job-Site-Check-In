@@ -93,6 +93,13 @@ interface GeoGridScanData {
       }>;
       improvementOpportunities: string[];
     };
+    scanLocations: Array<{
+      id: string;
+      position: { lat: number; lng: number };
+      rank: number;
+      searchTerm: string;
+    }>;
+    competitors: CompetitorData[];
   };
 }
 
