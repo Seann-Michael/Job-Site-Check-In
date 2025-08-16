@@ -141,7 +141,18 @@ export default function StatusPage() {
 
     } catch (error) {
       console.error('Failed to load system status:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+      let errorMessage: string;
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timeout (10s) - API may be unavailable';
+        } else {
+          errorMessage = error.message;
+        }
+      } else {
+        errorMessage = 'Unknown error occurred';
+      }
+
       setError(errorMessage);
 
       if (isManualRefresh) {
