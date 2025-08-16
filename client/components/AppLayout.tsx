@@ -38,6 +38,7 @@ import {
   ChevronUp,
   CheckCircle,
   Home,
+  Building2,
   MessageSquare,
   BarChart3,
   FileText,
