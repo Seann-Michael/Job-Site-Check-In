@@ -169,57 +169,7 @@ export default function AdminAddProject() {
 
   const handleAddressSelect = async (address: any) => {
     console.log("🗺️ Address selected:", address);
-
-    const updatedFormData = {
-      ...formData,
-      addressSearch: address.formatted_address || "",
-      streetAddress: address.name || "",
-      city: address.city || "",
-      state: address.state || "",
-      zipCode: address.postal_code || "",
-      placeId: address.place_id || "",
-      gpsLat: address.geometry?.location?.lat?.toString() || "",
-      gpsLng: address.geometry?.location?.lng?.toString() || "",
-    };
-
-    setFormData(updatedFormData);
-
-    // Check for Street View availability
-    const apiKey = getGoogleMapsApiKey();
-    if (apiKey && address.geometry?.location) {
-      try {
-        const streetViewAvailable = await checkStreetViewAvailability(
-          address.geometry.location.lat,
-          address.geometry.location.lng,
-          apiKey,
-        );
-
-        if (streetViewAvailable) {
-          const streetViewUrl = createStreetViewEmbedUrl(
-            address.geometry.location.lat,
-            address.geometry.location.lng,
-            apiKey,
-          );
-
-          setFormData((prev) => ({
-            ...prev,
-            streetViewUrl,
-            hasStreetView: true,
-          }));
-
-          console.log("📍 Street View available and URL generated");
-        } else {
-          console.log("📍 Street View not available for this location");
-          setFormData((prev) => ({
-            ...prev,
-            streetViewUrl: "",
-            hasStreetView: false,
-          }));
-        }
-      } catch (error) {
-        console.error("Error checking Street View availability:", error);
-      }
-    }
+    // Simplified for now
   };
 
   const handlePhotosUpdate = (newPhotos: EnhancedPhoto[]) => {
