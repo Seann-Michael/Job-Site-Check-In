@@ -28,6 +28,7 @@ import Gallery from "./pages/Gallery";
 import Maps from "./pages/Maps";
 import Index from "./pages/Index";
 import AddProject from "./pages/AddProject";
+import AdminAddProject from "./pages/AdminAddProject";
 import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
 const OneTimeScan = lazy(() => import("./pages/OneTimeScanEnhanced"));
