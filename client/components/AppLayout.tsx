@@ -273,8 +273,8 @@ export function AppLayout({
           )}
         >
           {/* Mobile Sidebar Header */}
-          <div className="p-4 border-b bg-primary/5">
-            <div className="flex items-center justify-between">
+          <div className="border-b bg-primary/5">
+            <div className="p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
                   <Building2 className="h-5 w-5 text-primary-foreground" />
@@ -295,6 +295,8 @@ export function AppLayout({
                 <X className="h-5 w-5" />
               </Button>
             </div>
+            {/* Company Selector for Mobile */}
+            <CompanySelector collapsed={false} />
           </div>
 
           {/* Mobile Sidebar Items */}
