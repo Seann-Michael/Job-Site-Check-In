@@ -315,12 +315,16 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/maps/one-time-scan"
+                  path="/admin/maps/geo-grid-scan"
                   element={
                     <ProtectedRoute>
-                      <OneTimeScan />
+                      <GeoGridScan />
                     </ProtectedRoute>
                   }
+                />
+                <Route
+                  path="/admin/maps/one-time-scan"
+                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
                 <Route
                   path="/admin/maps/recurring-scans"
