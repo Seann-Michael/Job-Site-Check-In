@@ -20,7 +20,7 @@ const Automation = lazy(() => import("./pages/Automation"));
 // const Audits = lazy(() => import("./pages/Audits"));
 
 // Import components directly to fix lazy loading issues
-import MinimalTest from "./pages/MinimalTest";
+import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Audits from "./pages/Audits";
 const Maps = lazy(() => import("./pages/Maps"));
