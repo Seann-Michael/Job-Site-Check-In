@@ -1342,16 +1342,32 @@ export default function GeoGridScan() {
           </Card>
 
           {/* Map Configuration */}
-          <div className="mt-8" style={{ position: 'relative', zIndex: 10 }}>
-            <Card style={{ position: 'relative', zIndex: 10 }}>
-              <CardHeader>
+          <div className="mt-8" style={{ position: 'relative', zIndex: 9999 }}>
+            <Card style={{
+              position: 'relative',
+              zIndex: 9999,
+              backgroundColor: 'white',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              isolation: 'isolate'
+            }}>
+              <CardHeader style={{ backgroundColor: 'white', zIndex: 9999 }}>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
                   Map Configuration
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4" style={{ position: 'relative', zIndex: 10, backgroundColor: 'white' }}>
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg" style={{ position: 'relative', zIndex: 10 }}>
+              <CardContent className="space-y-4" style={{
+                position: 'relative',
+                zIndex: 9999,
+                backgroundColor: 'white',
+                isolation: 'isolate'
+              }}>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg" style={{
+                  position: 'relative',
+                  zIndex: 9999,
+                  backgroundColor: 'rgb(239 246 255)',
+                  isolation: 'isolate'
+                }}>
                   <p className="text-sm text-blue-800">
                     <strong>Map Controls:</strong> Use the native Google Maps zoom controls (+ / - buttons or mouse wheel) to adjust the map view. Zoom changes in increments of 0.5 for more precise control.
                   </p>
