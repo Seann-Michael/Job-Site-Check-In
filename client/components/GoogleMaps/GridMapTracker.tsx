@@ -298,6 +298,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       gridSize,
       pinSpacing,
       disabledPoints,
+      rings,
     );
     setMarkers(newMarkers);
     // Don't call onGridChange during initialization to prevent infinite loops
@@ -305,6 +306,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     gridCenter,
     gridType,
     gridSize,
+    rings,
     pinSpacing,
     disabledPoints,
     generateGridPositions,
