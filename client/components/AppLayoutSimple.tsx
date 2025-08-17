@@ -39,7 +39,6 @@ import {
   Clock,
   Target,
   TrendingUp,
-  MapPin,
   Calendar,
   CreditCard,
   Globe,
