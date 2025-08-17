@@ -243,7 +243,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   // Handle drag start
   const handleDragStart = useCallback(
-    (waypointId: string) => {
+    (waypointId: string, event?: any) => {
+      if (event) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+      }
       setIsDragging(true);
       setDraggedWaypoint(waypointId);
 
@@ -263,6 +267,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   // Handle drag end - always move all waypoints together
   const handleDragEnd = useCallback(
     (waypointId: string, event: google.maps.MapMouseEvent) => {
+      if (event) {
+        event.stop?.();
+      }
       setIsDragging(false);
       setDraggedWaypoint(null);
 
