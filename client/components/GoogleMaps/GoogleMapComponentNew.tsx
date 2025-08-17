@@ -99,6 +99,42 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const hasInitializedBounds = useRef(false);
   const previousWaypointCount = useRef(0);
 
+  // Center pin function that fits bounds to show all waypoints
+  const centerPinFunction = useCallback(() => {
+    if (map && waypointData.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      waypointData.forEach((waypoint) => {
+        bounds.extend(waypoint.coordinates);
+      });
+
+      // Fit bounds to show all waypoints
+      map.fitBounds(bounds);
+
+      // Add padding around the waypoints for better visibility
+      setTimeout(() => {
+        map.fitBounds(bounds, {
+          top: 50,
+          bottom: 50,
+          left: 50,
+          right: 50,
+        });
+      }, 100);
+    }
+  }, [map, waypointData]);
+
+  // Listen for center map event when rings are changed
+  useEffect(() => {
+    const handleCenterMapEvent = () => {
+      centerPinFunction();
+    };
+
+    window.addEventListener('centerMapToWaypoints', handleCenterMapEvent);
+
+    return () => {
+      window.removeEventListener('centerMapToWaypoints', handleCenterMapEvent);
+    };
+  }, [centerPinFunction]);
+
   const apiKey = getGoogleMapsApiKey();
   console.log(
     "GoogleMapComponent: Using API key:",
