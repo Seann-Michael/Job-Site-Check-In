@@ -785,10 +785,10 @@ body {
 
 /* Fix Radix Select dropdown positioning issues */
 [data-radix-select-content] {
-  z-index: 50;
+  z-index: 60;
 }
 
 /* Ensure Radix Portal dropdowns have proper z-index but don't interfere with header */
 [data-radix-portal] {
-  z-index: 50;
+  z-index: 60;
 }
