@@ -109,7 +109,11 @@ export default function GeoGridScan() {
     rings: 3, // New ring-based configuration for circles
     distanceBetween: 1,
     unit: "miles" as "miles" | "kilometers",
-    pattern: "circle" as "circle" | "grid" | "line",
+    pattern: "circle" as "circle" | "grid",
+
+    // Device settings
+    device: "desktop" as "desktop" | "mobile",
+    os: "windows" as "windows" | "macos" | "android" | "ios",
   });
 
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
