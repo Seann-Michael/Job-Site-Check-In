@@ -31,6 +31,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   center = { lat: 40.7128, lng: -74.006 },
   gridType = "square", // 'square' or 'circle'
   gridSize = 5, // For square: 3-20, For circle: see circleConfig
+  rings, // Number of rings for circle type
   pinSpacing = 1000, // Distance between pins in meters
   rankings = {},
   disabledPoints = [],
