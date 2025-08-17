@@ -100,6 +100,47 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING",
   );
 
+  // Function to auto-fit map bounds to show all waypoints
+  const autoFitBounds = useCallback(() => {
+    if (map && waypointData.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      waypointData.forEach((wp) => {
+        bounds.extend(wp.coordinates);
+      });
+      map.fitBounds(bounds);
+
+      // Ensure reasonable zoom level constraints
+      setTimeout(() => {
+        const currentZoom = map.getZoom();
+        if (currentZoom && currentZoom > 16) {
+          map.setZoom(16);
+        } else if (currentZoom && currentZoom < 8) {
+          map.setZoom(8);
+        }
+      }, 100);
+    }
+  }, [map, waypointData]);
+
+  // Auto-zoom when waypoint count changes (grid size changes)
+  React.useEffect(() => {
+    const currentWaypointCount = waypointData.length;
+
+    // If waypoint count changed and we have waypoints, auto-fit bounds
+    if (
+      currentWaypointCount !== previousWaypointCount.current &&
+      currentWaypointCount > 0 &&
+      map &&
+      hasInitializedBounds.current // Only auto-zoom after initial load
+    ) {
+      console.log(`Waypoint count changed: ${previousWaypointCount.current} → ${currentWaypointCount}, auto-fitting bounds`);
+      setTimeout(() => {
+        autoFitBounds();
+      }, 200); // Small delay to ensure waypoints are rendered
+    }
+
+    previousWaypointCount.current = currentWaypointCount;
+  }, [waypointData.length, map, autoFitBounds]);
+
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: apiKey,
