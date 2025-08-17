@@ -90,7 +90,6 @@ export default function GeoGridScan() {
   const [recurringSettings, setRecurringSettings] = useState({
     frequency: "weekly" as "daily" | "weekly" | "biweekly" | "monthly",
     startDate: new Date().toISOString().split("T")[0],
-    autoRenew: true,
   });
 
   // Keywords
@@ -301,11 +300,6 @@ export default function GeoGridScan() {
 
   const enabledWaypointsCount = getEnabledWaypointsCount(waypoints);
 
-  // This is no longer needed since we're using waypointData directly
-  // const getMapMarkers = useCallback(() => {
-  //   // Removed to prevent unnecessary re-renders
-  // }, []);
-
   return (
     <AppLayout>
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -421,7 +415,6 @@ export default function GeoGridScan() {
               </CardContent>
             </Card>
 
-
             {/* Keywords */}
             <Card>
               <CardHeader>
@@ -504,7 +497,7 @@ export default function GeoGridScan() {
               </CardContent>
             </Card>
 
-            {/* Combined Scan & Waypoint Configuration */}
+            {/* Compact Scan & Waypoint Configuration */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -512,375 +505,206 @@ export default function GeoGridScan() {
                   Scan & Waypoint Configuration
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Scan Settings */}
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-3">
-                    Search Parameters
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        Search Depth
-                      </Label>
-                      <Select
-                        value={scanConfig.depth.toString()}
-                        onValueChange={(value) =>
-                          setScanConfig({
-                            ...scanConfig,
-                            depth: parseInt(value),
-                          })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="10">Top 10</SelectItem>
-                          <SelectItem value="20">Top 20</SelectItem>
-                          <SelectItem value="30">Top 30</SelectItem>
-                          <SelectItem value="50">Top 50</SelectItem>
-                          <SelectItem value="100">Top 100</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <CardContent className="space-y-4">
+                {/* First Row: 3 inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="max-w-[180px]">
+                    <Label className="text-sm font-medium">Search Depth</Label>
+                    <Select
+                      value={scanConfig.depth.toString()}
+                      onValueChange={(value) =>
+                        setScanConfig({
+                          ...scanConfig,
+                          depth: parseInt(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">Top 10</SelectItem>
+                        <SelectItem value="20">Top 20</SelectItem>
+                        <SelectItem value="30">Top 30</SelectItem>
+                        <SelectItem value="50">Top 50</SelectItem>
+                        <SelectItem value="100">Top 100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                    <div>
-                      <Label className="text-sm font-medium">
-                        Priority Level
-                      </Label>
-                      <Select
-                        value={scanConfig.priority}
-                        onValueChange={(value) =>
-                          setScanConfig({
-                            ...scanConfig,
-                            priority: value as
-                              | "standard"
-                              | "expedited"
-                              | "priority",
-                          })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="standard">Standard</SelectItem>
-                          <SelectItem value="expedited">
-                            Expedited (+50%)
-                          </SelectItem>
-                          <SelectItem value="priority">
-                            Priority (+100%)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="max-w-[180px]">
+                    <Label className="text-sm font-medium">Priority Level</Label>
+                    <Select
+                      value={scanConfig.priority}
+                      onValueChange={(value) =>
+                        setScanConfig({
+                          ...scanConfig,
+                          priority: value as
+                            | "standard"
+                            | "expedited"
+                            | "priority",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="expedited">Expedited (+50%)</SelectItem>
+                        <SelectItem value="priority">Priority (+100%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="max-w-[180px]">
+                    <Label className="text-sm font-medium">Pattern Type</Label>
+                    <Select
+                      value={scanConfig.pattern}
+                      onValueChange={(value) =>
+                        setScanConfig({
+                          ...scanConfig,
+                          pattern: value as "circle" | "grid" | "line",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="grid">Square Grid</SelectItem>
+                        <SelectItem value="circle">Circular Pattern</SelectItem>
+                        <SelectItem value="line">Linear Pattern</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                {/* Waypoint Settings */}
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-3">
-                    Waypoint Grid
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        Pattern Type
-                      </Label>
-                      <Select
-                        value={scanConfig.pattern}
-                        onValueChange={(value) =>
-                          setScanConfig({
-                            ...scanConfig,
-                            pattern: value as "circle" | "grid" | "line",
-                          })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="grid">
-                            <div className="flex items-center gap-2">
-                              <Grid3X3 className="h-4 w-4" />
-                              Square Grid
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="circle">
-                            <div className="flex items-center gap-2">
-                              <Circle className="h-4 w-4" />
-                              Circular Pattern
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="line">
-                            <div className="flex items-center gap-2">
-                              <Crosshair className="h-4 w-4" />
-                              Linear Pattern
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">
-                        {scanConfig.pattern === "grid"
-                          ? "Grid Size"
-                          : scanConfig.pattern === "circle"
-                            ? "Number of Rings"
-                            : "Line Points"}
-                      </Label>
-                      <Select
-                        value={
-                          scanConfig.pattern === "circle"
-                            ? scanConfig.rings.toString()
-                            : scanConfig.count.toString()
-                        }
-                        onValueChange={(value) =>
-                          setScanConfig({
-                            ...scanConfig,
-                            ...(scanConfig.pattern === "circle"
-                              ? { rings: parseInt(value) }
-                              : { count: parseInt(value) }),
-                          })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          {scanConfig.pattern === "grid" && (
-                            <>
-                              <SelectItem value="9">
-                                3×3 Grid (9 pins)
-                              </SelectItem>
-                              <SelectItem value="16">
-                                4×4 Grid (16 pins)
-                              </SelectItem>
-                              <SelectItem value="25">
-                                5×5 Grid (25 pins)
-                              </SelectItem>
-                              <SelectItem value="49">
-                                6×6 Grid (49 pins)
-                              </SelectItem>
-                              <SelectItem value="64">
-                                7×7 Grid (64 pins)
-                              </SelectItem>
-                              <SelectItem value="81">
-                                8��8 Grid (81 pins)
-                              </SelectItem>
-                              <SelectItem value="100">
-                                9×9 Grid (100 pins)
-                              </SelectItem>
-                              <SelectItem value="121">
-                                10×10 Grid (121 pins)
-                              </SelectItem>
-                              <SelectItem value="144">
-                                11×11 Grid (144 pins)
-                              </SelectItem>
-                              <SelectItem value="169">
-                                12×12 Grid (169 pins)
-                              </SelectItem>
-                              <SelectItem value="225">
-                                13×13 Grid (225 pins)
-                              </SelectItem>
-                              <SelectItem value="441">
-                                14×14 Grid (441 pins)
-                              </SelectItem>
-                            </>
-                          )}
-                          {scanConfig.pattern === "circle" && (
-                            <>
-                              <SelectItem value="1">
-                                1 Ring ({calculateWaypointCount(1)} pins)
-                              </SelectItem>
-                              <SelectItem value="2">
-                                2 Rings ({calculateWaypointCount(2)} pins)
-                              </SelectItem>
-                              <SelectItem value="3">
-                                3 Rings ({calculateWaypointCount(3)} pins)
-                              </SelectItem>
-                              <SelectItem value="4">
-                                4 Rings ({calculateWaypointCount(4)} pins)
-                              </SelectItem>
-                              <SelectItem value="5">
-                                5 Rings ({calculateWaypointCount(5)} pins)
-                              </SelectItem>
-                              <SelectItem value="6">
-                                6 Rings ({calculateWaypointCount(6)} pins)
-                              </SelectItem>
-                              <SelectItem value="7">
-                                7 Rings ({calculateWaypointCount(7)} pins)
-                              </SelectItem>
-                              <SelectItem value="8">
-                                8 Rings ({calculateWaypointCount(8)} pins)
-                              </SelectItem>
-                              <SelectItem value="9">
-                                9 Rings ({calculateWaypointCount(9)} pins)
-                              </SelectItem>
-                              <SelectItem value="10">
-                                10 Rings ({calculateWaypointCount(10)} pins)
-                              </SelectItem>
-                              <SelectItem value="11">
-                                11 Rings ({calculateWaypointCount(11)} pins)
-                              </SelectItem>
-                            </>
-                          )}
-                          {scanConfig.pattern === "line" && (
-                            <>
-                              <SelectItem value="5">5 Points Line</SelectItem>
-                              <SelectItem value="10">10 Points Line</SelectItem>
-                              <SelectItem value="15">15 Points Line</SelectItem>
-                              <SelectItem value="20">20 Points Line</SelectItem>
-                              <SelectItem value="25">25 Points Line</SelectItem>
-                              <SelectItem value="30">30 Points Line</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                {/* Second Row: 3 inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="max-w-[180px]">
+                    <Label className="text-sm font-medium">
+                      {scanConfig.pattern === "grid"
+                        ? "Grid Size"
+                        : scanConfig.pattern === "circle"
+                          ? "Number of Rings"
+                          : "Line Points"}
+                    </Label>
+                    <Select
+                      value={
+                        scanConfig.pattern === "circle"
+                          ? scanConfig.rings.toString()
+                          : scanConfig.count.toString()
+                      }
+                      onValueChange={(value) =>
+                        setScanConfig({
+                          ...scanConfig,
+                          ...(scanConfig.pattern === "circle"
+                            ? { rings: parseInt(value) }
+                            : { count: parseInt(value) }),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {scanConfig.pattern === "grid" && (
+                          <>
+                            <SelectItem value="9">3×3 (9 pins)</SelectItem>
+                            <SelectItem value="16">4×4 (16 pins)</SelectItem>
+                            <SelectItem value="25">5×5 (25 pins)</SelectItem>
+                            <SelectItem value="49">6×6 (49 pins)</SelectItem>
+                            <SelectItem value="64">7×7 (64 pins)</SelectItem>
+                          </>
+                        )}
+                        {scanConfig.pattern === "circle" && (
+                          <>
+                            <SelectItem value="1">1 Ring ({calculateWaypointCount(1)} pins)</SelectItem>
+                            <SelectItem value="2">2 Rings ({calculateWaypointCount(2)} pins)</SelectItem>
+                            <SelectItem value="3">3 Rings ({calculateWaypointCount(3)} pins)</SelectItem>
+                            <SelectItem value="4">4 Rings ({calculateWaypointCount(4)} pins)</SelectItem>
+                            <SelectItem value="5">5 Rings ({calculateWaypointCount(5)} pins)</SelectItem>
+                          </>
+                        )}
+                        {scanConfig.pattern === "line" && (
+                          <>
+                            <SelectItem value="5">5 Points</SelectItem>
+                            <SelectItem value="10">10 Points</SelectItem>
+                            <SelectItem value="15">15 Points</SelectItem>
+                            <SelectItem value="20">20 Points</SelectItem>
+                            <SelectItem value="25">25 Points</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        Distance Between Pins
-                      </Label>
-                      <Select
-                        value={scanConfig.distanceBetween.toString()}
-                        onValueChange={(value) =>
+                  <div className="max-w-[180px]">
+                    <Label className="text-sm font-medium">Distance Between Pins</Label>
+                    <Select
+                      value={scanConfig.distanceBetween.toString()}
+                      onValueChange={(value) =>
+                        setScanConfig({
+                          ...scanConfig,
+                          distanceBetween: parseFloat(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.1">0.1 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="0.25">0.25 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="0.5">0.5 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="1">1 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="2">2 {scanConfig.unit}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="max-w-[180px]">
+                    <Label className="text-sm font-medium">Distance Unit</Label>
+                    <div className="flex rounded-md border overflow-hidden mt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
                           setScanConfig({
                             ...scanConfig,
-                            distanceBetween: parseFloat(value),
+                            unit: "kilometers",
                           })
                         }
+                        className={`flex-1 px-2 py-2 text-sm font-medium border-r transition-colors ${
+                          scanConfig.unit === "kilometers"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0.1">
-                            0.1 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="0.25">
-                            0.25 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="0.5">
-                            0.5 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="0.75">
-                            0.75 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="1">1 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="1.5">
-                            1.5 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="2">2 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="2.5">
-                            2.5 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="3">3 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="5">5 {scanConfig.unit}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">
-                        Distance Unit
-                      </Label>
-                      <div className="flex rounded-md border overflow-hidden mt-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setScanConfig({
-                              ...scanConfig,
-                              unit: "kilometers",
-                            })
-                          }
-                          className={`flex-1 px-3 py-2 text-sm font-medium border-r transition-colors ${
-                            scanConfig.unit === "kilometers"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          Kilometers
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setScanConfig({ ...scanConfig, unit: "miles" })
-                          }
-                          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-                            scanConfig.unit === "miles"
-                              ? "bg-blue-50 text-blue-700"
-                              : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          Miles
-                        </button>
-                      </div>
+                        KM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setScanConfig({ ...scanConfig, unit: "miles" })
+                        }
+                        className={`flex-1 px-2 py-2 text-sm font-medium transition-colors ${
+                          scanConfig.unit === "miles"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        MI
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                {/* Waypoint Preview */}
-                {waypoints.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-medium">
-                        Waypoints ({enabledWaypointsCount} of {waypoints.length}{" "}
-                        enabled)
-                      </Label>
-                    </div>
-
-                    <div className="max-h-32 overflow-y-auto border rounded-lg p-3 space-y-1">
-                      {waypoints.map((waypoint, index) => {
-                        const waypointNumber = waypoint.isCenter
-                          ? 1
-                          : waypoints
-                              .filter((w) => !w.isCenter)
-                              .indexOf(waypoint) + 2;
-
-                        return (
-                          <div
-                            key={waypoint.id}
-                            className="flex items-center justify-between text-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={waypoint.enabled}
-                                onCheckedChange={() =>
-                                  handleWaypointToggle(waypoint.id)
-                                }
-                              />
-                              <span
-                                className={waypoint.isCenter ? "font-bold" : ""}
-                              >
-                                {waypoint.isCenter
-                                  ? `#${waypointNumber} Center`
-                                  : `#${waypointNumber} Waypoint`}
-                              </span>
-                            </div>
-                            <div className="text-gray-500 text-xs">
-                              {waypoint.distance?.toFixed(1)} {scanConfig.unit}
-                              {waypoint.bearing !== undefined &&
-                                ` • ${waypoint.bearing.toFixed(0)}°`}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
           </div>
 
         </div>
-
 
         {/* Google Map */}
         <div className="mt-8" style={{ overflowAnchor: "auto" }}>
@@ -962,12 +786,8 @@ export default function GeoGridScan() {
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Search Depth:
-                      </span>
-                      <span className="text-sm font-medium">
-                        Top {scanConfig.depth}
-                      </span>
+                      <span className="text-sm text-gray-600">Search Depth:</span>
+                      <span className="text-sm font-medium">Top {scanConfig.depth}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Priority:</span>
@@ -978,117 +798,60 @@ export default function GeoGridScan() {
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Grid Pattern:
+                      <span className="text-sm text-gray-600">Total Cost:</span>
+                      <span className="text-sm font-medium">
+                        {formatCredits(scanCost)} credits
                       </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Pattern:</span>
                       <span className="text-sm font-medium capitalize">
                         {scanConfig.pattern}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Available Credits:
-                      </span>
-                      <span className="text-sm font-medium text-blue-600">
-                        {formatCredits(balance.remaining)}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium text-gray-900">
-                      Total Credits Required:
-                    </span>
-                    <span className="text-2xl font-bold text-blue-600">
-                      {formatCredits(scanCost)}
-                    </span>
+                {/* Start Scan Button */}
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Available Credits: {formatCredits(balance.remaining)}
+                      </div>
+                      {!isFormComplete() && (
+                        <div className="flex items-center gap-2 text-orange-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm">
+                            {keywords.length === 0
+                              ? "Add keywords"
+                              : "Configure waypoints"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={startScan}
+                      disabled={!isFormComplete() || isRunning}
+                      size="lg"
+                      className="min-w-[140px]"
+                    >
+                      {isRunning ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          <Target className="mr-2 h-4 w-4" />
+                          Start Scan
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  {keywords.length > 1 && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      {keywords.length} keywords ×{" "}
-                      {formatCredits(scanCost / keywords.length)} credits each
-                    </p>
-                  )}
-                </div>
-
-                {/* Status Messages */}
-                <div className="space-y-3">
-                  {balance.remaining < scanCost && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-red-800">
-                            Insufficient Credits
-                          </p>
-                          <p className="text-xs text-red-700">
-                            You need {formatCredits(scanCost)} credits but only
-                            have {formatCredits(balance.remaining)} remaining.
-                            <button
-                              onClick={() =>
-                                navigate("/admin/credits/purchase")
-                              }
-                              className="text-red-800 underline ml-1"
-                            >
-                              Purchase more credits
-                            </button>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {!isFormComplete() && (
-                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <Info className="h-4 w-4 text-orange-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-orange-800">
-                            Complete Required Fields
-                          </p>
-                          <ul className="text-xs text-orange-700 mt-1 space-y-1">
-                            {keywords.length === 0 && (
-                              <li>• Add at least one keyword</li>
-                            )}
-                            {waypoints.length === 0 && (
-                              <li>• Configure waypoints</li>
-                            )}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Start Scan Button - Below summary */}
-          <div className="mt-6">
-            <Button
-              onClick={startScan}
-              className="w-full"
-              size="lg"
-              disabled={
-                !isFormComplete() || balance.remaining < scanCost || isRunning
-              }
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Starting {keywords.length} Scan
-                  {keywords.length !== 1 ? "s" : ""}...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-5 w-5 mr-2" />
-                  Start Geo Grid Scan
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
           </div>
         </div>
       </div>
