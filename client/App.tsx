@@ -318,18 +318,14 @@ const App = () => (
                   path="/admin/maps/one-time-scan"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
-                <Route
-                  path="/admin/maps/scan-history"
-                  element={
-                    <ProtectedRoute>
-                      <ScanHistory />
-                    </ProtectedRoute>
-                  }
-                />
                 {/* Audits routes */}
                 <Route
                   path="/admin/audits/one-time-scan"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
+                />
+                <Route
+                  path="/admin/maps/scan-history"
+                  element={<Navigate to="/admin/audits/scan-history" replace />}
                 />
                 <Route
                   path="/admin/grid-demo"
