@@ -74,22 +74,6 @@ const ADMIN_BUSINESS = {
 export default function GeoGridScan() {
   const navigate = useNavigate();
   const { balance } = useCredits();
-  const scrollPositionRef = useRef(0);
-
-  // Preserve scroll position before state updates
-  const preserveScrollPosition = useCallback(() => {
-    scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop;
-  }, []);
-
-  const restoreScrollPosition = useCallback(() => {
-    // Use a longer delay to ensure map operations complete first
-    setTimeout(() => {
-      window.scrollTo({
-        top: scrollPositionRef.current,
-        behavior: 'instant'
-      });
-    }, 100);
-  }, []);
 
   // Scan Type (One-time vs Recurring)
   const [scanType, setScanType] = useState<"one-time" | "recurring">(
