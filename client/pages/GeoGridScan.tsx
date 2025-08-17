@@ -160,13 +160,8 @@ export default function GeoGridScan() {
 
   // Toggle waypoint
   const handleWaypointToggle = useCallback((waypointId: string) => {
-    preserveScrollPosition();
-    setWaypoints((prevWaypoints) => {
-      const result = toggleWaypoint(prevWaypoints, waypointId);
-      setTimeout(() => restoreScrollPosition(), 0); // Async restore
-      return result;
-    });
-  }, [preserveScrollPosition, restoreScrollPosition]);
+    setWaypoints((prevWaypoints) => toggleWaypoint(prevWaypoints, waypointId));
+  }, []);
 
   // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback(
