@@ -39,7 +39,7 @@ import {
   Repeat,
   CalendarDays,
 } from "lucide-react";
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useCredits } from "@/components/CreditProvider";
@@ -75,6 +75,18 @@ const ADMIN_BUSINESS = {
 export default function GeoGridScan() {
   const navigate = useNavigate();
   const { balance } = useCredits();
+  const scrollPositionRef = useRef(0);
+
+  // Preserve scroll position before state updates
+  const preserveScrollPosition = useCallback(() => {
+    scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop;
+  }, []);
+
+  const restoreScrollPosition = useCallback(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollPositionRef.current);
+    });
+  }, []);
 
   // Scan Type (One-time vs Recurring)
   const [scanType, setScanType] = useState<"one-time" | "recurring">(
@@ -143,32 +155,54 @@ export default function GeoGridScan() {
   };
 
   // Toggle waypoint
-  const handleWaypointToggle = useCallback((waypointId: string) => {
-    setWaypoints((prevWaypoints) => toggleWaypoint(prevWaypoints, waypointId));
-  }, []);
+  const handleWaypointToggle = useCallback((waypointId: string, e?: Event) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    preserveScrollPosition();
+    setWaypoints((prevWaypoints) => {
+      const result = toggleWaypoint(prevWaypoints, waypointId);
+      restoreScrollPosition();
+      return result;
+    });
+  }, [preserveScrollPosition, restoreScrollPosition]);
 
   // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback(
-    (waypointId: string, newPosition: { lat: number; lng: number }) => {
-      setWaypoints((prevWaypoints) =>
-        updateWaypointPosition(
+    (waypointId: string, newPosition: { lat: number; lng: number }, e?: Event) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      preserveScrollPosition();
+      setWaypoints((prevWaypoints) => {
+        const result = updateWaypointPosition(
           prevWaypoints,
           waypointId,
           newPosition,
           ADMIN_BUSINESS.coordinates,
           scanConfig.unit,
-        ),
-      );
+        );
+        restoreScrollPosition();
+        return result;
+      });
     },
-    [scanConfig.unit],
+    [scanConfig.unit, preserveScrollPosition, restoreScrollPosition],
   );
 
   // Handle when all waypoints are moved together
   const handleWaypointsDragComplete = useCallback(
-    (updatedWaypoints: Waypoint[]) => {
+    (updatedWaypoints: Waypoint[], e?: Event) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      preserveScrollPosition();
       setWaypoints(updatedWaypoints);
+      restoreScrollPosition();
     },
-    [],
+    [preserveScrollPosition, restoreScrollPosition],
   );
 
   // Memoize scan config object to prevent unnecessary re-renders
@@ -1011,7 +1045,7 @@ export default function GeoGridScan() {
         </div>
 
         {/* Google Map */}
-        <div className="mt-8">
+        <div className="mt-8" style={{ overflowAnchor: 'auto' }}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1020,7 +1054,7 @@ export default function GeoGridScan() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-96 w-full">
+              <div className="h-96 w-full" style={{ overflowAnchor: 'auto' }}>
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
                   zoom={12}
