@@ -806,13 +806,15 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 };
 
 // Separate Zoom Control Component
-const ZoomControlCard: React.FC<{
+interface ZoomControlCardProps {
   isManualZoomMode: boolean;
   manualZoomPercentage: number;
   toggleZoomMode: () => void;
   handleManualZoom: (percentage: number) => void;
   percentageToZoom: (percentage: number) => number;
-}> = ({
+}
+
+const ZoomControlCard: React.FC<ZoomControlCardProps> = ({
   isManualZoomMode,
   manualZoomPercentage,
   toggleZoomMode,
