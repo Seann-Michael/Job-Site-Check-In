@@ -220,6 +220,13 @@ export function AppLayout({
     }
   }, [location.pathname, expandedMenus]);
 
+  // Auto-expand Audits menu if we're on an audits page
+  React.useEffect(() => {
+    if (location.pathname.startsWith("/admin/audits") && !expandedMenus.includes("audits")) {
+      setExpandedMenus(prev => [...prev, "audits"]);
+    }
+  }, [location.pathname, expandedMenus]);
+
   // Navigation items with conditional visibility
   const sidebarItems = [
     {
