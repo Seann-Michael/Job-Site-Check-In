@@ -145,6 +145,7 @@ export default function GeoGridScan() {
     const options: WaypointGenerationOptions = {
       center: ADMIN_BUSINESS.coordinates,
       count: actualCount,
+      rings: scanConfig.pattern === "circle" ? scanConfig.rings : undefined,
       distanceBetween: scanConfig.distanceBetween,
       unit: scanConfig.unit,
       pattern: scanConfig.pattern,
