@@ -25,7 +25,6 @@ import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Audits from "./pages/Audits";
 import Gallery from "./pages/Gallery";
-import Maps from "./pages/Maps";
 import Index from "./pages/Index";
 import AddProject from "./pages/AddProject";
 import AdminAddProjectMinimal from "./pages/AdminAddProjectMinimal";
@@ -301,14 +300,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Audits />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/maps"
-                  element={
-                    <ProtectedRoute>
-                      <Maps />
                     </ProtectedRoute>
                   }
                 />
@@ -954,10 +945,6 @@ const App = () => (
                 <Route
                   path="/AdminAudits"
                   element={<Navigate to="/admin/audits" replace />}
-                />
-                <Route
-                  path="/AdminMaps"
-                  element={<Navigate to="/admin/maps" replace />}
                 />
                 <Route
                   path="/AgencyAdmin"
