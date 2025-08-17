@@ -16,6 +16,7 @@ export interface Waypoint {
 export interface WaypointGenerationOptions {
   center: Coordinate;
   count: number;
+  rings?: number; // Optional: number of rings for circle pattern (alternative to count)
   distanceBetween: number; // Distance between waypoints
   unit: "miles" | "kilometers";
   pattern: "circle" | "grid" | "line";
