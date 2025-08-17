@@ -183,7 +183,7 @@ export function AppLayout({
     {
       id: "maps",
       label: "Maps",
-      href: "/admin/maps",
+      href: "/admin/maps/geo-grid-scan",
       icon: MapPin,
       active: location.pathname.startsWith("/admin/maps"),
       comingSoon: false,
