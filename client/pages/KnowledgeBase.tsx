@@ -2109,33 +2109,6 @@ Contact our billing support team:
                 </CardContent>
               </Card>
 
-              {/* System Status Card */}
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <div className="flex justify-center mb-4">
-                      <div className="p-3 bg-green-100 rounded-full">
-                        <Activity className="h-8 w-8 text-green-600" />
-                      </div>
-                    </div>
-                    <h4 className="text-lg font-semibold mb-2">
-                      System Status
-                    </h4>
-                    <p className="text-muted-foreground mb-4">
-                      Check the current status of our services and any ongoing
-                      incidents
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => window.open("/status", "_blank")}
-                      className="gap-2"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      View System Status
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>
