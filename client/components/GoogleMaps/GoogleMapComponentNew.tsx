@@ -664,7 +664,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   return (
     <>
       <Card className={className}>
-        <CardContent className="p-3">
+        <CardContent className="p-3 space-y-4">
         <div
           style={{
             width: "100%",
@@ -747,11 +747,22 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           </GoogleMap>
         </div>
 
+        {/* Zoom Control Component - now inside the main map container */}
+        <div className="border-t border-gray-200 pt-4">
+          <ZoomControlCard
+            isManualZoomMode={isManualZoomMode}
+            manualZoomPercentage={manualZoomPercentage}
+            toggleZoomMode={toggleZoomMode}
+            handleManualZoom={handleManualZoom}
+            percentageToZoom={percentageToZoom}
+          />
+        </div>
+
         {(showDirectionsButton ||
           address ||
           (lat !== undefined && lng !== undefined) ||
           center) && (
-          <div className="flex justify-between items-center mt-3 gap-2">
+          <div className="flex justify-between items-center gap-2 border-t border-gray-200 pt-4">
             <div className="flex-1 min-w-0">
               {address && (
                 <p className="text-xs text-muted-foreground truncate">
@@ -793,14 +804,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
         </CardContent>
       </Card>
-
-      <ZoomControlCard
-        isManualZoomMode={isManualZoomMode}
-        manualZoomPercentage={manualZoomPercentage}
-        toggleZoomMode={toggleZoomMode}
-        handleManualZoom={handleManualZoom}
-        percentageToZoom={percentageToZoom}
-      />
     </>
   );
 };
