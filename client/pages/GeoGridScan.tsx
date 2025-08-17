@@ -1252,6 +1252,61 @@ export default function GeoGridScan() {
           </div>
         </div>
 
+        {/* Container between Configuration and Map */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Scan Configuration Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-gray-900">Target Details</h4>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <p><span className="font-medium">Business:</span> {ADMIN_BUSINESS.name}</p>
+                    <p><span className="font-medium">Address:</span> {ADMIN_BUSINESS.address}</p>
+                    <p><span className="font-medium">Scan Type:</span> {scanType === "one-time" ? "One-time" : "Recurring"}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium text-gray-900">Search Parameters</h4>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <p><span className="font-medium">Keywords:</span> {keywords.length} configured</p>
+                    <p><span className="font-medium">Search Depth:</span> Top {scanConfig.depth} results</p>
+                    <p><span className="font-medium">Priority:</span> {scanConfig.priority}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium text-gray-900">Grid Configuration</h4>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <p><span className="font-medium">Pattern:</span> {scanConfig.pattern}</p>
+                    <p><span className="font-medium">Waypoints:</span> {enabledWaypointsCount} of {waypoints.length} enabled</p>
+                    <p><span className="font-medium">Distance:</span> {scanConfig.distanceBetween} {scanConfig.unit}</p>
+                  </div>
+                </div>
+              </div>
+
+              {keywords.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="font-medium text-gray-900 mb-2">Active Keywords</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.map((keyword) => (
+                      <Badge key={keyword} variant="outline" className="text-xs">
+                        {keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Google Map */}
         <div className="mt-8" style={{ overflowAnchor: "auto" }}>
           <Card>
