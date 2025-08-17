@@ -136,14 +136,29 @@ function generateCircularWaypoints(
   const waypoints: Waypoint[] = [];
   const radiusInMeters = convertToMeters(radius, unit);
 
-  // Calculate how many rings we need based on count
-  // For perfect circles: inner ring (6), middle ring (12), outer ring (18), etc.
-  const ringConfig = [
-    { pointsInRing: 6, radiusMultiplier: 0.5 },
-    { pointsInRing: 12, radiusMultiplier: 1.0 },
-    { pointsInRing: 18, radiusMultiplier: 1.5 },
-    { pointsInRing: 24, radiusMultiplier: 2.0 },
-  ];
+  // Circle configurations matching user specifications
+  const circleConfigs: Record<number, Array<{ pointsInRing: number; radiusMultiplier: number }>> = {
+    6: [{ pointsInRing: 6, radiusMultiplier: 1.0 }], // 7 total (center + 6)
+    11: [{ pointsInRing: 6, radiusMultiplier: 0.7 }, { pointsInRing: 5, radiusMultiplier: 1.3 }], // 12 total
+    19: [{ pointsInRing: 6, radiusMultiplier: 0.6 }, { pointsInRing: 8, radiusMultiplier: 1.0 }, { pointsInRing: 5, radiusMultiplier: 1.4 }], // 20 total
+    27: [{ pointsInRing: 6, radiusMultiplier: 0.5 }, { pointsInRing: 10, radiusMultiplier: 0.9 }, { pointsInRing: 11, radiusMultiplier: 1.3 }], // 28 total
+    38: [{ pointsInRing: 8, radiusMultiplier: 0.5 }, { pointsInRing: 12, radiusMultiplier: 0.9 }, { pointsInRing: 18, radiusMultiplier: 1.3 }], // 39 total
+    49: [{ pointsInRing: 8, radiusMultiplier: 0.4 }, { pointsInRing: 14, radiusMultiplier: 0.8 }, { pointsInRing: 16, radiusMultiplier: 1.1 }, { pointsInRing: 11, radiusMultiplier: 1.4 }], // 50 total
+    63: [{ pointsInRing: 10, radiusMultiplier: 0.4 }, { pointsInRing: 16, radiusMultiplier: 0.7 }, { pointsInRing: 20, radiusMultiplier: 1.0 }, { pointsInRing: 17, radiusMultiplier: 1.3 }], // 64 total
+    77: [{ pointsInRing: 12, radiusMultiplier: 0.4 }, { pointsInRing: 18, radiusMultiplier: 0.7 }, { pointsInRing: 24, radiusMultiplier: 1.0 }, { pointsInRing: 23, radiusMultiplier: 1.3 }], // 78 total
+    94: [{ pointsInRing: 14, radiusMultiplier: 0.3 }, { pointsInRing: 20, radiusMultiplier: 0.6 }, { pointsInRing: 28, radiusMultiplier: 0.9 }, { pointsInRing: 32, radiusMultiplier: 1.2 }], // 95 total
+    112: [{ pointsInRing: 16, radiusMultiplier: 0.3 }, { pointsInRing: 24, radiusMultiplier: 0.6 }, { pointsInRing: 32, radiusMultiplier: 0.9 }, { pointsInRing: 40, radiusMultiplier: 1.2 }], // 113 total
+    175: [{ pointsInRing: 20, radiusMultiplier: 0.25 }, { pointsInRing: 32, radiusMultiplier: 0.5 }, { pointsInRing: 44, radiusMultiplier: 0.75 }, { pointsInRing: 48, radiusMultiplier: 1.0 }, { pointsInRing: 31, radiusMultiplier: 1.25 }], // 176 total
+    345: [{ pointsInRing: 30, radiusMultiplier: 0.2 }, { pointsInRing: 48, radiusMultiplier: 0.4 }, { pointsInRing: 64, radiusMultiplier: 0.6 }, { pointsInRing: 80, radiusMultiplier: 0.8 }, { pointsInRing: 96, radiusMultiplier: 1.0 }, { pointsInRing: 27, radiusMultiplier: 1.2 }], // 346 total
+  };
+
+  // Use predefined configuration or fallback to dynamic generation
+  const ringConfig = circleConfigs[count] || [
+    { pointsInRing: Math.min(6, count), radiusMultiplier: 0.5 },
+    { pointsInRing: Math.min(12, Math.max(0, count - 6)), radiusMultiplier: 1.0 },
+    { pointsInRing: Math.min(18, Math.max(0, count - 18)), radiusMultiplier: 1.5 },
+    { pointsInRing: Math.min(24, Math.max(0, count - 36)), radiusMultiplier: 2.0 },
+  ].filter(ring => ring.pointsInRing > 0);
 
   let waypointIndex = 0;
 
