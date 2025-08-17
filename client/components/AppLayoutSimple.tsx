@@ -181,14 +181,6 @@ export function AppLayout({
       comingSoon: false,
     },
     {
-      id: "maps",
-      label: "Maps",
-      href: "/admin/maps/geo-grid-scan",
-      icon: MapPin,
-      active: location.pathname.startsWith("/admin/maps"),
-      comingSoon: false,
-    },
-    {
       id: "settings",
       label: "Settings",
       href: "/admin/settings",
