@@ -6,9 +6,6 @@ import {
   MapPin,
   Navigation,
   Maximize,
-  ZoomIn,
-  ZoomOut,
-  Target,
 } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 import {
