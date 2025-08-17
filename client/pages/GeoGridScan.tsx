@@ -166,20 +166,17 @@ export default function GeoGridScan() {
   // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback(
     (waypointId: string, newPosition: { lat: number; lng: number }) => {
-      preserveScrollPosition();
-      setWaypoints((prevWaypoints) => {
-        const result = updateWaypointPosition(
+      setWaypoints((prevWaypoints) =>
+        updateWaypointPosition(
           prevWaypoints,
           waypointId,
           newPosition,
           ADMIN_BUSINESS.coordinates,
           scanConfig.unit,
-        );
-        setTimeout(() => restoreScrollPosition(), 0); // Async restore
-        return result;
-      });
+        )
+      );
     },
-    [scanConfig.unit, preserveScrollPosition, restoreScrollPosition],
+    [scanConfig.unit],
   );
 
   // Handle when all waypoints are moved together
