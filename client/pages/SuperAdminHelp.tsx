@@ -508,9 +508,8 @@ This guide covers the most frequently encountered issues and their solutions.
 
 If these solutions don't resolve your issue:
 1. **Contact Support**: Use the support ticket system
-2. **Check Status Page**: Verify system status
-3. **Community Forum**: Ask the community
-4. **Live Chat**: Available during business hours
+2. **Community Forum**: Ask the community
+3. **Live Chat**: Available during business hours
       `,
       tags: ["troubleshooting", "issues", "solutions", "support"],
       lastUpdated: "2024-01-12",
