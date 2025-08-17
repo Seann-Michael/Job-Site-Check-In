@@ -662,8 +662,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   }
 
   return (
-    <Card className={className}>
-      <CardContent className="p-3">
+    <>
+      <Card className={className}>
+        <CardContent className="p-3">
         <div
           style={{
             width: "100%",
@@ -790,8 +791,17 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           </div>
         )}
 
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <ZoomControlCard
+        isManualZoomMode={isManualZoomMode}
+        manualZoomPercentage={manualZoomPercentage}
+        toggleZoomMode={toggleZoomMode}
+        handleManualZoom={handleManualZoom}
+        percentageToZoom={percentageToZoom}
+      />
+    </>
   );
 };
 
