@@ -136,19 +136,25 @@ function generateCircularWaypoints(
   const waypoints: Waypoint[] = [];
   const radiusInMeters = convertToMeters(radius, unit);
 
-  // Calculate how many rings we need
-  const ringsCount = Math.ceil(Math.sqrt(count));
+  // Calculate how many rings we need based on count
+  // For perfect circles: inner ring (6), middle ring (12), outer ring (18), etc.
+  const ringConfig = [
+    { pointsInRing: 6, radiusMultiplier: 0.5 },
+    { pointsInRing: 12, radiusMultiplier: 1.0 },
+    { pointsInRing: 18, radiusMultiplier: 1.5 },
+    { pointsInRing: 24, radiusMultiplier: 2.0 },
+  ];
+
   let waypointIndex = 0;
 
-  for (let ring = 1; ring <= ringsCount && waypointIndex < count; ring++) {
-    const ringRadius = (radiusInMeters * ring) / ringsCount;
-    const pointsInRing =
-      ring === 1
-        ? Math.min(6, count - waypointIndex)
-        : Math.min(8 * ring, count - waypointIndex);
+  for (const ring of ringConfig) {
+    if (waypointIndex >= count) break;
 
-    for (let i = 0; i < pointsInRing && waypointIndex < count; i++) {
-      const bearing = (360 / pointsInRing) * i;
+    const ringRadius = radiusInMeters * ring.radiusMultiplier;
+    const pointsInThisRing = Math.min(ring.pointsInRing, count - waypointIndex);
+
+    for (let i = 0; i < pointsInThisRing; i++) {
+      const bearing = (360 / pointsInThisRing) * i;
       const coordinates = destinationPoint(center, ringRadius, bearing);
 
       waypoints.push({
@@ -160,6 +166,7 @@ function generateCircularWaypoints(
       });
 
       waypointIndex++;
+      if (waypointIndex >= count) break;
     }
   }
 
@@ -176,38 +183,53 @@ function generateGridWaypoints(
   const waypoints: Waypoint[] = [];
   const spacingInMeters = convertToMeters(spacing, unit);
 
-  // Calculate grid dimensions
-  const gridSize = Math.ceil(Math.sqrt(count));
+  // Calculate perfect square grid dimensions
+  const gridSize = Math.ceil(Math.sqrt(count + 1)); // +1 to account for center
   const halfGrid = Math.floor(gridSize / 2);
 
   let waypointIndex = 0;
+  const gridPositions: Array<{row: number, col: number}> = [];
 
-  for (let row = -halfGrid; row <= halfGrid && waypointIndex < count; row++) {
-    for (let col = -halfGrid; col <= halfGrid && waypointIndex < count; col++) {
+  // Generate all grid positions excluding center
+  for (let row = -halfGrid; row <= halfGrid; row++) {
+    for (let col = -halfGrid; col <= halfGrid; col++) {
       if (row === 0 && col === 0) continue; // Skip center
-
-      const latOffset = (row * spacingInMeters) / 111320; // Approximate meters to degrees
-      const lngOffset =
-        (col * spacingInMeters) / (111320 * Math.cos(toRadians(center.lat)));
-
-      const coordinates: Coordinate = {
-        lat: center.lat + latOffset,
-        lng: center.lng + lngOffset,
-      };
-
-      const distance = calculateDistance(center, coordinates, unit);
-      const bearing = calculateBearing(center, coordinates);
-
-      waypoints.push({
-        id: `waypoint-${waypointIndex + 1}`,
-        coordinates,
-        enabled: true,
-        distance,
-        bearing,
-      });
-
-      waypointIndex++;
+      gridPositions.push({ row, col });
     }
+  }
+
+  // Sort by distance from center for better distribution
+  gridPositions.sort((a, b) => {
+    const distA = Math.sqrt(a.row * a.row + a.col * a.col);
+    const distB = Math.sqrt(b.row * b.row + b.col * b.col);
+    return distA - distB;
+  });
+
+  // Take only the required number of positions
+  for (let i = 0; i < Math.min(count, gridPositions.length); i++) {
+    const { row, col } = gridPositions[i];
+
+    const latOffset = (row * spacingInMeters) / 111320; // Approximate meters to degrees
+    const lngOffset =
+      (col * spacingInMeters) / (111320 * Math.cos(toRadians(center.lat)));
+
+    const coordinates: Coordinate = {
+      lat: center.lat + latOffset,
+      lng: center.lng + lngOffset,
+    };
+
+    const distance = calculateDistance(center, coordinates, unit);
+    const bearing = calculateBearing(center, coordinates);
+
+    waypoints.push({
+      id: `waypoint-${waypointIndex + 1}`,
+      coordinates,
+      enabled: true,
+      distance,
+      bearing,
+    });
+
+    waypointIndex++;
   }
 
   return waypoints;
@@ -291,6 +313,60 @@ export function toggleWaypoint(
       ? { ...waypoint, enabled: !waypoint.enabled }
       : waypoint,
   );
+}
+
+// Update waypoint position
+export function updateWaypointPosition(
+  waypoints: Waypoint[],
+  waypointId: string,
+  newPosition: Coordinate,
+  center: Coordinate,
+  unit: "miles" | "kilometers",
+): Waypoint[] {
+  return waypoints.map((waypoint) => {
+    if (waypoint.id === waypointId) {
+      const distance = calculateDistance(center, newPosition, unit);
+      const bearing = calculateBearing(center, newPosition);
+      return {
+        ...waypoint,
+        coordinates: newPosition,
+        distance,
+        bearing,
+      };
+    }
+    return waypoint;
+  });
+}
+
+// Move all waypoints relative to a moved waypoint
+export function moveAllWaypointsRelative(
+  waypoints: Waypoint[],
+  movedWaypointId: string,
+  newCenter: Coordinate,
+  originalCenter: Coordinate,
+  unit: "miles" | "kilometers",
+): Waypoint[] {
+  // Calculate the offset
+  const latOffset = newCenter.lat - originalCenter.lat;
+  const lngOffset = newCenter.lng - originalCenter.lng;
+
+  return waypoints.map((waypoint) => {
+    const newCoordinates: Coordinate = {
+      lat: waypoint.coordinates.lat + latOffset,
+      lng: waypoint.coordinates.lng + lngOffset,
+    };
+
+    // Recalculate distance and bearing from new center
+    const distance = waypoint.isCenter ? 0 : calculateDistance(newCenter, newCoordinates, unit);
+    const bearing = waypoint.isCenter ? 0 : calculateBearing(newCenter, newCoordinates);
+
+    return {
+      ...waypoint,
+      coordinates: newCoordinates,
+      distance,
+      bearing,
+    };
+  });
 }
 
 // Get enabled waypoints count
