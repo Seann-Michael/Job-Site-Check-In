@@ -317,18 +317,22 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       }
 
       // Add custom zoom event listener for 0.5 increments
-      let currentZoom = map.getZoom() || 12;
+      let isUpdatingZoom = false;
 
-      // Override the default zoom behavior
       map.addListener('zoom_changed', () => {
+        if (isUpdatingZoom) return;
+
         const newZoom = map.getZoom();
-        if (newZoom !== undefined && Math.abs(newZoom - currentZoom) >= 1) {
+        if (newZoom !== undefined) {
           // Round to nearest 0.5
           const roundedZoom = Math.round(newZoom * 2) / 2;
-          if (roundedZoom !== newZoom) {
-            map.setZoom(roundedZoom);
+          if (Math.abs(roundedZoom - newZoom) > 0.1) {
+            isUpdatingZoom = true;
+            setTimeout(() => {
+              map.setZoom(roundedZoom);
+              isUpdatingZoom = false;
+            }, 100);
           }
-          currentZoom = roundedZoom;
         }
       });
 
