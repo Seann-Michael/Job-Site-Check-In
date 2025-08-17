@@ -1336,7 +1336,6 @@ export default function GeoGridScan() {
                   onWaypointDrag={handleWaypointDrag}
                   onWaypointsDragComplete={handleWaypointsDragComplete}
                   scanConfig={memoizedScanConfig}
-                  onMapLoad={handleMapLoad}
                 />
               </div>
             </CardContent>
