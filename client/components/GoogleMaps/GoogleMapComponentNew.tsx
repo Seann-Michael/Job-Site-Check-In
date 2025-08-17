@@ -4,11 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Maximize } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
-import { 
+import {
   type Waypoint as WaypointType,
   updateWaypointPosition,
   moveAllWaypointsRelative,
-  calculateDistance
+  calculateDistance,
+  calculateBearing
 } from "@/lib/waypointGenerator";
 
 interface MapMarker {
@@ -140,11 +141,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
     // Fit bounds to show all markers/waypoints
     const allPoints = [
-      ...markers, 
+      ...markers,
       ...waypoints.map(w => ({ position: w.position })),
       ...waypointData.map(w => ({ position: w.coordinates }))
     ];
-    
+
     if (allPoints.length > 1) {
       const bounds = new google.maps.LatLngBounds();
       allPoints.forEach((point) => {
@@ -160,14 +161,14 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       }, 100);
     }
 
-    // Create info window
+    // Create info window (but keep it closed)
     const infoWindowInstance = new google.maps.InfoWindow();
     setInfoWindow(infoWindowInstance);
 
     if (onMapLoad) {
       onMapLoad(map);
     }
-  }, [onMapLoad, markers, waypoints, waypointData]);
+  }, [onMapLoad]);
 
   const onUnmount = useCallback(() => {
     setMap(null);
@@ -239,18 +240,22 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         const latOffset = newPosition.lat - draggedWaypoint.coordinates.lat;
         const lngOffset = newPosition.lng - draggedWaypoint.coordinates.lng;
 
+        // Find the new center position
+        const centerWaypoint = waypointData.find(w => w.isCenter);
+        const newCenter = centerWaypoint ? {
+          lat: centerWaypoint.coordinates.lat + latOffset,
+          lng: centerWaypoint.coordinates.lng + lngOffset
+        } : {
+          lat: waypointData[0].coordinates.lat + latOffset,
+          lng: waypointData[0].coordinates.lng + lngOffset
+        };
+
         // Apply this offset to all waypoints
         const updatedWaypoints = waypointData.map(waypoint => {
           const newCoordinates = {
             lat: waypoint.coordinates.lat + latOffset,
             lng: waypoint.coordinates.lng + lngOffset
           };
-
-          // Find the new center after moving
-          const newCenter = waypointData.find(w => w.isCenter) ? {
-            lat: waypointData.find(w => w.isCenter)!.coordinates.lat + latOffset,
-            lng: waypointData.find(w => w.isCenter)!.coordinates.lng + lngOffset
-          } : newCoordinates;
 
           // Recalculate distance and bearing from new center
           const distance = waypoint.isCenter ? 0 : calculateDistance(newCenter, newCoordinates, scanConfig.unit);
@@ -498,10 +503,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   position={waypoint.coordinates}
                   title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
                   icon={createWaypointIcon(waypoint, rank)}
-                  onClick={(e) => {
-                    e.stop();
-                    handleWaypointClick(waypoint);
-                  }}
+                  onClick={() => handleWaypointClick(waypoint)}
                   draggable={true}
                   onDragStart={() => handleDragStart(waypoint.id)}
                   onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
