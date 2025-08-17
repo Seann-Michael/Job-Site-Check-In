@@ -109,26 +109,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
 
 
-  // Auto-zoom when waypoints change
-  React.useEffect(() => {
-    const currentWaypointCount = waypointData.length;
-
-    // Auto-fit bounds when waypoints change
-    if (
-      map &&
-      waypointData.length > 0 &&
-      hasInitializedBounds.current // Only auto-zoom after initial load
-    ) {
-      console.log(
-        `Waypoints updated (count: ${currentWaypointCount}), auto-fitting bounds`,
-      );
-      setTimeout(() => {
-        autoFitBounds();
-      }, 100);
-    }
-
-    previousWaypointCount.current = currentWaypointCount;
-  }, [waypointData, map, autoFitBounds]);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
