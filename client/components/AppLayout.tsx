@@ -342,7 +342,7 @@ export function AppLayout({
         {/* Mobile Sidebar Overlay */}
         {mobileSidebarOpen && (
           <div
-            className="md:hidden fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm touch-none"
+            className="md:hidden fixed inset-0 bg-black/50 z-[50] backdrop-blur-sm touch-none"
             onClick={() => setMobileSidebarOpen(false)}
             onTouchStart={(e) => e.preventDefault()}
           />
