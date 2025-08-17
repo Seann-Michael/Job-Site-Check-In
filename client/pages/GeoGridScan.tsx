@@ -881,6 +881,10 @@ export default function GeoGridScan() {
                   onWaypointDrag={handleWaypointDrag}
                   onWaypointsDragComplete={handleWaypointsDragComplete}
                   scanConfig={memoizedScanConfig}
+                  options={{
+                    scrollwheel: false,
+                    gestureHandling: "cooperative"
+                  }}
                 />
               </div>
             </CardContent>
