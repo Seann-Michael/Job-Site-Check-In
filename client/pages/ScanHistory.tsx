@@ -360,6 +360,36 @@ export default function ScanHistory() {
     return matchesStatus && matchesType && matchesSearch;
   });
 
+  // Bulk selection functions
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedItems(new Set());
+      setSelectAll(false);
+    } else {
+      const allIds = new Set(filteredHistory.map(item => item.id));
+      setSelectedItems(allIds);
+      setSelectAll(true);
+    }
+  };
+
+  const handleSelectItem = (id: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+    setSelectAll(newSelected.size === filteredHistory.length);
+  };
+
+  const handleBulkDelete = () => {
+    setHistory(prev => prev.filter(item => !selectedItems.has(item.id)));
+    setSelectedItems(new Set());
+    setSelectAll(false);
+    toast.success(`${selectedItems.size} scans deleted`);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
