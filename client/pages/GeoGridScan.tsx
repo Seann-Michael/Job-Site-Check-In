@@ -1386,44 +1386,6 @@ export default function GeoGridScan() {
                       </div>
                     </div>
                   </div>
-
-                  <div>
-                    <Label className="text-sm font-medium">Quick Zoom Presets</Label>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMapZoom(8)}
-                        className={mapZoom === 8 ? "bg-blue-50 border-blue-200" : ""}
-                      >
-                        City (8)
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMapZoom(12)}
-                        className={mapZoom === 12 ? "bg-blue-50 border-blue-200" : ""}
-                      >
-                        District (12)
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMapZoom(15)}
-                        className={mapZoom === 15 ? "bg-blue-50 border-blue-200" : ""}
-                      >
-                        Neighborhood (15)
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMapZoom(18)}
-                        className={mapZoom === 18 ? "bg-blue-50 border-blue-200" : ""}
-                      >
-                        Street (18)
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
