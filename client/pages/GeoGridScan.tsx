@@ -1330,7 +1330,7 @@ export default function GeoGridScan() {
               >
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
-                  zoom={12}
+                  zoom={mapZoom}
                   height="100%"
                   showControls={true}
                   showDirectionsButton={false}
