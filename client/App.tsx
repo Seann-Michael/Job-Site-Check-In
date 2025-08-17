@@ -32,6 +32,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
+const GridMapDemo = lazy(() => import("./pages/GridMapDemo"));
 const ScanHistory = lazy(() => import("./pages/ScanHistory"));
 const AuditReport = lazy(() => import("./pages/AuditReport"));
 const CreditPurchase = lazy(() => import("./pages/CreditPurchase"));
@@ -311,6 +312,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <GeoGridScan />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/grid-map-demo"
+                  element={
+                    <ProtectedRoute>
+                      <GridMapDemo />
                     </ProtectedRoute>
                   }
                 />
