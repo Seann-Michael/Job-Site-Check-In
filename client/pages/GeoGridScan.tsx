@@ -1271,48 +1271,6 @@ export default function GeoGridScan() {
             </CardContent>
           </Card>
 
-          {/* Manual Zoom Controls - Separated section */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Map Zoom Control
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-700">Mode:</span>
-                    <button
-                      onClick={() => {
-                        // This will be handled by the map component
-                        const mapComponent = document.querySelector('[data-map-zoom-toggle]');
-                        if (mapComponent) {
-                          (mapComponent as any).click();
-                        }
-                      }}
-                      className="text-sm px-3 py-1.5 rounded-md transition-colors bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200"
-                      data-map-zoom-toggle
-                    >
-                      Toggle Auto/Manual
-                    </button>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Auto mode adjusts zoom when grid changes. Manual mode gives you precise control.
-                  </div>
-                </div>
-
-                {/* Placeholder for dynamic zoom controls - will be populated by map component */}
-                <div id="zoom-controls-container" className="min-h-[100px] p-4 bg-gray-50 rounded-lg border">
-                  <p className="text-sm text-gray-500 text-center">
-                    Zoom controls will appear here when switching to manual mode
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Scan Summary - Moved under map */}
           <div className="mt-8">
             <Card>
