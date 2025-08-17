@@ -770,16 +770,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             </GoogleMap>
           </div>
 
-          {/* Zoom Control Component - now inside the main map container */}
-          <div className="border-t border-gray-200 pt-4">
-            <ZoomControlCard
-              isManualZoomMode={isManualZoomMode}
-              manualZoomPercentage={manualZoomPercentage}
-              toggleZoomMode={toggleZoomMode}
-              handleManualZoom={handleManualZoom}
-              percentageToZoom={percentageToZoom}
-            />
-          </div>
 
           {(showDirectionsButton ||
             address ||
