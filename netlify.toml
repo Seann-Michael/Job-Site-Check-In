@@ -9,8 +9,8 @@
   SUPABASE_SERVICE_ROLE_KEY = ""
   SUPABASE_STORAGE_BUCKET = "media"
 
-  # Google Maps API (Set in Netlify dashboard)
-  VITE_GOOGLE_MAPS_API_KEY = ""
+  # Google Maps API
+  VITE_GOOGLE_MAPS_API_KEY = "REDACTED_GOOGLE_MAPS_API_KEY"
 
   # Twilio SMS Configuration (Set these in Netlify dashboard when available)
   TWILIO_ACCOUNT_SID = ""
