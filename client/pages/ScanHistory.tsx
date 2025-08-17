@@ -686,9 +686,27 @@ export default function ScanHistory() {
             {/* Data Table */}
             <Card>
               <CardHeader>
-                <CardTitle>
-                  Scan History ({filteredHistory.length} results)
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>
+                    Scan History ({filteredHistory.length} results)
+                  </CardTitle>
+                  {selectedItems.size > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary">
+                        {selectedItems.size} selected
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Selected
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {filteredHistory.length === 0 ? (
