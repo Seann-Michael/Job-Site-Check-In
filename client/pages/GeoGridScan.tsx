@@ -143,23 +143,24 @@ export default function GeoGridScan() {
   };
 
   // Toggle waypoint
-  const handleWaypointToggle = (waypointId: string) => {
-    setWaypoints(toggleWaypoint(waypoints, waypointId));
-  };
+  const handleWaypointToggle = useCallback((waypointId: string) => {
+    setWaypoints(prevWaypoints => toggleWaypoint(prevWaypoints, waypointId));
+  }, []);
 
-  // Handle waypoint drag
+  // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback((waypointId: string, newPosition: { lat: number; lng: number }) => {
-    const updatedWaypoints = updateWaypointPosition(
-      waypoints,
-      waypointId,
-      newPosition,
-      ADMIN_BUSINESS.coordinates,
-      scanConfig.unit
+    setWaypoints(prevWaypoints =>
+      updateWaypointPosition(
+        prevWaypoints,
+        waypointId,
+        newPosition,
+        ADMIN_BUSINESS.coordinates,
+        scanConfig.unit
+      )
     );
-    setWaypoints(updatedWaypoints);
-  }, [waypoints, scanConfig.unit]);
+  }, [scanConfig.unit]);
 
-  // Handle when all waypoints are moved (center drag)
+  // Handle when all waypoints are moved together
   const handleWaypointsDragComplete = useCallback((updatedWaypoints: Waypoint[]) => {
     setWaypoints(updatedWaypoints);
   }, []);
@@ -262,58 +263,10 @@ export default function GeoGridScan() {
 
   const enabledWaypointsCount = getEnabledWaypointsCount(waypoints);
 
-  // Get map markers with improved numbering - center is always #1
-  const getMapMarkers = useCallback(() => {
-    const markers = [];
-    let markerNumber = 1;
-
-    // Add center waypoint first (always #1)
-    const centerWaypoint = waypoints.find((w) => w.isCenter);
-    if (centerWaypoint) {
-      markers.push({
-        id: centerWaypoint.id,
-        position: centerWaypoint.coordinates,
-        title: `Waypoint #${markerNumber}`,
-        content: `
-          <div style="padding: 12px; text-align: center;">
-            <h3 style="font-weight: 600; color: #111827; margin-bottom: 4px;">Center Waypoint #${markerNumber}</h3>
-            <p style="font-size: 12px; color: #6b7280; margin: 0;">${ADMIN_BUSINESS.address}</p>
-          </div>
-        `,
-        color: centerWaypoint.enabled ? "#DC2626" : "transparent",
-        rank: markerNumber,
-        size: "large",
-        outline: !centerWaypoint.enabled,
-      });
-      markerNumber++;
-    }
-
-    // Add other waypoints with sequential numbering
-    waypoints
-      .filter((w) => !w.isCenter)
-      .forEach((waypoint) => {
-        markers.push({
-          id: waypoint.id,
-          position: waypoint.coordinates,
-          title: `Waypoint #${markerNumber}`,
-          content: `
-            <div style="padding: 12px; text-align: center;">
-              <h3 style="font-weight: 600; color: #111827; margin-bottom: 4px;">Waypoint #${markerNumber}</h3>
-              <p style="font-size: 12px; color: #6b7280; margin: 0;">
-                ${waypoint.distance?.toFixed(1)} ${scanConfig.unit} from center
-              </p>
-            </div>
-          `,
-          color: waypoint.enabled ? "#2563EB" : "transparent",
-          rank: markerNumber,
-          size: "medium",
-          outline: !waypoint.enabled,
-        });
-        markerNumber++;
-      });
-
-    return markers;
-  }, [waypoints, scanConfig.unit]);
+  // This is no longer needed since we're using waypointData directly
+  // const getMapMarkers = useCallback(() => {
+  //   // Removed to prevent unnecessary re-renders
+  // }, []);
 
   return (
     <AppLayout>
