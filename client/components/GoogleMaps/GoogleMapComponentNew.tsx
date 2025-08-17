@@ -113,7 +113,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const mapContainerStyle = useMemo(
     () => ({
       width: "100%",
-      height: height === "100%" ? "384px" : height,
+      height: height || "384px",
     }),
     [height],
   );
