@@ -206,8 +206,14 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   // Handle waypoint click (toggle enabled/disabled)
   const handleWaypointClick = useCallback(
-    (waypoint: WaypointType) => {
+    (waypoint: WaypointType, event?: any) => {
       if (isDragging) return; // Don't toggle during drag
+
+      if (event) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stop?.();
+      }
 
       // Close any open info windows
       if (infoWindow) {
@@ -216,7 +222,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
       // Toggle waypoint enabled state (only for non-center waypoints)
       if (!waypoint.isCenter && onWaypointToggle) {
-        onWaypointToggle(waypoint.id);
+        onWaypointToggle(waypoint.id, event);
       }
 
       if (onWaypointClick) {
