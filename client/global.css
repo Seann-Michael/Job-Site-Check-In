@@ -786,6 +786,7 @@ body {
 /* Fix Radix Select dropdown positioning issues */
 [data-radix-select-content] {
   z-index: 9999 !important;
+  position: fixed !important;
 }
 
 /* Ensure Radix Portal dropdowns are properly positioned */
@@ -798,14 +799,14 @@ body {
   position: relative;
 }
 
-/* Prevent layout containers from interfering with dropdown positioning */
-.container,
-.main-content,
-[data-radix-select-trigger] {
-  transform: none !important;
+/* Prevent CSS transforms from breaking dropdown positioning */
+[data-radix-select-content],
+[data-radix-popper-content-wrapper] {
+  transform-style: flat !important;
 }
 
-/* Ensure select content can properly calculate positioning */
+/* Ensure dropdowns are not affected by parent overflow */
 [data-radix-select-content] {
-  will-change: transform;
+  position: fixed !important;
+  isolation: isolate;
 }
