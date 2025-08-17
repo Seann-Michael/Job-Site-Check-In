@@ -367,6 +367,52 @@ export default function ScanHistory() {
     return `${change > 0 ? "+" : ""}${change.toFixed(1)}`;
   };
 
+  // Recurring scan handlers
+  const editRecurringScan = (scanId: string) => {
+    const scan = recurringScans.find((s) => s.id === scanId);
+    if (scan) {
+      toast.success(`Editing recurring scan "${scan.name}"`);
+      // Navigate to edit form or open modal
+    }
+  };
+
+  const toggleRecurringScan = (scanId: string) => {
+    setRecurringScans(scans =>
+      scans.map(scan =>
+        scan.id === scanId
+          ? { ...scan, status: scan.status === 'active' ? 'paused' : 'active' }
+          : scan
+      )
+    );
+    const scan = recurringScans.find(s => s.id === scanId);
+    if (scan) {
+      toast.success(`${scan.status === 'active' ? 'Paused' : 'Resumed'} "${scan.name}"`);
+    }
+  };
+
+  const deleteRecurringScan = (scanId: string) => {
+    setRecurringScans(scans => scans.filter(scan => scan.id !== scanId));
+    const scan = recurringScans.find(s => s.id === scanId);
+    if (scan) {
+      toast.success(`Deleted recurring scan "${scan.name}"`);
+    }
+    setDeleteDialogOpen(false);
+    setSelectedScanId(null);
+  };
+
+  const getStatusBadgeRecurring = (status: RecurringScan['status']) => {
+    switch (status) {
+      case "active":
+        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
+      case "paused":
+        return <Badge variant="secondary">Paused</Badge>;
+      case "stopped":
+        return <Badge variant="destructive">Stopped</Badge>;
+      default:
+        return <Badge variant="secondary">Unknown</Badge>;
+    }
+  };
+
   // Calculate summary stats
   const totalScans = history.length;
   const completedScans = history.filter((h) => h.status === "completed").length;
