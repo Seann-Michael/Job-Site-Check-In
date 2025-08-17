@@ -552,6 +552,15 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     title: `Rank #${waypoint.rank}`,
                     rank: waypoint.rank,
                   })}
+                  onClick={(e) => {
+                    e.stop();
+                    onWaypointClick && onWaypointClick(waypoint.id);
+                  }}
+                  animation={
+                    selectedWaypoint === waypoint.id
+                      ? google.maps.Animation.BOUNCE
+                      : undefined
+                  }
                 />
               ))}
 
