@@ -599,12 +599,6 @@ export default function GeoGridScan() {
                             Circular Pattern
                           </div>
                         </SelectItem>
-                        <SelectItem value="line">
-                          <div className="flex items-center gap-2">
-                            <Crosshair className="h-4 w-4" />
-                            Linear Pattern
-                          </div>
-                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
