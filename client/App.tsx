@@ -82,8 +82,6 @@ import SupportTicketDetail from "./pages/SupportTicketDetail";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ReviewGate from "./pages/ReviewGate";
 import AdminReviews from "./pages/AdminReviews";
-import StatusPage from "./pages/StatusPage";
-import StatusTestPage from "./pages/StatusTestPage";
 import Ideas from "./pages/Ideas";
 import IdeaDetail from "./pages/IdeaDetail";
 import SuperAdminIdeas from "./pages/SuperAdminIdeas";
@@ -190,8 +188,6 @@ const App = () => (
                 <Route path="/public/project/:id" element={<PublicProject />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
-                <Route path="/status" element={<StatusPage />} />
-                <Route path="/status-test" element={<StatusTestPage />} />
 
                 {/* Protected routes */}
                 <Route
@@ -920,10 +916,6 @@ const App = () => (
                 <Route
                   path="/KnowledgeBase"
                   element={<Navigate to="/knowledge-base" replace />}
-                />
-                <Route
-                  path="/StatusPage"
-                  element={<Navigate to="/status" replace />}
                 />
 
                 {/* Additional Admin Routes */}
