@@ -533,6 +533,10 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   position={marker.position}
                   title={marker.title}
                   icon={createMarkerIcon(marker)}
+                  onClick={(e) => {
+                    e.stop();
+                    handleMarkerClick(marker);
+                  }}
                 />
               ))}
 
