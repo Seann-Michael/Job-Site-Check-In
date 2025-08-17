@@ -444,30 +444,29 @@ export default function AuditReport() {
           </CardHeader>
           <CardContent>
             {/* Use GridMapTracker for geo grid scan results with ranking visualization */}
-            <GridMapTracker
-              center={scanData.businessLocation}
-              gridSize={5}
-              gridRadius={3000}
-              rankings={scanData.scanResults.scanLocations.reduce((acc: any, location: any) => {
-                acc[location.id] = location.rank;
-                return acc;
-              }, {})}
-              height="400px"
-              className="mb-4"
-            />
-
-            {/* Fallback GoogleMapComponent for other marker types if needed */}
-            <div className="mt-4">
+            {scanData?.scanResults?.scanLocations ? (
+              <GridMapTracker
+                center={scanData.businessLocation}
+                gridSize={5}
+                gridRadius={3000}
+                rankings={scanData.scanResults.scanLocations.reduce((acc: any, location: any) => {
+                  acc[location.id] = location.rank;
+                  return acc;
+                }, {})}
+                height="400px"
+                className="mb-4"
+              />
+            ) : (
               <GoogleMapComponent
                 center={scanData.businessLocation}
                 zoom={13}
-                height="300px"
-                markers={getMapMarkers().filter(m => m.type !== 'scan')}
+                height="400px"
+                markers={getMapMarkers()}
                 showControls={true}
                 showDirectionsButton={false}
                 className="mb-4"
               />
-            </div>
+            )}
 
             {/* Map Legend */}
             <div className="flex flex-wrap gap-4 pt-4 border-t">
