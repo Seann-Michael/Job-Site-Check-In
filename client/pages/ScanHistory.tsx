@@ -355,10 +355,7 @@ export default function ScanHistory() {
     const matchesSearch =
       !searchQuery ||
       item.scanName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.business.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.keywords.some((k) =>
-        k.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
+      item.keyword.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesStatus && matchesType && matchesSearch;
   });
