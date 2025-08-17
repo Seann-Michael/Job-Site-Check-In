@@ -376,21 +376,6 @@ export default function Ideas() {
         ],
       },
       {
-        id: "v2.0.3",
-        version: "2.0.3",
-        date: "2024-02-28",
-        type: "feature",
-        title: "Status Page & System Monitoring",
-        description: "Added comprehensive system status monitoring",
-        items: [
-          "Launched public status page for system monitoring",
-          "Added real-time service health indicators",
-          "Implemented incident tracking and notifications",
-          "Added historical uptime metrics",
-          "Integrated service response time monitoring",
-        ],
-      },
-      {
         id: "v2.0.2",
         version: "2.0.2",
         date: "2024-02-20",
