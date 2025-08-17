@@ -121,6 +121,10 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       }, 100);
     }
 
+    // Create info window
+    const infoWindowInstance = new google.maps.InfoWindow();
+    setInfoWindow(infoWindowInstance);
+
     if (onMapLoad) {
       onMapLoad(map);
     }
