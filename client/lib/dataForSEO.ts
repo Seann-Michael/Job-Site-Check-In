@@ -130,7 +130,7 @@ class DataForSEOService {
       console.log("✅ DataForSEO: Using environment variables");
       this.credentials = {
         username: envUsername,
-        password: envPassword
+        password: envPassword,
       };
     } else {
       this.loadCredentials();

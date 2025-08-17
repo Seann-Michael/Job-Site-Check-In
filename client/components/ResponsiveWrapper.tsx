@@ -272,7 +272,7 @@ export function ResponsiveSpacing({
 
 // Responsive image component
 interface ResponsiveImageProps
-  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'sizes'> {
+  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "sizes"> {
   src: string;
   alt: string;
   className?: string;

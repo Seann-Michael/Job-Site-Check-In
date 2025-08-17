@@ -152,7 +152,9 @@ export function AppLayout({
       label: "Projects",
       href: "/admin/projects",
       icon: FolderOpen,
-      active: location.pathname === "/admin/projects" || location.pathname.startsWith("/project"),
+      active:
+        location.pathname === "/admin/projects" ||
+        location.pathname.startsWith("/project"),
       comingSoon: false,
     },
     {
@@ -416,7 +418,7 @@ export function AppLayout({
                         {currentUser?.name ? (
                           currentUser.name
                             .split(" ")
-                            .filter(n => n && n.length > 0)
+                            .filter((n) => n && n.length > 0)
                             .map((n) => n[0])
                             .join("")
                         ) : (

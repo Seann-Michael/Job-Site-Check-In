@@ -3,7 +3,11 @@ import { toast } from "sonner";
 // Google Maps Configuration
 const GOOGLE_MAPS_CONFIG = {
   apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "", // Use env var first, fallback to third-party integrations
-  libraries: ["places", "geometry", "drawing"] as ("places" | "geometry" | "drawing")[],
+  libraries: ["places", "geometry", "drawing"] as (
+    | "places"
+    | "geometry"
+    | "drawing"
+  )[],
   version: "weekly",
 };
 
