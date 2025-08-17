@@ -68,11 +68,13 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   useEffect(() => {
     try {
       const apiKey = getGoogleMapsApiKey();
+      console.log("GoogleMapComponent: API key check result:", apiKey ? "Found" : "Not found");
       if (!apiKey) {
+        console.log("GoogleMapComponent: Switching to iframe fallback");
         setUseIframeFallback(true);
       }
     } catch (error) {
-      console.error("Error checking Google Maps API key:", error);
+      console.error("GoogleMapComponent: Error checking Google Maps API key:", error);
       setUseIframeFallback(true);
     }
   }, []);
