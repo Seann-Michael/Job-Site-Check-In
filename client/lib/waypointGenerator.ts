@@ -110,7 +110,7 @@ export function generateWaypoints(
     case "circle":
       return [
         ...waypoints,
-        ...generateCircularWaypoints(center, count - 1, distanceBetween, unit),
+        ...generateCircularWaypoints(center, count - 1, distanceBetween, unit, options.rings),
       ];
     case "grid":
       return [
