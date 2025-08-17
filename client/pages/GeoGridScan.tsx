@@ -597,7 +597,7 @@ export default function GeoGridScan() {
 
                 {/* Second Row: 3 inputs */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="max-w-[180px]">
+                  <div className="max-w-[360px]">
                     <Label className="text-sm font-medium">
                       {scanConfig.pattern === "grid"
                         ? "Grid Size"
@@ -611,14 +611,22 @@ export default function GeoGridScan() {
                           ? scanConfig.rings.toString()
                           : scanConfig.count.toString()
                       }
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
                         setScanConfig({
                           ...scanConfig,
                           ...(scanConfig.pattern === "circle"
                             ? { rings: parseInt(value) }
                             : { count: parseInt(value) }),
-                        })
-                      }
+                        });
+
+                        // Trigger center pin logic when number of rings changes
+                        if (scanConfig.pattern === "circle") {
+                          setTimeout(() => {
+                            // This will trigger the Google Maps center pin functionality
+                            window.dispatchEvent(new CustomEvent('centerMapToWaypoints'));
+                          }, 100);
+                        }
+                      }}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue />
@@ -715,7 +723,7 @@ export default function GeoGridScan() {
                     </Select>
                   </div>
 
-                  <div className="max-w-[180px]">
+                  <div className="max-w-[360px]">
                     <Label className="text-sm font-medium">Distance Between Pins</Label>
                     <Select
                       value={scanConfig.distanceBetween.toString()}
@@ -756,7 +764,7 @@ export default function GeoGridScan() {
                     </Select>
                   </div>
 
-                  <div className="max-w-[180px]">
+                  <div className="max-w-[360px]">
                     <Label className="text-sm font-medium">Distance Unit</Label>
                     <div className="flex rounded-md border overflow-hidden mt-1">
                       <button
