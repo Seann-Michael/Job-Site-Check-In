@@ -196,7 +196,7 @@ export default function AppPages() {
         },
         {
           name: "Maps",
-          path: "/admin/maps",
+          path: "/admin/maps/geo-grid-scan",
           description: "Location and mapping tools",
           icon: Map,
         },
