@@ -715,11 +715,28 @@ export default function GeoGridScan() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0.1">0.1 {scanConfig.unit}</SelectItem>
-                        <SelectItem value="0.25">0.25 {scanConfig.unit}</SelectItem>
-                        <SelectItem value="0.5">0.5 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="0.1">
+                          0.1 {scanConfig.unit}
+                        </SelectItem>
+                        <SelectItem value="0.25">
+                          0.25 {scanConfig.unit}
+                        </SelectItem>
+                        <SelectItem value="0.5">
+                          0.5 {scanConfig.unit}
+                        </SelectItem>
+                        <SelectItem value="0.75">
+                          0.75 {scanConfig.unit}
+                        </SelectItem>
                         <SelectItem value="1">1 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="1.5">
+                          1.5 {scanConfig.unit}
+                        </SelectItem>
                         <SelectItem value="2">2 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="2.5">
+                          2.5 {scanConfig.unit}
+                        </SelectItem>
+                        <SelectItem value="3">3 {scanConfig.unit}</SelectItem>
+                        <SelectItem value="5">5 {scanConfig.unit}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
