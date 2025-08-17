@@ -156,14 +156,14 @@ export default function GeoGridScan() {
 
   // Toggle waypoint
   const handleWaypointToggle = useCallback((waypointId: string, e?: Event) => {
-    if (e) {
+    // Only prevent default if needed, don't stop propagation
+    if (e && e.preventDefault) {
       e.preventDefault();
-      e.stopPropagation();
     }
     preserveScrollPosition();
     setWaypoints((prevWaypoints) => {
       const result = toggleWaypoint(prevWaypoints, waypointId);
-      restoreScrollPosition();
+      setTimeout(() => restoreScrollPosition(), 0); // Async restore
       return result;
     });
   }, [preserveScrollPosition, restoreScrollPosition]);
@@ -171,10 +171,7 @@ export default function GeoGridScan() {
   // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback(
     (waypointId: string, newPosition: { lat: number; lng: number }, e?: Event) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Don't prevent events for drag functionality
       preserveScrollPosition();
       setWaypoints((prevWaypoints) => {
         const result = updateWaypointPosition(
@@ -184,7 +181,7 @@ export default function GeoGridScan() {
           ADMIN_BUSINESS.coordinates,
           scanConfig.unit,
         );
-        restoreScrollPosition();
+        setTimeout(() => restoreScrollPosition(), 0); // Async restore
         return result;
       });
     },
@@ -194,13 +191,10 @@ export default function GeoGridScan() {
   // Handle when all waypoints are moved together
   const handleWaypointsDragComplete = useCallback(
     (updatedWaypoints: Waypoint[], e?: Event) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Don't prevent events for drag completion
       preserveScrollPosition();
       setWaypoints(updatedWaypoints);
-      restoreScrollPosition();
+      setTimeout(() => restoreScrollPosition(), 0); // Async restore
     },
     [preserveScrollPosition, restoreScrollPosition],
   );
