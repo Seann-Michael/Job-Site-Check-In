@@ -1307,15 +1307,30 @@ export default function GeoGridScan() {
         </div>
 
         {/* Google Map */}
-        <div className="mt-8" style={{ overflowAnchor: "auto", position: 'relative', zIndex: 1 }}>
-          <Card style={{ position: 'relative', zIndex: 1 }}>
+        <div className="mt-8" style={{
+          overflowAnchor: "auto",
+          position: 'relative',
+          zIndex: 1,
+          isolation: 'isolate',
+          contain: 'layout style'
+        }}>
+          <Card style={{
+            position: 'relative',
+            zIndex: 1,
+            isolation: 'isolate',
+            contain: 'layout style'
+          }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Map className="h-5 w-5" />
                 Search Locations Map
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent style={{
+              position: 'relative',
+              isolation: 'isolate',
+              contain: 'layout style'
+            }}>
               <div
                 className="w-full"
                 style={{
