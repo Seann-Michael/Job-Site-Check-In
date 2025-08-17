@@ -571,12 +571,6 @@ export default function AppPages() {
           icon: Eye,
         },
         {
-          name: "Status Page",
-          path: "/status",
-          description: "System status",
-          icon: Activity,
-        },
-        {
           name: "Crash Logs",
           path: "/admin/crash-logs",
           description: "System error logs",
