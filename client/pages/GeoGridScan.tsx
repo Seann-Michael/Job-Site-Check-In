@@ -1378,7 +1378,7 @@ export default function GeoGridScan() {
                           min="1"
                           max="20"
                           value={mapZoom}
-                          onChange={(e) => setMapZoom(parseInt(e.target.value))}
+                          onChange={(e) => handleZoomChange(parseInt(e.target.value))}
                           className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                         />
                         <div className="flex items-center gap-2">
@@ -1387,7 +1387,7 @@ export default function GeoGridScan() {
                             min="1"
                             max="20"
                             value={mapZoom}
-                            onChange={(e) => setMapZoom(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                            onChange={(e) => handleZoomChange(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
                             className="w-16 text-center"
                           />
                         </div>
