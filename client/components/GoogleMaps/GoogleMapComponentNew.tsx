@@ -259,36 +259,41 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   // Determine the center of the map
   const mapCenter = useMemo(() => {
-    if (center) return center;
-    if (lat !== undefined && lng !== undefined) return { lat, lng };
-    if (waypointData.length > 0) {
-      const centerWaypoint = waypointData.find((w) => w.isCenter);
-      if (centerWaypoint) return centerWaypoint.coordinates;
-      const avgLat =
-        waypointData.reduce((sum, w) => sum + w.coordinates.lat, 0) /
-        waypointData.length;
-      const avgLng =
-        waypointData.reduce((sum, w) => sum + w.coordinates.lng, 0) /
-        waypointData.length;
-      return { lat: avgLat, lng: avgLng };
+    try {
+      if (center) return center;
+      if (lat !== undefined && lng !== undefined) return { lat, lng };
+      if (waypointData.length > 0) {
+        const centerWaypoint = waypointData.find((w) => w.isCenter && w.coordinates);
+        if (centerWaypoint && centerWaypoint.coordinates) return centerWaypoint.coordinates;
+
+        const validWaypoints = waypointData.filter(w => w.coordinates && typeof w.coordinates.lat === 'number' && typeof w.coordinates.lng === 'number');
+        if (validWaypoints.length > 0) {
+          const avgLat = validWaypoints.reduce((sum, w) => sum + w.coordinates.lat, 0) / validWaypoints.length;
+          const avgLng = validWaypoints.reduce((sum, w) => sum + w.coordinates.lng, 0) / validWaypoints.length;
+          return { lat: avgLat, lng: avgLng };
+        }
+      }
+      if (markers.length > 0) {
+        const validMarkers = markers.filter(m => m.position && typeof m.position.lat === 'number' && typeof m.position.lng === 'number');
+        if (validMarkers.length > 0) {
+          const avgLat = validMarkers.reduce((sum, m) => sum + m.position.lat, 0) / validMarkers.length;
+          const avgLng = validMarkers.reduce((sum, m) => sum + m.position.lng, 0) / validMarkers.length;
+          return { lat: avgLat, lng: avgLng };
+        }
+      }
+      if (waypoints.length > 0) {
+        const validWaypoints = waypoints.filter(w => w.position && typeof w.position.lat === 'number' && typeof w.position.lng === 'number');
+        if (validWaypoints.length > 0) {
+          const avgLat = validWaypoints.reduce((sum, w) => sum + w.position.lat, 0) / validWaypoints.length;
+          const avgLng = validWaypoints.reduce((sum, w) => sum + w.position.lng, 0) / validWaypoints.length;
+          return { lat: avgLat, lng: avgLng };
+        }
+      }
+      return { lat: 40.7128, lng: -74.006 }; // Default to NYC
+    } catch (error) {
+      console.warn("Error calculating map center:", error);
+      return { lat: 40.7128, lng: -74.006 }; // Default to NYC
     }
-    if (markers.length > 0) {
-      const avgLat =
-        markers.reduce((sum, m) => sum + m.position.lat, 0) / markers.length;
-      const avgLng =
-        markers.reduce((sum, m) => sum + m.position.lng, 0) / markers.length;
-      return { lat: avgLat, lng: avgLng };
-    }
-    if (waypoints.length > 0) {
-      const avgLat =
-        waypoints.reduce((sum, w) => sum + w.position.lat, 0) /
-        waypoints.length;
-      const avgLng =
-        waypoints.reduce((sum, w) => sum + w.position.lng, 0) /
-        waypoints.length;
-      return { lat: avgLat, lng: avgLng };
-    }
-    return { lat: 40.7128, lng: -74.006 }; // Default to NYC
   }, [center, lat, lng, markers, waypoints, waypointData]);
 
   const onLoad = useCallback(
