@@ -440,7 +440,14 @@ export default function ScanHistory() {
           </p>
         </div>
 
-        {/* Summary Stats */}
+        <Tabs defaultValue="history" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="history">Scan History</TabsTrigger>
+            <TabsTrigger value="recurring">Recurring Scans</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="history" className="space-y-6">
+            {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
@@ -761,6 +768,202 @@ export default function ScanHistory() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="recurring" className="space-y-6">
+            {/* Recurring Scans Content */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Recurring Scans</h2>
+              <Button className="gap-2" onClick={() => navigate("/admin/maps/geo-grid-scan")}>
+                <Plus className="h-4 w-4" />
+                Create New Scan
+              </Button>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  Recurring Scans ({recurringScans.length} active)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recurringScans.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No recurring scans found
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Set up automated recurring scans to monitor your rankings continuously.
+                    </p>
+                    <Button onClick={() => navigate("/admin/maps/geo-grid-scan")}>
+                      Create Your First Recurring Scan
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Scan Details</TableHead>
+                          <TableHead>Schedule</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Performance</TableHead>
+                          <TableHead>Credits</TableHead>
+                          <TableHead className="w-12"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recurringScans.map((scan) => (
+                          <TableRow key={scan.id} className="hover:bg-gray-50">
+                            <TableCell>
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {scan.name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {scan.business}
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {scan.keywords.slice(0, 2).map((keyword) => (
+                                    <Badge
+                                      key={keyword}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {keyword}
+                                    </Badge>
+                                  ))}
+                                  {scan.keywords.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{scan.keywords.length - 2}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">
+                                  {scan.frequency.charAt(0).toUpperCase() + scan.frequency.slice(1)}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {scan.schedule}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  Next: {formatDate(scan.nextRun)}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadgeRecurring(scan.status)}
+                              <div className="text-xs text-gray-500 mt-1">
+                                {scan.totalRuns} total runs
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div className="flex items-center gap-1">
+                                  <Target className="h-3 w-3" />
+                                  Avg Rank: {scan.averageRank.toFixed(1)}
+                                </div>
+                                {scan.lastRun && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Last: {formatDate(scan.lastRun)}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{scan.creditsPerRun} per run</div>
+                                <div className="text-xs text-gray-500">
+                                  {scan.totalRuns * scan.creditsPerRun} total used
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => editRecurringScan(scan.id)}
+                                  >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Scan
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => toggleRecurringScan(scan.id)}
+                                  >
+                                    {scan.status === 'active' ? (
+                                      <>
+                                        <Pause className="h-4 w-4 mr-2" />
+                                        Pause Scan
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="h-4 w-4 mr-2" />
+                                        Resume Scan
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedScanId(scan.id);
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete Scan
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Recurring Scan</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this recurring scan? This action cannot be undone and will stop all future automated scans.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setSelectedScanId(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => selectedScanId && deleteRecurringScan(selectedScanId)}
+              >
+                Delete Scan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </AppLayout>
   );
