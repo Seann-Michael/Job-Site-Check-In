@@ -59,12 +59,15 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const apiKey = getGoogleMapsApiKey();
+  console.log("GoogleMapComponent: Using API key:", apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING");
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: apiKey,
     libraries: ["places"],
   });
+
+  console.log("GoogleMapComponent: Load state:", { isLoaded, loadError: loadError?.message });
 
   const mapContainerStyle = useMemo(() => ({
     width: "100%",
