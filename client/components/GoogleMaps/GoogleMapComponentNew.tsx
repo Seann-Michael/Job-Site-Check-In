@@ -97,6 +97,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   }, [center, lat, lng, markers, waypoints]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
+    console.log("GoogleMapComponent: Map loaded successfully", map);
     setMap(map);
     if (onMapLoad) {
       onMapLoad(map);
