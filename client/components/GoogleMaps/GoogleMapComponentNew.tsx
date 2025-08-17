@@ -243,6 +243,98 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     [onMarkerClick, infoWindow],
   );
 
+  // Handle drag start with stable memoization
+  const handleDragStart = useCallback(
+    (waypointId: string, event?: any) => {
+      setIsDragging(true);
+      setDraggedWaypoint(waypointId);
+
+      // Store original center position
+      const centerWaypoint = waypointData.find((w) => w.isCenter);
+      if (centerWaypoint) {
+        originalCenterRef.current = centerWaypoint.coordinates;
+      }
+
+      if (infoWindow) {
+        infoWindow.close();
+      }
+    },
+    [waypointData, infoWindow],
+  );
+
+  // Handle drag end with stable memoization and proper error handling
+  const handleDragEnd = useCallback(
+    (waypointId: string, event: google.maps.MapMouseEvent) => {
+      setIsDragging(false);
+      setDraggedWaypoint(null);
+
+      if (
+        !event.latLng ||
+        !scanConfig ||
+        !originalCenterRef.current ||
+        !onWaypointsDragComplete
+      ) {
+        return;
+      }
+
+      try {
+        const newPosition = {
+          lat: event.latLng.lat(),
+          lng: event.latLng.lng(),
+        };
+
+        const draggedWaypoint = waypointData.find((w) => w.id === waypointId);
+        if (!draggedWaypoint) return;
+
+        // Calculate offset from the dragged waypoint's original position
+        const latOffset = newPosition.lat - draggedWaypoint.coordinates.lat;
+        const lngOffset = newPosition.lng - draggedWaypoint.coordinates.lng;
+
+        // Find the new center position
+        const centerWaypoint = waypointData.find((w) => w.isCenter);
+        const newCenter = centerWaypoint
+          ? {
+              lat: centerWaypoint.coordinates.lat + latOffset,
+              lng: centerWaypoint.coordinates.lng + lngOffset,
+            }
+          : {
+              lat: waypointData[0].coordinates.lat + latOffset,
+              lng: waypointData[0].coordinates.lng + lngOffset,
+            };
+
+        // Apply this offset to all waypoints
+        const updatedWaypoints = waypointData.map((waypoint) => {
+          const newCoordinates = {
+            lat: waypoint.coordinates.lat + latOffset,
+            lng: waypoint.coordinates.lng + lngOffset,
+          };
+
+          // Calculate distance and bearing from new center
+          const distance = waypoint.isCenter
+            ? 0
+            : calculateDistance(newCenter, newCoordinates, scanConfig.unit);
+          const bearing = waypoint.isCenter
+            ? 0
+            : calculateBearing(newCenter, newCoordinates);
+
+          return {
+            ...waypoint,
+            coordinates: newCoordinates,
+            distance,
+            bearing,
+          };
+        });
+
+        onWaypointsDragComplete(updatedWaypoints);
+      } catch (error) {
+        console.warn("Error handling waypoint drag:", error);
+      } finally {
+        originalCenterRef.current = null;
+      }
+    },
+    [waypointData, scanConfig, onWaypointsDragComplete],
+  );
+
 
   // Create marker icon for waypoints - classic teardrop pin shape
   const createWaypointIcon = useCallback(
