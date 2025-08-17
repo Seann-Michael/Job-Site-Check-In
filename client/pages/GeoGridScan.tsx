@@ -117,6 +117,7 @@ export default function GeoGridScan() {
 
   // Map configuration state
   const [mapZoom, setMapZoom] = useState(12);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
 
   // Calculate waypoint count from rings for circle pattern
   const calculateWaypointCount = (rings: number): number => {
