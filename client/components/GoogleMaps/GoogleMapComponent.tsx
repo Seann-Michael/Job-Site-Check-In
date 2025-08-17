@@ -399,6 +399,21 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
           <div className="flex justify-between items-center mt-3 gap-2">
             <div className="flex-1 min-w-0">
+              {waypoints && waypoints.length > 0 && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  📍 {waypoints.length} waypoints configured for geo grid scan
+                </p>
+              )}
+              {markers && markers.length > 0 && (!waypoints || waypoints.length === 0) && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  📍 {markers.length} location{markers.length > 1 ? 's' : ''} marked
+                </p>
+              )}
+              {center && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  📍 Center: {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
+                </p>
+              )}
               {address && (
                 <p
                   key="address-text"
@@ -407,7 +422,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   {address}
                 </p>
               )}
-              {lat !== undefined && lng !== undefined && !address && (
+              {lat !== undefined && lng !== undefined && !address && !center && (
                 <p
                   key="coordinates-text"
                   className="text-xs text-muted-foreground font-mono"
@@ -415,6 +430,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   {lat.toFixed(6)}, {lng.toFixed(6)}
                 </p>
               )}
+              <p className="text-xs text-amber-600 font-medium">
+                Interactive map unavailable - API key required
+              </p>
             </div>
 
             <div className="flex gap-1">
