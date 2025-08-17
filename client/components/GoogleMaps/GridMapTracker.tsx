@@ -106,7 +106,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
     return {
       rings: ringCount,
-      pattern: rings
+      pattern: rings,
     };
   };
 
@@ -140,7 +140,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
     return {
       rings: rings.length - 1,
-      pattern: rings
+      pattern: rings,
     };
   };
 
@@ -359,10 +359,16 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
                 fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
           ${
             marker.isCenter
-              ? '<circle cx="18" cy="18" r="4" fill="transparent" stroke="' + color + '" stroke-width="3" stroke-opacity="' + strokeOpacity + '"/>'
+              ? '<circle cx="18" cy="18" r="4" fill="transparent" stroke="' +
+                color +
+                '" stroke-width="3" stroke-opacity="' +
+                strokeOpacity +
+                '"/>'
               : '<text x="18" y="23" text-anchor="middle" font-size="12" font-weight="bold" fill="' +
                 color +
-                '" opacity="' + strokeOpacity + '">' +
+                '" opacity="' +
+                strokeOpacity +
+                '">' +
                 (gridType === "circle"
                   ? marker.index || ""
                   : marker.label?.slice(-1) || "") +

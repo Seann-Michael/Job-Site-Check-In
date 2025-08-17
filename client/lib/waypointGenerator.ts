@@ -110,7 +110,13 @@ export function generateWaypoints(
     case "circle":
       return [
         ...waypoints,
-        ...generateCircularWaypoints(center, count - 1, distanceBetween, unit, options.rings),
+        ...generateCircularWaypoints(
+          center,
+          count - 1,
+          distanceBetween,
+          unit,
+          options.rings,
+        ),
       ];
     case "grid":
       return [
@@ -139,10 +145,16 @@ function generateCircularWaypoints(
   const spacingInMeters = convertToMeters(spacing, unit);
 
   // Calculate how many rings we need and how many points per ring
-  const rings = ringCount ? calculateRingsForExactCount(ringCount) : calculateUniformRings(count);
+  const rings = ringCount
+    ? calculateRingsForExactCount(ringCount)
+    : calculateUniformRings(count);
   let waypointIndex = 0;
 
-  for (let ringIndex = 0; ringIndex < rings.length && waypointIndex < count; ringIndex++) {
+  for (
+    let ringIndex = 0;
+    ringIndex < rings.length && waypointIndex < count;
+    ringIndex++
+  ) {
     const pointsInRing = rings[ringIndex];
 
     // Each ring is exactly 'spacing' distance from the previous ring
