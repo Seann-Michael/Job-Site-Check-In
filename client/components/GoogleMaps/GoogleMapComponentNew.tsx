@@ -204,6 +204,46 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     setInfoWindow(null);
   }, []);
 
+  // CRITICAL FIX: Add ResizeObserver to detect container size changes
+  useEffect(() => {
+    if (map) {
+      const mapContainer = map.getDiv().parentElement;
+      if (mapContainer) {
+        const resizeObserver = new ResizeObserver(() => {
+          // Trigger map resize when container size changes
+          google.maps.event.trigger(map, 'resize');
+
+          // Maintain center position
+          if (mapCenter) {
+            map.setCenter(mapCenter);
+          }
+        });
+
+        resizeObserver.observe(mapContainer);
+
+        return () => {
+          resizeObserver.disconnect();
+        };
+      }
+    }
+  }, [map, mapCenter]);
+
+  // CRITICAL FIX: Trigger resize when height changes
+  useEffect(() => {
+    if (map) {
+      // Small delay to ensure container has updated its size
+      setTimeout(() => {
+        // Trigger resize event to ensure map renders at correct height
+        google.maps.event.trigger(map, 'resize');
+
+        // Re-center the map after resize
+        if (mapCenter) {
+          map.setCenter(mapCenter);
+        }
+      }, 100);
+    }
+  }, [map, height, mapCenter]);
+
   // Handle waypoint click (toggle enabled/disabled)
   const handleWaypointClick = useCallback(
     (waypoint: WaypointType, event?: any) => {
