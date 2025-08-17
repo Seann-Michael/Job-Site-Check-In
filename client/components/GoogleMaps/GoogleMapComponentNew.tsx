@@ -100,7 +100,41 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING",
   );
 
-  // Function to auto-fit map bounds to show all waypoints with intelligent zoom
+  // Function to calculate optimal zoom based on waypoint spread
+  const calculateOptimalZoom = useCallback((bounds: google.maps.LatLngBounds, waypointCount: number) => {
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+
+    // Calculate the distance span in degrees
+    const latSpan = ne.lat() - sw.lat();
+    const lngSpan = ne.lng() - sw.lng();
+    const maxSpan = Math.max(latSpan, lngSpan);
+
+    // Calculate base zoom from geographic spread
+    let optimalZoom: number;
+    if (maxSpan >= 1.0) optimalZoom = 8;
+    else if (maxSpan >= 0.5) optimalZoom = 9;
+    else if (maxSpan >= 0.25) optimalZoom = 10;
+    else if (maxSpan >= 0.125) optimalZoom = 11;
+    else if (maxSpan >= 0.0625) optimalZoom = 12;
+    else if (maxSpan >= 0.03125) optimalZoom = 13;
+    else if (maxSpan >= 0.015625) optimalZoom = 14;
+    else if (maxSpan >= 0.0078125) optimalZoom = 15;
+    else if (maxSpan >= 0.00390625) optimalZoom = 16;
+    else optimalZoom = 17;
+
+    // Fine-tune based on waypoint density
+    const densityFactor = Math.log10(waypointCount + 1) / 2; // 0 to ~1 range
+    const adjustedZoom = optimalZoom - densityFactor;
+
+    // Ensure zoom is within reasonable bounds with gradual constraints
+    const finalZoom = Math.max(7, Math.min(18, Math.round(adjustedZoom * 2) / 2)); // Round to 0.5 increments
+
+    console.log(`Optimal zoom calculation: span=${maxSpan.toFixed(6)}, count=${waypointCount}, base=${optimalZoom}, adjusted=${adjustedZoom.toFixed(2)}, final=${finalZoom}`);
+    return finalZoom;
+  }, []);
+
+  // Function to auto-fit map bounds to show all waypoints with gradual zoom control
   const autoFitBounds = useCallback(() => {
     if (map && waypointData.length > 0) {
       if (waypointData.length === 1) {
@@ -108,34 +142,31 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         map.setCenter(waypointData[0].coordinates);
         map.setZoom(14);
       } else {
-        // Multiple waypoints - fit bounds with intelligent constraints
+        // Multiple waypoints - calculate optimal zoom based on spread
         const bounds = new google.maps.LatLngBounds();
         waypointData.forEach((wp) => {
           bounds.extend(wp.coordinates);
         });
 
+        // Calculate optimal zoom before fitting bounds
+        const optimalZoom = calculateOptimalZoom(bounds, waypointData.length);
+
+        // Fit bounds first
         map.fitBounds(bounds);
 
-        // Apply intelligent zoom constraints based on waypoint spread
+        // Apply gradual zoom adjustment
         setTimeout(() => {
           const currentZoom = map.getZoom();
-          if (currentZoom) {
-            // For smaller grids (fewer waypoints), allow closer zoom
-            const maxZoom = waypointData.length <= 10 ? 17 : waypointData.length <= 25 ? 16 : 15;
-            const minZoom = waypointData.length >= 100 ? 10 : 8;
-
-            if (currentZoom > maxZoom) {
-              map.setZoom(maxZoom);
-              console.log(`Zoom adjusted to max: ${maxZoom} (${waypointData.length} waypoints)`);
-            } else if (currentZoom < minZoom) {
-              map.setZoom(minZoom);
-              console.log(`Zoom adjusted to min: ${minZoom} (${waypointData.length} waypoints)`);
-            }
+          if (currentZoom && Math.abs(currentZoom - optimalZoom) > 0.5) {
+            // Smooth transition to optimal zoom
+            const targetZoom = optimalZoom;
+            map.setZoom(targetZoom);
+            console.log(`Gradual zoom: ${currentZoom.toFixed(1)} → ${targetZoom} (${waypointData.length} waypoints)`);
           }
-        }, 150); // Increased delay for smoother animation
+        }, 100); // Reduced delay for more responsive feel
       }
     }
-  }, [map, waypointData]);
+  }, [map, waypointData, calculateOptimalZoom]);
 
   // Auto-zoom when waypoints change (grid size, pattern, or distance changes)
   React.useEffect(() => {
