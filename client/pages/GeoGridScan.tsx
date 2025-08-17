@@ -83,9 +83,13 @@ export default function GeoGridScan() {
   }, []);
 
   const restoreScrollPosition = useCallback(() => {
-    requestAnimationFrame(() => {
-      window.scrollTo(0, scrollPositionRef.current);
-    });
+    // Use a longer delay to ensure map operations complete first
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollPositionRef.current,
+        behavior: 'instant'
+      });
+    }, 100);
   }, []);
 
   // Scan Type (One-time vs Recurring)
