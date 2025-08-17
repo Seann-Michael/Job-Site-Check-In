@@ -206,39 +206,57 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   // CRITICAL FIX: Add ResizeObserver to detect container size changes
   useEffect(() => {
-    if (map) {
-      const mapContainer = map.getDiv().parentElement;
-      if (mapContainer) {
-        const resizeObserver = new ResizeObserver(() => {
-          // Trigger map resize when container size changes
-          google.maps.event.trigger(map, 'resize');
+    if (map && window.ResizeObserver) {
+      try {
+        const mapContainer = map.getDiv().parentElement;
+        if (mapContainer) {
+          const resizeObserver = new ResizeObserver(() => {
+            try {
+              // Trigger map resize when container size changes
+              if (map && google?.maps?.event) {
+                google.maps.event.trigger(map, 'resize');
 
-          // Maintain center position
-          if (mapCenter) {
-            map.setCenter(mapCenter);
-          }
-        });
+                // Maintain center position
+                if (mapCenter) {
+                  map.setCenter(mapCenter);
+                }
+              }
+            } catch (error) {
+              console.warn('Error in ResizeObserver callback:', error);
+            }
+          });
 
-        resizeObserver.observe(mapContainer);
+          resizeObserver.observe(mapContainer);
 
-        return () => {
-          resizeObserver.disconnect();
-        };
+          return () => {
+            try {
+              resizeObserver.disconnect();
+            } catch (error) {
+              console.warn('Error disconnecting ResizeObserver:', error);
+            }
+          };
+        }
+      } catch (error) {
+        console.warn('Error setting up ResizeObserver:', error);
       }
     }
   }, [map, mapCenter]);
 
   // CRITICAL FIX: Trigger resize when height changes
   useEffect(() => {
-    if (map) {
+    if (map && google?.maps?.event) {
       // Small delay to ensure container has updated its size
       setTimeout(() => {
-        // Trigger resize event to ensure map renders at correct height
-        google.maps.event.trigger(map, 'resize');
+        try {
+          // Trigger resize event to ensure map renders at correct height
+          google.maps.event.trigger(map, 'resize');
 
-        // Re-center the map after resize
-        if (mapCenter) {
-          map.setCenter(mapCenter);
+          // Re-center the map after resize
+          if (mapCenter) {
+            map.setCenter(mapCenter);
+          }
+        } catch (error) {
+          console.warn('Error triggering map resize:', error);
         }
       }, 100);
     }
