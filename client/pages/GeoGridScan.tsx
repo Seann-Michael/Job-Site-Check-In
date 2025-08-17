@@ -117,6 +117,7 @@ export default function GeoGridScan() {
 
     // Waypoint settings
     count: 25,
+    rings: 3, // New ring-based configuration for circles
     distanceBetween: 1,
     unit: "miles" as "miles" | "kilometers",
     pattern: "circle" as "circle" | "grid" | "line",
