@@ -90,23 +90,20 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     [isLoaded],
   );
 
-  // Circle grid configurations (10-15 options)
+  // Circle grid configurations matching user specifications
   const circleConfigs: Record<number, { rings: number; pattern: number[] }> = {
     7: { rings: 2, pattern: [1, 6] }, // 7 points: center + 6
-    13: { rings: 2, pattern: [1, 6, 6] }, // 13 points: center + 6 + 6
-    19: { rings: 2, pattern: [1, 6, 12] }, // 19 points: center + 6 + 12
-    21: { rings: 3, pattern: [1, 6, 6, 8] }, // 21 points
-    25: { rings: 3, pattern: [1, 8, 16] }, // 25 points
-    31: { rings: 3, pattern: [1, 6, 12, 12] }, // 31 points
-    37: { rings: 3, pattern: [1, 6, 12, 18] }, // 37 points
-    43: { rings: 3, pattern: [1, 8, 16, 18] }, // 43 points
-    49: { rings: 3, pattern: [1, 8, 16, 24] }, // 49 points
-    55: { rings: 4, pattern: [1, 6, 12, 18, 18] }, // 55 points
-    61: { rings: 4, pattern: [1, 6, 12, 18, 24] }, // 61 points
-    69: { rings: 4, pattern: [1, 8, 16, 20, 24] }, // 69 points
-    73: { rings: 4, pattern: [1, 8, 16, 24, 24] }, // 73 points
-    85: { rings: 4, pattern: [1, 8, 16, 24, 36] }, // 85 points
-    91: { rings: 4, pattern: [1, 6, 12, 24, 48] }, // 91 points
+    12: { rings: 3, pattern: [1, 6, 5] }, // 12 points: center + 6 + 5
+    20: { rings: 4, pattern: [1, 6, 8, 5] }, // 20 points: center + 6 + 8 + 5
+    28: { rings: 4, pattern: [1, 6, 10, 11] }, // 28 points: center + 6 + 10 + 11
+    39: { rings: 4, pattern: [1, 8, 12, 18] }, // 39 points: center + 8 + 12 + 18
+    50: { rings: 5, pattern: [1, 8, 14, 16, 11] }, // 50 points: center + 8 + 14 + 16 + 11
+    64: { rings: 5, pattern: [1, 10, 16, 20, 17] }, // 64 points: center + 10 + 16 + 20 + 17
+    78: { rings: 5, pattern: [1, 12, 18, 24, 23] }, // 78 points: center + 12 + 18 + 24 + 23
+    95: { rings: 5, pattern: [1, 14, 20, 28, 32] }, // 95 points: center + 14 + 20 + 28 + 32
+    113: { rings: 5, pattern: [1, 16, 24, 32, 40] }, // 113 points: center + 16 + 24 + 32 + 40
+    176: { rings: 6, pattern: [1, 20, 32, 44, 48, 31] }, // 176 points: center + 20 + 32 + 44 + 48 + 31
+    346: { rings: 7, pattern: [1, 30, 48, 64, 80, 96, 27] }, // 346 points: center + 30 + 48 + 64 + 80 + 96 + 27
   };
 
   // Generate circle grid positions
