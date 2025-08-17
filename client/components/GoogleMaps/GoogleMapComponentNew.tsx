@@ -204,63 +204,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     setInfoWindow(null);
   }, []);
 
-  // CRITICAL FIX: Add ResizeObserver to detect container size changes
-  useEffect(() => {
-    if (map && window.ResizeObserver) {
-      try {
-        const mapContainer = map.getDiv().parentElement;
-        if (mapContainer) {
-          const resizeObserver = new ResizeObserver(() => {
-            try {
-              // Trigger map resize when container size changes
-              if (map && google?.maps?.event) {
-                google.maps.event.trigger(map, 'resize');
-
-                // Maintain center position
-                if (mapCenter) {
-                  map.setCenter(mapCenter);
-                }
-              }
-            } catch (error) {
-              console.warn('Error in ResizeObserver callback:', error);
-            }
-          });
-
-          resizeObserver.observe(mapContainer);
-
-          return () => {
-            try {
-              resizeObserver.disconnect();
-            } catch (error) {
-              console.warn('Error disconnecting ResizeObserver:', error);
-            }
-          };
-        }
-      } catch (error) {
-        console.warn('Error setting up ResizeObserver:', error);
-      }
-    }
-  }, [map, mapCenter]);
-
-  // CRITICAL FIX: Trigger resize when height changes
-  useEffect(() => {
-    if (map && google?.maps?.event) {
-      // Small delay to ensure container has updated its size
-      setTimeout(() => {
-        try {
-          // Trigger resize event to ensure map renders at correct height
-          google.maps.event.trigger(map, 'resize');
-
-          // Re-center the map after resize
-          if (mapCenter) {
-            map.setCenter(mapCenter);
-          }
-        } catch (error) {
-          console.warn('Error triggering map resize:', error);
-        }
-      }, 100);
-    }
-  }, [map, height, mapCenter]);
 
   // Handle waypoint click (toggle enabled/disabled)
   const handleWaypointClick = useCallback(
