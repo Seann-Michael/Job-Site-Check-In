@@ -306,6 +306,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     (waypointId: string, event: google.maps.MapMouseEvent) => {
       setIsDragging(false);
       setDraggedWaypoint(null);
+      setTempWaypointPositions({}); // Clear temp positions
 
       if (
         !event.latLng ||
