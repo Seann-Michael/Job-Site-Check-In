@@ -133,12 +133,13 @@ function generateCircularWaypoints(
   count: number,
   spacing: number,
   unit: "miles" | "kilometers",
+  ringCount?: number,
 ): Waypoint[] {
   const waypoints: Waypoint[] = [];
   const spacingInMeters = convertToMeters(spacing, unit);
 
   // Calculate how many rings we need and how many points per ring
-  const rings = calculateUniformRings(count);
+  const rings = ringCount ? calculateRingsForExactCount(ringCount) : calculateUniformRings(count);
   let waypointIndex = 0;
 
   for (let ringIndex = 0; ringIndex < rings.length && waypointIndex < count; ringIndex++) {
