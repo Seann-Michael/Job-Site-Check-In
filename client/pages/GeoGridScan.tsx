@@ -15,7 +15,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AppLayout } from "@/components/AppLayout";
 import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponentNew";
-import GridMapTracker from "@/components/GoogleMaps/GridMapTracker";
 import {
   MapPin,
   Target,
@@ -39,13 +38,7 @@ import {
   Repeat,
   CalendarDays,
 } from "lucide-react";
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  useCallback,
-  useRef,
-} from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useCredits } from "@/components/CreditProvider";
@@ -85,8 +78,7 @@ export default function GeoGridScan() {
 
   // Preserve scroll position before state updates
   const preserveScrollPosition = useCallback(() => {
-    scrollPositionRef.current =
-      window.pageYOffset || document.documentElement.scrollTop;
+    scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop;
   }, []);
 
   const restoreScrollPosition = useCallback(() => {
@@ -94,7 +86,7 @@ export default function GeoGridScan() {
     setTimeout(() => {
       window.scrollTo({
         top: scrollPositionRef.current,
-        behavior: "instant",
+        behavior: 'instant'
       });
     }, 100);
   }, []);
@@ -145,10 +137,9 @@ export default function GeoGridScan() {
 
   // Generate waypoints when configuration changes
   useEffect(() => {
-    const actualCount =
-      scanConfig.pattern === "circle"
-        ? calculateWaypointCount(scanConfig.rings)
-        : scanConfig.count;
+    const actualCount = scanConfig.pattern === "circle"
+      ? calculateWaypointCount(scanConfig.rings)
+      : scanConfig.count;
 
     const options: WaypointGenerationOptions = {
       center: ADMIN_BUSINESS.coordinates,
@@ -184,17 +175,14 @@ export default function GeoGridScan() {
   };
 
   // Toggle waypoint
-  const handleWaypointToggle = useCallback(
-    (waypointId: string) => {
-      preserveScrollPosition();
-      setWaypoints((prevWaypoints) => {
-        const result = toggleWaypoint(prevWaypoints, waypointId);
-        setTimeout(() => restoreScrollPosition(), 0); // Async restore
-        return result;
-      });
-    },
-    [preserveScrollPosition, restoreScrollPosition],
-  );
+  const handleWaypointToggle = useCallback((waypointId: string) => {
+    preserveScrollPosition();
+    setWaypoints((prevWaypoints) => {
+      const result = toggleWaypoint(prevWaypoints, waypointId);
+      setTimeout(() => restoreScrollPosition(), 0); // Async restore
+      return result;
+    });
+  }, [preserveScrollPosition, restoreScrollPosition]);
 
   // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback(
@@ -714,11 +702,7 @@ export default function GeoGridScan() {
                             : "Line Points"}
                       </Label>
                       <Select
-                        value={
-                          scanConfig.pattern === "circle"
-                            ? scanConfig.rings.toString()
-                            : scanConfig.count.toString()
-                        }
+                        value={scanConfig.pattern === "circle" ? scanConfig.rings.toString() : scanConfig.count.toString()}
                         onValueChange={(value) =>
                           setScanConfig({
                             ...scanConfig,
@@ -962,7 +946,7 @@ export default function GeoGridScan() {
         </div>
 
         {/* Google Map */}
-        <div className="mt-8" style={{ overflowAnchor: "auto" }}>
+        <div className="mt-8" style={{ overflowAnchor: 'auto' }}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -971,10 +955,7 @@ export default function GeoGridScan() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div
-                className="h-[70vh] w-full"
-                style={{ overflowAnchor: "auto" }}
-              >
+              <div className="h-[70vh] w-full" style={{ overflowAnchor: 'auto' }}>
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
                   zoom={12}
@@ -1044,9 +1025,7 @@ export default function GeoGridScan() {
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Search Depth:
-                      </span>
+                      <span className="text-sm text-gray-600">Search Depth:</span>
                       <span className="text-sm font-medium">
                         Top {scanConfig.depth}
                       </span>
@@ -1060,17 +1039,13 @@ export default function GeoGridScan() {
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Grid Pattern:
-                      </span>
+                      <span className="text-sm text-gray-600">Grid Pattern:</span>
                       <span className="text-sm font-medium capitalize">
                         {scanConfig.pattern}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Available Credits:
-                      </span>
+                      <span className="text-sm text-gray-600">Available Credits:</span>
                       <span className="text-sm font-medium text-blue-600">
                         {formatCredits(balance.remaining)}
                       </span>
@@ -1089,8 +1064,7 @@ export default function GeoGridScan() {
                   </div>
                   {keywords.length > 1 && (
                     <p className="text-sm text-gray-500 mt-1">
-                      {keywords.length} keywords ×{" "}
-                      {formatCredits(scanCost / keywords.length)} credits each
+                      {keywords.length} keywords × {formatCredits(scanCost / keywords.length)} credits each
                     </p>
                   )}
                 </div>
@@ -1106,12 +1080,10 @@ export default function GeoGridScan() {
                             Insufficient Credits
                           </p>
                           <p className="text-xs text-red-700">
-                            You need {formatCredits(scanCost)} credits but only
-                            have {formatCredits(balance.remaining)} remaining.
+                            You need {formatCredits(scanCost)} credits but only have{" "}
+                            {formatCredits(balance.remaining)} remaining.
                             <button
-                              onClick={() =>
-                                navigate("/admin/credits/purchase")
-                              }
+                              onClick={() => navigate("/admin/credits/purchase")}
                               className="text-red-800 underline ml-1"
                             >
                               Purchase more credits
