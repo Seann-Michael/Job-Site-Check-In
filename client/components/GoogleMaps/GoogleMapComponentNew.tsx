@@ -167,7 +167,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       console.log("GoogleMapComponent: Map loaded successfully", map);
       setMap(map);
 
-      // Initial bounds fitting only (moved to separate effect to prevent refresh)
+      // Only fit bounds on initial load to prevent page jumping during interaction
       if (waypointData.length > 1) {
         setTimeout(() => {
           const bounds = new google.maps.LatLngBounds();
@@ -178,11 +178,12 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
           // Ensure reasonable zoom level
           setTimeout(() => {
-            if (map.getZoom() && map.getZoom()! > 15) {
+            const currentZoom = map.getZoom();
+            if (currentZoom && currentZoom > 15) {
               map.setZoom(15);
             }
-          }, 100);
-        }, 200);
+          }, 300);
+        }, 500); // Longer delay to ensure everything is loaded
       }
 
       // Create info window (but keep it closed)
