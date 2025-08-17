@@ -203,7 +203,6 @@ export default function GeoGridScan() {
     [scanConfig.unit, scanConfig.distanceBetween],
   );
 
-
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
     const enabledWaypoints = getEnabledWaypointsCount(waypoints);
@@ -1265,37 +1264,74 @@ export default function GeoGridScan() {
                 <div className="space-y-2">
                   <h4 className="font-medium text-gray-900">Target Details</h4>
                   <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium">Business:</span> {ADMIN_BUSINESS.name}</p>
-                    <p><span className="font-medium">Address:</span> {ADMIN_BUSINESS.address}</p>
-                    <p><span className="font-medium">Scan Type:</span> {scanType === "one-time" ? "One-time" : "Recurring"}</p>
+                    <p>
+                      <span className="font-medium">Business:</span>{" "}
+                      {ADMIN_BUSINESS.name}
+                    </p>
+                    <p>
+                      <span className="font-medium">Address:</span>{" "}
+                      {ADMIN_BUSINESS.address}
+                    </p>
+                    <p>
+                      <span className="font-medium">Scan Type:</span>{" "}
+                      {scanType === "one-time" ? "One-time" : "Recurring"}
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-medium text-gray-900">Search Parameters</h4>
+                  <h4 className="font-medium text-gray-900">
+                    Search Parameters
+                  </h4>
                   <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium">Keywords:</span> {keywords.length} configured</p>
-                    <p><span className="font-medium">Search Depth:</span> Top {scanConfig.depth} results</p>
-                    <p><span className="font-medium">Priority:</span> {scanConfig.priority}</p>
+                    <p>
+                      <span className="font-medium">Keywords:</span>{" "}
+                      {keywords.length} configured
+                    </p>
+                    <p>
+                      <span className="font-medium">Search Depth:</span> Top{" "}
+                      {scanConfig.depth} results
+                    </p>
+                    <p>
+                      <span className="font-medium">Priority:</span>{" "}
+                      {scanConfig.priority}
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-medium text-gray-900">Grid Configuration</h4>
+                  <h4 className="font-medium text-gray-900">
+                    Grid Configuration
+                  </h4>
                   <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium">Pattern:</span> {scanConfig.pattern}</p>
-                    <p><span className="font-medium">Waypoints:</span> {enabledWaypointsCount} of {waypoints.length} enabled</p>
-                    <p><span className="font-medium">Distance:</span> {scanConfig.distanceBetween} {scanConfig.unit}</p>
+                    <p>
+                      <span className="font-medium">Pattern:</span>{" "}
+                      {scanConfig.pattern}
+                    </p>
+                    <p>
+                      <span className="font-medium">Waypoints:</span>{" "}
+                      {enabledWaypointsCount} of {waypoints.length} enabled
+                    </p>
+                    <p>
+                      <span className="font-medium">Distance:</span>{" "}
+                      {scanConfig.distanceBetween} {scanConfig.unit}
+                    </p>
                   </div>
                 </div>
               </div>
 
               {keywords.length > 0 && (
                 <div className="mt-4 pt-4 border-t">
-                  <h4 className="font-medium text-gray-900 mb-2">Active Keywords</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    Active Keywords
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {keywords.map((keyword) => (
-                      <Badge key={keyword} variant="outline" className="text-xs">
+                      <Badge
+                        key={keyword}
+                        variant="outline"
+                        className="text-xs"
+                      >
                         {keyword}
                       </Badge>
                     ))}
@@ -1340,7 +1376,6 @@ export default function GeoGridScan() {
               </div>
             </CardContent>
           </Card>
-
 
           {/* Scan Summary - Moved under map */}
           <div className="mt-16">

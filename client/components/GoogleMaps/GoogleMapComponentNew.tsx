@@ -2,11 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  MapPin,
-  Navigation,
-  Maximize,
-} from "lucide-react";
+import { MapPin, Navigation, Maximize } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 import {
   type Waypoint as WaypointType,
@@ -94,7 +90,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   );
   const [isDragging, setIsDragging] = useState(false);
   const [draggedWaypoint, setDraggedWaypoint] = useState<string | null>(null);
-  const [tempWaypointPositions, setTempWaypointPositions] = useState<Record<string, { lat: number; lng: number }>>({});
+  const [tempWaypointPositions, setTempWaypointPositions] = useState<
+    Record<string, { lat: number; lng: number }>
+  >({});
 
   // Use refs to avoid re-renders when these values change
   const originalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -106,9 +104,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     "GoogleMapComponent: Using API key:",
     apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING",
   );
-
-
-
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
@@ -149,29 +144,59 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       if (center) return center;
       if (lat !== undefined && lng !== undefined) return { lat, lng };
       if (waypointData.length > 0) {
-        const centerWaypoint = waypointData.find((w) => w.isCenter && w.coordinates);
-        if (centerWaypoint && centerWaypoint.coordinates) return centerWaypoint.coordinates;
+        const centerWaypoint = waypointData.find(
+          (w) => w.isCenter && w.coordinates,
+        );
+        if (centerWaypoint && centerWaypoint.coordinates)
+          return centerWaypoint.coordinates;
 
-        const validWaypoints = waypointData.filter(w => w.coordinates && typeof w.coordinates.lat === 'number' && typeof w.coordinates.lng === 'number');
+        const validWaypoints = waypointData.filter(
+          (w) =>
+            w.coordinates &&
+            typeof w.coordinates.lat === "number" &&
+            typeof w.coordinates.lng === "number",
+        );
         if (validWaypoints.length > 0) {
-          const avgLat = validWaypoints.reduce((sum, w) => sum + w.coordinates.lat, 0) / validWaypoints.length;
-          const avgLng = validWaypoints.reduce((sum, w) => sum + w.coordinates.lng, 0) / validWaypoints.length;
+          const avgLat =
+            validWaypoints.reduce((sum, w) => sum + w.coordinates.lat, 0) /
+            validWaypoints.length;
+          const avgLng =
+            validWaypoints.reduce((sum, w) => sum + w.coordinates.lng, 0) /
+            validWaypoints.length;
           return { lat: avgLat, lng: avgLng };
         }
       }
       if (markers.length > 0) {
-        const validMarkers = markers.filter(m => m.position && typeof m.position.lat === 'number' && typeof m.position.lng === 'number');
+        const validMarkers = markers.filter(
+          (m) =>
+            m.position &&
+            typeof m.position.lat === "number" &&
+            typeof m.position.lng === "number",
+        );
         if (validMarkers.length > 0) {
-          const avgLat = validMarkers.reduce((sum, m) => sum + m.position.lat, 0) / validMarkers.length;
-          const avgLng = validMarkers.reduce((sum, m) => sum + m.position.lng, 0) / validMarkers.length;
+          const avgLat =
+            validMarkers.reduce((sum, m) => sum + m.position.lat, 0) /
+            validMarkers.length;
+          const avgLng =
+            validMarkers.reduce((sum, m) => sum + m.position.lng, 0) /
+            validMarkers.length;
           return { lat: avgLat, lng: avgLng };
         }
       }
       if (waypoints.length > 0) {
-        const validWaypoints = waypoints.filter(w => w.position && typeof w.position.lat === 'number' && typeof w.position.lng === 'number');
+        const validWaypoints = waypoints.filter(
+          (w) =>
+            w.position &&
+            typeof w.position.lat === "number" &&
+            typeof w.position.lng === "number",
+        );
         if (validWaypoints.length > 0) {
-          const avgLat = validWaypoints.reduce((sum, w) => sum + w.position.lat, 0) / validWaypoints.length;
-          const avgLng = validWaypoints.reduce((sum, w) => sum + w.position.lng, 0) / validWaypoints.length;
+          const avgLat =
+            validWaypoints.reduce((sum, w) => sum + w.position.lat, 0) /
+            validWaypoints.length;
+          const avgLng =
+            validWaypoints.reduce((sum, w) => sum + w.position.lng, 0) /
+            validWaypoints.length;
           return { lat: avgLat, lng: avgLng };
         }
       }
@@ -285,7 +310,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         const lngOffset = newPosition.lng - draggedWaypoint.coordinates.lng;
 
         // Create temp positions for all waypoints to show them moving together
-        const newTempPositions: Record<string, { lat: number; lng: number }> = {};
+        const newTempPositions: Record<string, { lat: number; lng: number }> =
+          {};
         waypointData.forEach((waypoint) => {
           newTempPositions[waypoint.id] = {
             lat: waypoint.coordinates.lat + latOffset,
@@ -377,7 +403,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     },
     [waypointData, scanConfig, onWaypointsDragComplete],
   );
-
 
   // Create marker icon for waypoints - classic teardrop pin shape
   const createWaypointIcon = useCallback(
@@ -611,7 +636,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               {waypointData.map((waypoint, index) => {
                 const rank = waypoint.isCenter ? undefined : index;
                 // Use temp position during drag, otherwise use original position
-                const position = tempWaypointPositions[waypoint.id] || waypoint.coordinates;
+                const position =
+                  tempWaypointPositions[waypoint.id] || waypoint.coordinates;
 
                 return (
                   <Marker
@@ -648,7 +674,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   onClick={() => {
                     // Enable all waypoints
                     if (onWaypointToggle && waypointData.length > 0) {
-                      waypointData.forEach(waypoint => {
+                      waypointData.forEach((waypoint) => {
                         if (!waypoint.enabled && !waypoint.isCenter) {
                           onWaypointToggle(waypoint.id);
                         }
@@ -657,7 +683,14 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   }}
                   className="gap-2"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                   Enable All Pins
@@ -682,14 +715,21 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                           top: 50,
                           bottom: 50,
                           left: 50,
-                          right: 50
+                          right: 50,
                         });
                       }, 100);
                     }
                   }}
                   className="gap-2"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <circle cx="12" cy="12" r="10"></circle>
                     <circle cx="12" cy="12" r="4"></circle>
                   </svg>
@@ -698,16 +738,15 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               </div>
 
               <div className="text-sm text-muted-foreground">
-                {waypointData.filter(w => w.enabled).length} of {waypointData.length} pins enabled
+                {waypointData.filter((w) => w.enabled).length} of{" "}
+                {waypointData.length} pins enabled
               </div>
             </div>
           </div>
-
         </CardContent>
       </Card>
     </>
   );
 };
-
 
 export default GoogleMapComponent;
