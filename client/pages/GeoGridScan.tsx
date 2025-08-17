@@ -159,11 +159,7 @@ export default function GeoGridScan() {
   };
 
   // Toggle waypoint
-  const handleWaypointToggle = useCallback((waypointId: string, e?: Event) => {
-    // Only prevent default if needed, don't stop propagation
-    if (e && e.preventDefault) {
-      e.preventDefault();
-    }
+  const handleWaypointToggle = useCallback((waypointId: string) => {
     preserveScrollPosition();
     setWaypoints((prevWaypoints) => {
       const result = toggleWaypoint(prevWaypoints, waypointId);
