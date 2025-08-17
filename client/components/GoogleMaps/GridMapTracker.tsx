@@ -311,24 +311,24 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     return "#4285F4"; // Blue for regular pins
   }, []);
 
-  // Create hollow waypoint-style SVG icon
+  // Create hollow waypoint-style SVG icon with sharp point
   const createWaypointIcon = useCallback(
     (marker: any) => {
       const color = getMarkerColor(marker);
       const isDisabled = marker.disabled;
-      const strokeWidth = isDisabled ? 2 : 3;
+      const strokeWidth = isDisabled ? 3 : 5; // Thicker stroke
       const strokeOpacity = isDisabled ? 0.6 : 1;
 
       const svg = `
-      <svg width="32" height="48" viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+      <svg width="36" height="52" viewBox="0 0 36 52" xmlns="http://www.w3.org/2000/svg">
         <g>
-          <ellipse cx="16" cy="46" rx="10" ry="2" fill="black" opacity="0.1"/>
-          <path d="M16 0 C7.2 0 0 7.2 0 16 C0 24.8 16 48 16 48 S32 24.8 32 16 C32 7.2 24.8 0 16 0 Z"
-                fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}"/>
+          <ellipse cx="18" cy="50" rx="12" ry="2" fill="black" opacity="0.1"/>
+          <path d="M18 0 C8.059 0 0 8.059 0 18 C0 27.941 18 52 18 52 S36 27.941 36 18 C36 8.059 27.941 0 18 0 Z"
+                fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
           ${
             marker.isCenter
-              ? '<circle cx="16" cy="16" r="3" fill="transparent" stroke="' + color + '" stroke-width="2" stroke-opacity="' + strokeOpacity + '"/>'
-              : '<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="' +
+              ? '<circle cx="18" cy="18" r="4" fill="transparent" stroke="' + color + '" stroke-width="3" stroke-opacity="' + strokeOpacity + '"/>'
+              : '<text x="18" y="23" text-anchor="middle" font-size="12" font-weight="bold" fill="' +
                 color +
                 '" opacity="' + strokeOpacity + '">' +
                 (gridType === "circle"
@@ -342,9 +342,9 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
       return {
         url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(32, 48),
-        anchor: new google.maps.Point(16, 48),
-        labelOrigin: new google.maps.Point(16, -8),
+        scaledSize: new google.maps.Size(36, 52),
+        anchor: new google.maps.Point(18, 52),
+        labelOrigin: new google.maps.Point(18, -8),
       };
     },
     [getMarkerColor, gridType],
