@@ -370,7 +370,7 @@ export default function GeoGridScan() {
                 </RadioGroup>
 
                 {scanType === "recurring" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div>
                       <Label>Frequency</Label>
                       <Select
@@ -406,6 +406,20 @@ export default function GeoGridScan() {
                           setRecurringSettings({
                             ...recurringSettings,
                             startDate: e.target.value,
+                          })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Start Time</Label>
+                      <Input
+                        type="time"
+                        value={recurringSettings.startTime}
+                        onChange={(e) =>
+                          setRecurringSettings({
+                            ...recurringSettings,
+                            startTime: e.target.value,
                           })
                         }
                         className="mt-1"
