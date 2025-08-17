@@ -572,9 +572,24 @@ export default function GeoGridScan() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="grid">Square Grid</SelectItem>
-                        <SelectItem value="circle">Circular Pattern</SelectItem>
-                        <SelectItem value="line">Linear Pattern</SelectItem>
+                        <SelectItem value="grid">
+                          <div className="flex items-center gap-2">
+                            <Grid3X3 className="h-4 w-4" />
+                            Square Grid
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="circle">
+                          <div className="flex items-center gap-2">
+                            <Circle className="h-4 w-4" />
+                            Circular Pattern
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="line">
+                          <div className="flex items-center gap-2">
+                            <Crosshair className="h-4 w-4" />
+                            Linear Pattern
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
