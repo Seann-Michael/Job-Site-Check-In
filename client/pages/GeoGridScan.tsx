@@ -1343,7 +1343,7 @@ export default function GeoGridScan() {
 
 
           {/* Scan Summary - Moved under map */}
-          <div className="mt-12">
+          <div className="mt-16">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
