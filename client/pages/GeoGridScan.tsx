@@ -610,9 +610,7 @@ export default function GeoGridScan() {
                     <Label className="text-sm font-medium">
                       {scanConfig.pattern === "grid"
                         ? "Grid Size"
-                        : scanConfig.pattern === "circle"
-                          ? "Number of Rings"
-                          : "Line Points"}
+                        : "Number of Rings"}
                     </Label>
                     <Select
                       value={
