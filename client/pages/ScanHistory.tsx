@@ -278,6 +278,11 @@ export default function ScanHistory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
+  // Recurring scans state
+  const [recurringScans, setRecurringScans] = useState<RecurringScan[]>(mockRecurringScans);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
+
   const filteredHistory = history.filter((item) => {
     const matchesStatus =
       filterStatus === "all" || item.status === filterStatus;
