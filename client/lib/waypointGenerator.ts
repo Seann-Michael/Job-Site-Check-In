@@ -170,54 +170,47 @@ function generateCircularWaypoints(
 
 // Calculate optimal ring structure for uniform circular distribution
 function calculateOptimalRings(count: number): Array<{ pointsInRing: number; radiusMultiplier: number }> {
-  // Standard mathematical approach for uniform circular grids
+  // Universal mathematical approach for ALL waypoint counts - consistent with competitor
   const rings: Array<{ pointsInRing: number; radiusMultiplier: number }> = [];
 
-  if (count <= 6) {
-    // Single ring
-    rings.push({ pointsInRing: count, radiusMultiplier: 1.0 });
-  } else if (count <= 18) {
-    // Two rings: inner (6) + outer (remaining)
-    rings.push({ pointsInRing: 6, radiusMultiplier: 0.6 });
-    rings.push({ pointsInRing: count - 6, radiusMultiplier: 1.0 });
-  } else if (count <= 42) {
-    // Three rings: 6, 12, remaining
-    rings.push({ pointsInRing: 6, radiusMultiplier: 0.5 });
-    rings.push({ pointsInRing: 12, radiusMultiplier: 0.75 });
-    rings.push({ pointsInRing: count - 18, radiusMultiplier: 1.0 });
-  } else if (count <= 78) {
-    // Four rings: 6, 12, 18, remaining
-    rings.push({ pointsInRing: 6, radiusMultiplier: 0.4 });
-    rings.push({ pointsInRing: 12, radiusMultiplier: 0.6 });
-    rings.push({ pointsInRing: 18, radiusMultiplier: 0.8 });
-    rings.push({ pointsInRing: count - 36, radiusMultiplier: 1.0 });
-  } else if (count <= 126) {
-    // Five rings: 6, 12, 18, 24, remaining
-    rings.push({ pointsInRing: 6, radiusMultiplier: 0.35 });
-    rings.push({ pointsInRing: 12, radiusMultiplier: 0.52 });
-    rings.push({ pointsInRing: 18, radiusMultiplier: 0.69 });
-    rings.push({ pointsInRing: 24, radiusMultiplier: 0.86 });
-    rings.push({ pointsInRing: count - 60, radiusMultiplier: 1.0 });
-  } else if (count <= 186) {
-    // Six rings: 6, 12, 18, 24, 30, remaining
-    rings.push({ pointsInRing: 6, radiusMultiplier: 0.3 });
-    rings.push({ pointsInRing: 12, radiusMultiplier: 0.45 });
-    rings.push({ pointsInRing: 18, radiusMultiplier: 0.6 });
-    rings.push({ pointsInRing: 24, radiusMultiplier: 0.75 });
-    rings.push({ pointsInRing: 30, radiusMultiplier: 0.9 });
-    rings.push({ pointsInRing: count - 90, radiusMultiplier: 1.0 });
-  } else {
-    // Seven+ rings for very large counts
-    const targetRings = Math.ceil(Math.sqrt(count / 6));
-    let remainingPoints = count;
+  // Standard ring progression: 6, 12, 18, 24, 30, 36... (multiples of 6)
+  const standardRingSize = 6;
+  let remainingPoints = count;
+  let ringIndex = 1;
 
-    for (let i = 0; i < targetRings && remainingPoints > 0; i++) {
-      const pointsInRing = i === 0 ? 6 : Math.min(6 * (i + 1), remainingPoints);
-      const radiusMultiplier = (i + 1) / targetRings;
+  while (remainingPoints > 0) {
+    // For first ring, always use 6 points (or remaining if less than 6)
+    // For subsequent rings, use multiples of 6 or remaining points
+    let pointsInThisRing;
 
-      rings.push({ pointsInRing, radiusMultiplier });
-      remainingPoints -= pointsInRing;
+    if (ringIndex === 1) {
+      pointsInThisRing = Math.min(standardRingSize, remainingPoints);
+    } else {
+      const idealPointsForRing = standardRingSize * ringIndex;
+      pointsInThisRing = Math.min(idealPointsForRing, remainingPoints);
     }
+
+    // Calculate radius multiplier for even spacing
+    const radiusMultiplier = ringIndex * (1.0 / Math.ceil(Math.sqrt(count / 6)));
+
+    rings.push({
+      pointsInRing: pointsInThisRing,
+      radiusMultiplier: Math.max(0.3, radiusMultiplier) // Minimum radius to prevent overlap
+    });
+
+    remainingPoints -= pointsInThisRing;
+    ringIndex++;
+
+    // Safety break to prevent infinite loops
+    if (ringIndex > 20) break;
+  }
+
+  // Normalize radius multipliers to ensure outermost ring is at 1.0
+  if (rings.length > 0) {
+    const maxRadius = Math.max(...rings.map(r => r.radiusMultiplier));
+    rings.forEach(ring => {
+      ring.radiusMultiplier = ring.radiusMultiplier / maxRadius;
+    });
   }
 
   return rings;
