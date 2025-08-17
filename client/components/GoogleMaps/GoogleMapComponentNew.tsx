@@ -345,7 +345,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     [onWaypointsDragComplete, waypointData, scanConfig, map],
   );
 
-  // Create marker icon for waypoints - hollow GPS pin style with sharp point
+  // Create marker icon for waypoints - classic teardrop pin shape
   const createWaypointIcon = useCallback(
     (waypoint: WaypointType, rank?: number) => {
       const isCenter = waypoint.isCenter;
@@ -355,29 +355,29 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       const strokeOpacity = isEnabled ? 1.0 : 0.6;
 
       if (isCenter) {
-        // Purple center hollow GPS pin with sharp point
+        // Purple center hollow teardrop pin
         return {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
-            <path d="M16 0C7.163 0 0 7.163 0 16c0 7.837 16 26 16 26s16-18.163 16-26C32 7.163 24.837 0 16 0z"
+            <path d="M16 2 C8.268 2 2 8.268 2 16 C2 23.732 16 40 16 40 C16 40 30 23.732 30 16 C30 8.268 23.732 2 16 2 Z"
                   fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
             <circle cx="16" cy="16" r="4" fill="transparent" stroke="${color}" stroke-width="2" stroke-opacity="${strokeOpacity}"/>
           </svg>
         `)}`,
           scaledSize: new google.maps.Size(32, 42),
-          anchor: new google.maps.Point(16, 42),
+          anchor: new google.maps.Point(16, 40),
         };
       } else {
-        // Hollow GPS pin style for waypoints with sharp point
+        // Hollow teardrop pin for waypoints
         return {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
           <svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">
-            <path d="M13 0C5.82 0 0 5.82 0 13c0 6.18 13 21 13 21s13-14.82 13-21C26 5.82 20.18 0 13 0z"
+            <path d="M13 2 C6.925 2 2 6.925 2 13 C2 19.075 13 32 13 32 C13 32 24 19.075 24 13 C24 6.925 19.075 2 13 2 Z"
                   fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
           </svg>
         `)}`,
           scaledSize: new google.maps.Size(26, 34),
-          anchor: new google.maps.Point(13, 34),
+          anchor: new google.maps.Point(13, 32),
         };
       }
     },
