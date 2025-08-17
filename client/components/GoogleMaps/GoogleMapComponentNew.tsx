@@ -221,7 +221,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
       // Toggle waypoint enabled state (only for non-center waypoints)
       if (!waypoint.isCenter && onWaypointToggle) {
-        onWaypointToggle(waypoint.id, event);
+        onWaypointToggle(waypoint.id);
       }
 
       if (onWaypointClick) {
