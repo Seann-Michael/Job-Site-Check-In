@@ -421,41 +421,6 @@ export default function GeoGridScan() {
               </CardContent>
             </Card>
 
-            {/* Target Business - Read-only display for admin */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Target Business
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="font-medium text-green-900">
-                          {ADMIN_BUSINESS.name}
-                        </p>
-                        <Badge
-                          variant="secondary"
-                          className="bg-green-100 text-green-800"
-                        >
-                          Connected
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-green-700">
-                        {ADMIN_BUSINESS.address}
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        Using integrated Google Business Profile
-                      </p>
-                    </div>
-                    <Check className="h-5 w-5 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Keywords */}
             <Card>
