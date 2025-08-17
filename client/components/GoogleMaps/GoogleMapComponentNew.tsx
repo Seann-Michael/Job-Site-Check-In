@@ -328,7 +328,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           }, 500); // Longer delay to ensure everything is loaded
         }
 
-        // Add custom zoom event listener for 0.5 increments
+        // Add custom zoom event listener for 0.25 increments
         let isUpdatingZoom = false;
 
         map.addListener('zoom_changed', () => {
@@ -337,9 +337,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           try {
             const newZoom = map.getZoom();
             if (newZoom !== undefined) {
-              // Round to nearest 0.5
-              const roundedZoom = Math.round(newZoom * 2) / 2;
-              if (Math.abs(roundedZoom - newZoom) > 0.1) {
+              // Round to nearest 0.25
+              const roundedZoom = Math.round(newZoom * 4) / 4;
+              if (Math.abs(roundedZoom - newZoom) > 0.05) {
                 isUpdatingZoom = true;
                 setTimeout(() => {
                   try {
