@@ -403,7 +403,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             <div className="flex-1 min-w-0">
               {waypoints && waypoints.length > 0 && (
                 <p className="text-xs text-muted-foreground mb-1">
-                  📍 {waypoints.length} waypoints configured for geo grid scan
+                  ��� {waypoints.length} waypoints configured for geo grid scan
                 </p>
               )}
               {markers && markers.length > 0 && (!waypoints || waypoints.length === 0) && (
@@ -493,6 +493,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     );
   }
 
+  // Debug logging
+  useEffect(() => {
+    console.log("GoogleMapComponent state:", {
+      isLoaded,
+      useIframeFallback,
+      error,
+      mapExists: !!map,
+      centerProp: center,
+      markerCount: markers?.length || 0,
+      waypointCount: waypoints?.length || 0
+    });
+  }, [isLoaded, useIframeFallback, error, map, center, markers, waypoints]);
+
   if (!isLoaded && !useIframeFallback) {
     return (
       <Card className={className}>
@@ -505,6 +518,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               </span>
               <span className="text-xs text-muted-foreground">
                 This may take a few seconds
+              </span>
+              <span className="text-xs text-red-500 mt-2">
+                Debug: isLoaded={isLoaded.toString()}, iframe={useIframeFallback.toString()}, error={error || 'none'}
               </span>
             </div>
           </div>
