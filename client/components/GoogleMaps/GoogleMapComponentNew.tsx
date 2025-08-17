@@ -610,10 +610,13 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               {/* Render enhanced waypoint markers */}
               {waypointData.map((waypoint, index) => {
                 const rank = waypoint.isCenter ? undefined : index;
+                // Use temp position during drag, otherwise use original position
+                const position = tempWaypointPositions[waypoint.id] || waypoint.coordinates;
+
                 return (
                   <Marker
                     key={waypoint.id}
-                    position={waypoint.coordinates}
+                    position={position}
                     title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
                     icon={createWaypointIcon(waypoint, rank)}
                     onClick={(e) => {
@@ -621,6 +624,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     }}
                     draggable={true}
                     onDragStart={(event) => handleDragStart(waypoint.id, event)}
+                    onDrag={(event) => handleDrag(waypoint.id, event)}
                     onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
                     animation={
                       selectedWaypoint === waypoint.id
