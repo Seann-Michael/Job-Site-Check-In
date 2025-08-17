@@ -126,30 +126,33 @@ export function generateWaypoints(
   }
 }
 
-// Generate waypoints in a uniform circular pattern (like competitor)
+// Generate waypoints in a uniform circular pattern with perfect spacing
 function generateCircularWaypoints(
   center: Coordinate,
   count: number,
-  radius: number,
+  spacing: number,
   unit: "miles" | "kilometers",
 ): Waypoint[] {
   const waypoints: Waypoint[] = [];
-  const radiusInMeters = convertToMeters(radius, unit);
+  const spacingInMeters = convertToMeters(spacing, unit);
 
-  // Calculate optimal ring structure for uniform distribution
-  const rings = calculateOptimalRings(count);
+  // Calculate how many rings we need and how many points per ring
+  const rings = calculateUniformRings(count);
   let waypointIndex = 0;
 
   for (let ringIndex = 0; ringIndex < rings.length && waypointIndex < count; ringIndex++) {
-    const ring = rings[ringIndex];
-    const ringRadius = radiusInMeters * ring.radiusMultiplier;
-    const pointsInThisRing = Math.min(ring.pointsInRing, count - waypointIndex);
+    const pointsInRing = rings[ringIndex];
 
-    // Calculate angle offset for this ring to create uniform appearance
-    const angleOffset = ringIndex * (30 / (ringIndex + 1)); // Slight offset each ring for better distribution
+    // Each ring is exactly 'spacing' distance from the previous ring
+    // Ring 0 would be center (handled separately), ring 1 is at 1*spacing, ring 2 is at 2*spacing, etc.
+    const ringRadius = (ringIndex + 1) * spacingInMeters;
+    const actualPointsInRing = Math.min(pointsInRing, count - waypointIndex);
 
-    for (let i = 0; i < pointsInThisRing; i++) {
-      const bearing = (360 / pointsInThisRing) * i + angleOffset;
+    // Slight offset for each ring to avoid alignment and create better distribution
+    const angleOffset = (ringIndex * 30) % 360; // 30 degree offset per ring
+
+    for (let i = 0; i < actualPointsInRing; i++) {
+      const bearing = (360 / actualPointsInRing) * i + angleOffset;
       const coordinates = destinationPoint(center, ringRadius, bearing);
 
       waypoints.push({
@@ -168,49 +171,31 @@ function generateCircularWaypoints(
   return waypoints;
 }
 
-// Calculate optimal ring structure for uniform circular distribution
-function calculateOptimalRings(count: number): Array<{ pointsInRing: number; radiusMultiplier: number }> {
-  // Universal mathematical approach for ALL waypoint counts - consistent with competitor
-  const rings: Array<{ pointsInRing: number; radiusMultiplier: number }> = [];
-
-  // Standard ring progression: 6, 12, 18, 24, 30, 36... (multiples of 6)
-  const standardRingSize = 6;
+// Calculate uniform ring distribution with consistent point counts
+function calculateUniformRings(count: number): number[] {
+  const rings: number[] = [];
   let remainingPoints = count;
-  let ringIndex = 1;
+
+  // Standard progression: first ring = 6, then multiples of 6 (6, 12, 18, 24...)
+  let ringNumber = 1;
 
   while (remainingPoints > 0) {
-    // For first ring, always use 6 points (or remaining if less than 6)
-    // For subsequent rings, use multiples of 6 or remaining points
     let pointsInThisRing;
 
-    if (ringIndex === 1) {
-      pointsInThisRing = Math.min(standardRingSize, remainingPoints);
+    if (ringNumber === 1) {
+      // First ring: always 6 points (or remaining if less)
+      pointsInThisRing = Math.min(6, remainingPoints);
     } else {
-      const idealPointsForRing = standardRingSize * ringIndex;
-      pointsInThisRing = Math.min(idealPointsForRing, remainingPoints);
+      // Subsequent rings: 6 * ring number, but not more than remaining
+      pointsInThisRing = Math.min(6 * ringNumber, remainingPoints);
     }
 
-    // Calculate radius multiplier for even spacing
-    const radiusMultiplier = ringIndex * (1.0 / Math.ceil(Math.sqrt(count / 6)));
-
-    rings.push({
-      pointsInRing: pointsInThisRing,
-      radiusMultiplier: Math.max(0.3, radiusMultiplier) // Minimum radius to prevent overlap
-    });
-
+    rings.push(pointsInThisRing);
     remainingPoints -= pointsInThisRing;
-    ringIndex++;
+    ringNumber++;
 
-    // Safety break to prevent infinite loops
-    if (ringIndex > 20) break;
-  }
-
-  // Normalize radius multipliers to ensure outermost ring is at 1.0
-  if (rings.length > 0) {
-    const maxRadius = Math.max(...rings.map(r => r.radiusMultiplier));
-    rings.forEach(ring => {
-      ring.radiusMultiplier = ring.radiusMultiplier / maxRadius;
-    });
+    // Safety break
+    if (ringNumber > 10) break;
   }
 
   return rings;
