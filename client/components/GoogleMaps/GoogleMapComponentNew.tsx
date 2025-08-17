@@ -212,6 +212,12 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               <span className="text-sm text-muted-foreground">
                 Loading Google Maps...
               </span>
+              <span className="text-xs text-blue-600">
+                API Key: {apiKey ? 'Found' : 'Missing'} | Center: {mapCenter.lat.toFixed(3)}, {mapCenter.lng.toFixed(3)}
+              </span>
+              <span className="text-xs text-blue-600">
+                Markers: {markers.length} | Waypoints: {waypoints.length}
+              </span>
             </div>
           </div>
         </CardContent>
