@@ -508,7 +508,7 @@ export default function GeoGridScan() {
               <CardContent className="space-y-4">
                 {/* First Row: 3 inputs */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="max-w-[180px]">
+                  <div className="max-w-[360px]">
                     <Label className="text-sm font-medium">Search Depth</Label>
                     <Select
                       value={scanConfig.depth.toString()}
@@ -532,7 +532,7 @@ export default function GeoGridScan() {
                     </Select>
                   </div>
 
-                  <div className="max-w-[180px]">
+                  <div className="max-w-[360px]">
                     <Label className="text-sm font-medium">Priority Level</Label>
                     <Select
                       value={scanConfig.priority}
@@ -557,7 +557,7 @@ export default function GeoGridScan() {
                     </Select>
                   </div>
 
-                  <div className="max-w-[180px]">
+                  <div className="max-w-[360px]">
                     <Label className="text-sm font-medium">Pattern Type</Label>
                     <Select
                       value={scanConfig.pattern}
