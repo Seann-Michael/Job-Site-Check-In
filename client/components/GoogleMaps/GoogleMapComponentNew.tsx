@@ -136,13 +136,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       streetViewControl: showControls,
       fullscreenControl: showControls,
       mapTypeControl: showControls,
-      // Enable smooth zoom transitions for more gradual control
       gestureHandling: "cooperative",
       scrollwheel: true,
       clickableIcons: false,
-      // Custom zoom increments
-      minZoom: 1,
-      maxZoom: 20,
     }),
     [showControls],
   );
