@@ -1350,8 +1350,8 @@ export default function GeoGridScan() {
                   Map Configuration
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <CardContent className="space-y-4" style={{ position: 'relative', zIndex: 10, backgroundColor: 'white' }}>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg" style={{ position: 'relative', zIndex: 10 }}>
                   <p className="text-sm text-blue-800">
                     <strong>Map Controls:</strong> Use the native Google Maps zoom controls (+ / - buttons or mouse wheel) to adjust the map view. Zoom changes in increments of 0.5 for more precise control.
                   </p>
