@@ -789,6 +789,106 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             </div>
           </div>
         )}
+
+        {/* Manual Zoom Controls */}
+        <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Zoom Control:</span>
+              <button
+                onClick={toggleZoomMode}
+                className={`text-xs px-2 py-1 rounded transition-colors ${
+                  isManualZoomMode
+                    ? "bg-blue-100 text-blue-700 border border-blue-200"
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                }`}
+              >
+                {isManualZoomMode ? "Manual" : "Auto"}
+              </button>
+            </div>
+            {isManualZoomMode && (
+              <span className="text-xs text-gray-500">
+                {manualZoomPercentage}% (Zoom: {percentageToZoom(manualZoomPercentage).toFixed(1)})
+              </span>
+            )}
+          </div>
+
+          {isManualZoomMode && (
+            <div className="space-y-2">
+              {/* Zoom Slider */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleManualZoom(Math.max(0, manualZoomPercentage - 5))}
+                  className="p-1 rounded hover:bg-gray-200 transition-colors"
+                  title="Zoom out 5%"
+                >
+                  <ZoomOut className="h-3 w-3" />
+                </button>
+
+                <div className="flex-1 px-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={manualZoomPercentage}
+                    onChange={(e) => handleManualZoom(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    title={`Zoom: ${manualZoomPercentage}%`}
+                  />
+                </div>
+
+                <button
+                  onClick={() => handleManualZoom(Math.min(100, manualZoomPercentage + 5))}
+                  className="p-1 rounded hover:bg-gray-200 transition-colors"
+                  title="Zoom in 5%"
+                >
+                  <ZoomIn className="h-3 w-3" />
+                </button>
+              </div>
+
+              {/* Percentage Input */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600">Zoom %:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={manualZoomPercentage}
+                  onChange={(e) => handleManualZoom(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  className="w-16 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-500">
+                  (0% = Far out, 100% = Close in)
+                </span>
+              </div>
+
+              {/* Quick Zoom Buttons */}
+              <div className="flex gap-1">
+                {[0, 25, 50, 75, 100].map((percent) => (
+                  <button
+                    key={percent}
+                    onClick={() => handleManualZoom(percent)}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      manualZoomPercentage === percent
+                        ? "bg-blue-100 text-blue-700 border border-blue-200"
+                        : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    }`}
+                  >
+                    {percent}%
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isManualZoomMode && (
+            <p className="text-xs text-gray-500">
+              Zoom automatically adjusts when grid size changes. Switch to Manual for precise control.
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
