@@ -758,7 +758,7 @@ export default function GeoGridScan() {
                             : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        KM
+                        Kilometers
                       </button>
                       <button
                         type="button"
@@ -771,7 +771,7 @@ export default function GeoGridScan() {
                             : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        MI
+                        Miles
                       </button>
                     </div>
                   </div>
