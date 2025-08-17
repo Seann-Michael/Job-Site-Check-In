@@ -78,6 +78,70 @@ interface ScanHistoryItem {
   creditsUsed: number;
 }
 
+interface RecurringScan {
+  id: string;
+  name: string;
+  business: string;
+  keywords: string[];
+  schedule: string;
+  frequency: "daily" | "weekly" | "monthly";
+  status: "active" | "paused" | "stopped";
+  nextRun: string;
+  lastRun?: string;
+  totalRuns: number;
+  averageRank: number;
+  creditsPerRun: number;
+  created: string;
+}
+
+const mockRecurringScans: RecurringScan[] = [
+  {
+    id: "r1",
+    name: "Daily Pizza Rankings",
+    business: "Joe's Pizza & More",
+    keywords: ["pizza restaurant", "italian food", "pizza delivery"],
+    schedule: "Every day at 9:00 AM",
+    frequency: "daily",
+    status: "active",
+    nextRun: "2024-01-19T09:00:00Z",
+    lastRun: "2024-01-18T09:00:00Z",
+    totalRuns: 45,
+    averageRank: 3.1,
+    creditsPerRun: 12,
+    created: "2023-12-01T10:00:00Z",
+  },
+  {
+    id: "r2",
+    name: "Weekly Auto Repair Check",
+    business: "Mike's Auto Repair",
+    keywords: ["auto repair", "car service", "brake repair"],
+    schedule: "Every Monday at 8:00 AM",
+    frequency: "weekly",
+    status: "active",
+    nextRun: "2024-01-22T08:00:00Z",
+    lastRun: "2024-01-15T08:00:00Z",
+    totalRuns: 12,
+    averageRank: 2.8,
+    creditsPerRun: 8,
+    created: "2023-11-15T12:00:00Z",
+  },
+  {
+    id: "r3",
+    name: "Monthly Clinic Analysis",
+    business: "Sunshine Medical Clinic",
+    keywords: ["medical clinic", "family doctor", "health clinic"],
+    schedule: "First Monday of each month at 7:00 AM",
+    frequency: "monthly",
+    status: "paused",
+    nextRun: "2024-02-05T07:00:00Z",
+    lastRun: "2024-01-01T07:00:00Z",
+    totalRuns: 3,
+    averageRank: 4.2,
+    creditsPerRun: 15,
+    created: "2023-10-01T15:00:00Z",
+  },
+];
+
 const mockHistory: ScanHistoryItem[] = [
   {
     id: "1",
