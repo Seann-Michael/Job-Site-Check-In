@@ -311,44 +311,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     return "#4285F4"; // Blue for regular pins
   }, []);
 
-  // Create waypoint-style SVG icon
-  const createWaypointIcon = useCallback(
-    (marker: any) => {
-      const color = getMarkerColor(marker);
-      const isDisabled = marker.disabled;
-      const opacity = 1; // Always solid, no transparency
-
-      const svg = `
-      <svg width="32" height="48" viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
-        <g opacity="${opacity}">
-          <ellipse cx="16" cy="46" rx="10" ry="2" fill="black" opacity="0.2"/>
-          <path d="M16 0 C7.2 0 0 7.2 0 16 C0 24.8 16 48 16 48 S32 24.8 32 16 C32 7.2 24.8 0 16 0 Z"
-                fill="${color}" stroke="white" stroke-width="2"/>
-          <circle cx="16" cy="16" r="8" fill="white"/>
-          ${
-            marker.isCenter
-              ? '<circle cx="16" cy="16" r="3" fill="' + color + '"/>'
-              : '<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="' +
-                color +
-                '">' +
-                (gridType === "circle"
-                  ? marker.index || ""
-                  : marker.label?.slice(-1) || "") +
-                "</text>"
-          }
-        </g>
-      </svg>
-    `;
-
-      return {
-        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(32, 48),
-        anchor: new google.maps.Point(16, 48),
-        labelOrigin: new google.maps.Point(16, -8),
-      };
-    },
-    [getMarkerColor, gridType],
-  );
 
   // Toggle waypoint disabled state (except center pin)
   const toggleWaypointDisabled = useCallback((markerId: string) => {
