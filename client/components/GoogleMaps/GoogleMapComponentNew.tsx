@@ -121,25 +121,25 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     }
   }, [map, waypointData]);
 
-  // Auto-zoom when waypoint count changes (grid size changes)
+  // Auto-zoom when waypoints change (grid size, pattern, or distance changes)
   React.useEffect(() => {
     const currentWaypointCount = waypointData.length;
 
-    // If waypoint count changed and we have waypoints, auto-fit bounds
+    // Auto-fit bounds whenever waypoints change after initial load
     if (
-      currentWaypointCount !== previousWaypointCount.current &&
-      currentWaypointCount > 0 &&
       map &&
+      waypointData.length > 0 &&
       hasInitializedBounds.current // Only auto-zoom after initial load
     ) {
-      console.log(`Waypoint count changed: ${previousWaypointCount.current} → ${currentWaypointCount}, auto-fitting bounds`);
+      // Always auto-fit when waypoints change, whether count changed or not
+      console.log(`Waypoints updated (count: ${currentWaypointCount}), auto-fitting bounds`);
       setTimeout(() => {
         autoFitBounds();
-      }, 200); // Small delay to ensure waypoints are rendered
+      }, 100); // Reduced delay for more responsive zoom
     }
 
     previousWaypointCount.current = currentWaypointCount;
-  }, [waypointData.length, map, autoFitBounds]);
+  }, [waypointData, map, autoFitBounds]); // Watch entire waypointData array, not just length
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
