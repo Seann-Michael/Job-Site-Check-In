@@ -1342,7 +1342,7 @@ export default function GeoGridScan() {
               >
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
-                  zoom={mapZoom}
+                  zoom={12}
                   height="100%"
                   showControls={true}
                   showDirectionsButton={false}
@@ -1352,6 +1352,7 @@ export default function GeoGridScan() {
                   onWaypointDrag={handleWaypointDrag}
                   onWaypointsDragComplete={handleWaypointsDragComplete}
                   scanConfig={memoizedScanConfig}
+                  onMapLoad={handleMapLoad}
                 />
               </div>
             </CardContent>
