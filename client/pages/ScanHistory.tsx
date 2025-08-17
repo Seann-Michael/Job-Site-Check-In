@@ -742,40 +742,32 @@ export default function ScanHistory() {
                         {filteredHistory.map((item) => (
                           <TableRow
                             key={item.id}
-                            className="hover:bg-gray-50 cursor-pointer"
-                            onClick={() =>
-                              item.status === "completed" &&
-                              viewScanDetails(item.id)
-                            }
+                            className="hover:bg-gray-50"
                           >
-                            <TableCell>
-                              <div>
-                                <div className="font-medium text-gray-900">
-                                  {item.scanName}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {item.business}
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {item.keywords.slice(0, 2).map((keyword) => (
-                                    <Badge
-                                      key={keyword}
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {keyword}
-                                    </Badge>
-                                  ))}
-                                  {item.keywords.length > 2 && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      +{item.keywords.length - 2}
-                                    </Badge>
-                                  )}
-                                </div>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedItems.has(item.id)}
+                                onCheckedChange={() => handleSelectItem(item.id)}
+                              />
+                            </TableCell>
+                            <TableCell
+                              className="cursor-pointer"
+                              onClick={() =>
+                                item.status === "completed" &&
+                                viewScanDetails(item.id)
+                              }
+                            >
+                              <div className="font-medium text-gray-900">
+                                {item.scanName}
                               </div>
+                              <div className="text-sm text-gray-500">
+                                {new Date(item.startTime).toLocaleDateString()}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {item.keyword}
+                              </Badge>
                             </TableCell>
                             <TableCell>
                               <Badge
