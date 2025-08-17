@@ -112,7 +112,7 @@ export default function OneTimeScan() {
       );
 
       // Navigate to Maps page with scan data
-      navigate("/admin/maps", {
+      navigate("/admin/maps/geo-grid-scan", {
         state: {
           scanType: "one-time",
           businessName,
