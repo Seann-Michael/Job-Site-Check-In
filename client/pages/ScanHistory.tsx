@@ -318,8 +318,7 @@ const mockHistory: ScanHistoryItem[] = [
   {
     id: "8",
     scanName: "Weekly Rankings Check",
-    business: "Joe's Pizza & More",
-    keywords: ["pizza delivery", "pizza near me"],
+    keyword: "pizza delivery",
     scanType: "recurring",
     status: "running",
     startTime: "2024-01-18T16:00:00Z",
