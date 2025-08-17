@@ -772,49 +772,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           </div>
 
 
-          {(showDirectionsButton ||
-            address ||
-            (lat !== undefined && lng !== undefined) ||
-            center) && (
-            <div className="flex justify-between items-center gap-2 border-t border-gray-200 pt-4">
-              <div className="flex-1 min-w-0">
-                {address && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {address}
-                  </p>
-                )}
-                {center && !address && (
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-1">
-                {showDirectionsButton && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={getDirections}
-                    className="gap-1 text-xs px-2 h-7"
-                  >
-                    <Navigation className="h-3 w-3" />
-                    Directions
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openInGoogleMaps}
-                  className="gap-1 text-xs px-2 h-7"
-                >
-                  <Maximize className="h-3 w-3" />
-                  Open
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </>
