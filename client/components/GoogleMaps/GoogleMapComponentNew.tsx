@@ -202,6 +202,47 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     setInfoWindow(null);
   }, []);
 
+  // Handle waypoint click (toggle enabled/disabled) with stable memoization
+  const handleWaypointClick = useCallback(
+    (waypoint: WaypointType, event?: any) => {
+      if (isDragging) return; // Don't toggle during drag
+
+      // Prevent default but allow event to propagate for Google Maps
+      if (event && event.preventDefault) {
+        event.preventDefault();
+      }
+
+      // Close any open info windows
+      if (infoWindow) {
+        infoWindow.close();
+      }
+
+      // Toggle waypoint enabled state (only for non-center waypoints)
+      if (!waypoint.isCenter && onWaypointToggle) {
+        onWaypointToggle(waypoint.id);
+      }
+
+      if (onWaypointClick) {
+        onWaypointClick(waypoint.id);
+      }
+    },
+    [onWaypointClick, onWaypointToggle, isDragging, infoWindow],
+  );
+
+  // Handle marker click with stable memoization
+  const handleMarkerClick = useCallback(
+    (marker: MapMarker) => {
+      if (infoWindow) {
+        infoWindow.close();
+      }
+
+      if (onMarkerClick) {
+        onMarkerClick(marker);
+      }
+    },
+    [onMarkerClick, infoWindow],
+  );
+
 
   // Create marker icon for waypoints - classic teardrop pin shape
   const createWaypointIcon = useCallback(
