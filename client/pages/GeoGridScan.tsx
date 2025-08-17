@@ -1357,7 +1357,7 @@ export default function GeoGridScan() {
           </Card>
 
           {/* Map Configuration */}
-          <div className="mt-8">
+          <div className="mt-8" style={{ position: 'relative', zIndex: 1 }}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
