@@ -1365,8 +1365,77 @@ export default function GeoGridScan() {
                   Map Configuration
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {/* Empty container for future map configuration options */}
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Map Zoom Level</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={mapZoom}
+                          onChange={(e) => setMapZoom(parseInt(e.target.value))}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            value={mapZoom}
+                            onChange={(e) => setMapZoom(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                            className="w-16 text-center"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>1 (World)</span>
+                        <span>Current: {mapZoom}</span>
+                        <span>20 (Building)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium">Quick Zoom Presets</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMapZoom(8)}
+                        className={mapZoom === 8 ? "bg-blue-50 border-blue-200" : ""}
+                      >
+                        City (8)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMapZoom(12)}
+                        className={mapZoom === 12 ? "bg-blue-50 border-blue-200" : ""}
+                      >
+                        District (12)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMapZoom(15)}
+                        className={mapZoom === 15 ? "bg-blue-50 border-blue-200" : ""}
+                      >
+                        Neighborhood (15)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMapZoom(18)}
+                        className={mapZoom === 18 ? "bg-blue-50 border-blue-200" : ""}
+                      >
+                        Street (18)
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
