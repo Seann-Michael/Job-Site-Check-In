@@ -312,7 +312,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               position={marker.position}
               title={marker.title}
               icon={createMarkerIcon(marker)}
-              onClick={() => onMarkerClick && onMarkerClick(marker)}
+              onClick={() => handleMarkerClick(marker, marker.position)}
             />
           ))}
 
@@ -323,7 +323,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               position={waypoint.position}
               title={`Rank #${waypoint.rank}`}
               icon={createWaypointIcon(waypoint.rank)}
-              onClick={() => onWaypointClick && onWaypointClick(waypoint.id)}
+              onClick={() => handleWaypointClick(waypoint, waypoint.position)}
               animation={selectedWaypoint === waypoint.id ? google.maps.Animation.BOUNCE : undefined}
             />
           ))}
