@@ -228,7 +228,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   return (
     <Card className={className}>
       <CardContent className="p-3">
-        <div style={{ width: '100%', height: height, minHeight: '300px', backgroundColor: '#f0f0f0', border: '1px solid #ccc' }}>
+        <div style={{ width: '100%', height: height === "100%" ? "384px" : height, minHeight: '300px' }}>
           <GoogleMap
           mapContainerStyle={mapContainerStyle}
           center={mapCenter}
@@ -267,7 +267,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             <div className="flex-1 min-w-0">
               {waypoints.length > 0 && (
                 <p className="text-xs text-muted-foreground mb-1">
-                  �� {waypoints.length} waypoints configured
+                  📍 {waypoints.length} waypoints configured
                 </p>
               )}
               {markers.length > 0 && waypoints.length === 0 && (
