@@ -107,48 +107,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING",
   );
 
-  // Convert percentage (0-100) to zoom level (8-18)
-  const percentageToZoom = useCallback((percentage: number): number => {
-    const minZoom = 8;
-    const maxZoom = 18;
-    const zoomRange = maxZoom - minZoom;
-    return minZoom + (percentage / 100) * zoomRange;
-  }, []);
-
-  // Convert zoom level to percentage
-  const zoomToPercentage = useCallback((zoomLevel: number): number => {
-    const minZoom = 8;
-    const maxZoom = 18;
-    const zoomRange = maxZoom - minZoom;
-    return Math.round(((zoomLevel - minZoom) / zoomRange) * 100);
-  }, []);
-
-  // Manual zoom control functions
-  const handleManualZoom = useCallback(
-    (percentage: number) => {
-      if (map) {
-        const zoomLevel = percentageToZoom(percentage);
-        map.setZoom(zoomLevel);
-        setManualZoomPercentage(percentage);
-        console.log(
-          `Manual zoom: ${percentage}% → zoom level ${zoomLevel.toFixed(1)}`,
-        );
-      }
-    },
-    [map, percentageToZoom],
-  );
-
-  const toggleZoomMode = useCallback(() => {
-    if (map) {
-      if (!isManualZoomMode) {
-        // Switching to manual mode - get current zoom as percentage
-        const currentZoom = map.getZoom() || 12;
-        const currentPercentage = zoomToPercentage(currentZoom);
-        setManualZoomPercentage(currentPercentage);
-      }
-      setIsManualZoomMode(!isManualZoomMode);
-    }
-  }, [map, isManualZoomMode, zoomToPercentage]);
 
   // Function to calculate optimal zoom based on waypoint spread
   const calculateOptimalZoom = useCallback(
