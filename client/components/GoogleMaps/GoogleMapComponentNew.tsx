@@ -277,60 +277,63 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         return;
       }
 
-      try {
-        const newPosition = {
-          lat: event.latLng.lat(),
-          lng: event.latLng.lng(),
-        };
+      // Use setTimeout to debounce the update and prevent immediate re-renders
+      setTimeout(() => {
+        try {
+          const newPosition = {
+            lat: event.latLng!.lat(),
+            lng: event.latLng!.lng(),
+          };
 
-        const draggedWaypoint = waypointData.find((w) => w.id === waypointId);
-        if (!draggedWaypoint) return;
+          const draggedWaypoint = waypointData.find((w) => w.id === waypointId);
+          if (!draggedWaypoint) return;
 
-        // Calculate offset from the dragged waypoint's original position
-        const latOffset = newPosition.lat - draggedWaypoint.coordinates.lat;
-        const lngOffset = newPosition.lng - draggedWaypoint.coordinates.lng;
+          // Calculate offset from the dragged waypoint's original position
+          const latOffset = newPosition.lat - draggedWaypoint.coordinates.lat;
+          const lngOffset = newPosition.lng - draggedWaypoint.coordinates.lng;
 
-        // Find the new center position
-        const centerWaypoint = waypointData.find((w) => w.isCenter);
-        const newCenter = centerWaypoint
-          ? {
-              lat: centerWaypoint.coordinates.lat + latOffset,
-              lng: centerWaypoint.coordinates.lng + lngOffset,
-            }
-          : {
-              lat: waypointData[0].coordinates.lat + latOffset,
-              lng: waypointData[0].coordinates.lng + lngOffset,
+          // Find the new center position
+          const centerWaypoint = waypointData.find((w) => w.isCenter);
+          const newCenter = centerWaypoint
+            ? {
+                lat: centerWaypoint.coordinates.lat + latOffset,
+                lng: centerWaypoint.coordinates.lng + lngOffset,
+              }
+            : {
+                lat: waypointData[0].coordinates.lat + latOffset,
+                lng: waypointData[0].coordinates.lng + lngOffset,
+              };
+
+          // Apply this offset to all waypoints
+          const updatedWaypoints = waypointData.map((waypoint) => {
+            const newCoordinates = {
+              lat: waypoint.coordinates.lat + latOffset,
+              lng: waypoint.coordinates.lng + lngOffset,
             };
 
-        // Apply this offset to all waypoints
-        const updatedWaypoints = waypointData.map((waypoint) => {
-          const newCoordinates = {
-            lat: waypoint.coordinates.lat + latOffset,
-            lng: waypoint.coordinates.lng + lngOffset,
-          };
+            // Calculate distance and bearing from new center
+            const distance = waypoint.isCenter
+              ? 0
+              : calculateDistance(newCenter, newCoordinates, scanConfig.unit);
+            const bearing = waypoint.isCenter
+              ? 0
+              : calculateBearing(newCenter, newCoordinates);
 
-          // Calculate distance and bearing from new center
-          const distance = waypoint.isCenter
-            ? 0
-            : calculateDistance(newCenter, newCoordinates, scanConfig.unit);
-          const bearing = waypoint.isCenter
-            ? 0
-            : calculateBearing(newCenter, newCoordinates);
+            return {
+              ...waypoint,
+              coordinates: newCoordinates,
+              distance,
+              bearing,
+            };
+          });
 
-          return {
-            ...waypoint,
-            coordinates: newCoordinates,
-            distance,
-            bearing,
-          };
-        });
-
-        onWaypointsDragComplete(updatedWaypoints);
-      } catch (error) {
-        console.warn("Error handling waypoint drag:", error);
-      } finally {
-        originalCenterRef.current = null;
-      }
+          onWaypointsDragComplete(updatedWaypoints);
+        } catch (error) {
+          console.warn("Error handling waypoint drag:", error);
+        } finally {
+          originalCenterRef.current = null;
+        }
+      }, 50); // 50ms debounce to prevent excessive updates
     },
     [waypointData, scanConfig, onWaypointsDragComplete],
   );
