@@ -1248,6 +1248,162 @@ export default function GeoGridScan() {
               </CardContent>
             </Card>
           </div>
+
+          {/* CLONE - Native Select Test 2 for Dropdown Position Testing */}
+          <div className="mt-8">
+            <Card className="border-2 border-green-200 bg-green-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  🧪 Native Select Test 2 (Dropdown Position Test)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Test Dropdowns */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">
+                    Dropdown Position Test
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Test Dropdown A
+                      </Label>
+                      <select
+                        value="option1"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="option1">First Option</option>
+                        <option value="option2">Second Option</option>
+                        <option value="option3">Third Option</option>
+                        <option value="option4">Fourth Option</option>
+                        <option value="option5">Fifth Option</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Test Dropdown B
+                      </Label>
+                      <select
+                        value="medium"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="small">Small Size</option>
+                        <option value="medium">Medium Size</option>
+                        <option value="large">Large Size</option>
+                        <option value="xlarge">Extra Large</option>
+                        <option value="xxlarge">XXL Size</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Test Dropdown C
+                      </Label>
+                      <select
+                        value="test"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="test">Test Value</option>
+                        <option value="demo">Demo Value</option>
+                        <option value="sample">Sample Value</option>
+                        <option value="example">Example Value</option>
+                        <option value="placeholder">Placeholder Value</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* More Test Dropdowns */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">
+                    Additional Position Tests
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Long Options Test
+                      </Label>
+                      <select
+                        value="long1"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="long1">This is a very long option text to test dropdown width</option>
+                        <option value="long2">Another extremely long option that should test scrolling</option>
+                        <option value="long3">Yet another super long option for comprehensive testing</option>
+                        <option value="long4">Final long option to ensure proper dropdown behavior</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Many Options Test
+                      </Label>
+                      <select
+                        value="item5"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="item1">Item 1</option>
+                        <option value="item2">Item 2</option>
+                        <option value="item3">Item 3</option>
+                        <option value="item4">Item 4</option>
+                        <option value="item5">Item 5</option>
+                        <option value="item6">Item 6</option>
+                        <option value="item7">Item 7</option>
+                        <option value="item8">Item 8</option>
+                        <option value="item9">Item 9</option>
+                        <option value="item10">Item 10</option>
+                        <option value="item11">Item 11</option>
+                        <option value="item12">Item 12</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Final Test Dropdown
+                      </Label>
+                      <select
+                        value="alpha"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="alpha">Alpha</option>
+                        <option value="beta">Beta</option>
+                        <option value="gamma">Gamma</option>
+                        <option value="delta">Delta</option>
+                        <option value="epsilon">Epsilon</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Position Check
+                      </Label>
+                      <select
+                        value="center"
+                        onChange={() => {}}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                      >
+                        <option value="left">Left Position</option>
+                        <option value="center">Center Position</option>
+                        <option value="right">Right Position</option>
+                        <option value="top">Top Position</option>
+                        <option value="bottom">Bottom Position</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Container between Configuration and Map */}
