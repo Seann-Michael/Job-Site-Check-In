@@ -100,24 +100,40 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING",
   );
 
-  // Function to auto-fit map bounds to show all waypoints
+  // Function to auto-fit map bounds to show all waypoints with intelligent zoom
   const autoFitBounds = useCallback(() => {
-    if (map && waypointData.length > 1) {
-      const bounds = new google.maps.LatLngBounds();
-      waypointData.forEach((wp) => {
-        bounds.extend(wp.coordinates);
-      });
-      map.fitBounds(bounds);
+    if (map && waypointData.length > 0) {
+      if (waypointData.length === 1) {
+        // Single waypoint - center on it with a reasonable zoom
+        map.setCenter(waypointData[0].coordinates);
+        map.setZoom(14);
+      } else {
+        // Multiple waypoints - fit bounds with intelligent constraints
+        const bounds = new google.maps.LatLngBounds();
+        waypointData.forEach((wp) => {
+          bounds.extend(wp.coordinates);
+        });
 
-      // Ensure reasonable zoom level constraints
-      setTimeout(() => {
-        const currentZoom = map.getZoom();
-        if (currentZoom && currentZoom > 16) {
-          map.setZoom(16);
-        } else if (currentZoom && currentZoom < 8) {
-          map.setZoom(8);
-        }
-      }, 100);
+        map.fitBounds(bounds);
+
+        // Apply intelligent zoom constraints based on waypoint spread
+        setTimeout(() => {
+          const currentZoom = map.getZoom();
+          if (currentZoom) {
+            // For smaller grids (fewer waypoints), allow closer zoom
+            const maxZoom = waypointData.length <= 10 ? 17 : waypointData.length <= 25 ? 16 : 15;
+            const minZoom = waypointData.length >= 100 ? 10 : 8;
+
+            if (currentZoom > maxZoom) {
+              map.setZoom(maxZoom);
+              console.log(`Zoom adjusted to max: ${maxZoom} (${waypointData.length} waypoints)`);
+            } else if (currentZoom < minZoom) {
+              map.setZoom(minZoom);
+              console.log(`Zoom adjusted to min: ${minZoom} (${waypointData.length} waypoints)`);
+            }
+          }
+        }, 150); // Increased delay for smoother animation
+      }
     }
   }, [map, waypointData]);
 
