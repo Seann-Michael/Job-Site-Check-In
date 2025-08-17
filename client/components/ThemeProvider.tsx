@@ -28,11 +28,23 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
-  );
-
+  // Safe initialization that works with SSR
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
   const [actualTheme, setActualTheme] = useState<"dark" | "light">("light");
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize theme from localStorage after component mounts
+  useEffect(() => {
+    try {
+      const storedTheme = localStorage.getItem(storageKey) as Theme;
+      if (storedTheme && (storedTheme === "dark" || storedTheme === "light" || storedTheme === "system")) {
+        setTheme(storedTheme);
+      }
+    } catch (error) {
+      console.warn("Failed to read theme from localStorage:", error);
+    }
+    setIsInitialized(true);
+  }, [storageKey]);
 
   useEffect(() => {
     const root = window.document.documentElement;
