@@ -169,7 +169,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       setMap(map);
 
       // Only fit bounds on initial load to prevent page jumping during interaction
-      if (waypointData.length > 1) {
+      if (waypointData.length > 1 && !hasInitializedBounds.current) {
+        hasInitializedBounds.current = true;
         setTimeout(() => {
           const bounds = new google.maps.LatLngBounds();
           waypointData.forEach((wp) => {
