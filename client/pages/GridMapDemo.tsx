@@ -75,7 +75,7 @@ const GridMapDemo = () => {
               <GridMapTracker
                 center={businessCenter}
                 gridSize={3} // 3x3 grid for demo
-                gridRadius={2000} // 2km radius
+                pinSpacing={2000} // 2km spacing between pins
                 rankings={rankings}
                 onGridChange={handleGridChange}
                 height="600px"
