@@ -293,58 +293,76 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
-      console.log("GoogleMapComponent: Map loaded successfully", map);
-      setMap(map);
+      try {
+        console.log("GoogleMapComponent: Map loaded successfully", map);
+        setMap(map);
 
-      // Only fit bounds on initial load to prevent page jumping during interaction
-      if (waypointData.length > 1 && !hasInitializedBounds.current) {
-        hasInitializedBounds.current = true;
-        setTimeout(() => {
-          const bounds = new google.maps.LatLngBounds();
-          waypointData.forEach((wp) => {
-            bounds.extend(wp.coordinates);
-          });
-          map.fitBounds(bounds);
-
-          // Ensure reasonable zoom level
+        // Only fit bounds on initial load to prevent page jumping during interaction
+        if (waypointData.length > 1 && !hasInitializedBounds.current) {
+          hasInitializedBounds.current = true;
           setTimeout(() => {
-            const currentZoom = map.getZoom();
-            if (currentZoom && currentZoom > 15) {
-              map.setZoom(15);
+            try {
+              const bounds = new google.maps.LatLngBounds();
+              waypointData.forEach((wp) => {
+                if (wp.coordinates && wp.coordinates.lat && wp.coordinates.lng) {
+                  bounds.extend(wp.coordinates);
+                }
+              });
+              map.fitBounds(bounds);
+
+              // Ensure reasonable zoom level
+              setTimeout(() => {
+                const currentZoom = map.getZoom();
+                if (currentZoom && currentZoom > 15) {
+                  map.setZoom(15);
+                }
+              }, 300);
+            } catch (error) {
+              console.warn("Error fitting bounds:", error);
             }
-          }, 300);
-        }, 500); // Longer delay to ensure everything is loaded
-      }
-
-      // Add custom zoom event listener for 0.5 increments
-      let isUpdatingZoom = false;
-
-      map.addListener('zoom_changed', () => {
-        if (isUpdatingZoom) return;
-
-        const newZoom = map.getZoom();
-        if (newZoom !== undefined) {
-          // Round to nearest 0.5
-          const roundedZoom = Math.round(newZoom * 2) / 2;
-          if (Math.abs(roundedZoom - newZoom) > 0.1) {
-            isUpdatingZoom = true;
-            setTimeout(() => {
-              map.setZoom(roundedZoom);
-              isUpdatingZoom = false;
-            }, 100);
-          }
+          }, 500); // Longer delay to ensure everything is loaded
         }
-      });
 
-      // Create info window (but keep it closed)
-      const infoWindowInstance = new google.maps.InfoWindow();
-      setInfoWindow(infoWindowInstance);
+        // Add custom zoom event listener for 0.5 increments
+        let isUpdatingZoom = false;
 
-      if (onMapLoad) {
-        onMapLoad(map);
+        map.addListener('zoom_changed', () => {
+          if (isUpdatingZoom) return;
+
+          try {
+            const newZoom = map.getZoom();
+            if (newZoom !== undefined) {
+              // Round to nearest 0.5
+              const roundedZoom = Math.round(newZoom * 2) / 2;
+              if (Math.abs(roundedZoom - newZoom) > 0.1) {
+                isUpdatingZoom = true;
+                setTimeout(() => {
+                  try {
+                    map.setZoom(roundedZoom);
+                  } catch (error) {
+                    console.warn("Error setting zoom:", error);
+                  }
+                  isUpdatingZoom = false;
+                }, 100);
+              }
+            }
+          } catch (error) {
+            console.warn("Error in zoom listener:", error);
+          }
+        });
+
+        // Create info window (but keep it closed)
+        const infoWindowInstance = new google.maps.InfoWindow();
+        setInfoWindow(infoWindowInstance);
+
+        if (onMapLoad) {
+          onMapLoad(map);
+        }
+      } catch (error) {
+        console.error("Error in map onLoad:", error);
       }
     },
-    [onMapLoad],
+    [onMapLoad, waypointData],
   );
 
   const onUnmount = useCallback(() => {
