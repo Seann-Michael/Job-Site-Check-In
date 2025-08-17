@@ -661,6 +661,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             </div>
 
             <div className="flex gap-1">
+              {waypointData.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={autoFitBounds}
+                  className="gap-1 text-xs px-2 h-7"
+                  title="Zoom to fit all waypoints"
+                >
+                  <MapPin className="h-3 w-3" />
+                  Fit Waypoints
+                </Button>
+              )}
+
               {showDirectionsButton && (
                 <Button
                   variant="outline"
