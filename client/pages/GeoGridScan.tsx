@@ -327,7 +327,7 @@ export default function GeoGridScan() {
 
         <div className="grid grid-cols-1 gap-8">
           {/* Configuration Panel */}
-          <div className="space-y-6" style={{ transform: 'none', contain: 'none' }}>
+          <div className="space-y-6">
             {/* Scan Type Selection */}
             <Card>
               <CardHeader>
@@ -1108,7 +1108,7 @@ export default function GeoGridScan() {
                               <li>• Add at least one keyword</li>
                             )}
                             {waypoints.length === 0 && (
-                              <li>�� Configure waypoints</li>
+                              <li>• Configure waypoints</li>
                             )}
                           </ul>
                         </div>
