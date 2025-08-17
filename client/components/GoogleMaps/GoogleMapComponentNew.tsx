@@ -326,7 +326,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             };
           });
 
-          onWaypointsDragComplete(updatedWaypoints);
+          onWaypointsDragComplete(updatedWaypoints, event);
 
           // Auto-adjust map bounds
           if (map) {
