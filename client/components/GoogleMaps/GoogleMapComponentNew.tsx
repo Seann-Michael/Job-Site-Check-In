@@ -273,6 +273,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   📍 {markers.length} location{markers.length > 1 ? 's' : ''} marked
                 </p>
               )}
+              <p className="text-xs text-green-600 mb-1">
+                Map loaded: {isLoaded ? 'Yes' : 'No'} | Markers: {markers.length} | Waypoints: {waypoints.length}
+              </p>
               {address && (
                 <p className="text-xs text-muted-foreground truncate">
                   {address}
