@@ -328,33 +328,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           }, 500); // Longer delay to ensure everything is loaded
         }
 
-        // Add custom zoom event listener for 0.25 increments
-        let isUpdatingZoom = false;
-
-        map.addListener('zoom_changed', () => {
-          if (isUpdatingZoom) return;
-
-          try {
-            const newZoom = map.getZoom();
-            if (newZoom !== undefined) {
-              // Round to nearest 0.25
-              const roundedZoom = Math.round(newZoom * 4) / 4;
-              if (Math.abs(roundedZoom - newZoom) > 0.05) {
-                isUpdatingZoom = true;
-                setTimeout(() => {
-                  try {
-                    map.setZoom(roundedZoom);
-                  } catch (error) {
-                    console.warn("Error setting zoom:", error);
-                  }
-                  isUpdatingZoom = false;
-                }, 100);
-              }
-            }
-          } catch (error) {
-            console.warn("Error in zoom listener:", error);
-          }
-        });
+        // Remove custom zoom listener to prevent re-renders
+        // Google Maps will use default zoom behavior
 
         // Create info window (but keep it closed)
         const infoWindowInstance = new google.maps.InfoWindow();
