@@ -258,23 +258,7 @@ export function AppLayout({
       label: "Audits",
       href: "/admin/audits",
       icon: Shield,
-      active: location.pathname.startsWith("/admin/audits"),
-      comingSoon: false,
-      subItems: [
-        {
-          id: "scan-history",
-          label: "Scan History",
-          href: "/admin/audits/scan-history",
-          active: location.pathname === "/admin/audits/scan-history",
-        },
-      ],
-    },
-    {
-      id: "maps",
-      label: "Maps",
-      href: "/admin/maps/geo-grid-scan",
-      icon: MapPin,
-      active: location.pathname.startsWith("/admin/maps"),
+      active: location.pathname.startsWith("/admin/audits") || location.pathname.startsWith("/admin/maps"),
       comingSoon: false,
       subItems: [
         {
@@ -282,6 +266,12 @@ export function AppLayout({
           label: "Geo Grid Scan",
           href: "/admin/maps/geo-grid-scan",
           active: location.pathname === "/admin/maps/geo-grid-scan",
+        },
+        {
+          id: "scan-history",
+          label: "Scan History",
+          href: "/admin/audits/scan-history",
+          active: location.pathname === "/admin/audits/scan-history",
         },
       ],
     },
