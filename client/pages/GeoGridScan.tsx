@@ -1351,37 +1351,10 @@ export default function GeoGridScan() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Map Zoom Level</Label>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="range"
-                          min="1"
-                          max="20"
-                          value={mapZoom}
-                          onChange={(e) => handleZoomChange(parseInt(e.target.value))}
-                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={mapZoom}
-                            onChange={(e) => handleZoomChange(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                            className="w-16 text-center"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>1 (World)</span>
-                        <span>Current: {mapZoom}</span>
-                        <span>20 (Building)</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Map Controls:</strong> Use the native Google Maps zoom controls (+ / - buttons or mouse wheel) to adjust the map view. Zoom changes in increments of 0.5 for more precise control.
+                  </p>
                 </div>
               </CardContent>
             </Card>
