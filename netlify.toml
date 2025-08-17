@@ -26,7 +26,7 @@
   DATAFORSEO_API_KEY = "sean@localcontractorleads.com:34f54820f63c3718"
 
 [functions]
-  external_node_modules = ["express"]
+  external_node_modules = ["express", "serverless-http"]
   node_bundler = "esbuild"
 
 [[redirects]]
