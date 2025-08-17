@@ -208,8 +208,7 @@ export default function GeoGridScan() {
     [scanConfig.unit, scanConfig.distanceBetween],
   );
 
-  // Memoized map component to prevent unnecessary re-renders
-  const MemoizedGoogleMapComponent = useMemo(() => React.memo(GoogleMapComponent), []);
+  // Use regular GoogleMapComponent to avoid React.memo issues
 
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
