@@ -90,6 +90,7 @@ export default function GeoGridScan() {
   const [recurringSettings, setRecurringSettings] = useState({
     frequency: "weekly" as "daily" | "weekly" | "biweekly" | "monthly",
     startDate: new Date().toISOString().split("T")[0],
+    startTime: "09:00", // Default to 9:00 AM
   });
 
   // Keywords
