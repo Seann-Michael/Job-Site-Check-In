@@ -68,13 +68,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   useEffect(() => {
     try {
       const apiKey = getGoogleMapsApiKey();
-      console.log("GoogleMapComponent: API key check result:", apiKey ? "Found" : "Not found");
+      console.log(
+        "GoogleMapComponent: API key check result:",
+        apiKey ? "Found" : "Not found",
+      );
       if (!apiKey) {
         console.log("GoogleMapComponent: Switching to iframe fallback");
         setUseIframeFallback(true);
       }
     } catch (error) {
-      console.error("GoogleMapComponent: Error checking Google Maps API key:", error);
+      console.error(
+        "GoogleMapComponent: Error checking Google Maps API key:",
+        error,
+      );
       setUseIframeFallback(true);
     }
   }, []);
@@ -406,11 +412,14 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   ��� {waypoints.length} waypoints configured for geo grid scan
                 </p>
               )}
-              {markers && markers.length > 0 && (!waypoints || waypoints.length === 0) && (
-                <p className="text-xs text-muted-foreground mb-1">
-                  📍 {markers.length} location{markers.length > 1 ? 's' : ''} marked
-                </p>
-              )}
+              {markers &&
+                markers.length > 0 &&
+                (!waypoints || waypoints.length === 0) && (
+                  <p className="text-xs text-muted-foreground mb-1">
+                    📍 {markers.length} location{markers.length > 1 ? "s" : ""}{" "}
+                    marked
+                  </p>
+                )}
               {center && (
                 <p className="text-xs text-muted-foreground mb-1">
                   📍 Center: {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
@@ -424,14 +433,17 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   {address}
                 </p>
               )}
-              {lat !== undefined && lng !== undefined && !address && !center && (
-                <p
-                  key="coordinates-text"
-                  className="text-xs text-muted-foreground font-mono"
-                >
-                  {lat.toFixed(6)}, {lng.toFixed(6)}
-                </p>
-              )}
+              {lat !== undefined &&
+                lng !== undefined &&
+                !address &&
+                !center && (
+                  <p
+                    key="coordinates-text"
+                    className="text-xs text-muted-foreground font-mono"
+                  >
+                    {lat.toFixed(6)}, {lng.toFixed(6)}
+                  </p>
+                )}
               <p className="text-xs text-amber-600 font-medium">
                 Interactive map unavailable - API key required
               </p>
@@ -502,7 +514,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       mapExists: !!map,
       centerProp: center,
       markerCount: markers?.length || 0,
-      waypointCount: waypoints?.length || 0
+      waypointCount: waypoints?.length || 0,
     });
   }, [isLoaded, useIframeFallback, error, map, center, markers, waypoints]);
 
@@ -520,7 +532,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                 This may take a few seconds
               </span>
               <span className="text-xs text-red-500 mt-2">
-                Debug: isLoaded={isLoaded.toString()}, iframe={useIframeFallback.toString()}, error={error || 'none'}
+                Debug: isLoaded={isLoaded.toString()}, iframe=
+                {useIframeFallback.toString()}, error={error || "none"}
               </span>
             </div>
           </div>

@@ -188,7 +188,7 @@ function generateGridWaypoints(
   const halfGrid = Math.floor(gridSize / 2);
 
   let waypointIndex = 0;
-  const gridPositions: Array<{row: number, col: number}> = [];
+  const gridPositions: Array<{ row: number; col: number }> = [];
 
   // Generate all grid positions excluding center
   for (let row = -halfGrid; row <= halfGrid; row++) {
@@ -357,8 +357,12 @@ export function moveAllWaypointsRelative(
     };
 
     // Recalculate distance and bearing from new center
-    const distance = waypoint.isCenter ? 0 : calculateDistance(newCenter, newCoordinates, unit);
-    const bearing = waypoint.isCenter ? 0 : calculateBearing(newCenter, newCoordinates);
+    const distance = waypoint.isCenter
+      ? 0
+      : calculateDistance(newCenter, newCoordinates, unit);
+    const bearing = waypoint.isCenter
+      ? 0
+      : calculateBearing(newCenter, newCoordinates);
 
     return {
       ...waypoint,

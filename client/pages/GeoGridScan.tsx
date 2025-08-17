@@ -144,26 +144,32 @@ export default function GeoGridScan() {
 
   // Toggle waypoint
   const handleWaypointToggle = useCallback((waypointId: string) => {
-    setWaypoints(prevWaypoints => toggleWaypoint(prevWaypoints, waypointId));
+    setWaypoints((prevWaypoints) => toggleWaypoint(prevWaypoints, waypointId));
   }, []);
 
   // Handle waypoint drag (individual waypoint)
-  const handleWaypointDrag = useCallback((waypointId: string, newPosition: { lat: number; lng: number }) => {
-    setWaypoints(prevWaypoints =>
-      updateWaypointPosition(
-        prevWaypoints,
-        waypointId,
-        newPosition,
-        ADMIN_BUSINESS.coordinates,
-        scanConfig.unit
-      )
-    );
-  }, [scanConfig.unit]);
+  const handleWaypointDrag = useCallback(
+    (waypointId: string, newPosition: { lat: number; lng: number }) => {
+      setWaypoints((prevWaypoints) =>
+        updateWaypointPosition(
+          prevWaypoints,
+          waypointId,
+          newPosition,
+          ADMIN_BUSINESS.coordinates,
+          scanConfig.unit,
+        ),
+      );
+    },
+    [scanConfig.unit],
+  );
 
   // Handle when all waypoints are moved together
-  const handleWaypointsDragComplete = useCallback((updatedWaypoints: Waypoint[]) => {
-    setWaypoints(updatedWaypoints);
-  }, []);
+  const handleWaypointsDragComplete = useCallback(
+    (updatedWaypoints: Waypoint[]) => {
+      setWaypoints(updatedWaypoints);
+    },
+    [],
+  );
 
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
@@ -1019,7 +1025,7 @@ export default function GeoGridScan() {
                   onWaypointsDragComplete={handleWaypointsDragComplete}
                   scanConfig={{
                     unit: scanConfig.unit,
-                    distanceBetween: scanConfig.distanceBetween
+                    distanceBetween: scanConfig.distanceBetween,
                   }}
                 />
               </div>
