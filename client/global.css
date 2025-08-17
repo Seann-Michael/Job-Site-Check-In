@@ -782,3 +782,26 @@ body {
 [data-radix-dropdown-menu-content] {
   contain: layout style;
 }
+
+/* Fix Radix Select dropdown positioning issues */
+[data-radix-select-content] {
+  z-index: 9999 !important;
+  position: fixed !important;
+}
+
+/* Ensure Radix Portal dropdowns are properly positioned */
+[data-radix-portal] {
+  z-index: 9999 !important;
+}
+
+/* Fix select trigger positioning in containers with transforms */
+[data-radix-select-trigger] {
+  position: relative;
+}
+
+/* Additional fixes for dropdowns appearing below expected position */
+.radix-select-content-positioned {
+  z-index: 9999 !important;
+  position: fixed !important;
+  will-change: transform;
+}
