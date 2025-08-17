@@ -305,6 +305,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/tasks"
+                  element={
+                    <ProtectedRoute>
+                      <AdminTasks />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/maps"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
