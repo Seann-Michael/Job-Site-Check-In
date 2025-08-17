@@ -311,7 +311,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     return "#4285F4"; // Blue for regular pins
   }, []);
 
-  // Create hollow waypoint-style SVG icon with sharp point
+  // Create hollow teardrop pin-style SVG icon
   const createWaypointIcon = useCallback(
     (marker: any) => {
       const color = getMarkerColor(marker);
@@ -320,10 +320,10 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       const strokeOpacity = isDisabled ? 0.6 : 1;
 
       const svg = `
-      <svg width="36" height="52" viewBox="0 0 36 52" xmlns="http://www.w3.org/2000/svg">
+      <svg width="36" height="50" viewBox="0 0 36 50" xmlns="http://www.w3.org/2000/svg">
         <g>
-          <ellipse cx="18" cy="50" rx="12" ry="2" fill="black" opacity="0.1"/>
-          <path d="M18 0 C8.059 0 0 8.059 0 18 C0 27.941 18 52 18 52 S36 27.941 36 18 C36 8.059 27.941 0 18 0 Z"
+          <ellipse cx="18" cy="48" rx="12" ry="2" fill="black" opacity="0.1"/>
+          <path d="M18 3 C9.716 3 3 9.716 3 18 C3 26.284 18 47 18 47 C18 47 33 26.284 33 18 C33 9.716 26.284 3 18 3 Z"
                 fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
           ${
             marker.isCenter
@@ -342,8 +342,8 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
 
       return {
         url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(36, 52),
-        anchor: new google.maps.Point(18, 52),
+        scaledSize: new google.maps.Size(36, 50),
+        anchor: new google.maps.Point(18, 47),
         labelOrigin: new google.maps.Point(18, -8),
       };
     },
