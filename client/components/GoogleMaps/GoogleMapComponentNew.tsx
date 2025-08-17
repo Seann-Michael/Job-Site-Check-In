@@ -205,8 +205,23 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     if (marker.rank) {
       return createWaypointIcon(marker.rank);
     }
-    
+
     const color = marker.color || "#DC2626";
+    const isOutlined = marker.outline || marker.color === "transparent";
+
+    if (isOutlined) {
+      return {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="30" viewBox="0 0 24 30">
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 6.627 12 18 12 18s12-11.373 12-18C24 5.373 18.627 0 12 0z"
+                  fill="transparent" stroke="#DC2626" stroke-width="2"/>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(24, 30),
+        anchor: new google.maps.Point(12, 30),
+      };
+    }
+
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="30" viewBox="0 0 24 30">
