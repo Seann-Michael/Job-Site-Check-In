@@ -167,26 +167,22 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       console.log("GoogleMapComponent: Map loaded successfully", map);
       setMap(map);
 
-      // Fit bounds to show all markers/waypoints
-      const allPoints = [
-        ...markers,
-        ...waypoints.map((w) => ({ position: w.position })),
-        ...waypointData.map((w) => ({ position: w.coordinates })),
-      ];
-
-      if (allPoints.length > 1) {
-        const bounds = new google.maps.LatLngBounds();
-        allPoints.forEach((point) => {
-          bounds.extend(point.position);
-        });
-        map.fitBounds(bounds);
-
-        // Add padding and ensure reasonable zoom level
+      // Initial bounds fitting only (moved to separate effect to prevent refresh)
+      if (waypointData.length > 1) {
         setTimeout(() => {
-          if (map.getZoom() && map.getZoom()! > 15) {
-            map.setZoom(15);
-          }
-        }, 100);
+          const bounds = new google.maps.LatLngBounds();
+          waypointData.forEach((wp) => {
+            bounds.extend(wp.coordinates);
+          });
+          map.fitBounds(bounds);
+
+          // Ensure reasonable zoom level
+          setTimeout(() => {
+            if (map.getZoom() && map.getZoom()! > 15) {
+              map.setZoom(15);
+            }
+          }, 100);
+        }, 200);
       }
 
       // Create info window (but keep it closed)
