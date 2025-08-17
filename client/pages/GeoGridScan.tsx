@@ -327,7 +327,7 @@ export default function GeoGridScan() {
 
         <div className="grid grid-cols-1 gap-8">
           {/* Configuration Panel */}
-          <div className="space-y-6">
+          <div className="space-y-6" style={{ transform: 'none', contain: 'none' }}>
             {/* Scan Type Selection */}
             <Card>
               <CardHeader>
