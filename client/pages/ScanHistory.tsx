@@ -279,7 +279,8 @@ export default function ScanHistory() {
   const [dateFilter, setDateFilter] = useState("");
 
   // Recurring scans state
-  const [recurringScans, setRecurringScans] = useState<RecurringScan[]>(mockRecurringScans);
+  const [recurringScans, setRecurringScans] =
+    useState<RecurringScan[]>(mockRecurringScans);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
 
@@ -314,9 +315,17 @@ export default function ScanHistory() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>;
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Completed
+          </Badge>
+        );
       case "running":
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Running</Badge>;
+        return (
+          <Badge variant="default" className="bg-blue-100 text-blue-800">
+            Running
+          </Badge>
+        );
       case "failed":
         return <Badge variant="destructive">Failed</Badge>;
       default:
@@ -347,7 +356,7 @@ export default function ScanHistory() {
       toast.success(`Duplicating scan "${scan.scanName}"`);
       // Navigate to scan configuration with pre-filled data
       navigate("/admin/maps/geo-grid-scan", {
-        state: { duplicateFrom: scan }
+        state: { duplicateFrom: scan },
       });
     }
   };
@@ -377,22 +386,24 @@ export default function ScanHistory() {
   };
 
   const toggleRecurringScan = (scanId: string) => {
-    setRecurringScans(scans =>
-      scans.map(scan =>
+    setRecurringScans((scans) =>
+      scans.map((scan) =>
         scan.id === scanId
-          ? { ...scan, status: scan.status === 'active' ? 'paused' : 'active' }
-          : scan
-      )
+          ? { ...scan, status: scan.status === "active" ? "paused" : "active" }
+          : scan,
+      ),
     );
-    const scan = recurringScans.find(s => s.id === scanId);
+    const scan = recurringScans.find((s) => s.id === scanId);
     if (scan) {
-      toast.success(`${scan.status === 'active' ? 'Paused' : 'Resumed'} "${scan.name}"`);
+      toast.success(
+        `${scan.status === "active" ? "Paused" : "Resumed"} "${scan.name}"`,
+      );
     }
   };
 
   const deleteRecurringScan = (scanId: string) => {
-    setRecurringScans(scans => scans.filter(scan => scan.id !== scanId));
-    const scan = recurringScans.find(s => s.id === scanId);
+    setRecurringScans((scans) => scans.filter((scan) => scan.id !== scanId));
+    const scan = recurringScans.find((s) => s.id === scanId);
     if (scan) {
       toast.success(`Deleted recurring scan "${scan.name}"`);
     }
@@ -400,10 +411,14 @@ export default function ScanHistory() {
     setSelectedScanId(null);
   };
 
-  const getStatusBadgeRecurring = (status: RecurringScan['status']) => {
+  const getStatusBadgeRecurring = (status: RecurringScan["status"]) => {
     switch (status) {
       case "active":
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Active
+          </Badge>
+        );
       case "paused":
         return <Badge variant="secondary">Paused</Badge>;
       case "stopped":
@@ -448,333 +463,368 @@ export default function ScanHistory() {
 
           <TabsContent value="history" className="space-y-6">
             {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    Total Scans
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {totalScans}
-                  </p>
-                </div>
-                <Target className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Scans
+                      </p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {totalScans}
+                      </p>
+                    </div>
+                    <Target className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Completed</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {completedScans}
-                  </p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Completed
+                      </p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {completedScans}
+                      </p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Avg Rank</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {averageRankAcrossAll.toFixed(1)}
-                  </p>
-                </div>
-                <BarChart3 className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Avg Rank
+                      </p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {averageRankAcrossAll.toFixed(1)}
+                      </p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    Credits Used
-                  </p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {totalCreditsUsed.toLocaleString()}
-                  </p>
-                </div>
-                <Calendar className="h-8 w-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="search">Search Scans</Label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Search by name or keyword..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>Status</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="running">Running</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Type</Label>
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="one-time">One Time</SelectItem>
-                    <SelectItem value="recurring">Recurring</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Date Range</Label>
-                <Input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                />
-              </div>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Credits Used
+                      </p>
+                      <p className="text-2xl font-bold text-orange-600">
+                        {totalCreditsUsed.toLocaleString()}
+                      </p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-orange-600" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Data Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Scan History ({filteredHistory.length} results)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {filteredHistory.length === 0 ? (
-              <div className="text-center py-12">
-                <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No scan history found
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  {searchQuery || filterStatus !== "all" || filterType !== "all"
-                    ? "Try adjusting your filters to see more results."
-                    : "Start running scans to see your history here."}
-                </p>
-                {!searchQuery &&
-                  filterStatus === "all" &&
-                  filterType === "all" && (
-                    <Button
-                      onClick={() => navigate("/admin/maps/geo-grid-scan")}
+            {/* Filters */}
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="search">Search Scans</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="search"
+                        placeholder="Search by name or keyword..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Status</Label>
+                    <Select
+                      value={filterStatus}
+                      onValueChange={setFilterStatus}
                     >
-                      Run Your First Scan
-                    </Button>
-                  )}
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Scan Details</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date & Time</TableHead>
-                      <TableHead>Locations</TableHead>
-                      <TableHead>Avg Rank</TableHead>
-                      <TableHead>Top 3</TableHead>
-                      <TableHead>Change</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead className="w-12"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHistory.map((item) => (
-                      <TableRow 
-                        key={item.id} 
-                        className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => item.status === "completed" && viewScanDetails(item.id)}
-                      >
-                        <TableCell>
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {item.scanName}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {item.business}
-                            </div>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {item.keywords.slice(0, 2).map((keyword) => (
-                                <Badge
-                                  key={keyword}
-                                  variant="outline"
-                                  className="text-xs"
-                                >
-                                  {keyword}
-                                </Badge>
-                              ))}
-                              {item.keywords.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{item.keywords.length - 2}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              item.scanType === "one-time" ? "default" : "secondary"
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="running">Running</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Type</Label>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="one-time">One Time</SelectItem>
+                        <SelectItem value="recurring">Recurring</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Date Range</Label>
+                    <Input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Data Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  Scan History ({filteredHistory.length} results)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {filteredHistory.length === 0 ? (
+                  <div className="text-center py-12">
+                    <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No scan history found
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      {searchQuery ||
+                      filterStatus !== "all" ||
+                      filterType !== "all"
+                        ? "Try adjusting your filters to see more results."
+                        : "Start running scans to see your history here."}
+                    </p>
+                    {!searchQuery &&
+                      filterStatus === "all" &&
+                      filterType === "all" && (
+                        <Button
+                          onClick={() => navigate("/admin/maps/geo-grid-scan")}
+                        >
+                          Run Your First Scan
+                        </Button>
+                      )}
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Scan Details</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Locations</TableHead>
+                          <TableHead>Avg Rank</TableHead>
+                          <TableHead>Top 3</TableHead>
+                          <TableHead>Change</TableHead>
+                          <TableHead>Credits</TableHead>
+                          <TableHead className="w-12"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredHistory.map((item) => (
+                          <TableRow
+                            key={item.id}
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() =>
+                              item.status === "completed" &&
+                              viewScanDetails(item.id)
                             }
                           >
-                            {item.scanType === "one-time"
-                              ? "One Time"
-                              : "Recurring"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(item.status)}
-                            {getStatusBadge(item.status)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>{formatDate(item.startTime)}</div>
-                            {item.duration && (
-                              <div className="text-gray-500">{item.duration}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-gray-400" />
-                            <span className="text-sm">{item.locationsScanned}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {item.status === "completed" ? (
-                            <Badge
-                              variant={
-                                item.averageRank <= 3
-                                  ? "default"
-                                  : item.averageRank <= 10
-                                    ? "secondary"
-                                    : "destructive"
-                              }
-                            >
-                              #{item.averageRank.toFixed(1)}
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400 text-sm">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {item.status === "completed" ? item.topRankings : "—"}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {getChangeIcon(item.improvementChange)}
-                            <span
-                              className={`text-sm ${
-                                item.improvementChange > 0
-                                  ? "text-green-600"
-                                  : item.improvementChange < 0
-                                    ? "text-red-600"
-                                    : "text-gray-600"
-                              }`}
-                            >
-                              {formatChange(item.improvementChange)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">{item.creditsUsed.toLocaleString()}</div>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  viewScanDetails(item.id);
-                                }}
-                                disabled={item.status !== "completed"}
+                            <TableCell>
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {item.scanName}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {item.business}
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {item.keywords.slice(0, 2).map((keyword) => (
+                                    <Badge
+                                      key={keyword}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {keyword}
+                                    </Badge>
+                                  ))}
+                                  {item.keywords.length > 2 && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      +{item.keywords.length - 2}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  item.scanType === "one-time"
+                                    ? "default"
+                                    : "secondary"
+                                }
                               >
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  exportScanData(item.id);
-                                }}
-                                disabled={item.status !== "completed"}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Export Data
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  duplicateScan(item.id);
-                                }}
-                              >
-                                <Target className="h-4 w-4 mr-2" />
-                                Duplicate Scan
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                                {item.scanType === "one-time"
+                                  ? "One Time"
+                                  : "Recurring"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(item.status)}
+                                {getStatusBadge(item.status)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{formatDate(item.startTime)}</div>
+                                {item.duration && (
+                                  <div className="text-gray-500">
+                                    {item.duration}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-gray-400" />
+                                <span className="text-sm">
+                                  {item.locationsScanned}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {item.status === "completed" ? (
+                                <Badge
+                                  variant={
+                                    item.averageRank <= 3
+                                      ? "default"
+                                      : item.averageRank <= 10
+                                        ? "secondary"
+                                        : "destructive"
+                                  }
+                                >
+                                  #{item.averageRank.toFixed(1)}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-400 text-sm">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                {item.status === "completed"
+                                  ? item.topRankings
+                                  : "—"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {getChangeIcon(item.improvementChange)}
+                                <span
+                                  className={`text-sm ${
+                                    item.improvementChange > 0
+                                      ? "text-green-600"
+                                      : item.improvementChange < 0
+                                        ? "text-red-600"
+                                        : "text-gray-600"
+                                  }`}
+                                >
+                                  {formatChange(item.improvementChange)}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                {item.creditsUsed.toLocaleString()}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  asChild
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      viewScanDetails(item.id);
+                                    }}
+                                    disabled={item.status !== "completed"}
+                                  >
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      exportScanData(item.id);
+                                    }}
+                                    disabled={item.status !== "completed"}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export Data
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      duplicateScan(item.id);
+                                    }}
+                                  >
+                                    <Target className="h-4 w-4 mr-2" />
+                                    Duplicate Scan
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="recurring" className="space-y-6">
             {/* Recurring Scans Content */}
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Recurring Scans</h2>
-              <Button className="gap-2" onClick={() => navigate("/admin/maps/geo-grid-scan")}>
+              <Button
+                className="gap-2"
+                onClick={() => navigate("/admin/maps/geo-grid-scan")}
+              >
                 <Plus className="h-4 w-4" />
                 Create New Scan
               </Button>
@@ -794,9 +844,12 @@ export default function ScanHistory() {
                       No recurring scans found
                     </h3>
                     <p className="text-gray-600 mb-4">
-                      Set up automated recurring scans to monitor your rankings continuously.
+                      Set up automated recurring scans to monitor your rankings
+                      continuously.
                     </p>
-                    <Button onClick={() => navigate("/admin/maps/geo-grid-scan")}>
+                    <Button
+                      onClick={() => navigate("/admin/maps/geo-grid-scan")}
+                    >
                       Create Your First Recurring Scan
                     </Button>
                   </div>
@@ -835,7 +888,10 @@ export default function ScanHistory() {
                                     </Badge>
                                   ))}
                                   {scan.keywords.length > 2 && (
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
                                       +{scan.keywords.length - 2}
                                     </Badge>
                                   )}
@@ -845,7 +901,8 @@ export default function ScanHistory() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">
-                                  {scan.frequency.charAt(0).toUpperCase() + scan.frequency.slice(1)}
+                                  {scan.frequency.charAt(0).toUpperCase() +
+                                    scan.frequency.slice(1)}
                                 </div>
                                 <div className="text-sm text-gray-500">
                                   {scan.schedule}
@@ -878,7 +935,8 @@ export default function ScanHistory() {
                               <div className="text-sm">
                                 <div>{scan.creditsPerRun} per run</div>
                                 <div className="text-xs text-gray-500">
-                                  {scan.totalRuns * scan.creditsPerRun} total used
+                                  {scan.totalRuns * scan.creditsPerRun} total
+                                  used
                                 </div>
                               </div>
                             </TableCell>
@@ -899,7 +957,7 @@ export default function ScanHistory() {
                                   <DropdownMenuItem
                                     onClick={() => toggleRecurringScan(scan.id)}
                                   >
-                                    {scan.status === 'active' ? (
+                                    {scan.status === "active" ? (
                                       <>
                                         <Pause className="h-4 w-4 mr-2" />
                                         Pause Scan
@@ -941,7 +999,8 @@ export default function ScanHistory() {
             <DialogHeader>
               <DialogTitle>Delete Recurring Scan</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete this recurring scan? This action cannot be undone and will stop all future automated scans.
+                Are you sure you want to delete this recurring scan? This action
+                cannot be undone and will stop all future automated scans.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -956,14 +1015,15 @@ export default function ScanHistory() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => selectedScanId && deleteRecurringScan(selectedScanId)}
+                onClick={() =>
+                  selectedScanId && deleteRecurringScan(selectedScanId)
+                }
               >
                 Delete Scan
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </div>
     </AppLayout>
   );

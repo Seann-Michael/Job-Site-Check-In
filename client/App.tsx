@@ -849,9 +849,7 @@ const App = () => (
                 />
                 <Route
                   path="/OneTimeScan"
-                  element={
-                    <Navigate to="/admin/maps/geo-grid-scan" replace />
-                  }
+                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
 
                 {/* Builder.io compatibility routes (URLs without separators) */}
@@ -1015,9 +1013,7 @@ const App = () => (
                 />
                 <Route
                   path="/OneTimeScan"
-                  element={
-                    <Navigate to="/admin/maps/geo-grid-scan" replace />
-                  }
+                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
                 <Route
                   path="/AuditReport"

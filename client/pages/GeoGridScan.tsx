@@ -75,7 +75,9 @@ export default function GeoGridScan() {
   const { balance } = useCredits();
 
   // Scan Type (One-time vs Recurring)
-  const [scanType, setScanType] = useState<"one-time" | "recurring">("one-time");
+  const [scanType, setScanType] = useState<"one-time" | "recurring">(
+    "one-time",
+  );
 
   // Recurring Scan Settings
   const [recurringSettings, setRecurringSettings] = useState({
@@ -94,7 +96,7 @@ export default function GeoGridScan() {
     depth: 20,
     apiCallType: "circle" as "circle" | "rectangle",
     priority: "standard" as "standard" | "expedited" | "priority",
-    
+
     // Waypoint settings
     count: 25,
     distanceBetween: 1,
@@ -117,7 +119,12 @@ export default function GeoGridScan() {
 
     const newWaypoints = generateWaypoints(options);
     setWaypoints(newWaypoints);
-  }, [scanConfig.count, scanConfig.distanceBetween, scanConfig.unit, scanConfig.pattern]);
+  }, [
+    scanConfig.count,
+    scanConfig.distanceBetween,
+    scanConfig.unit,
+    scanConfig.pattern,
+  ]);
 
   // Add keyword
   const addKeyword = () => {
@@ -180,11 +187,11 @@ export default function GeoGridScan() {
     try {
       // Create separate scan for each keyword
       const scanIds = [];
-      
+
       for (const keyword of keywords) {
-        const scanId = `scan_${Date.now()}_${keyword.replace(/\s+/g, '_')}`;
+        const scanId = `scan_${Date.now()}_${keyword.replace(/\s+/g, "_")}`;
         const singleScanCost = scanCost / keywords.length;
-        
+
         const success = deductCredits(
           singleScanCost,
           `${scanType === "one-time" ? "One-time" : "Recurring"} Geo Grid Scan: ${ADMIN_BUSINESS.name} - "${keyword}" (${enabledWaypoints.length} waypoints, ${scanConfig.priority} priority)`,
@@ -200,12 +207,12 @@ export default function GeoGridScan() {
           toast.error("Failed to deduct credits. Please try again.");
           return;
         }
-        
+
         scanIds.push(scanId);
       }
 
       toast.success(
-        `${keywords.length} scan${keywords.length > 1 ? 's' : ''} started! ${formatCredits(scanCost)} credits deducted total.`,
+        `${keywords.length} scan${keywords.length > 1 ? "s" : ""} started! ${formatCredits(scanCost)} credits deducted total.`,
       );
 
       // Navigate to Maps page with scan data
@@ -217,7 +224,8 @@ export default function GeoGridScan() {
           waypoints: enabledWaypoints,
           scanConfig,
           scanIds,
-          recurringSettings: scanType === "recurring" ? recurringSettings : undefined,
+          recurringSettings:
+            scanType === "recurring" ? recurringSettings : undefined,
         },
       });
     } catch (error) {
@@ -241,7 +249,7 @@ export default function GeoGridScan() {
     let markerNumber = 1;
 
     // Add center waypoint first (always #1)
-    const centerWaypoint = waypoints.find(w => w.isCenter);
+    const centerWaypoint = waypoints.find((w) => w.isCenter);
     if (centerWaypoint) {
       markers.push({
         id: centerWaypoint.id,
@@ -263,7 +271,7 @@ export default function GeoGridScan() {
 
     // Add other waypoints with sequential numbering
     waypoints
-      .filter(w => !w.isCenter)
+      .filter((w) => !w.isCenter)
       .forEach((waypoint) => {
         markers.push({
           id: waypoint.id,
@@ -297,12 +305,11 @@ export default function GeoGridScan() {
             <div className="p-2 bg-blue-600 rounded-lg">
               <Target className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Geo Grid Scan
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">Geo Grid Scan</h1>
           </div>
           <p className="text-gray-600">
-            Advanced local ranking analysis for integrated Google Business Profile. Configure your scan parameters and waypoints below.
+            Advanced local ranking analysis for integrated Google Business
+            Profile. Configure your scan parameters and waypoints below.
           </p>
         </div>
 
@@ -320,26 +327,38 @@ export default function GeoGridScan() {
               <CardContent className="space-y-4">
                 <RadioGroup
                   value={scanType}
-                  onValueChange={(value) => setScanType(value as "one-time" | "recurring")}
+                  onValueChange={(value) =>
+                    setScanType(value as "one-time" | "recurring")
+                  }
                   className="grid grid-cols-2 gap-4"
                 >
                   <div className="flex items-center space-x-2 border rounded-lg p-4 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-200">
                     <RadioGroupItem value="one-time" id="one-time" />
-                    <Label htmlFor="one-time" className="flex items-center gap-2 cursor-pointer">
+                    <Label
+                      htmlFor="one-time"
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <CalendarDays className="h-4 w-4" />
                       <div>
                         <div className="font-medium">One-Time Scan</div>
-                        <div className="text-sm text-gray-500">Run scan once</div>
+                        <div className="text-sm text-gray-500">
+                          Run scan once
+                        </div>
                       </div>
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 border rounded-lg p-4 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-200">
                     <RadioGroupItem value="recurring" id="recurring" />
-                    <Label htmlFor="recurring" className="flex items-center gap-2 cursor-pointer">
+                    <Label
+                      htmlFor="recurring"
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <Repeat className="h-4 w-4" />
                       <div>
                         <div className="font-medium">Recurring Scan</div>
-                        <div className="text-sm text-gray-500">Automated schedule</div>
+                        <div className="text-sm text-gray-500">
+                          Automated schedule
+                        </div>
                       </div>
                     </Label>
                   </div>
@@ -354,7 +373,11 @@ export default function GeoGridScan() {
                         onValueChange={(value) =>
                           setRecurringSettings({
                             ...recurringSettings,
-                            frequency: value as "daily" | "weekly" | "biweekly" | "monthly"
+                            frequency: value as
+                              | "daily"
+                              | "weekly"
+                              | "biweekly"
+                              | "monthly",
                           })
                         }
                       >
@@ -377,7 +400,7 @@ export default function GeoGridScan() {
                         onChange={(e) =>
                           setRecurringSettings({
                             ...recurringSettings,
-                            startDate: e.target.value
+                            startDate: e.target.value,
                           })
                         }
                         className="mt-1"
@@ -389,7 +412,7 @@ export default function GeoGridScan() {
                         onCheckedChange={(checked) =>
                           setRecurringSettings({
                             ...recurringSettings,
-                            autoRenew: checked
+                            autoRenew: checked,
                           })
                         }
                       />
@@ -416,11 +439,16 @@ export default function GeoGridScan() {
                         <p className="font-medium text-green-900">
                           {ADMIN_BUSINESS.name}
                         </p>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                        <Badge
+                          variant="secondary"
+                          className="bg-green-100 text-green-800"
+                        >
                           Connected
                         </Badge>
                       </div>
-                      <p className="text-sm text-green-700">{ADMIN_BUSINESS.address}</p>
+                      <p className="text-sm text-green-700">
+                        {ADMIN_BUSINESS.address}
+                      </p>
                       <p className="text-xs text-green-600 mt-1">
                         Using integrated Google Business Profile
                       </p>
@@ -456,7 +484,8 @@ export default function GeoGridScan() {
                 {keywords.length > 0 && (
                   <div>
                     <p className="text-sm text-gray-600 mb-2">
-                      Each keyword will create a separate scan with the same configuration:
+                      Each keyword will create a separate scan with the same
+                      configuration:
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {keywords.map((keyword) => (
@@ -492,14 +521,21 @@ export default function GeoGridScan() {
               <CardContent className="space-y-6">
                 {/* Scan Settings */}
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Search Parameters</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">
+                    Search Parameters
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label className="text-sm font-medium">Search Depth</Label>
+                      <Label className="text-sm font-medium">
+                        Search Depth
+                      </Label>
                       <Select
                         value={scanConfig.depth.toString()}
                         onValueChange={(value) =>
-                          setScanConfig({ ...scanConfig, depth: parseInt(value) })
+                          setScanConfig({
+                            ...scanConfig,
+                            depth: parseInt(value),
+                          })
                         }
                       >
                         <SelectTrigger className="mt-1">
@@ -516,7 +552,9 @@ export default function GeoGridScan() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium">API Call Type</Label>
+                      <Label className="text-sm font-medium">
+                        API Call Type
+                      </Label>
                       <Select
                         value={scanConfig.apiCallType}
                         onValueChange={(value) =>
@@ -547,13 +585,18 @@ export default function GeoGridScan() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium">Priority Level</Label>
+                      <Label className="text-sm font-medium">
+                        Priority Level
+                      </Label>
                       <Select
                         value={scanConfig.priority}
                         onValueChange={(value) =>
                           setScanConfig({
                             ...scanConfig,
-                            priority: value as "standard" | "expedited" | "priority",
+                            priority: value as
+                              | "standard"
+                              | "expedited"
+                              | "priority",
                           })
                         }
                       >
@@ -562,8 +605,12 @@ export default function GeoGridScan() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="standard">Standard</SelectItem>
-                          <SelectItem value="expedited">Expedited (+50%)</SelectItem>
-                          <SelectItem value="priority">Priority (+100%)</SelectItem>
+                          <SelectItem value="expedited">
+                            Expedited (+50%)
+                          </SelectItem>
+                          <SelectItem value="priority">
+                            Priority (+100%)
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -572,10 +619,14 @@ export default function GeoGridScan() {
 
                 {/* Waypoint Settings */}
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Waypoint Grid</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">
+                    Waypoint Grid
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <Label className="text-sm font-medium">Pattern Type</Label>
+                      <Label className="text-sm font-medium">
+                        Pattern Type
+                      </Label>
                       <Select
                         value={scanConfig.pattern}
                         onValueChange={(value) =>
@@ -613,8 +664,11 @@ export default function GeoGridScan() {
 
                     <div>
                       <Label className="text-sm font-medium">
-                        {scanConfig.pattern === "grid" ? "Grid Size" : 
-                         scanConfig.pattern === "circle" ? "Circle Points" : "Line Points"}
+                        {scanConfig.pattern === "grid"
+                          ? "Grid Size"
+                          : scanConfig.pattern === "circle"
+                            ? "Circle Points"
+                            : "Line Points"}
                       </Label>
                       <Select
                         value={scanConfig.count.toString()}
@@ -631,24 +685,52 @@ export default function GeoGridScan() {
                         <SelectContent className="max-h-60">
                           {scanConfig.pattern === "grid" && (
                             <>
-                              <SelectItem value="9">3×3 Grid (9 pins)</SelectItem>
-                              <SelectItem value="16">4×4 Grid (16 pins)</SelectItem>
-                              <SelectItem value="25">5×5 Grid (25 pins)</SelectItem>
-                              <SelectItem value="36">6×6 Grid (36 pins)</SelectItem>
-                              <SelectItem value="49">7×7 Grid (49 pins)</SelectItem>
-                              <SelectItem value="64">8×8 Grid (64 pins)</SelectItem>
-                              <SelectItem value="81">9×9 Grid (81 pins)</SelectItem>
-                              <SelectItem value="100">10×10 Grid (100 pins)</SelectItem>
+                              <SelectItem value="9">
+                                3×3 Grid (9 pins)
+                              </SelectItem>
+                              <SelectItem value="16">
+                                4×4 Grid (16 pins)
+                              </SelectItem>
+                              <SelectItem value="25">
+                                5×5 Grid (25 pins)
+                              </SelectItem>
+                              <SelectItem value="36">
+                                6×6 Grid (36 pins)
+                              </SelectItem>
+                              <SelectItem value="49">
+                                7×7 Grid (49 pins)
+                              </SelectItem>
+                              <SelectItem value="64">
+                                8×8 Grid (64 pins)
+                              </SelectItem>
+                              <SelectItem value="81">
+                                9×9 Grid (81 pins)
+                              </SelectItem>
+                              <SelectItem value="100">
+                                10×10 Grid (100 pins)
+                              </SelectItem>
                             </>
                           )}
                           {scanConfig.pattern === "circle" && (
                             <>
-                              <SelectItem value="7">7 Points (Center + 6)</SelectItem>
-                              <SelectItem value="13">13 Points (Center + 6 + 6)</SelectItem>
-                              <SelectItem value="19">19 Points (Center + 6 + 12)</SelectItem>
-                              <SelectItem value="25">25 Points (Center + 8 + 16)</SelectItem>
-                              <SelectItem value="37">37 Points (Center + 6 + 12 + 18)</SelectItem>
-                              <SelectItem value="49">49 Points (Center + 8 + 16 + 24)</SelectItem>
+                              <SelectItem value="7">
+                                7 Points (Center + 6)
+                              </SelectItem>
+                              <SelectItem value="13">
+                                13 Points (Center + 6 + 6)
+                              </SelectItem>
+                              <SelectItem value="19">
+                                19 Points (Center + 6 + 12)
+                              </SelectItem>
+                              <SelectItem value="25">
+                                25 Points (Center + 8 + 16)
+                              </SelectItem>
+                              <SelectItem value="37">
+                                37 Points (Center + 6 + 12 + 18)
+                              </SelectItem>
+                              <SelectItem value="49">
+                                49 Points (Center + 8 + 16 + 24)
+                              </SelectItem>
                             </>
                           )}
                           {scanConfig.pattern === "line" && (
@@ -668,7 +750,9 @@ export default function GeoGridScan() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium">Distance Between Pins</Label>
+                      <Label className="text-sm font-medium">
+                        Distance Between Pins
+                      </Label>
                       <Select
                         value={scanConfig.distanceBetween.toString()}
                         onValueChange={(value) =>
@@ -682,14 +766,26 @@ export default function GeoGridScan() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="0.1">0.1 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="0.25">0.25 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="0.5">0.5 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="0.75">0.75 {scanConfig.unit}</SelectItem>
+                          <SelectItem value="0.1">
+                            0.1 {scanConfig.unit}
+                          </SelectItem>
+                          <SelectItem value="0.25">
+                            0.25 {scanConfig.unit}
+                          </SelectItem>
+                          <SelectItem value="0.5">
+                            0.5 {scanConfig.unit}
+                          </SelectItem>
+                          <SelectItem value="0.75">
+                            0.75 {scanConfig.unit}
+                          </SelectItem>
                           <SelectItem value="1">1 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="1.5">1.5 {scanConfig.unit}</SelectItem>
+                          <SelectItem value="1.5">
+                            1.5 {scanConfig.unit}
+                          </SelectItem>
                           <SelectItem value="2">2 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="2.5">2.5 {scanConfig.unit}</SelectItem>
+                          <SelectItem value="2.5">
+                            2.5 {scanConfig.unit}
+                          </SelectItem>
                           <SelectItem value="3">3 {scanConfig.unit}</SelectItem>
                           <SelectItem value="5">5 {scanConfig.unit}</SelectItem>
                         </SelectContent>
@@ -697,7 +793,9 @@ export default function GeoGridScan() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium">Distance Unit</Label>
+                      <Label className="text-sm font-medium">
+                        Distance Unit
+                      </Label>
                       <div className="flex rounded-md border overflow-hidden mt-1">
                         <button
                           type="button"
@@ -738,15 +836,19 @@ export default function GeoGridScan() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <Label className="text-sm font-medium">
-                        Waypoints ({enabledWaypointsCount} of {waypoints.length} enabled)
+                        Waypoints ({enabledWaypointsCount} of {waypoints.length}{" "}
+                        enabled)
                       </Label>
                     </div>
 
                     <div className="max-h-32 overflow-y-auto border rounded-lg p-3 space-y-1">
                       {waypoints.map((waypoint, index) => {
-                        const waypointNumber = waypoint.isCenter ? 1 : 
-                          waypoints.filter(w => !w.isCenter).indexOf(waypoint) + 2;
-                        
+                        const waypointNumber = waypoint.isCenter
+                          ? 1
+                          : waypoints
+                              .filter((w) => !w.isCenter)
+                              .indexOf(waypoint) + 2;
+
                         return (
                           <div
                             key={waypoint.id}
@@ -759,7 +861,9 @@ export default function GeoGridScan() {
                                   handleWaypointToggle(waypoint.id)
                                 }
                               />
-                              <span className={waypoint.isCenter ? "font-bold" : ""}>
+                              <span
+                                className={waypoint.isCenter ? "font-bold" : ""}
+                              >
                                 {waypoint.isCenter
                                   ? `#${waypointNumber} Center`
                                   : `#${waypointNumber} Waypoint`}
@@ -794,7 +898,9 @@ export default function GeoGridScan() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Business:</span>
-                    <span className="text-sm font-medium">{ADMIN_BUSINESS.name}</span>
+                    <span className="text-sm font-medium">
+                      {ADMIN_BUSINESS.name}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Scan Type:</span>
@@ -804,32 +910,47 @@ export default function GeoGridScan() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Keywords:</span>
-                    <span className="text-sm font-medium">{keywords.length}</span>
+                    <span className="text-sm font-medium">
+                      {keywords.length}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Scans Created:</span>
+                    <span className="text-sm text-gray-600">
+                      Scans Created:
+                    </span>
                     <span className="text-sm font-medium">
-                      {keywords.length} {keywords.length !== 1 ? 'scans' : 'scan'}
+                      {keywords.length}{" "}
+                      {keywords.length !== 1 ? "scans" : "scan"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Waypoints:</span>
-                    <span className="text-sm font-medium">{enabledWaypointsCount} enabled</span>
+                    <span className="text-sm font-medium">
+                      {enabledWaypointsCount} enabled
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Search Depth:</span>
-                    <span className="text-sm font-medium">Top {scanConfig.depth}</span>
+                    <span className="text-sm font-medium">
+                      Top {scanConfig.depth}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Priority:</span>
-                    <span className="text-sm font-medium capitalize">{scanConfig.priority}</span>
+                    <span className="text-sm font-medium capitalize">
+                      {scanConfig.priority}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Grid Pattern:</span>
-                    <span className="text-sm font-medium capitalize">{scanConfig.pattern}</span>
+                    <span className="text-sm font-medium capitalize">
+                      {scanConfig.pattern}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Available Credits:</span>
+                    <span className="text-sm text-gray-600">
+                      Total Available Credits:
+                    </span>
                     <span className="text-sm font-medium text-blue-600">
                       {formatCredits(balance.remaining)}
                     </span>
@@ -846,9 +967,8 @@ export default function GeoGridScan() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {keywords.length > 1 && 
-                      `${keywords.length} keywords × ${formatCredits(scanCost / keywords.length)} credits each`
-                    }
+                    {keywords.length > 1 &&
+                      `${keywords.length} keywords × ${formatCredits(scanCost / keywords.length)} credits each`}
                   </p>
                 </div>
               </CardContent>
@@ -930,7 +1050,8 @@ export default function GeoGridScan() {
                 </p>
                 {waypoints.length > 0 && (
                   <p>
-                    📌 {enabledWaypointsCount} search locations configured - Center waypoint is always #1
+                    📌 {enabledWaypointsCount} search locations configured -
+                    Center waypoint is always #1
                   </p>
                 )}
               </div>
@@ -950,7 +1071,8 @@ export default function GeoGridScan() {
               {isRunning ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Starting {keywords.length} Scan{keywords.length !== 1 ? 's' : ''}...
+                  Starting {keywords.length} Scan
+                  {keywords.length !== 1 ? "s" : ""}...
                 </>
               ) : (
                 <>

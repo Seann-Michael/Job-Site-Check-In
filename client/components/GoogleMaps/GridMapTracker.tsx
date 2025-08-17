@@ -350,8 +350,6 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     [getMarkerColor, gridType],
   );
 
-
-
   // Toggle waypoint disabled state (except center pin)
   const toggleWaypointDisabled = useCallback((markerId: string) => {
     setMarkers((prevMarkers) => {
@@ -370,22 +368,27 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
   }, []);
 
   // Handle marker click to toggle disabled state
-  const handleMarkerClick = useCallback((markerId: string) => {
-    // Don't toggle if we're in the middle of dragging
-    if (isDraggingAllPins) return;
+  const handleMarkerClick = useCallback(
+    (markerId: string) => {
+      // Don't toggle if we're in the middle of dragging
+      if (isDraggingAllPins) return;
 
-    const marker = markers.find((m: any) => m.id === markerId);
-    if (marker && !marker.isCenter) {
-      toggleWaypointDisabled(markerId);
-    }
-  }, [isDraggingAllPins, markers, toggleWaypointDisabled]);
+      const marker = markers.find((m: any) => m.id === markerId);
+      if (marker && !marker.isCenter) {
+        toggleWaypointDisabled(markerId);
+      }
+    },
+    [isDraggingAllPins, markers, toggleWaypointDisabled],
+  );
 
   // Handle marker drag to move all pins
   const handleMarkerMouseDown = useCallback(
     (markerId: string, e: google.maps.MapMouseEvent) => {
       e.stop();
 
-      const startPosition = e.latLng ? { lat: e.latLng.lat(), lng: e.latLng.lng() } : null;
+      const startPosition = e.latLng
+        ? { lat: e.latLng.lat(), lng: e.latLng.lng() }
+        : null;
       let hasDragged = false;
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
