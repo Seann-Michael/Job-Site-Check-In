@@ -604,31 +604,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           center) && (
           <div className="flex justify-between items-center mt-3 gap-2">
             <div className="flex-1 min-w-0">
-              {waypointData.length > 0 && (
-                <p className="text-xs text-muted-foreground mb-1">
-                  📍 {waypointData.filter((w) => w.enabled).length}/
-                  {waypointData.length} waypoints enabled • Click to toggle •
-                  Drag any pin to move all
-                </p>
-              )}
-              {waypoints.length > 0 && waypointData.length === 0 && (
-                <p className="text-xs text-muted-foreground mb-1">
-                  📍 {waypoints.length} waypoint
-                  {waypoints.length > 1 ? "s" : ""} configured
-                </p>
-              )}
-              {markers.length > 0 &&
-                waypoints.length === 0 &&
-                waypointData.length === 0 && (
-                  <p className="text-xs text-muted-foreground mb-1">
-                    📍 {markers.length} location{markers.length > 1 ? "s" : ""}{" "}
-                    marked
-                  </p>
-                )}
-              <p className="text-xs text-green-600 mb-1">
-                Map loaded: {isLoaded ? "Yes" : "No"} | Enhanced waypoints:{" "}
-                {waypointData.length}
-              </p>
               {address && (
                 <p className="text-xs text-muted-foreground truncate">
                   {address}
