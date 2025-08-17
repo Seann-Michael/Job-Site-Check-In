@@ -965,27 +965,13 @@ export default function ScanHistory() {
                                 <div className="font-medium text-gray-900">
                                   {scan.name}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  {scan.business}
-                                </div>
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                  {scan.keywords.slice(0, 2).map((keyword) => (
-                                    <Badge
-                                      key={keyword}
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {keyword}
-                                    </Badge>
-                                  ))}
-                                  {scan.keywords.length > 2 && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      +{scan.keywords.length - 2}
-                                    </Badge>
-                                  )}
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {scan.keyword}
+                                  </Badge>
                                 </div>
                               </div>
                             </TableCell>
