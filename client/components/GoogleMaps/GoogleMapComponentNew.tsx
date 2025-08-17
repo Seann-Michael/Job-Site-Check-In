@@ -589,9 +589,14 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   position={waypoint.coordinates}
                   title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
                   icon={createWaypointIcon(waypoint, rank)}
-                  onClick={() => handleWaypointClick(waypoint)}
+                  onClick={(e) => {
+                    e.stop?.();
+                    e.preventDefault?.();
+                    e.stopPropagation?.();
+                    handleWaypointClick(waypoint, e);
+                  }}
                   draggable={true}
-                  onDragStart={() => handleDragStart(waypoint.id)}
+                  onDragStart={(event) => handleDragStart(waypoint.id, event)}
                   onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
                   animation={
                     selectedWaypoint === waypoint.id
