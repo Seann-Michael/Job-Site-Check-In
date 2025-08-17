@@ -30,12 +30,18 @@ export interface AddressComponent {
 export const getGoogleMapsApiKey = (): string => {
   console.log("Getting Google Maps API key...");
 
-  // HARDCODED FOR TESTING - Always return the test key
-  const testApiKey = "REDACTED_GOOGLE_MAPS_API_KEY";
-  console.log("TESTING MODE: Using hardcoded API key");
-  console.log("Key starts with:", testApiKey.substring(0, 10));
-  console.log("Key length:", testApiKey.length);
-  return testApiKey;
+  // Use environment variable
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+  if (!apiKey) {
+    console.warn("Google Maps API key not found in environment variables");
+    return "";
+  }
+
+  console.log("Using API key from environment");
+  console.log("Key starts with:", apiKey.substring(0, 10));
+  console.log("Key length:", apiKey.length);
+  return apiKey;
 };
 
 // Load Google Maps API
