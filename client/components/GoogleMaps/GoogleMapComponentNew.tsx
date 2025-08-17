@@ -102,10 +102,28 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const onLoad = useCallback((map: google.maps.Map) => {
     console.log("GoogleMapComponent: Map loaded successfully", map);
     setMap(map);
+
+    // Fit bounds to show all markers/waypoints
+    const allPoints = [...markers, ...waypoints.map(w => ({ position: w.position }))];
+    if (allPoints.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      allPoints.forEach((point) => {
+        bounds.extend(point.position);
+      });
+      map.fitBounds(bounds);
+
+      // Add padding and ensure reasonable zoom level
+      setTimeout(() => {
+        if (map.getZoom() && map.getZoom()! > 15) {
+          map.setZoom(15);
+        }
+      }, 100);
+    }
+
     if (onMapLoad) {
       onMapLoad(map);
     }
-  }, [onMapLoad]);
+  }, [onMapLoad, markers, waypoints]);
 
   const onUnmount = useCallback(() => {
     setMap(null);
