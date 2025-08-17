@@ -195,12 +195,6 @@ export default function AppPages() {
           icon: Eye,
         },
         {
-          name: "Maps",
-          path: "/admin/maps/geo-grid-scan",
-          description: "Location and mapping tools",
-          icon: Map,
-        },
-        {
           name: "Grid Overlay Demo",
           path: "/admin/grid-overlay",
           description: "Map grid overlay demonstration",
