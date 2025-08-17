@@ -320,6 +320,22 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         }, 500); // Longer delay to ensure everything is loaded
       }
 
+      // Add custom zoom event listener for 0.5 increments
+      let currentZoom = map.getZoom() || 12;
+
+      // Override the default zoom behavior
+      map.addListener('zoom_changed', () => {
+        const newZoom = map.getZoom();
+        if (newZoom !== undefined && Math.abs(newZoom - currentZoom) >= 1) {
+          // Round to nearest 0.5
+          const roundedZoom = Math.round(newZoom * 2) / 2;
+          if (roundedZoom !== newZoom) {
+            map.setZoom(roundedZoom);
+          }
+          currentZoom = roundedZoom;
+        }
+      });
+
       // Create info window (but keep it closed)
       const infoWindowInstance = new google.maps.InfoWindow();
       setInfoWindow(infoWindowInstance);
