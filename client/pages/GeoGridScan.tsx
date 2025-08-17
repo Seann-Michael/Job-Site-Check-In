@@ -698,7 +698,7 @@ export default function GeoGridScan() {
                         {scanConfig.pattern === "grid"
                           ? "Grid Size"
                           : scanConfig.pattern === "circle"
-                            ? "Circle Points"
+                            ? "Number of Rings"
                             : "Line Points"}
                       </Label>
                       <Select
