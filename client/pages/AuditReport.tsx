@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponentNew";
-import GridMapTracker from "@/components/GoogleMaps/GridMapTracker";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -443,30 +442,15 @@ export default function AuditReport() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Use GridMapTracker for geo grid scan results with ranking visualization */}
-            {scanData?.scanResults?.scanLocations ? (
-              <GridMapTracker
-                center={scanData.businessLocation}
-                gridSize={5}
-                gridRadius={3000}
-                rankings={scanData.scanResults.scanLocations.reduce((acc: any, location: any) => {
-                  acc[location.id] = location.rank;
-                  return acc;
-                }, {})}
-                height="400px"
-                className="mb-4"
-              />
-            ) : (
-              <GoogleMapComponent
-                center={scanData.businessLocation}
-                zoom={13}
-                height="400px"
-                markers={getMapMarkers()}
-                showControls={true}
-                showDirectionsButton={false}
-                className="mb-4"
-              />
-            )}
+            <GoogleMapComponent
+              center={scanData.businessLocation}
+              zoom={13}
+              height="400px"
+              markers={getMapMarkers()}
+              showControls={true}
+              showDirectionsButton={false}
+              className="mb-4"
+            />
 
             {/* Map Legend */}
             <div className="flex flex-wrap gap-4 pt-4 border-t">
