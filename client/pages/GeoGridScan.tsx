@@ -126,11 +126,25 @@ export default function GeoGridScan() {
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
+  // Calculate waypoint count from rings for circle pattern
+  const calculateWaypointCount = (rings: number): number => {
+    if (rings === 0) return 1; // Just center
+    let total = 1; // Start with center
+    for (let i = 1; i <= rings; i++) {
+      total += i === 1 ? 6 : 6 * i; // First ring = 6, subsequent rings = 6 * ring number
+    }
+    return total;
+  };
+
   // Generate waypoints when configuration changes
   useEffect(() => {
+    const actualCount = scanConfig.pattern === "circle"
+      ? calculateWaypointCount(scanConfig.rings)
+      : scanConfig.count;
+
     const options: WaypointGenerationOptions = {
       center: ADMIN_BUSINESS.coordinates,
-      count: scanConfig.count,
+      count: actualCount,
       distanceBetween: scanConfig.distanceBetween,
       unit: scanConfig.unit,
       pattern: scanConfig.pattern,
@@ -140,6 +154,7 @@ export default function GeoGridScan() {
     setWaypoints(newWaypoints);
   }, [
     scanConfig.count,
+    scanConfig.rings,
     scanConfig.distanceBetween,
     scanConfig.unit,
     scanConfig.pattern,
