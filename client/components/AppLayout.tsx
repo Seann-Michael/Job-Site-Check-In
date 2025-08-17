@@ -690,9 +690,7 @@ export function AppLayout({
 
           {/* Page Content */}
           <main className="flex-1 flex flex-col overflow-auto w-full">
-            <div className="flex-1 w-full mobile-bottom-safe">
-              {children}
-            </div>
+            <div className="flex-1 w-full mobile-bottom-safe">{children}</div>
 
             {/* Footer - Always at bottom */}
             {showFooter && <Footer />}

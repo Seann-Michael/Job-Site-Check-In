@@ -2,7 +2,14 @@ import React, { useState, useCallback, useMemo, useRef } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Maximize, ZoomIn, ZoomOut, Target } from "lucide-react";
+import {
+  MapPin,
+  Navigation,
+  Maximize,
+  ZoomIn,
+  ZoomOut,
+  Target,
+} from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 import {
   type Waypoint as WaypointType,
@@ -119,14 +126,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   }, []);
 
   // Manual zoom control functions
-  const handleManualZoom = useCallback((percentage: number) => {
-    if (map) {
-      const zoomLevel = percentageToZoom(percentage);
-      map.setZoom(zoomLevel);
-      setManualZoomPercentage(percentage);
-      console.log(`Manual zoom: ${percentage}% → zoom level ${zoomLevel.toFixed(1)}`);
-    }
-  }, [map, percentageToZoom]);
+  const handleManualZoom = useCallback(
+    (percentage: number) => {
+      if (map) {
+        const zoomLevel = percentageToZoom(percentage);
+        map.setZoom(zoomLevel);
+        setManualZoomPercentage(percentage);
+        console.log(
+          `Manual zoom: ${percentage}% → zoom level ${zoomLevel.toFixed(1)}`,
+        );
+      }
+    },
+    [map, percentageToZoom],
+  );
 
   const toggleZoomMode = useCallback(() => {
     if (map) {
@@ -141,38 +153,46 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   }, [map, isManualZoomMode, zoomToPercentage]);
 
   // Function to calculate optimal zoom based on waypoint spread
-  const calculateOptimalZoom = useCallback((bounds: google.maps.LatLngBounds, waypointCount: number) => {
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
+  const calculateOptimalZoom = useCallback(
+    (bounds: google.maps.LatLngBounds, waypointCount: number) => {
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
 
-    // Calculate the distance span in degrees
-    const latSpan = ne.lat() - sw.lat();
-    const lngSpan = ne.lng() - sw.lng();
-    const maxSpan = Math.max(latSpan, lngSpan);
+      // Calculate the distance span in degrees
+      const latSpan = ne.lat() - sw.lat();
+      const lngSpan = ne.lng() - sw.lng();
+      const maxSpan = Math.max(latSpan, lngSpan);
 
-    // Calculate base zoom from geographic spread
-    let optimalZoom: number;
-    if (maxSpan >= 1.0) optimalZoom = 8;
-    else if (maxSpan >= 0.5) optimalZoom = 9;
-    else if (maxSpan >= 0.25) optimalZoom = 10;
-    else if (maxSpan >= 0.125) optimalZoom = 11;
-    else if (maxSpan >= 0.0625) optimalZoom = 12;
-    else if (maxSpan >= 0.03125) optimalZoom = 13;
-    else if (maxSpan >= 0.015625) optimalZoom = 14;
-    else if (maxSpan >= 0.0078125) optimalZoom = 15;
-    else if (maxSpan >= 0.00390625) optimalZoom = 16;
-    else optimalZoom = 17;
+      // Calculate base zoom from geographic spread
+      let optimalZoom: number;
+      if (maxSpan >= 1.0) optimalZoom = 8;
+      else if (maxSpan >= 0.5) optimalZoom = 9;
+      else if (maxSpan >= 0.25) optimalZoom = 10;
+      else if (maxSpan >= 0.125) optimalZoom = 11;
+      else if (maxSpan >= 0.0625) optimalZoom = 12;
+      else if (maxSpan >= 0.03125) optimalZoom = 13;
+      else if (maxSpan >= 0.015625) optimalZoom = 14;
+      else if (maxSpan >= 0.0078125) optimalZoom = 15;
+      else if (maxSpan >= 0.00390625) optimalZoom = 16;
+      else optimalZoom = 17;
 
-    // Fine-tune based on waypoint density
-    const densityFactor = Math.log10(waypointCount + 1) / 2; // 0 to ~1 range
-    const adjustedZoom = optimalZoom - densityFactor;
+      // Fine-tune based on waypoint density
+      const densityFactor = Math.log10(waypointCount + 1) / 2; // 0 to ~1 range
+      const adjustedZoom = optimalZoom - densityFactor;
 
-    // Ensure zoom is within reasonable bounds with gradual constraints
-    const finalZoom = Math.max(7, Math.min(18, Math.round(adjustedZoom * 2) / 2)); // Round to 0.5 increments
+      // Ensure zoom is within reasonable bounds with gradual constraints
+      const finalZoom = Math.max(
+        7,
+        Math.min(18, Math.round(adjustedZoom * 2) / 2),
+      ); // Round to 0.5 increments
 
-    console.log(`Optimal zoom calculation: span=${maxSpan.toFixed(6)}, count=${waypointCount}, base=${optimalZoom}, adjusted=${adjustedZoom.toFixed(2)}, final=${finalZoom}`);
-    return finalZoom;
-  }, []);
+      console.log(
+        `Optimal zoom calculation: span=${maxSpan.toFixed(6)}, count=${waypointCount}, base=${optimalZoom}, adjusted=${adjustedZoom.toFixed(2)}, final=${finalZoom}`,
+      );
+      return finalZoom;
+    },
+    [],
+  );
 
   // Function to auto-fit map bounds to show all waypoints with gradual zoom control
   const autoFitBounds = useCallback(() => {
@@ -206,7 +226,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             let currentStep = 0;
             const smoothZoom = () => {
               if (currentStep < steps) {
-                const nextZoom = currentZoom + (stepSize * (currentStep + 1));
+                const nextZoom = currentZoom + stepSize * (currentStep + 1);
                 map.setZoom(Math.round(nextZoom * 4) / 4); // Quarter-level precision
                 currentStep++;
                 setTimeout(smoothZoom, 50); // 50ms between steps for smooth animation
@@ -214,7 +234,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             };
 
             smoothZoom();
-            console.log(`Gradual zoom transition: ${currentZoom.toFixed(1)} → ${optimalZoom} in ${steps} steps (${waypointData.length} waypoints)`);
+            console.log(
+              `Gradual zoom transition: ${currentZoom.toFixed(1)} → ${optimalZoom} in ${steps} steps (${waypointData.length} waypoints)`,
+            );
           }
         }, 100);
       }
@@ -232,7 +254,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       hasInitializedBounds.current && // Only auto-zoom after initial load
       !isManualZoomMode // Don't auto-zoom in manual mode
     ) {
-      console.log(`Waypoints updated (count: ${currentWaypointCount}), auto-fitting bounds`);
+      console.log(
+        `Waypoints updated (count: ${currentWaypointCount}), auto-fitting bounds`,
+      );
       setTimeout(() => {
         autoFitBounds();
       }, 100);
@@ -255,7 +279,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const mapContainerStyle = useMemo(
     () => ({
       width: "100%",
-      height: height === "100%" ? "700px" : (height || "384px"),
+      height: height === "100%" ? "700px" : height || "384px",
     }),
     [height],
   );
@@ -268,7 +292,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       fullscreenControl: showControls,
       mapTypeControl: showControls,
       // Enable smooth zoom transitions for more gradual control
-      gestureHandling: 'cooperative',
+      gestureHandling: "cooperative",
       scrollwheel: true,
       clickableIcons: false,
     }),
@@ -349,7 +373,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     setMap(null);
     setInfoWindow(null);
   }, []);
-
 
   // Handle waypoint click (toggle enabled/disabled)
   const handleWaypointClick = useCallback(
@@ -665,143 +688,142 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     <>
       <Card className={className}>
         <CardContent className="p-3 space-y-4">
-        <div
-          style={{
-            width: "100%",
-            height: height || "384px",
-            minHeight: height || "300px",
-            position: 'relative' // Ensure proper positioning context
-          }}
-        >
-          <GoogleMap
-            key="stable-geo-grid-map"
-            mapContainerStyle={mapContainerStyle}
-            center={mapCenter}
-            zoom={zoom}
-            onLoad={onLoad}
-            onUnmount={onUnmount}
-            options={mapOptions}
+          <div
+            style={{
+              width: "100%",
+              height: height || "384px",
+              minHeight: height || "300px",
+              position: "relative", // Ensure proper positioning context
+            }}
           >
-            {/* Render regular markers */}
-            {markers.map((marker) => (
-              <Marker
-                key={marker.id}
-                position={marker.position}
-                title={marker.title}
-                icon={createMarkerIcon(marker)}
-                onClick={(e) => {
-                  e.stop();
-                  handleMarkerClick(marker);
-                }}
-              />
-            ))}
+            <GoogleMap
+              key="stable-geo-grid-map"
+              mapContainerStyle={mapContainerStyle}
+              center={mapCenter}
+              zoom={zoom}
+              onLoad={onLoad}
+              onUnmount={onUnmount}
+              options={mapOptions}
+            >
+              {/* Render regular markers */}
+              {markers.map((marker) => (
+                <Marker
+                  key={marker.id}
+                  position={marker.position}
+                  title={marker.title}
+                  icon={createMarkerIcon(marker)}
+                  onClick={(e) => {
+                    e.stop();
+                    handleMarkerClick(marker);
+                  }}
+                />
+              ))}
 
-            {/* Render legacy waypoint markers */}
-            {waypoints.map((waypoint) => (
-              <Marker
-                key={waypoint.id}
-                position={waypoint.position}
-                title={`Rank #${waypoint.rank}`}
-                icon={createMarkerIcon({
-                  id: waypoint.id,
-                  position: waypoint.position,
-                  title: `Rank #${waypoint.rank}`,
-                  rank: waypoint.rank,
-                })}
-                onClick={(e) => {
-                  e.stop();
-                  onWaypointClick && onWaypointClick(waypoint.id);
-                }}
-                animation={
-                  selectedWaypoint === waypoint.id
-                    ? google.maps.Animation.BOUNCE
-                    : undefined
-                }
-              />
-            ))}
-
-            {/* Render enhanced waypoint markers */}
-            {waypointData.map((waypoint, index) => {
-              const rank = waypoint.isCenter ? undefined : index;
-              return (
+              {/* Render legacy waypoint markers */}
+              {waypoints.map((waypoint) => (
                 <Marker
                   key={waypoint.id}
-                  position={waypoint.coordinates}
-                  title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
-                  icon={createWaypointIcon(waypoint, rank)}
+                  position={waypoint.position}
+                  title={`Rank #${waypoint.rank}`}
+                  icon={createMarkerIcon({
+                    id: waypoint.id,
+                    position: waypoint.position,
+                    title: `Rank #${waypoint.rank}`,
+                    rank: waypoint.rank,
+                  })}
                   onClick={(e) => {
-                    handleWaypointClick(waypoint, e);
+                    e.stop();
+                    onWaypointClick && onWaypointClick(waypoint.id);
                   }}
-                  draggable={true}
-                  onDragStart={(event) => handleDragStart(waypoint.id, event)}
-                  onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
                   animation={
                     selectedWaypoint === waypoint.id
                       ? google.maps.Animation.BOUNCE
                       : undefined
                   }
-                  opacity={waypoint.enabled ? 1.0 : 0.6}
                 />
-              );
-            })}
-          </GoogleMap>
-        </div>
+              ))}
 
-        {/* Zoom Control Component - now inside the main map container */}
-        <div className="border-t border-gray-200 pt-4">
-          <ZoomControlCard
-            isManualZoomMode={isManualZoomMode}
-            manualZoomPercentage={manualZoomPercentage}
-            toggleZoomMode={toggleZoomMode}
-            handleManualZoom={handleManualZoom}
-            percentageToZoom={percentageToZoom}
-          />
-        </div>
+              {/* Render enhanced waypoint markers */}
+              {waypointData.map((waypoint, index) => {
+                const rank = waypoint.isCenter ? undefined : index;
+                return (
+                  <Marker
+                    key={waypoint.id}
+                    position={waypoint.coordinates}
+                    title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
+                    icon={createWaypointIcon(waypoint, rank)}
+                    onClick={(e) => {
+                      handleWaypointClick(waypoint, e);
+                    }}
+                    draggable={true}
+                    onDragStart={(event) => handleDragStart(waypoint.id, event)}
+                    onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
+                    animation={
+                      selectedWaypoint === waypoint.id
+                        ? google.maps.Animation.BOUNCE
+                        : undefined
+                    }
+                    opacity={waypoint.enabled ? 1.0 : 0.6}
+                  />
+                );
+              })}
+            </GoogleMap>
+          </div>
 
-        {(showDirectionsButton ||
-          address ||
-          (lat !== undefined && lng !== undefined) ||
-          center) && (
-          <div className="flex justify-between items-center gap-2 border-t border-gray-200 pt-4">
-            <div className="flex-1 min-w-0">
-              {address && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {address}
-                </p>
-              )}
-              {center && !address && (
-                <p className="text-xs text-muted-foreground font-mono">
-                  {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
-                </p>
-              )}
-            </div>
+          {/* Zoom Control Component - now inside the main map container */}
+          <div className="border-t border-gray-200 pt-4">
+            <ZoomControlCard
+              isManualZoomMode={isManualZoomMode}
+              manualZoomPercentage={manualZoomPercentage}
+              toggleZoomMode={toggleZoomMode}
+              handleManualZoom={handleManualZoom}
+              percentageToZoom={percentageToZoom}
+            />
+          </div>
 
-            <div className="flex gap-1">
-              {showDirectionsButton && (
+          {(showDirectionsButton ||
+            address ||
+            (lat !== undefined && lng !== undefined) ||
+            center) && (
+            <div className="flex justify-between items-center gap-2 border-t border-gray-200 pt-4">
+              <div className="flex-1 min-w-0">
+                {address && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {address}
+                  </p>
+                )}
+                {center && !address && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-1">
+                {showDirectionsButton && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={getDirections}
+                    className="gap-1 text-xs px-2 h-7"
+                  >
+                    <Navigation className="h-3 w-3" />
+                    Directions
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={getDirections}
+                  onClick={openInGoogleMaps}
                   className="gap-1 text-xs px-2 h-7"
                 >
-                  <Navigation className="h-3 w-3" />
-                  Directions
+                  <Maximize className="h-3 w-3" />
+                  Open
                 </Button>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openInGoogleMaps}
-                className="gap-1 text-xs px-2 h-7"
-              >
-                <Maximize className="h-3 w-3" />
-                Open
-              </Button>
+              </div>
             </div>
-          </div>
-        )}
-
+          )}
         </CardContent>
       </Card>
     </>
@@ -847,7 +869,8 @@ const ZoomControlCard: React.FC<ZoomControlCardProps> = ({
         </div>
         {isManualZoomMode && (
           <div className="text-sm text-blue-700 font-medium">
-            {manualZoomPercentage}% (Level: {percentageToZoom(manualZoomPercentage).toFixed(1)})
+            {manualZoomPercentage}% (Level:{" "}
+            {percentageToZoom(manualZoomPercentage).toFixed(1)})
           </div>
         )}
       </div>
@@ -857,7 +880,9 @@ const ZoomControlCard: React.FC<ZoomControlCardProps> = ({
           {/* Zoom Slider */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => handleManualZoom(Math.max(0, manualZoomPercentage - 5))}
+              onClick={() =>
+                handleManualZoom(Math.max(0, manualZoomPercentage - 5))
+              }
               className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
               title="Zoom out 5%"
             >
@@ -874,14 +899,16 @@ const ZoomControlCard: React.FC<ZoomControlCardProps> = ({
                 onChange={(e) => handleManualZoom(parseInt(e.target.value))}
                 className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${manualZoomPercentage}%, #e5e7eb ${manualZoomPercentage}%, #e5e7eb 100%)`
+                  background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${manualZoomPercentage}%, #e5e7eb ${manualZoomPercentage}%, #e5e7eb 100%)`,
                 }}
                 title={`Zoom: ${manualZoomPercentage}%`}
               />
             </div>
 
             <button
-              onClick={() => handleManualZoom(Math.min(100, manualZoomPercentage + 5))}
+              onClick={() =>
+                handleManualZoom(Math.min(100, manualZoomPercentage + 5))
+              }
               className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
               title="Zoom in 5%"
             >
@@ -892,14 +919,20 @@ const ZoomControlCard: React.FC<ZoomControlCardProps> = ({
           {/* Percentage Input and Quick Buttons */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 font-medium">Precise:</span>
+              <span className="text-sm text-gray-600 font-medium">
+                Precise:
+              </span>
               <input
                 type="number"
                 min="0"
                 max="100"
                 step="1"
                 value={manualZoomPercentage}
-                onChange={(e) => handleManualZoom(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                onChange={(e) =>
+                  handleManualZoom(
+                    Math.max(0, Math.min(100, parseInt(e.target.value) || 0)),
+                  )
+                }
                 className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <span className="text-sm text-gray-500">%</span>
@@ -932,7 +965,9 @@ const ZoomControlCard: React.FC<ZoomControlCardProps> = ({
       {!isManualZoomMode && (
         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-sm text-green-800">
-            <strong>Auto Mode Active:</strong> Zoom automatically adjusts when you change grid size, pattern, or distance. Switch to Manual for precise percentage control.
+            <strong>Auto Mode Active:</strong> Zoom automatically adjusts when
+            you change grid size, pattern, or distance. Switch to Manual for
+            precise percentage control.
           </p>
         </div>
       )}

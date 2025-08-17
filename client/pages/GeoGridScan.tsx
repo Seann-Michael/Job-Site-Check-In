@@ -974,7 +974,9 @@ export default function GeoGridScan() {
                         onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            apiCallType: e.target.value as "circle" | "rectangle",
+                            apiCallType: e.target.value as
+                              | "circle"
+                              | "rectangle",
                           })
                         }
                         className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
@@ -1024,7 +1026,10 @@ export default function GeoGridScan() {
                         onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            pattern: e.target.value as "circle" | "grid" | "line",
+                            pattern: e.target.value as
+                              | "circle"
+                              | "grid"
+                              | "line",
                           })
                         }
                         className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
@@ -1077,17 +1082,39 @@ export default function GeoGridScan() {
                         )}
                         {scanConfig.pattern === "circle" && (
                           <>
-                            <option value="1">1 Ring ({calculateWaypointCount(1)} pins)</option>
-                            <option value="2">2 Rings ({calculateWaypointCount(2)} pins)</option>
-                            <option value="3">3 Rings ({calculateWaypointCount(3)} pins)</option>
-                            <option value="4">4 Rings ({calculateWaypointCount(4)} pins)</option>
-                            <option value="5">5 Rings ({calculateWaypointCount(5)} pins)</option>
-                            <option value="6">6 Rings ({calculateWaypointCount(6)} pins)</option>
-                            <option value="7">7 Rings ({calculateWaypointCount(7)} pins)</option>
-                            <option value="8">8 Rings ({calculateWaypointCount(8)} pins)</option>
-                            <option value="9">9 Rings ({calculateWaypointCount(9)} pins)</option>
-                            <option value="10">10 Rings ({calculateWaypointCount(10)} pins)</option>
-                            <option value="11">11 Rings ({calculateWaypointCount(11)} pins)</option>
+                            <option value="1">
+                              1 Ring ({calculateWaypointCount(1)} pins)
+                            </option>
+                            <option value="2">
+                              2 Rings ({calculateWaypointCount(2)} pins)
+                            </option>
+                            <option value="3">
+                              3 Rings ({calculateWaypointCount(3)} pins)
+                            </option>
+                            <option value="4">
+                              4 Rings ({calculateWaypointCount(4)} pins)
+                            </option>
+                            <option value="5">
+                              5 Rings ({calculateWaypointCount(5)} pins)
+                            </option>
+                            <option value="6">
+                              6 Rings ({calculateWaypointCount(6)} pins)
+                            </option>
+                            <option value="7">
+                              7 Rings ({calculateWaypointCount(7)} pins)
+                            </option>
+                            <option value="8">
+                              8 Rings ({calculateWaypointCount(8)} pins)
+                            </option>
+                            <option value="9">
+                              9 Rings ({calculateWaypointCount(9)} pins)
+                            </option>
+                            <option value="10">
+                              10 Rings ({calculateWaypointCount(10)} pins)
+                            </option>
+                            <option value="11">
+                              11 Rings ({calculateWaypointCount(11)} pins)
+                            </option>
                           </>
                         )}
                         {scanConfig.pattern === "line" && (
