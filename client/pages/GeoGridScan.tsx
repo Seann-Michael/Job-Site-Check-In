@@ -207,7 +207,18 @@ export default function GeoGridScan() {
     [scanConfig.unit, scanConfig.distanceBetween],
   );
 
-  // Use regular GoogleMapComponent to avoid React.memo issues
+  // Handle map load to get instance
+  const handleMapLoad = useCallback((map: google.maps.Map) => {
+    setMapInstance(map);
+  }, []);
+
+  // Handle zoom changes to update map directly
+  const handleZoomChange = useCallback((newZoom: number) => {
+    setMapZoom(newZoom);
+    if (mapInstance) {
+      mapInstance.setZoom(newZoom);
+    }
+  }, [mapInstance]);
 
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
