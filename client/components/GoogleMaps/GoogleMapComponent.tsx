@@ -364,15 +364,23 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   };
 
   // Iframe fallback when no API key is available
-  if (
-    useIframeFallback &&
-    (address || (lat !== undefined && lng !== undefined))
-  ) {
+  if (useIframeFallback) {
     let embedUrl = "";
-    if (lat !== undefined && lng !== undefined) {
+
+    // If we have center coordinates, use those
+    if (center) {
+      embedUrl = `https://maps.google.com/maps?q=${center.lat},${center.lng}&hl=en&z=${zoom}&output=embed`;
+    } else if (lat !== undefined && lng !== undefined) {
       embedUrl = `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=${zoom}&output=embed`;
     } else if (address) {
       embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&hl=en&z=${zoom}&output=embed`;
+    } else if (markers.length > 0) {
+      // Use first marker as center
+      const marker = markers[0];
+      embedUrl = `https://maps.google.com/maps?q=${marker.position.lat},${marker.position.lng}&hl=en&z=${zoom}&output=embed`;
+    } else {
+      // Default fallback location (e.g., San Francisco)
+      embedUrl = `https://maps.google.com/maps?q=37.7749,-122.4194&hl=en&z=${zoom}&output=embed`;
     }
 
     return (
