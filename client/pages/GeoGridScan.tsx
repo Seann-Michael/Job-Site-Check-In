@@ -182,11 +182,9 @@ export default function GeoGridScan() {
   // Handle when all waypoints are moved together
   const handleWaypointsDragComplete = useCallback(
     (updatedWaypoints: Waypoint[]) => {
-      preserveScrollPosition();
       setWaypoints(updatedWaypoints);
-      setTimeout(() => restoreScrollPosition(), 0); // Async restore
     },
-    [preserveScrollPosition, restoreScrollPosition],
+    [],
   );
 
   // Memoize scan config object to prevent unnecessary re-renders
