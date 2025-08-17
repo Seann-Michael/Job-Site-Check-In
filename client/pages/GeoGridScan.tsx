@@ -170,8 +170,7 @@ export default function GeoGridScan() {
 
   // Handle waypoint drag (individual waypoint)
   const handleWaypointDrag = useCallback(
-    (waypointId: string, newPosition: { lat: number; lng: number }, e?: Event) => {
-      // Don't prevent events for drag functionality
+    (waypointId: string, newPosition: { lat: number; lng: number }) => {
       preserveScrollPosition();
       setWaypoints((prevWaypoints) => {
         const result = updateWaypointPosition(
