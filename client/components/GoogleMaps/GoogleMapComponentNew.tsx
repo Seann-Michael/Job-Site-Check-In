@@ -154,16 +154,29 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         // Fit bounds first
         map.fitBounds(bounds);
 
-        // Apply gradual zoom adjustment
+        // Apply gradual zoom adjustment with smooth transitions
         setTimeout(() => {
           const currentZoom = map.getZoom();
-          if (currentZoom && Math.abs(currentZoom - optimalZoom) > 0.5) {
-            // Smooth transition to optimal zoom
-            const targetZoom = optimalZoom;
-            map.setZoom(targetZoom);
-            console.log(`Gradual zoom: ${currentZoom.toFixed(1)} → ${targetZoom} (${waypointData.length} waypoints)`);
+          if (currentZoom && Math.abs(currentZoom - optimalZoom) > 0.25) {
+            // Create smooth zoom transition in smaller steps
+            const zoomDiff = optimalZoom - currentZoom;
+            const steps = Math.ceil(Math.abs(zoomDiff) / 0.5); // 0.5 zoom level steps
+            const stepSize = zoomDiff / steps;
+
+            let currentStep = 0;
+            const smoothZoom = () => {
+              if (currentStep < steps) {
+                const nextZoom = currentZoom + (stepSize * (currentStep + 1));
+                map.setZoom(Math.round(nextZoom * 4) / 4); // Quarter-level precision
+                currentStep++;
+                setTimeout(smoothZoom, 50); // 50ms between steps for smooth animation
+              }
+            };
+
+            smoothZoom();
+            console.log(`Gradual zoom transition: ${currentZoom.toFixed(1)} → ${optimalZoom} in ${steps} steps (${waypointData.length} waypoints)`);
           }
-        }, 100); // Reduced delay for more responsive feel
+        }, 100);
       }
     }
   }, [map, waypointData, calculateOptimalZoom]);
