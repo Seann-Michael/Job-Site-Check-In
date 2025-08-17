@@ -345,39 +345,39 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     [onWaypointsDragComplete, waypointData, scanConfig, map],
   );
 
-  // Create marker icon for waypoints - hollow GPS pin style
+  // Create marker icon for waypoints - hollow GPS pin style with sharp point
   const createWaypointIcon = useCallback(
     (waypoint: WaypointType, rank?: number) => {
       const isCenter = waypoint.isCenter;
       const isEnabled = waypoint.enabled;
       const color = isCenter ? "#9333ea" : isEnabled ? "#2563eb" : "#6b7280"; // Purple for center, blue for enabled, grey for disabled
-      const strokeWidth = isEnabled ? 3 : 2;
+      const strokeWidth = isEnabled ? 4 : 3; // Thicker stroke
       const strokeOpacity = isEnabled ? 1.0 : 0.6;
 
       if (isCenter) {
-        // Purple center hollow GPS pin
+        // Purple center hollow GPS pin with sharp point
         return {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
-            <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z"
-                  fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}"/>
-            <circle cx="14" cy="14" r="3" fill="transparent" stroke="${color}" stroke-width="2" stroke-opacity="${strokeOpacity}"/>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+            <path d="M16 0C7.163 0 0 7.163 0 16c0 7.837 16 26 16 26s16-18.163 16-26C32 7.163 24.837 0 16 0z"
+                  fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="16" cy="16" r="4" fill="transparent" stroke="${color}" stroke-width="2" stroke-opacity="${strokeOpacity}"/>
           </svg>
         `)}`,
-          scaledSize: new google.maps.Size(28, 36),
-          anchor: new google.maps.Point(14, 36),
+          scaledSize: new google.maps.Size(32, 42),
+          anchor: new google.maps.Point(16, 42),
         };
       } else {
-        // Hollow GPS pin style for waypoints
+        // Hollow GPS pin style for waypoints with sharp point
         return {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 22 28">
-            <path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 17 11 17s11-8.75 11-17C22 4.925 17.075 0 11 0z"
-                  fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}"/>
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">
+            <path d="M13 0C5.82 0 0 5.82 0 13c0 6.18 13 21 13 21s13-14.82 13-21C26 5.82 20.18 0 13 0z"
+                  fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
           </svg>
         `)}`,
-          scaledSize: new google.maps.Size(22, 28),
-          anchor: new google.maps.Point(11, 28),
+          scaledSize: new google.maps.Size(26, 34),
+          anchor: new google.maps.Point(13, 34),
         };
       }
     },
