@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Maximize, ZoomIn, ZoomOut } from "lucide-react";
+import { MapPin, Navigation, Maximize, ZoomIn, ZoomOut, Target } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 import {
   type Waypoint as WaypointType,
