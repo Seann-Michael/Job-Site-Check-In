@@ -709,42 +709,72 @@ export default function GeoGridScan() {
                               <SelectItem value="25">
                                 5×5 Grid (25 pins)
                               </SelectItem>
-                              <SelectItem value="36">
-                                6×6 Grid (36 pins)
-                              </SelectItem>
                               <SelectItem value="49">
-                                7×7 Grid (49 pins)
+                                6×6 Grid (49 pins)
                               </SelectItem>
                               <SelectItem value="64">
-                                8×8 Grid (64 pins)
+                                7×7 Grid (64 pins)
                               </SelectItem>
                               <SelectItem value="81">
-                                9×9 Grid (81 pins)
+                                8��8 Grid (81 pins)
                               </SelectItem>
                               <SelectItem value="100">
-                                10×10 Grid (100 pins)
+                                9×9 Grid (100 pins)
+                              </SelectItem>
+                              <SelectItem value="121">
+                                10×10 Grid (121 pins)
+                              </SelectItem>
+                              <SelectItem value="144">
+                                11×11 Grid (144 pins)
+                              </SelectItem>
+                              <SelectItem value="169">
+                                12×12 Grid (169 pins)
+                              </SelectItem>
+                              <SelectItem value="225">
+                                13×13 Grid (225 pins)
+                              </SelectItem>
+                              <SelectItem value="441">
+                                14×14 Grid (441 pins)
                               </SelectItem>
                             </>
                           )}
                           {scanConfig.pattern === "circle" && (
                             <>
                               <SelectItem value="7">
-                                7 Points (Center + 6)
+                                7 Points
                               </SelectItem>
-                              <SelectItem value="13">
-                                13 Points (Center + 6 + 6)
+                              <SelectItem value="12">
+                                12 Points
                               </SelectItem>
-                              <SelectItem value="19">
-                                19 Points (Center + 6 + 12)
+                              <SelectItem value="20">
+                                20 Points
                               </SelectItem>
-                              <SelectItem value="25">
-                                25 Points (Center + 8 + 16)
+                              <SelectItem value="28">
+                                28 Points
                               </SelectItem>
-                              <SelectItem value="37">
-                                37 Points (Center + 6 + 12 + 18)
+                              <SelectItem value="39">
+                                39 Points
                               </SelectItem>
-                              <SelectItem value="49">
-                                49 Points (Center + 8 + 16 + 24)
+                              <SelectItem value="50">
+                                50 Points
+                              </SelectItem>
+                              <SelectItem value="64">
+                                64 Points
+                              </SelectItem>
+                              <SelectItem value="78">
+                                78 Points
+                              </SelectItem>
+                              <SelectItem value="95">
+                                95 Points
+                              </SelectItem>
+                              <SelectItem value="113">
+                                113 Points
+                              </SelectItem>
+                              <SelectItem value="176">
+                                176 Points
+                              </SelectItem>
+                              <SelectItem value="346">
+                                346 Points
                               </SelectItem>
                             </>
                           )}
