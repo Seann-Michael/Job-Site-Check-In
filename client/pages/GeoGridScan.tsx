@@ -1311,7 +1311,7 @@ export default function GeoGridScan() {
         </div>
 
         {/* Google Map */}
-        <div className="mt-8" style={{ overflowAnchor: "auto" }}>
+        <div className="mt-8" style={{ overflowAnchor: "auto", position: 'relative', zIndex: 2 }}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
