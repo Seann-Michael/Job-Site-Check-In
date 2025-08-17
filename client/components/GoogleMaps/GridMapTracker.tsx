@@ -265,9 +265,13 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       size: number,
       spacing: number,
       disabledPointsList: string[],
+      ringCount?: number,
     ) => {
       if (type === "circle") {
-        const config = getUniformCircleConfig(size);
+        // Use rings if specified, otherwise fall back to size-based calculation
+        const config = ringCount
+          ? getRingConfiguration(ringCount)
+          : getUniformCircleConfig(size);
         return generateCirclePositions(
           centerPoint,
           config,
