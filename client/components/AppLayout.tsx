@@ -258,13 +258,19 @@ export function AppLayout({
     {
       id: "audits",
       label: "Audits",
-      href: "/admin/audits",
+      href: "", // No direct href - dropdown placeholder
       icon: Shield,
       active:
         location.pathname.startsWith("/admin/audits") ||
         location.pathname.startsWith("/admin/maps"),
       comingSoon: false,
       subItems: [
+        {
+          id: "site-audit",
+          label: "Site Audit",
+          href: "/admin/audits",
+          active: location.pathname === "/admin/audits",
+        },
         {
           id: "geo-grid-scan",
           label: "Geo Grid Scan",
@@ -278,6 +284,14 @@ export function AppLayout({
           active: location.pathname === "/admin/audits/scan-history",
         },
       ],
+    },
+    {
+      id: "tasks",
+      label: "Tasks",
+      href: "/admin/tasks",
+      icon: CheckCircle,
+      active: location.pathname.startsWith("/admin/tasks"),
+      comingSoon: false,
     },
     {
       id: "reviews",
