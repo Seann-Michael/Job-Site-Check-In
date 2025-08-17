@@ -250,10 +250,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       gestureHandling: "cooperative",
       scrollwheel: true,
       clickableIcons: false,
-      // Set zoom step to 0.5 instead of default 1
-      zoomControlOptions: {
-        style: google.maps.ZoomControlStyle.DEFAULT,
-      },
       // Custom zoom increments
       minZoom: 1,
       maxZoom: 20,
