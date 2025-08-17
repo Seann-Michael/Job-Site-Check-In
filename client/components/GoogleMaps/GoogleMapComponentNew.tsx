@@ -132,7 +132,48 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   const onUnmount = useCallback(() => {
     setMap(null);
+    setInfoWindow(null);
   }, []);
+
+  // Handle marker click with info window
+  const handleMarkerClick = useCallback((marker: MapMarker, position: google.maps.LatLngLiteral) => {
+    if (infoWindow && map) {
+      const content = marker.content || `
+        <div style="padding: 12px; text-align: center;">
+          <h3 style="font-weight: 600; color: #111827; margin-bottom: 4px;">${marker.title}</h3>
+          ${marker.rank ? `<p style="font-size: 12px; color: #6b7280; margin: 0;">Waypoint #${marker.rank}</p>` : ''}
+        </div>
+      `;
+
+      infoWindow.setContent(content);
+      infoWindow.setPosition(position);
+      infoWindow.open(map);
+    }
+
+    if (onMarkerClick) {
+      onMarkerClick(marker);
+    }
+  }, [infoWindow, map, onMarkerClick]);
+
+  // Handle waypoint click with info window
+  const handleWaypointClick = useCallback((waypoint: Waypoint, position: google.maps.LatLngLiteral) => {
+    if (infoWindow && map) {
+      const content = `
+        <div style="padding: 12px; text-align: center;">
+          <h3 style="font-weight: 600; color: #111827; margin-bottom: 4px;">Waypoint #${waypoint.rank}</h3>
+          <p style="font-size: 12px; color: #6b7280; margin: 0;">Ranking Position ${waypoint.rank}</p>
+        </div>
+      `;
+
+      infoWindow.setContent(content);
+      infoWindow.setPosition(position);
+      infoWindow.open(map);
+    }
+
+    if (onWaypointClick) {
+      onWaypointClick(waypoint.id);
+    }
+  }, [infoWindow, map, onWaypointClick]);
 
   // Create marker icon for waypoints with ranking
   const createWaypointIcon = useCallback((rank: number) => {
