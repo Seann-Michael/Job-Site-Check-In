@@ -201,6 +201,21 @@ function calculateUniformRings(count: number): number[] {
   return rings;
 }
 
+// Calculate ring distribution for exact number of rings
+function calculateRingsForExactCount(ringCount: number): number[] {
+  const rings: number[] = [];
+
+  for (let i = 1; i <= ringCount; i++) {
+    if (i === 1) {
+      rings.push(6); // First ring always has 6 points
+    } else {
+      rings.push(6 * i); // Subsequent rings have 6 * ring number
+    }
+  }
+
+  return rings;
+}
+
 // Generate waypoints in a grid pattern
 function generateGridWaypoints(
   center: Coordinate,
