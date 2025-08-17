@@ -172,10 +172,13 @@ export default function GeoGridScan() {
   );
 
   // Memoize scan config object to prevent unnecessary re-renders
-  const memoizedScanConfig = useMemo(() => ({
-    unit: scanConfig.unit,
-    distanceBetween: scanConfig.distanceBetween,
-  }), [scanConfig.unit, scanConfig.distanceBetween]);
+  const memoizedScanConfig = useMemo(
+    () => ({
+      unit: scanConfig.unit,
+      distanceBetween: scanConfig.distanceBetween,
+    }),
+    [scanConfig.unit, scanConfig.distanceBetween],
+  );
 
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
