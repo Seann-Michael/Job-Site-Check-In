@@ -1,9 +1,15 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Maximize } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
+import { 
+  type Waypoint as WaypointType,
+  updateWaypointPosition,
+  moveAllWaypointsRelative,
+  calculateDistance
+} from "@/lib/waypointGenerator";
 
 interface MapMarker {
   id: string;
@@ -13,6 +19,10 @@ interface MapMarker {
   color?: string;
   rank?: number | null;
   icon?: string;
+  enabled?: boolean;
+  isCenter?: boolean;
+  size?: "small" | "medium" | "large";
+  outline?: boolean;
 }
 
 interface Waypoint {
@@ -37,6 +47,15 @@ interface GoogleMapComponentProps {
   onWaypointClick?: (waypointId: string) => void;
   selectedWaypoint?: string | null;
   onMapLoad?: (map: google.maps.Map) => void;
+  // Enhanced waypoint props
+  waypointData?: WaypointType[];
+  onWaypointToggle?: (waypointId: string) => void;
+  onWaypointDrag?: (waypointId: string, newPosition: { lat: number; lng: number }) => void;
+  onWaypointsDragComplete?: (waypoints: WaypointType[]) => void;
+  scanConfig?: {
+    unit: "miles" | "kilometers";
+    distanceBetween: number;
+  };
 }
 
 export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
@@ -55,9 +74,17 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   onWaypointClick,
   selectedWaypoint,
   onMapLoad,
+  waypointData = [],
+  onWaypointToggle,
+  onWaypointDrag,
+  onWaypointsDragComplete,
+  scanConfig,
 }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedWaypoint, setDraggedWaypoint] = useState<string | null>(null);
+  const originalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const apiKey = getGoogleMapsApiKey();
   console.log("GoogleMapComponent: Using API key:", apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING");
@@ -72,7 +99,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   const mapContainerStyle = useMemo(() => ({
     width: "100%",
-    height: height === "100%" ? "384px" : height, // Convert 100% to fixed height
+    height: height === "100%" ? "384px" : height,
   }), [height]);
 
   const mapOptions = useMemo(() => ({
@@ -87,6 +114,13 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const mapCenter = useMemo(() => {
     if (center) return center;
     if (lat !== undefined && lng !== undefined) return { lat, lng };
+    if (waypointData.length > 0) {
+      const centerWaypoint = waypointData.find(w => w.isCenter);
+      if (centerWaypoint) return centerWaypoint.coordinates;
+      const avgLat = waypointData.reduce((sum, w) => sum + w.coordinates.lat, 0) / waypointData.length;
+      const avgLng = waypointData.reduce((sum, w) => sum + w.coordinates.lng, 0) / waypointData.length;
+      return { lat: avgLat, lng: avgLng };
+    }
     if (markers.length > 0) {
       const avgLat = markers.reduce((sum, m) => sum + m.position.lat, 0) / markers.length;
       const avgLng = markers.reduce((sum, m) => sum + m.position.lng, 0) / markers.length;
@@ -98,14 +132,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       return { lat: avgLat, lng: avgLng };
     }
     return { lat: 40.7128, lng: -74.006 }; // Default to NYC
-  }, [center, lat, lng, markers, waypoints]);
+  }, [center, lat, lng, markers, waypoints, waypointData]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     console.log("GoogleMapComponent: Map loaded successfully", map);
     setMap(map);
 
     // Fit bounds to show all markers/waypoints
-    const allPoints = [...markers, ...waypoints.map(w => ({ position: w.position }))];
+    const allPoints = [
+      ...markers, 
+      ...waypoints.map(w => ({ position: w.position })),
+      ...waypointData.map(w => ({ position: w.coordinates }))
+    ];
+    
     if (allPoints.length > 1) {
       const bounds = new google.maps.LatLngBounds();
       allPoints.forEach((point) => {
@@ -128,12 +167,41 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     if (onMapLoad) {
       onMapLoad(map);
     }
-  }, [onMapLoad, markers, waypoints]);
+  }, [onMapLoad, markers, waypoints, waypointData]);
 
   const onUnmount = useCallback(() => {
     setMap(null);
     setInfoWindow(null);
   }, []);
+
+  // Handle waypoint click (toggle enabled/disabled)
+  const handleWaypointClick = useCallback((waypoint: WaypointType, position: google.maps.LatLngLiteral) => {
+    if (isDragging) return; // Don't toggle during drag
+    
+    if (infoWindow && map) {
+      const content = `
+        <div style="padding: 12px; text-align: center;">
+          <h3 style="font-weight: 600; color: #111827; margin-bottom: 4px;">${waypoint.isCenter ? 'Center' : 'Waypoint'}</h3>
+          <p style="font-size: 12px; color: #6b7280; margin: 0;">${waypoint.isCenter ? 'Business Location' : `${waypoint.distance?.toFixed(1)} ${scanConfig?.unit || 'miles'} from center`}</p>
+          <p style="font-size: 11px; color: ${waypoint.enabled ? '#10b981' : '#ef4444'}; margin-top: 4px;">${waypoint.enabled ? 'Enabled' : 'Disabled'}</p>
+          ${!waypoint.isCenter ? '<p style="font-size: 10px; color: #6b7280; margin-top: 4px;">Click to toggle • Drag to move</p>' : ''}
+        </div>
+      `;
+
+      infoWindow.setContent(content);
+      infoWindow.setPosition(position);
+      infoWindow.open(map);
+    }
+
+    // Toggle waypoint enabled state (only for non-center waypoints)
+    if (!waypoint.isCenter && onWaypointToggle) {
+      onWaypointToggle(waypoint.id);
+    }
+
+    if (onWaypointClick) {
+      onWaypointClick(waypoint.id);
+    }
+  }, [infoWindow, map, onWaypointClick, onWaypointToggle, isDragging, scanConfig]);
 
   // Handle marker click with info window
   const handleMarkerClick = useCallback((marker: MapMarker, position: google.maps.LatLngLiteral) => {
@@ -155,55 +223,126 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     }
   }, [infoWindow, map, onMarkerClick]);
 
-  // Handle waypoint click with info window
-  const handleWaypointClick = useCallback((waypoint: Waypoint, position: google.maps.LatLngLiteral) => {
-    if (infoWindow && map) {
-      const content = `
-        <div style="padding: 12px; text-align: center;">
-          <h3 style="font-weight: 600; color: #111827; margin-bottom: 4px;">Waypoint #${waypoint.rank}</h3>
-          <p style="font-size: 12px; color: #6b7280; margin: 0;">Ranking Position ${waypoint.rank}</p>
-        </div>
-      `;
-
-      infoWindow.setContent(content);
-      infoWindow.setPosition(position);
-      infoWindow.open(map);
+  // Handle drag start
+  const handleDragStart = useCallback((waypointId: string) => {
+    setIsDragging(true);
+    setDraggedWaypoint(waypointId);
+    
+    // Store original center for relative movement calculation
+    const centerWaypoint = waypointData.find(w => w.isCenter);
+    if (centerWaypoint) {
+      originalCenterRef.current = centerWaypoint.coordinates;
     }
-
-    if (onWaypointClick) {
-      onWaypointClick(waypoint.id);
+    
+    if (infoWindow) {
+      infoWindow.close();
     }
-  }, [infoWindow, map, onWaypointClick]);
+  }, [waypointData, infoWindow]);
 
-  // Create marker icon for waypoints with ranking
-  const createWaypointIcon = useCallback((rank: number) => {
-    const getRankColor = (rank: number) => {
-      if (rank <= 3) return "#10b981"; // green
-      if (rank <= 10) return "#f59e0b"; // yellow
-      return "#ef4444"; // red
-    };
+  // Handle drag end
+  const handleDragEnd = useCallback((waypointId: string, event: google.maps.MapMouseEvent) => {
+    setIsDragging(false);
+    setDraggedWaypoint(null);
+    
+    if (event.latLng && onWaypointDrag && scanConfig) {
+      const newPosition = {
+        lat: event.latLng.lat(),
+        lng: event.latLng.lng()
+      };
 
-    return {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-          <path d="M16 0C7.163 0 0 7.163 0 16c0 8.837 16 24 16 24s16-15.163 16-24C32 7.163 24.837 0 16 0z"
-                fill="${getRankColor(rank)}" stroke="#fff" stroke-width="2"/>
-          <circle cx="16" cy="16" r="10" fill="${getRankColor(rank)}"/>
-          <text x="16" y="21" text-anchor="middle" font-family="Arial, sans-serif"
-                font-size="12" font-weight="bold" fill="#ffffff">
-            ${rank}
-          </text>
-        </svg>
-      `)}`,
-      scaledSize: new google.maps.Size(32, 40),
-      anchor: new google.maps.Point(16, 40),
-    };
+      // If we're moving the center waypoint, move all waypoints relative to it
+      const waypoint = waypointData.find(w => w.id === waypointId);
+      if (waypoint?.isCenter && originalCenterRef.current && onWaypointsDragComplete) {
+        const updatedWaypoints = moveAllWaypointsRelative(
+          waypointData,
+          waypointId,
+          newPosition,
+          originalCenterRef.current,
+          scanConfig.unit
+        );
+        onWaypointsDragComplete(updatedWaypoints);
+        
+        // Auto-adjust map bounds
+        if (map) {
+          const bounds = new google.maps.LatLngBounds();
+          updatedWaypoints.forEach((wp) => {
+            bounds.extend(wp.coordinates);
+          });
+          map.fitBounds(bounds);
+        }
+      } else {
+        // Just move this single waypoint
+        onWaypointDrag(waypointId, newPosition);
+      }
+    }
+    
+    originalCenterRef.current = null;
+  }, [onWaypointDrag, onWaypointsDragComplete, waypointData, scanConfig, map]);
+
+  // Create marker icon for waypoints
+  const createWaypointIcon = useCallback((waypoint: WaypointType, rank?: number) => {
+    const isCenter = waypoint.isCenter;
+    const isEnabled = waypoint.enabled;
+    const color = isCenter ? "#9333ea" : "#2563eb"; // Purple for center, blue for waypoints
+    const fillOpacity = isEnabled ? 1.0 : 0.2;
+    const strokeColor = isEnabled ? "#ffffff" : "#666666";
+    const strokeWeight = isEnabled ? 2 : 1;
+
+    if (isCenter) {
+      // Purple center pin
+      return {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+            <path d="M16 0C7.163 0 0 7.163 0 16c0 8.837 16 24 16 24s16-15.163 16-24C32 7.163 24.837 0 16 0z"
+                  fill="${color}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="${strokeWeight}"/>
+            <circle cx="16" cy="16" r="8" fill="#ffffff" fill-opacity="0.9"/>
+            <circle cx="16" cy="16" r="4" fill="${color}"/>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(32, 40),
+        anchor: new google.maps.Point(16, 40),
+      };
+    } else {
+      // Blue outline waypoint pins
+      return {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="30" viewBox="0 0 24 30">
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 6.627 12 18 12 18s12-11.373 12-18C24 5.373 18.627 0 12 0z"
+                  fill="transparent" fill-opacity="${fillOpacity}" stroke="${color}" stroke-width="3"/>
+            <circle cx="12" cy="12" r="6" fill="transparent" stroke="${color}" stroke-width="2"/>
+            ${rank ? `<text x="12" y="16" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="${color}">${rank}</text>` : ''}
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(24, 30),
+        anchor: new google.maps.Point(12, 30),
+      };
+    }
   }, []);
 
   // Create marker icon for regular markers
   const createMarkerIcon = useCallback((marker: MapMarker) => {
     if (marker.rank) {
-      return createWaypointIcon(marker.rank);
+      const getRankColor = (rank: number) => {
+        if (rank <= 3) return "#10b981"; // green
+        if (rank <= 10) return "#f59e0b"; // yellow
+        return "#ef4444"; // red
+      };
+
+      return {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+            <path d="M16 0C7.163 0 0 7.163 0 16c0 8.837 16 24 16 24s16-15.163 16-24C32 7.163 24.837 0 16 0z"
+                  fill="${getRankColor(marker.rank)}" stroke="#fff" stroke-width="2"/>
+            <circle cx="16" cy="16" r="10" fill="${getRankColor(marker.rank)}"/>
+            <text x="16" y="21" text-anchor="middle" font-family="Arial, sans-serif"
+                  font-size="12" font-weight="bold" fill="#ffffff">
+              ${marker.rank}
+            </text>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(32, 40),
+        anchor: new google.maps.Point(16, 40),
+      };
     }
 
     const color = marker.color || "#DC2626";
@@ -232,7 +371,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       scaledSize: new google.maps.Size(24, 30),
       anchor: new google.maps.Point(12, 30),
     };
-  }, [createWaypointIcon]);
+  }, []);
 
   const openInGoogleMaps = () => {
     let url = "https://maps.google.com/";
@@ -299,7 +438,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                 API Key: {apiKey ? 'Found' : 'Missing'} | Center: {mapCenter.lat.toFixed(3)}, {mapCenter.lng.toFixed(3)}
               </span>
               <span className="text-xs text-blue-600">
-                Markers: {markers.length} | Waypoints: {waypoints.length}
+                Markers: {markers.length} | Waypoints: {waypointData.length} | Legacy: {waypoints.length}
               </span>
             </div>
           </div>
@@ -313,53 +452,77 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       <CardContent className="p-3">
         <div style={{ width: '100%', height: height === "100%" ? "384px" : height, minHeight: '300px' }}>
           <GoogleMap
-          mapContainerStyle={mapContainerStyle}
-          center={mapCenter}
-          zoom={zoom}
-          onLoad={onLoad}
-          onUnmount={onUnmount}
-          options={mapOptions}
-        >
-          {/* Render regular markers */}
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              position={marker.position}
-              title={marker.title}
-              icon={createMarkerIcon(marker)}
-              onClick={() => handleMarkerClick(marker, marker.position)}
-            />
-          ))}
+            mapContainerStyle={mapContainerStyle}
+            center={mapCenter}
+            zoom={zoom}
+            onLoad={onLoad}
+            onUnmount={onUnmount}
+            options={mapOptions}
+          >
+            {/* Render regular markers */}
+            {markers.map((marker) => (
+              <Marker
+                key={marker.id}
+                position={marker.position}
+                title={marker.title}
+                icon={createMarkerIcon(marker)}
+                onClick={() => handleMarkerClick(marker, marker.position)}
+              />
+            ))}
 
-          {/* Render waypoint markers */}
-          {waypoints.map((waypoint) => (
-            <Marker
-              key={waypoint.id}
-              position={waypoint.position}
-              title={`Rank #${waypoint.rank}`}
-              icon={createWaypointIcon(waypoint.rank)}
-              onClick={() => handleWaypointClick(waypoint, waypoint.position)}
-              animation={selectedWaypoint === waypoint.id ? google.maps.Animation.BOUNCE : undefined}
-            />
-          ))}
+            {/* Render legacy waypoint markers */}
+            {waypoints.map((waypoint) => (
+              <Marker
+                key={waypoint.id}
+                position={waypoint.position}
+                title={`Rank #${waypoint.rank}`}
+                icon={createMarkerIcon({ id: waypoint.id, position: waypoint.position, title: `Rank #${waypoint.rank}`, rank: waypoint.rank })}
+                onClick={() => onWaypointClick && onWaypointClick(waypoint.id)}
+                animation={selectedWaypoint === waypoint.id ? google.maps.Animation.BOUNCE : undefined}
+              />
+            ))}
+
+            {/* Render enhanced waypoint markers */}
+            {waypointData.map((waypoint, index) => {
+              const rank = waypoint.isCenter ? undefined : index;
+              return (
+                <Marker
+                  key={waypoint.id}
+                  position={waypoint.coordinates}
+                  title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
+                  icon={createWaypointIcon(waypoint, rank)}
+                  onClick={() => handleWaypointClick(waypoint, waypoint.coordinates)}
+                  draggable={true}
+                  onDragStart={() => handleDragStart(waypoint.id)}
+                  onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
+                  animation={selectedWaypoint === waypoint.id ? google.maps.Animation.BOUNCE : undefined}
+                  opacity={waypoint.enabled ? 1.0 : 0.5}
+                />
+              );
+            })}
           </GoogleMap>
         </div>
 
         {(showDirectionsButton || address || (lat !== undefined && lng !== undefined) || center) && (
           <div className="flex justify-between items-center mt-3 gap-2">
             <div className="flex-1 min-w-0">
-              {waypoints.length > 0 && (
+              {waypointData.length > 0 && (
                 <p className="text-xs text-muted-foreground mb-1">
-                  📍 {waypoints.length} waypoints configured
+                  📍 {waypointData.filter(w => w.enabled).length}/{waypointData.length} waypoints enabled • Click to toggle • Drag to move
                 </p>
               )}
-              {markers.length > 0 && waypoints.length === 0 && (
+              {waypoints.length > 0 && waypointData.length === 0 && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  📍 {waypoints.length} waypoint{waypoints.length > 1 ? 's' : ''} configured
+                </p>
+              )}
+              {markers.length > 0 && waypoints.length === 0 && waypointData.length === 0 && (
                 <p className="text-xs text-muted-foreground mb-1">
                   📍 {markers.length} location{markers.length > 1 ? 's' : ''} marked
                 </p>
               )}
               <p className="text-xs text-green-600 mb-1">
-                Map loaded: {isLoaded ? 'Yes' : 'No'} | Markers: {markers.length} | Waypoints: {waypoints.length}
+                Map loaded: {isLoaded ? 'Yes' : 'No'} | Enhanced waypoints: {waypointData.length}
               </p>
               {address && (
                 <p className="text-xs text-muted-foreground truncate">
