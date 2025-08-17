@@ -57,6 +57,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   onMapLoad,
 }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
 
   const apiKey = getGoogleMapsApiKey();
   console.log("GoogleMapComponent: Using API key:", apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING");
