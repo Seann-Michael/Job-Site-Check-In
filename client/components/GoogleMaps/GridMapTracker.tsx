@@ -241,23 +241,7 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
       disabledPointsList: string[],
     ) => {
       if (type === "circle") {
-        const config = circleConfigs[size];
-        if (!config) {
-          console.warn(
-            `Invalid circle size: ${size}, falling back to 25 points`,
-          );
-          // Fallback to a valid circle configuration
-          const fallbackConfig = circleConfigs[25];
-          if (fallbackConfig) {
-            return generateCirclePositions(
-              centerPoint,
-              fallbackConfig,
-              spacing,
-              disabledPointsList,
-            );
-          }
-          return [];
-        }
+        const config = getUniformCircleConfig(size);
         return generateCirclePositions(
           centerPoint,
           config,
