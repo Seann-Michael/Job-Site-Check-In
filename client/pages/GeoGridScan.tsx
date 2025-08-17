@@ -115,6 +115,9 @@ export default function GeoGridScan() {
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
+  // Map configuration state
+  const [mapZoom, setMapZoom] = useState(12);
+
   // Calculate waypoint count from rings for circle pattern
   const calculateWaypointCount = (rings: number): number => {
     if (rings === 0) return 1; // Just center
