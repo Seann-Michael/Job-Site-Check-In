@@ -209,10 +209,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     (waypoint: WaypointType, event?: any) => {
       if (isDragging) return; // Don't toggle during drag
 
-      if (event) {
-        event.preventDefault?.();
-        event.stopPropagation?.();
-        event.stop?.();
+      // Only prevent default, don't stop propagation for Google Maps
+      if (event && event.preventDefault) {
+        event.preventDefault();
       }
 
       // Close any open info windows
@@ -250,10 +249,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   // Handle drag start
   const handleDragStart = useCallback(
     (waypointId: string, event?: any) => {
-      if (event) {
-        event.preventDefault?.();
-        event.stopPropagation?.();
-      }
+      // Don't prevent events for Google Maps drag functionality
       setIsDragging(true);
       setDraggedWaypoint(waypointId);
 
@@ -273,9 +269,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   // Handle drag end - always move all waypoints together
   const handleDragEnd = useCallback(
     (waypointId: string, event: google.maps.MapMouseEvent) => {
-      if (event) {
-        event.stop?.();
-      }
       setIsDragging(false);
       setDraggedWaypoint(null);
 
@@ -590,9 +583,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                   title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
                   icon={createWaypointIcon(waypoint, rank)}
                   onClick={(e) => {
-                    e.stop?.();
-                    e.preventDefault?.();
-                    e.stopPropagation?.();
                     handleWaypointClick(waypoint, e);
                   }}
                   draggable={true}
