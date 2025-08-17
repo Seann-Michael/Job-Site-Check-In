@@ -534,7 +534,7 @@ export default function GeoGridScan() {
                   <h3 className="font-medium text-gray-900 mb-3">
                     Search Parameters
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">
                         Search Depth
@@ -557,39 +557,6 @@ export default function GeoGridScan() {
                           <SelectItem value="30">Top 30</SelectItem>
                           <SelectItem value="50">Top 50</SelectItem>
                           <SelectItem value="100">Top 100</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">
-                        API Call Type
-                      </Label>
-                      <Select
-                        value={scanConfig.apiCallType}
-                        onValueChange={(value) =>
-                          setScanConfig({
-                            ...scanConfig,
-                            apiCallType: value as "circle" | "rectangle",
-                          })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent sideOffset={4}>
-                          <SelectItem value="circle">
-                            <div className="flex items-center gap-2">
-                              <Circle className="h-4 w-4" />
-                              Circle (Standard)
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="rectangle">
-                            <div className="flex items-center gap-2">
-                              <Grid3X3 className="h-4 w-4" />
-                              Rectangle (+20%)
-                            </div>
-                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
