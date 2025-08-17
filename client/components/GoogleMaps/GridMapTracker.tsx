@@ -148,13 +148,18 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
         index: pointIndex++,
       });
 
-      // Add points in concentric rings
+      // Add points in concentric rings with uniform distribution
       for (let ring = 1; ring < config.pattern.length; ring++) {
         const pointsInRing = config.pattern[ring];
+        if (pointsInRing === 0) continue;
+
         const radius = ring * spacing;
 
+        // Add angle offset for each ring to create uniform appearance like competitor
+        const angleOffset = ring * (Math.PI / (pointsInRing > 6 ? pointsInRing : 6));
+
         for (let i = 0; i < pointsInRing; i++) {
-          const angle = (2 * Math.PI * i) / pointsInRing;
+          const angle = (2 * Math.PI * i) / pointsInRing + angleOffset;
 
           // Calculate position
           const xOffset = radius * Math.cos(angle);
