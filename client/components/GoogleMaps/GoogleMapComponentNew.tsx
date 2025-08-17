@@ -315,14 +315,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               });
               map.fitBounds(bounds);
 
-              // Ensure reasonable zoom level
-              setTimeout(() => {
-                const currentZoom = map.getZoom();
-                if (currentZoom && currentZoom > 15) {
-                  map.setZoom(15);
-                }
-              }, 300);
-            } catch (error) {
+                } catch (error) {
               console.warn("Error fitting bounds:", error);
             }
           }, 500); // Longer delay to ensure everything is loaded
