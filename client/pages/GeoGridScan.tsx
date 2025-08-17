@@ -310,7 +310,7 @@ export default function GeoGridScan() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 py-8 max-w-7xl" style={{ transform: 'none' }}>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -1108,7 +1108,7 @@ export default function GeoGridScan() {
                               <li>• Add at least one keyword</li>
                             )}
                             {waypoints.length === 0 && (
-                              <li>• Configure waypoints</li>
+                              <li>�� Configure waypoints</li>
                             )}
                           </ul>
                         </div>
