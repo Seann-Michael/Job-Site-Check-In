@@ -68,7 +68,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   const mapContainerStyle = useMemo(() => ({
     width: "100%",
-    height: height,
+    height: height === "100%" ? "384px" : height, // Convert 100% to fixed height
   }), [height]);
 
   const mapOptions = useMemo(() => ({
@@ -267,7 +267,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             <div className="flex-1 min-w-0">
               {waypoints.length > 0 && (
                 <p className="text-xs text-muted-foreground mb-1">
-                  📍 {waypoints.length} waypoints configured
+                  �� {waypoints.length} waypoints configured
                 </p>
               )}
               {markers.length > 0 && waypoints.length === 0 && (
