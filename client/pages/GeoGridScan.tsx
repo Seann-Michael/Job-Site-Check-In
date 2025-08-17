@@ -214,6 +214,9 @@ export default function GeoGridScan() {
     [scanConfig.unit, scanConfig.distanceBetween],
   );
 
+  // Memoized map component to prevent unnecessary re-renders
+  const MemoizedGoogleMapComponent = useMemo(() => React.memo(GoogleMapComponent), []);
+
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
     const enabledWaypoints = getEnabledWaypointsCount(waypoints);
@@ -1055,7 +1058,7 @@ export default function GeoGridScan() {
             </CardHeader>
             <CardContent>
               <div className="h-96 w-full" style={{ overflowAnchor: 'auto' }}>
-                <GoogleMapComponent
+                <MemoizedGoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
                   zoom={12}
                   height="100%"
