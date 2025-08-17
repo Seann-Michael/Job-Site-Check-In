@@ -97,8 +97,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   );
   const [isDragging, setIsDragging] = useState(false);
   const [draggedWaypoint, setDraggedWaypoint] = useState<string | null>(null);
-  const [manualZoomPercentage, setManualZoomPercentage] = useState<number>(50); // 0-100%
-  const [isManualZoomMode, setIsManualZoomMode] = useState(false);
   const originalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   const hasInitializedBounds = useRef(false);
   const previousWaypointCount = useRef(0);
