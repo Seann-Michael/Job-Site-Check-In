@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AppLayout } from "@/components/AppLayout";
-import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponent";
+import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponentNew";
 import GridMapTracker from "@/components/GoogleMaps/GridMapTracker";
 import {
   MapPin,
