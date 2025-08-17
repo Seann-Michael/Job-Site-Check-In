@@ -928,12 +928,12 @@ export default function GeoGridScan() {
               </CardContent>
             </Card>
 
-            {/* NEW TEST CONFIGURATION SECTION */}
-            <Card className="border-2 border-green-200 bg-green-50">
+            {/* NATIVE HTML SELECT TEST CONFIGURATION */}
+            <Card className="border-2 border-blue-200 bg-blue-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
-                  🧪 Test Configuration (New Implementation)
+                  🔧 Native Select Test (Alternative Implementation)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -947,90 +947,64 @@ export default function GeoGridScan() {
                       <Label className="text-sm font-medium">
                         Search Depth
                       </Label>
-                      <Select
+                      <select
                         value={scanConfig.depth.toString()}
-                        onValueChange={(value) =>
+                        onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            depth: parseInt(value),
+                            depth: parseInt(e.target.value),
                           })
                         }
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="10">Top 10</SelectItem>
-                          <SelectItem value="20">Top 20</SelectItem>
-                          <SelectItem value="30">Top 30</SelectItem>
-                          <SelectItem value="50">Top 50</SelectItem>
-                          <SelectItem value="100">Top 100</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="10">Top 10</option>
+                        <option value="20">Top 20</option>
+                        <option value="30">Top 30</option>
+                        <option value="50">Top 50</option>
+                        <option value="100">Top 100</option>
+                      </select>
                     </div>
 
                     <div>
                       <Label className="text-sm font-medium">
                         API Call Type
                       </Label>
-                      <Select
+                      <select
                         value={scanConfig.apiCallType}
-                        onValueChange={(value) =>
+                        onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            apiCallType: value as "circle" | "rectangle",
+                            apiCallType: e.target.value as "circle" | "rectangle",
                           })
                         }
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="circle">
-                            <div className="flex items-center gap-2">
-                              <Circle className="h-4 w-4" />
-                              Circle (Standard)
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="rectangle">
-                            <div className="flex items-center gap-2">
-                              <Grid3X3 className="h-4 w-4" />
-                              Rectangle (+20%)
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="circle">Circle (Standard)</option>
+                        <option value="rectangle">Rectangle (+20%)</option>
+                      </select>
                     </div>
 
                     <div>
                       <Label className="text-sm font-medium">
                         Priority Level
                       </Label>
-                      <Select
+                      <select
                         value={scanConfig.priority}
-                        onValueChange={(value) =>
+                        onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            priority: value as
+                            priority: e.target.value as
                               | "standard"
                               | "expedited"
                               | "priority",
                           })
                         }
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="standard">Standard</SelectItem>
-                          <SelectItem value="expedited">
-                            Expedited (+50%)
-                          </SelectItem>
-                          <SelectItem value="priority">
-                            Priority (+100%)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="standard">Standard</option>
+                        <option value="expedited">Expedited (+50%)</option>
+                        <option value="priority">Priority (+100%)</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1045,39 +1019,20 @@ export default function GeoGridScan() {
                       <Label className="text-sm font-medium">
                         Pattern Type
                       </Label>
-                      <Select
+                      <select
                         value={scanConfig.pattern}
-                        onValueChange={(value) =>
+                        onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            pattern: value as "circle" | "grid" | "line",
+                            pattern: e.target.value as "circle" | "grid" | "line",
                           })
                         }
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="grid">
-                            <div className="flex items-center gap-2">
-                              <Grid3X3 className="h-4 w-4" />
-                              Square Grid
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="circle">
-                            <div className="flex items-center gap-2">
-                              <Circle className="h-4 w-4" />
-                              Circular Pattern
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="line">
-                            <div className="flex items-center gap-2">
-                              <Crosshair className="h-4 w-4" />
-                              Linear Pattern
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="grid">Square Grid</option>
+                        <option value="circle">Circular Pattern</option>
+                        <option value="line">Linear Pattern</option>
+                      </select>
                     </div>
 
                     <div>
@@ -1088,114 +1043,64 @@ export default function GeoGridScan() {
                             ? "Number of Rings"
                             : "Line Points"}
                       </Label>
-                      <Select
+                      <select
                         value={
                           scanConfig.pattern === "circle"
                             ? scanConfig.rings.toString()
                             : scanConfig.count.toString()
                         }
-                        onValueChange={(value) =>
+                        onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
                             ...(scanConfig.pattern === "circle"
-                              ? { rings: parseInt(value) }
-                              : { count: parseInt(value) }),
+                              ? { rings: parseInt(e.target.value) }
+                              : { count: parseInt(e.target.value) }),
                           })
                         }
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          {scanConfig.pattern === "grid" && (
-                            <>
-                              <SelectItem value="9">
-                                3×3 Grid (9 pins)
-                              </SelectItem>
-                              <SelectItem value="16">
-                                4×4 Grid (16 pins)
-                              </SelectItem>
-                              <SelectItem value="25">
-                                5×5 Grid (25 pins)
-                              </SelectItem>
-                              <SelectItem value="49">
-                                6×6 Grid (49 pins)
-                              </SelectItem>
-                              <SelectItem value="64">
-                                7×7 Grid (64 pins)
-                              </SelectItem>
-                              <SelectItem value="81">
-                                8×8 Grid (81 pins)
-                              </SelectItem>
-                              <SelectItem value="100">
-                                9×9 Grid (100 pins)
-                              </SelectItem>
-                              <SelectItem value="121">
-                                10×10 Grid (121 pins)
-                              </SelectItem>
-                              <SelectItem value="144">
-                                11×11 Grid (144 pins)
-                              </SelectItem>
-                              <SelectItem value="169">
-                                12×12 Grid (169 pins)
-                              </SelectItem>
-                              <SelectItem value="225">
-                                13×13 Grid (225 pins)
-                              </SelectItem>
-                              <SelectItem value="441">
-                                14×14 Grid (441 pins)
-                              </SelectItem>
-                            </>
-                          )}
-                          {scanConfig.pattern === "circle" && (
-                            <>
-                              <SelectItem value="1">
-                                1 Ring ({calculateWaypointCount(1)} pins)
-                              </SelectItem>
-                              <SelectItem value="2">
-                                2 Rings ({calculateWaypointCount(2)} pins)
-                              </SelectItem>
-                              <SelectItem value="3">
-                                3 Rings ({calculateWaypointCount(3)} pins)
-                              </SelectItem>
-                              <SelectItem value="4">
-                                4 Rings ({calculateWaypointCount(4)} pins)
-                              </SelectItem>
-                              <SelectItem value="5">
-                                5 Rings ({calculateWaypointCount(5)} pins)
-                              </SelectItem>
-                              <SelectItem value="6">
-                                6 Rings ({calculateWaypointCount(6)} pins)
-                              </SelectItem>
-                              <SelectItem value="7">
-                                7 Rings ({calculateWaypointCount(7)} pins)
-                              </SelectItem>
-                              <SelectItem value="8">
-                                8 Rings ({calculateWaypointCount(8)} pins)
-                              </SelectItem>
-                              <SelectItem value="9">
-                                9 Rings ({calculateWaypointCount(9)} pins)
-                              </SelectItem>
-                              <SelectItem value="10">
-                                10 Rings ({calculateWaypointCount(10)} pins)
-                              </SelectItem>
-                              <SelectItem value="11">
-                                11 Rings ({calculateWaypointCount(11)} pins)
-                              </SelectItem>
-                            </>
-                          )}
-                          {scanConfig.pattern === "line" && (
-                            <>
-                              <SelectItem value="5">5 Points Line</SelectItem>
-                              <SelectItem value="10">10 Points Line</SelectItem>
-                              <SelectItem value="15">15 Points Line</SelectItem>
-                              <SelectItem value="20">20 Points Line</SelectItem>
-                              <SelectItem value="25">25 Points Line</SelectItem>
-                              <SelectItem value="30">30 Points Line</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
+                        {scanConfig.pattern === "grid" && (
+                          <>
+                            <option value="9">3×3 Grid (9 pins)</option>
+                            <option value="16">4×4 Grid (16 pins)</option>
+                            <option value="25">5×5 Grid (25 pins)</option>
+                            <option value="49">6×6 Grid (49 pins)</option>
+                            <option value="64">7×7 Grid (64 pins)</option>
+                            <option value="81">8×8 Grid (81 pins)</option>
+                            <option value="100">9×9 Grid (100 pins)</option>
+                            <option value="121">10×10 Grid (121 pins)</option>
+                            <option value="144">11×11 Grid (144 pins)</option>
+                            <option value="169">12×12 Grid (169 pins)</option>
+                            <option value="225">13×13 Grid (225 pins)</option>
+                            <option value="441">14×14 Grid (441 pins)</option>
+                          </>
+                        )}
+                        {scanConfig.pattern === "circle" && (
+                          <>
+                            <option value="1">1 Ring ({calculateWaypointCount(1)} pins)</option>
+                            <option value="2">2 Rings ({calculateWaypointCount(2)} pins)</option>
+                            <option value="3">3 Rings ({calculateWaypointCount(3)} pins)</option>
+                            <option value="4">4 Rings ({calculateWaypointCount(4)} pins)</option>
+                            <option value="5">5 Rings ({calculateWaypointCount(5)} pins)</option>
+                            <option value="6">6 Rings ({calculateWaypointCount(6)} pins)</option>
+                            <option value="7">7 Rings ({calculateWaypointCount(7)} pins)</option>
+                            <option value="8">8 Rings ({calculateWaypointCount(8)} pins)</option>
+                            <option value="9">9 Rings ({calculateWaypointCount(9)} pins)</option>
+                            <option value="10">10 Rings ({calculateWaypointCount(10)} pins)</option>
+                            <option value="11">11 Rings ({calculateWaypointCount(11)} pins)</option>
+                          </>
+                        )}
+                        {scanConfig.pattern === "line" && (
+                          <>
+                            <option value="5">5 Points Line</option>
+                            <option value="10">10 Points Line</option>
+                            <option value="15">15 Points Line</option>
+                            <option value="20">20 Points Line</option>
+                            <option value="25">25 Points Line</option>
+                            <option value="30">30 Points Line</option>
+                          </>
+                        )}
+                      </select>
                     </div>
                   </div>
 
@@ -1204,43 +1109,27 @@ export default function GeoGridScan() {
                       <Label className="text-sm font-medium">
                         Distance Between Pins
                       </Label>
-                      <Select
+                      <select
                         value={scanConfig.distanceBetween.toString()}
-                        onValueChange={(value) =>
+                        onChange={(e) =>
                           setScanConfig({
                             ...scanConfig,
-                            distanceBetween: parseFloat(value),
+                            distanceBetween: parseFloat(e.target.value),
                           })
                         }
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0.1">
-                            0.1 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="0.25">
-                            0.25 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="0.5">
-                            0.5 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="0.75">
-                            0.75 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="1">1 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="1.5">
-                            1.5 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="2">2 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="2.5">
-                            2.5 {scanConfig.unit}
-                          </SelectItem>
-                          <SelectItem value="3">3 {scanConfig.unit}</SelectItem>
-                          <SelectItem value="5">5 {scanConfig.unit}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="0.1">0.1 {scanConfig.unit}</option>
+                        <option value="0.25">0.25 {scanConfig.unit}</option>
+                        <option value="0.5">0.5 {scanConfig.unit}</option>
+                        <option value="0.75">0.75 {scanConfig.unit}</option>
+                        <option value="1">1 {scanConfig.unit}</option>
+                        <option value="1.5">1.5 {scanConfig.unit}</option>
+                        <option value="2">2 {scanConfig.unit}</option>
+                        <option value="2.5">2.5 {scanConfig.unit}</option>
+                        <option value="3">3 {scanConfig.unit}</option>
+                        <option value="5">5 {scanConfig.unit}</option>
+                      </select>
                     </div>
 
                     <div>
