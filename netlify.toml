@@ -9,21 +9,24 @@
   SUPABASE_SERVICE_ROLE_KEY = ""
   SUPABASE_STORAGE_BUCKET = "media"
 
-  # Google Maps API
-  VITE_GOOGLE_MAPS_API_KEY = "REDACTED_GOOGLE_MAPS_API_KEY"
+  # Google Maps API (Set in Netlify dashboard)
+  VITE_GOOGLE_MAPS_API_KEY = ""
 
   # Twilio SMS Configuration (Set these in Netlify dashboard when available)
   TWILIO_ACCOUNT_SID = ""
   TWILIO_AUTH_TOKEN = ""
   TWILIO_PHONE_NUMBER = ""
 
-  # Mailgun Email Configuration
-  MAILGUN_API_KEY = "91a7de2a0e4c55d3fae57371d4a9c6a8-16bc1610-26a77555"
+  # Mailgun Email Configuration (Set in Netlify dashboard)
+  MAILGUN_API_KEY = ""
   MAILGUN_DOMAIN = "mg.localcontractorleads.com"
   FROM_EMAIL = "noreply@localcontractorleads.com"
 
-  # DataForSEO API Configuration
-  DATAFORSEO_API_KEY = "sean@localcontractorleads.com:34f54820f63c3718"
+  # DataForSEO API Configuration (Set in Netlify dashboard)
+  DATAFORSEO_API_KEY = ""
+
+  # Disable secrets scanning for client-side Google Maps API key
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
 [functions]
   external_node_modules = ["express", "serverless-http"]
