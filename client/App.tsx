@@ -32,7 +32,6 @@ import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
-const RecurringScans = lazy(() => import("./pages/RecurringScans"));
 const ScanHistory = lazy(() => import("./pages/ScanHistory"));
 const AuditReport = lazy(() => import("./pages/AuditReport"));
 const CreditPurchase = lazy(() => import("./pages/CreditPurchase"));
@@ -320,14 +319,6 @@ const App = () => (
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
                 <Route
-                  path="/admin/maps/recurring-scans"
-                  element={
-                    <ProtectedRoute>
-                      <RecurringScans />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/maps/scan-history"
                   element={
                     <ProtectedRoute>
@@ -345,14 +336,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <GridOverlayDemo />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/audits/recurring-scans"
-                  element={
-                    <ProtectedRoute>
-                      <RecurringScans />
                     </ProtectedRoute>
                   }
                 />
@@ -1009,12 +992,6 @@ const App = () => (
                 <Route
                   path="/AgencyProjectEdit"
                   element={<Navigate to="/agency/admin/projects" replace />}
-                />
-                <Route
-                  path="/RecurringScans"
-                  element={
-                    <Navigate to="/admin/audits/recurring-scans" replace />
-                  }
                 />
                 <Route
                   path="/ScanHistory"
