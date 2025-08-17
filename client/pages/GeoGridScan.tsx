@@ -955,7 +955,7 @@ export default function GeoGridScan() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-96 w-full" style={{ overflowAnchor: 'auto' }}>
+              <div className="h-[70vh] w-full" style={{ overflowAnchor: 'auto' }}>
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
                   zoom={12}
