@@ -249,8 +249,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     (waypointId: string, event?: any) => {
       setIsDragging(true);
       setDraggedWaypoint(waypointId);
+      setTempWaypointPositions({}); // Clear any previous temp positions
 
-      // Store original center position and all waypoint positions
+      // Store original center position
       const centerWaypoint = waypointData.find((w) => w.isCenter);
       if (centerWaypoint) {
         originalCenterRef.current = centerWaypoint.coordinates;
@@ -266,7 +267,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   // Handle real-time drag for visual feedback
   const handleDrag = useCallback(
     (waypointId: string, event: google.maps.MapMouseEvent) => {
-      if (!isDragging || !event.latLng || !scanConfig || !originalCenterRef.current) {
+      if (!isDragging || !event.latLng || !scanConfig) {
         return;
       }
 
@@ -283,27 +284,21 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         const latOffset = newPosition.lat - draggedWaypoint.coordinates.lat;
         const lngOffset = newPosition.lng - draggedWaypoint.coordinates.lng;
 
-        // Update all waypoint positions visually during drag
+        // Create temp positions for all waypoints to show them moving together
+        const newTempPositions: Record<string, { lat: number; lng: number }> = {};
         waypointData.forEach((waypoint) => {
-          if (waypoint.id !== waypointId) {
-            const newCoordinates = {
-              lat: waypoint.coordinates.lat + latOffset,
-              lng: waypoint.coordinates.lng + lngOffset,
-            };
-
-            // Find the marker for this waypoint and update its position
-            // This provides visual feedback during drag
-            if (map) {
-              // Note: This is for visual feedback only, actual state update happens in handleDragEnd
-              const marker = map.data as any; // This is a simplified approach
-            }
-          }
+          newTempPositions[waypoint.id] = {
+            lat: waypoint.coordinates.lat + latOffset,
+            lng: waypoint.coordinates.lng + lngOffset,
+          };
         });
+
+        setTempWaypointPositions(newTempPositions);
       } catch (error) {
         console.warn("Error handling waypoint drag:", error);
       }
     },
-    [isDragging, waypointData, scanConfig, map],
+    [isDragging, waypointData, scanConfig],
   );
 
   // Handle drag end with stable memoization and proper error handling
