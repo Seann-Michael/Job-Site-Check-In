@@ -756,41 +756,38 @@ export default function GeoGridScan() {
                           )}
                           {scanConfig.pattern === "circle" && (
                             <>
+                              <SelectItem value="1">
+                                1 Ring ({calculateWaypointCount(1)} pins)
+                              </SelectItem>
+                              <SelectItem value="2">
+                                2 Rings ({calculateWaypointCount(2)} pins)
+                              </SelectItem>
+                              <SelectItem value="3">
+                                3 Rings ({calculateWaypointCount(3)} pins)
+                              </SelectItem>
+                              <SelectItem value="4">
+                                4 Rings ({calculateWaypointCount(4)} pins)
+                              </SelectItem>
+                              <SelectItem value="5">
+                                5 Rings ({calculateWaypointCount(5)} pins)
+                              </SelectItem>
+                              <SelectItem value="6">
+                                6 Rings ({calculateWaypointCount(6)} pins)
+                              </SelectItem>
                               <SelectItem value="7">
-                                7 Points
+                                7 Rings ({calculateWaypointCount(7)} pins)
                               </SelectItem>
-                              <SelectItem value="12">
-                                12 Points
+                              <SelectItem value="8">
+                                8 Rings ({calculateWaypointCount(8)} pins)
                               </SelectItem>
-                              <SelectItem value="20">
-                                20 Points
+                              <SelectItem value="9">
+                                9 Rings ({calculateWaypointCount(9)} pins)
                               </SelectItem>
-                              <SelectItem value="28">
-                                28 Points
+                              <SelectItem value="10">
+                                10 Rings ({calculateWaypointCount(10)} pins)
                               </SelectItem>
-                              <SelectItem value="39">
-                                39 Points
-                              </SelectItem>
-                              <SelectItem value="50">
-                                50 Points
-                              </SelectItem>
-                              <SelectItem value="64">
-                                64 Points
-                              </SelectItem>
-                              <SelectItem value="78">
-                                78 Points
-                              </SelectItem>
-                              <SelectItem value="95">
-                                95 Points
-                              </SelectItem>
-                              <SelectItem value="113">
-                                113 Points
-                              </SelectItem>
-                              <SelectItem value="176">
-                                176 Points
-                              </SelectItem>
-                              <SelectItem value="346">
-                                346 Points
+                              <SelectItem value="11">
+                                11 Rings ({calculateWaypointCount(11)} pins)
                               </SelectItem>
                             </>
                           )}
