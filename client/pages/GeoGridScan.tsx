@@ -702,11 +702,13 @@ export default function GeoGridScan() {
                             : "Line Points"}
                       </Label>
                       <Select
-                        value={scanConfig.count.toString()}
+                        value={scanConfig.pattern === "circle" ? scanConfig.rings.toString() : scanConfig.count.toString()}
                         onValueChange={(value) =>
                           setScanConfig({
                             ...scanConfig,
-                            count: parseInt(value),
+                            ...(scanConfig.pattern === "circle"
+                              ? { rings: parseInt(value) }
+                              : { count: parseInt(value) }),
                           })
                         }
                       >
