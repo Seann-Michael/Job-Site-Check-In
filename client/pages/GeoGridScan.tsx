@@ -943,8 +943,8 @@ export default function GeoGridScan() {
               <div
                 className="w-full"
                 style={{
-                  height: "768px",
-                  minHeight: "768px",
+                  height: "700px",
+                  minHeight: "700px",
                   overflowAnchor: "auto",
                 }}
               >
