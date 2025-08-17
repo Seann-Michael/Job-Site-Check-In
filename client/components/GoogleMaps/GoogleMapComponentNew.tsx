@@ -221,25 +221,25 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     }
   }, [map, waypointData, calculateOptimalZoom]);
 
-  // Auto-zoom when waypoints change (grid size, pattern, or distance changes)
+  // Auto-zoom when waypoints change (only if not in manual zoom mode)
   React.useEffect(() => {
     const currentWaypointCount = waypointData.length;
 
-    // Auto-fit bounds whenever waypoints change after initial load
+    // Auto-fit bounds only if not in manual zoom mode
     if (
       map &&
       waypointData.length > 0 &&
-      hasInitializedBounds.current // Only auto-zoom after initial load
+      hasInitializedBounds.current && // Only auto-zoom after initial load
+      !isManualZoomMode // Don't auto-zoom in manual mode
     ) {
-      // Always auto-fit when waypoints change, whether count changed or not
       console.log(`Waypoints updated (count: ${currentWaypointCount}), auto-fitting bounds`);
       setTimeout(() => {
         autoFitBounds();
-      }, 100); // Reduced delay for more responsive zoom
+      }, 100);
     }
 
     previousWaypointCount.current = currentWaypointCount;
-  }, [waypointData, map, autoFitBounds]); // Watch entire waypointData array, not just length
+  }, [waypointData, map, autoFitBounds, isManualZoomMode]); // Include isManualZoomMode dependency
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
