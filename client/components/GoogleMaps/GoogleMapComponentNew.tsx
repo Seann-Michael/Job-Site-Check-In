@@ -560,7 +560,17 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     position={waypoint.coordinates}
                     title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
                     icon={createWaypointIcon(waypoint, rank)}
-                    draggable={false}
+                    onClick={(e) => {
+                      handleWaypointClick(waypoint, e);
+                    }}
+                    draggable={true}
+                    onDragStart={(event) => handleDragStart(waypoint.id, event)}
+                    onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
+                    animation={
+                      selectedWaypoint === waypoint.id
+                        ? google.maps.Animation.BOUNCE
+                        : undefined
+                    }
                     opacity={waypoint.enabled ? 1.0 : 0.6}
                   />
                 );
