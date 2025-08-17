@@ -206,12 +206,6 @@ export function AppLayout({
     return expandedMenus.includes(menuId);
   };
 
-  // Auto-expand Maps menu if we're on a Maps page (including main Maps page and sub-pages)
-  React.useEffect(() => {
-    if (location.pathname.startsWith("/admin/maps") && !expandedMenus.includes("maps")) {
-      setExpandedMenus(prev => [...prev, "maps"]);
-    }
-  }, [location.pathname, expandedMenus]);
 
   // Auto-expand Automation menu if we're on an automation page
   React.useEffect(() => {
@@ -220,9 +214,9 @@ export function AppLayout({
     }
   }, [location.pathname, expandedMenus]);
 
-  // Auto-expand Audits menu if we're on an audits page
+  // Auto-expand Audits menu if we're on an audits page or maps page (since geo-grid-scan moved to audits)
   React.useEffect(() => {
-    if (location.pathname.startsWith("/admin/audits") && !expandedMenus.includes("audits")) {
+    if ((location.pathname.startsWith("/admin/audits") || location.pathname.startsWith("/admin/maps")) && !expandedMenus.includes("audits")) {
       setExpandedMenus(prev => [...prev, "audits"]);
     }
   }, [location.pathname, expandedMenus]);
