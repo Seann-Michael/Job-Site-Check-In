@@ -18,6 +18,7 @@ interface GridMapTrackerProps {
   center?: { lat: number; lng: number };
   gridType?: "square" | "circle";
   gridSize?: number;
+  rings?: number; // Number of rings for circle type
   pinSpacing?: number; // Distance between pins in meters
   rankings?: Record<string, number | null>;
   disabledPoints?: string[];
