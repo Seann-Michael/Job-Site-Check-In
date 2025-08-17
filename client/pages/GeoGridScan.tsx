@@ -394,7 +394,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" side="bottom" align="start" avoidCollisions={true} collisionPadding={10}>
+                        <SelectContent>
                           <SelectItem value="daily">Daily</SelectItem>
                           <SelectItem value="weekly">Weekly</SelectItem>
                           <SelectItem value="biweekly">Bi-weekly</SelectItem>
@@ -551,7 +551,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" side="bottom" align="start" avoidCollisions={true} collisionPadding={10}>
+                        <SelectContent>
                           <SelectItem value="10">Top 10</SelectItem>
                           <SelectItem value="20">Top 20</SelectItem>
                           <SelectItem value="30">Top 30</SelectItem>
@@ -580,7 +580,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" side="bottom" align="start" avoidCollisions={true} collisionPadding={10}>
+                        <SelectContent>
                           <SelectItem value="standard">Standard</SelectItem>
                           <SelectItem value="expedited">
                             Expedited (+50%)
@@ -616,7 +616,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" side="bottom" align="start" avoidCollisions={true} collisionPadding={10}>
+                        <SelectContent>
                           <SelectItem value="grid">
                             <div className="flex items-center gap-2">
                               <Grid3X3 className="h-4 w-4" />
@@ -775,7 +775,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" side="bottom" align="start" avoidCollisions={true} collisionPadding={10}>
+                        <SelectContent>
                           <SelectItem value="0.1">
                             0.1 {scanConfig.unit}
                           </SelectItem>
