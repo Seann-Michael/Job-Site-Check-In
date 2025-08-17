@@ -375,7 +375,7 @@ export default function GeoGridScan() {
                 </RadioGroup>
 
                 {scanType === "recurring" && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div>
                       <Label>Frequency</Label>
                       <Select
@@ -415,18 +415,6 @@ export default function GeoGridScan() {
                         }
                         className="mt-1"
                       />
-                    </div>
-                    <div className="flex items-center space-x-2 mt-6">
-                      <Switch
-                        checked={recurringSettings.autoRenew}
-                        onCheckedChange={(checked) =>
-                          setRecurringSettings({
-                            ...recurringSettings,
-                            autoRenew: checked,
-                          })
-                        }
-                      />
-                      <Label className="text-sm">Auto-renew</Label>
                     </div>
                   </div>
                 )}
