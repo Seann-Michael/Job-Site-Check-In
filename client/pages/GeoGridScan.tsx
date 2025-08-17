@@ -328,9 +328,9 @@ export default function GeoGridScan() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 gap-8">
           {/* Configuration Panel */}
-          <div className="xl:col-span-3 space-y-6">
+          <div className="space-y-6">
             {/* Scan Type Selection */}
             <Card>
               <CardHeader>
