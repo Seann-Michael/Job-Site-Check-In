@@ -171,6 +171,12 @@ export default function GeoGridScan() {
     [],
   );
 
+  // Memoize scan config object to prevent unnecessary re-renders
+  const memoizedScanConfig = useMemo(() => ({
+    unit: scanConfig.unit,
+    distanceBetween: scanConfig.distanceBetween,
+  }), [scanConfig.unit, scanConfig.distanceBetween]);
+
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
     const enabledWaypoints = getEnabledWaypointsCount(waypoints);
@@ -1023,10 +1029,7 @@ export default function GeoGridScan() {
                   onWaypointToggle={handleWaypointToggle}
                   onWaypointDrag={handleWaypointDrag}
                   onWaypointsDragComplete={handleWaypointsDragComplete}
-                  scanConfig={{
-                    unit: scanConfig.unit,
-                    distanceBetween: scanConfig.distanceBetween,
-                  }}
+                  scanConfig={memoizedScanConfig}
                 />
               </div>
               <div className="text-sm text-gray-600 mt-4">
