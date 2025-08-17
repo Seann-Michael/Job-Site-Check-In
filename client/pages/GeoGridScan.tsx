@@ -800,6 +800,67 @@ export default function GeoGridScan() {
                     </div>
                   </div>
                 </div>
+
+                {/* Third Row: Device and OS */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="max-w-[360px]">
+                    <Label className="text-sm font-medium">Device</Label>
+                    <Select
+                      value={scanConfig.device}
+                      onValueChange={(value) => {
+                        const newDevice = value as "desktop" | "mobile";
+                        const newOS = newDevice === "desktop" ? "windows" : "android";
+                        setScanConfig({
+                          ...scanConfig,
+                          device: newDevice,
+                          os: newOS,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desktop">Desktop</SelectItem>
+                        <SelectItem value="mobile">Mobile</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="max-w-[360px]">
+                    <Label className="text-sm font-medium">OS</Label>
+                    <Select
+                      value={scanConfig.os}
+                      onValueChange={(value) =>
+                        setScanConfig({
+                          ...scanConfig,
+                          os: value as "windows" | "macos" | "android" | "ios",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {scanConfig.device === "desktop" ? (
+                          <>
+                            <SelectItem value="windows">Windows</SelectItem>
+                            <SelectItem value="macos">Mac OS</SelectItem>
+                          </>
+                        ) : (
+                          <>
+                            <SelectItem value="android">Android</SelectItem>
+                            <SelectItem value="ios">iOS</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="max-w-[360px]">
+                    {/* Empty space for consistent layout */}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
