@@ -188,42 +188,18 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
-      try {
-        console.log("GoogleMapComponent: Map loaded successfully", map);
-        setMap(map);
+      console.log("GoogleMapComponent: Map loaded successfully", map);
+      setMap(map);
 
-        // Only fit bounds on initial load to prevent page jumping during interaction
-        if (waypointData.length > 1 && !hasInitializedBounds.current) {
-          hasInitializedBounds.current = true;
-          setTimeout(() => {
-            try {
-              const bounds = new google.maps.LatLngBounds();
-              waypointData.forEach((wp) => {
-                if (wp.coordinates && wp.coordinates.lat && wp.coordinates.lng) {
-                  bounds.extend(wp.coordinates);
-                }
-              });
-              map.fitBounds(bounds);
+      // Create info window (but keep it closed)
+      const infoWindowInstance = new google.maps.InfoWindow();
+      setInfoWindow(infoWindowInstance);
 
-                } catch (error) {
-              console.warn("Error fitting bounds:", error);
-            }
-          }, 500); // Longer delay to ensure everything is loaded
-        }
-
-
-        // Create info window (but keep it closed)
-        const infoWindowInstance = new google.maps.InfoWindow();
-        setInfoWindow(infoWindowInstance);
-
-        if (onMapLoad) {
-          onMapLoad(map);
-        }
-      } catch (error) {
-        console.error("Error in map onLoad:", error);
+      if (onMapLoad) {
+        onMapLoad(map);
       }
     },
-    [onMapLoad, waypointData],
+    [onMapLoad],
   );
 
   const onUnmount = useCallback(() => {
