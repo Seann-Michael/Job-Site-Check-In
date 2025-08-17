@@ -321,8 +321,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           }, 500); // Longer delay to ensure everything is loaded
         }
 
-        // Remove custom zoom listener to prevent re-renders
-        // Google Maps will use default zoom behavior
 
         // Create info window (but keep it closed)
         const infoWindowInstance = new google.maps.InfoWindow();
