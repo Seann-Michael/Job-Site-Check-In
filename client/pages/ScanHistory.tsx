@@ -64,8 +64,7 @@ import {
 interface ScanHistoryItem {
   id: string;
   scanName: string;
-  business: string;
-  keywords: string[];
+  keyword: string; // Single keyword instead of array
   scanType: "one-time" | "recurring";
   status: "completed" | "running" | "failed";
   startTime: string;
