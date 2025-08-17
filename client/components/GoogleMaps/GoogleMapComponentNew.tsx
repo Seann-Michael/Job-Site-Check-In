@@ -228,7 +228,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   return (
     <Card className={className}>
       <CardContent className="p-3">
-        <GoogleMap
+        <div style={{ width: '100%', height: height, minHeight: '300px', backgroundColor: '#f0f0f0', border: '1px solid #ccc' }}>
+          <GoogleMap
           mapContainerStyle={mapContainerStyle}
           center={mapCenter}
           zoom={zoom}
@@ -258,7 +259,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               animation={selectedWaypoint === waypoint.id ? google.maps.Animation.BOUNCE : undefined}
             />
           ))}
-        </GoogleMap>
+          </GoogleMap>
+        </div>
 
         {(showDirectionsButton || address || (lat !== undefined && lng !== undefined) || center) && (
           <div className="flex justify-between items-center mt-3 gap-2">
