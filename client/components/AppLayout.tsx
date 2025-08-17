@@ -194,10 +194,10 @@ export function AppLayout({
   };
 
   const toggleMenuExpansion = (menuId: string) => {
-    setExpandedMenus(prev =>
+    setExpandedMenus((prev) =>
       prev.includes(menuId)
-        ? prev.filter(id => id !== menuId)
-        : [...prev, menuId]
+        ? prev.filter((id) => id !== menuId)
+        : [...prev, menuId],
     );
   };
 
@@ -205,18 +205,25 @@ export function AppLayout({
     return expandedMenus.includes(menuId);
   };
 
-
   // Auto-expand Automation menu if we're on an automation page
   React.useEffect(() => {
-    if ((location.pathname.startsWith("/admin/automation") || location.pathname.startsWith("/admin/workflow-builder")) && !expandedMenus.includes("automation")) {
-      setExpandedMenus(prev => [...prev, "automation"]);
+    if (
+      (location.pathname.startsWith("/admin/automation") ||
+        location.pathname.startsWith("/admin/workflow-builder")) &&
+      !expandedMenus.includes("automation")
+    ) {
+      setExpandedMenus((prev) => [...prev, "automation"]);
     }
   }, [location.pathname, expandedMenus]);
 
   // Auto-expand Audits menu if we're on an audits page or maps page (since geo-grid-scan moved to audits)
   React.useEffect(() => {
-    if ((location.pathname.startsWith("/admin/audits") || location.pathname.startsWith("/admin/maps")) && !expandedMenus.includes("audits")) {
-      setExpandedMenus(prev => [...prev, "audits"]);
+    if (
+      (location.pathname.startsWith("/admin/audits") ||
+        location.pathname.startsWith("/admin/maps")) &&
+      !expandedMenus.includes("audits")
+    ) {
+      setExpandedMenus((prev) => [...prev, "audits"]);
     }
   }, [location.pathname, expandedMenus]);
 
@@ -227,7 +234,9 @@ export function AppLayout({
       label: "Projects",
       href: "/admin/projects",
       icon: FolderOpen,
-      active: location.pathname === "/admin/projects" || location.pathname.startsWith("/project"),
+      active:
+        location.pathname === "/admin/projects" ||
+        location.pathname.startsWith("/project"),
       comingSoon: false,
     },
     {
@@ -251,7 +260,9 @@ export function AppLayout({
       label: "Audits",
       href: "/admin/audits",
       icon: Shield,
-      active: location.pathname.startsWith("/admin/audits") || location.pathname.startsWith("/admin/maps"),
+      active:
+        location.pathname.startsWith("/admin/audits") ||
+        location.pathname.startsWith("/admin/maps"),
       comingSoon: false,
       subItems: [
         {
@@ -379,10 +390,12 @@ export function AppLayout({
                 <div className="flex items-center">
                   <Link
                     to={item.href}
-                    onClick={() => !item.subItems && setMobileSidebarOpen(false)}
+                    onClick={() =>
+                      !item.subItems && setMobileSidebarOpen(false)
+                    }
                     className={cn(
                       "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] flex-1",
-                      item.active && !item.subItems?.some(sub => sub.active)
+                      item.active && !item.subItems?.some((sub) => sub.active)
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted",
                     )}
@@ -457,7 +470,9 @@ export function AppLayout({
               <div
                 className={cn(
                   "p-4 bg-primary/5 flex items-center",
-                  sidebarCollapsed ? "justify-center border-b" : "justify-between",
+                  sidebarCollapsed
+                    ? "justify-center border-b"
+                    : "justify-between",
                 )}
               >
                 {!sidebarCollapsed && (
@@ -507,7 +522,8 @@ export function AppLayout({
                         className={cn(
                           "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1",
                           sidebarCollapsed ? "justify-center" : "",
-                          item.active && !item.subItems?.some(sub => sub.active)
+                          item.active &&
+                            !item.subItems?.some((sub) => sub.active)
                             ? "bg-primary text-primary-foreground shadow-sm"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted",
                         )}
@@ -517,7 +533,10 @@ export function AppLayout({
                           <>
                             <span>{item.label}</span>
                             {item.comingSoon && (
-                              <Badge variant="secondary" className="ml-auto text-xs">
+                              <Badge
+                                variant="secondary"
+                                className="ml-auto text-xs"
+                              >
                                 Soon
                               </Badge>
                             )}
@@ -542,24 +561,26 @@ export function AppLayout({
                     </div>
 
                     {/* Sub Menu Items */}
-                    {item.subItems && !sidebarCollapsed && isMenuExpanded(item.id) && (
-                      <div className="ml-8 mt-2 space-y-1">
-                        {item.subItems.map((subItem) => (
-                          <Link
-                            key={subItem.id}
-                            to={subItem.href}
-                            className={cn(
-                              "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                              subItem.active
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                            )}
-                          >
-                            <span>{subItem.label}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
+                    {item.subItems &&
+                      !sidebarCollapsed &&
+                      isMenuExpanded(item.id) && (
+                        <div className="ml-8 mt-2 space-y-1">
+                          {item.subItems.map((subItem) => (
+                            <Link
+                              key={subItem.id}
+                              to={subItem.href}
+                              className={cn(
+                                "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                subItem.active
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                              )}
+                            >
+                              <span>{subItem.label}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>
@@ -649,7 +670,7 @@ export function AppLayout({
                           {currentUser?.name ? (
                             currentUser.name
                               .split(" ")
-                              .filter(n => n && n.length > 0)
+                              .filter((n) => n && n.length > 0)
                               .map((n) => n[0])
                               .join("")
                           ) : (
