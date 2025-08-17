@@ -1342,17 +1342,6 @@ export default function GeoGridScan() {
                   scanConfig={memoizedScanConfig}
                 />
               </div>
-              <div className="text-sm text-gray-600 mt-4">
-                <p className="mb-2">
-                  📍 Geo Grid centered on: {ADMIN_BUSINESS.name}
-                </p>
-                {waypoints.length > 0 && (
-                  <p>
-                    📌 {enabledWaypointsCount} search locations configured -
-                    Center waypoint is always #1
-                  </p>
-                )}
-              </div>
             </CardContent>
           </Card>
 
