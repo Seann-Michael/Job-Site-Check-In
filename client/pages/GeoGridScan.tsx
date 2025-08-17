@@ -665,7 +665,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" side="bottom" align="start" avoidCollisions={true} collisionPadding={10} className="max-h-60">
+                        <SelectContent className="max-h-60">
                           {scanConfig.pattern === "grid" && (
                             <>
                               <SelectItem value="9">
