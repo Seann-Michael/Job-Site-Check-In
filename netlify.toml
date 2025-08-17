@@ -9,8 +9,8 @@
   SUPABASE_SERVICE_ROLE_KEY = ""
   SUPABASE_STORAGE_BUCKET = "media"
 
-  # Google Maps API
-  VITE_GOOGLE_MAPS_API_KEY = "REDACTED_GOOGLE_MAPS_API_KEY"
+  # Google Maps API (Set in Netlify dashboard)
+  VITE_GOOGLE_MAPS_API_KEY = ""
 
   # Twilio SMS Configuration (Set these in Netlify dashboard when available)
   TWILIO_ACCOUNT_SID = ""
@@ -27,7 +27,6 @@
 
   # Disable secrets scanning for client-side Google Maps API key
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
-  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "REDACTED_GOOGLE_MAPS_API_KEY"
 
 [functions]
   external_node_modules = ["express", "serverless-http"]
