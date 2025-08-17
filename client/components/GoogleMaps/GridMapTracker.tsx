@@ -90,33 +90,32 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     [isLoaded],
   );
 
-  // Uniform circle grid configurations for mathematical perfection
+  // Uniform circle grid configurations - same logic as waypointGenerator
   const getUniformCircleConfig = (totalPoints: number) => {
     const count = totalPoints - 1; // Subtract center point
     const rings: number[] = [1]; // Always start with center
+    let remainingPoints = count;
 
-    if (count <= 6) {
-      rings.push(count);
-    } else if (count <= 18) {
-      rings.push(6, count - 6);
-    } else if (count <= 42) {
-      rings.push(6, 12, count - 18);
-    } else if (count <= 78) {
-      rings.push(6, 12, 18, count - 36);
-    } else if (count <= 126) {
-      rings.push(6, 12, 18, 24, count - 60);
-    } else if (count <= 186) {
-      rings.push(6, 12, 18, 24, 30, count - 90);
-    } else {
-      // For very large counts, use mathematical distribution
-      const targetRings = Math.ceil(Math.sqrt(count / 6));
-      let remainingPoints = count;
+    // Standard progression: first ring = 6, then multiples of 6 (6, 12, 18, 24...)
+    let ringNumber = 1;
 
-      for (let i = 0; i < targetRings && remainingPoints > 0; i++) {
-        const pointsInRing = i === 0 ? 6 : Math.min(6 * (i + 1), remainingPoints);
-        rings.push(pointsInRing);
-        remainingPoints -= pointsInRing;
+    while (remainingPoints > 0) {
+      let pointsInThisRing;
+
+      if (ringNumber === 1) {
+        // First ring: always 6 points (or remaining if less)
+        pointsInThisRing = Math.min(6, remainingPoints);
+      } else {
+        // Subsequent rings: 6 * ring number, but not more than remaining
+        pointsInThisRing = Math.min(6 * ringNumber, remainingPoints);
       }
+
+      rings.push(pointsInThisRing);
+      remainingPoints -= pointsInThisRing;
+      ringNumber++;
+
+      // Safety break to prevent infinite loops
+      if (ringNumber > 10) break;
     }
 
     return {
