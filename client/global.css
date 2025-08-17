@@ -785,28 +785,10 @@ body {
 
 /* Fix Radix Select dropdown positioning issues */
 [data-radix-select-content] {
-  z-index: 9999 !important;
-  position: fixed !important;
+  z-index: 50;
 }
 
-/* Ensure Radix Portal dropdowns are properly positioned */
+/* Ensure Radix Portal dropdowns have proper z-index but don't interfere with header */
 [data-radix-portal] {
-  z-index: 9999 !important;
-}
-
-/* Fix select trigger positioning in containers with transforms */
-[data-radix-select-trigger] {
-  position: relative;
-}
-
-/* Prevent CSS transforms from breaking dropdown positioning */
-[data-radix-select-content],
-[data-radix-popper-content-wrapper] {
-  transform-style: flat !important;
-}
-
-/* Ensure dropdowns are not affected by parent overflow */
-[data-radix-select-content] {
-  position: fixed !important;
-  isolation: isolate;
+  z-index: 50;
 }
