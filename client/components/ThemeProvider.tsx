@@ -95,7 +95,11 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
+      try {
+        localStorage.setItem(storageKey, theme);
+      } catch (error) {
+        console.warn("Failed to save theme to localStorage:", error);
+      }
       setTheme(theme);
     },
     actualTheme,
