@@ -210,7 +210,15 @@ export default function GeoGridScan() {
   // Handle map load to get instance
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     setMapInstance(map);
-  }, []);
+
+    // Add listener for zoom changes on the map to sync our state
+    map.addListener('zoom_changed', () => {
+      const currentZoom = map.getZoom();
+      if (currentZoom && currentZoom !== mapZoom) {
+        setMapZoom(currentZoom);
+      }
+    });
+  }, [mapZoom]);
 
   // Handle zoom changes to update map directly
   const handleZoomChange = useCallback((newZoom: number) => {
