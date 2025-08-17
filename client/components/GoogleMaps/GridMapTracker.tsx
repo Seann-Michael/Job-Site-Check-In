@@ -90,7 +90,25 @@ const GridMapTracker: React.FC<GridMapTrackerProps> = ({
     [isLoaded],
   );
 
-  // Uniform circle grid configurations - same logic as waypointGenerator
+  // Calculate exact ring configuration for specified number of rings
+  const getRingConfiguration = (ringCount: number) => {
+    const rings: number[] = [1]; // Always start with center
+
+    for (let i = 1; i <= ringCount; i++) {
+      if (i === 1) {
+        rings.push(6); // First ring always has 6 points
+      } else {
+        rings.push(6 * i); // Subsequent rings have 6 * ring number
+      }
+    }
+
+    return {
+      rings: ringCount,
+      pattern: rings
+    };
+  };
+
+  // Legacy function for backward compatibility with point-based circles
   const getUniformCircleConfig = (totalPoints: number) => {
     const count = totalPoints - 1; // Subtract center point
     const rings: number[] = [1]; // Always start with center
