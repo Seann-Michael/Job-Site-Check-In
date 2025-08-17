@@ -611,29 +611,89 @@ export default function GeoGridScan() {
                       <SelectContent className="max-h-60">
                         {scanConfig.pattern === "grid" && (
                           <>
-                            <SelectItem value="9">3×3 (9 pins)</SelectItem>
-                            <SelectItem value="16">4×4 (16 pins)</SelectItem>
-                            <SelectItem value="25">5×5 (25 pins)</SelectItem>
-                            <SelectItem value="49">6×6 (49 pins)</SelectItem>
-                            <SelectItem value="64">7×7 (64 pins)</SelectItem>
+                            <SelectItem value="9">
+                              3×3 Grid (9 pins)
+                            </SelectItem>
+                            <SelectItem value="16">
+                              4×4 Grid (16 pins)
+                            </SelectItem>
+                            <SelectItem value="25">
+                              5×5 Grid (25 pins)
+                            </SelectItem>
+                            <SelectItem value="49">
+                              6×6 Grid (49 pins)
+                            </SelectItem>
+                            <SelectItem value="64">
+                              7×7 Grid (64 pins)
+                            </SelectItem>
+                            <SelectItem value="81">
+                              8×8 Grid (81 pins)
+                            </SelectItem>
+                            <SelectItem value="100">
+                              9×9 Grid (100 pins)
+                            </SelectItem>
+                            <SelectItem value="121">
+                              10×10 Grid (121 pins)
+                            </SelectItem>
+                            <SelectItem value="144">
+                              11×11 Grid (144 pins)
+                            </SelectItem>
+                            <SelectItem value="169">
+                              12×12 Grid (169 pins)
+                            </SelectItem>
+                            <SelectItem value="225">
+                              13×13 Grid (225 pins)
+                            </SelectItem>
+                            <SelectItem value="441">
+                              14×14 Grid (441 pins)
+                            </SelectItem>
                           </>
                         )}
                         {scanConfig.pattern === "circle" && (
                           <>
-                            <SelectItem value="1">1 Ring ({calculateWaypointCount(1)} pins)</SelectItem>
-                            <SelectItem value="2">2 Rings ({calculateWaypointCount(2)} pins)</SelectItem>
-                            <SelectItem value="3">3 Rings ({calculateWaypointCount(3)} pins)</SelectItem>
-                            <SelectItem value="4">4 Rings ({calculateWaypointCount(4)} pins)</SelectItem>
-                            <SelectItem value="5">5 Rings ({calculateWaypointCount(5)} pins)</SelectItem>
+                            <SelectItem value="1">
+                              1 Ring ({calculateWaypointCount(1)} pins)
+                            </SelectItem>
+                            <SelectItem value="2">
+                              2 Rings ({calculateWaypointCount(2)} pins)
+                            </SelectItem>
+                            <SelectItem value="3">
+                              3 Rings ({calculateWaypointCount(3)} pins)
+                            </SelectItem>
+                            <SelectItem value="4">
+                              4 Rings ({calculateWaypointCount(4)} pins)
+                            </SelectItem>
+                            <SelectItem value="5">
+                              5 Rings ({calculateWaypointCount(5)} pins)
+                            </SelectItem>
+                            <SelectItem value="6">
+                              6 Rings ({calculateWaypointCount(6)} pins)
+                            </SelectItem>
+                            <SelectItem value="7">
+                              7 Rings ({calculateWaypointCount(7)} pins)
+                            </SelectItem>
+                            <SelectItem value="8">
+                              8 Rings ({calculateWaypointCount(8)} pins)
+                            </SelectItem>
+                            <SelectItem value="9">
+                              9 Rings ({calculateWaypointCount(9)} pins)
+                            </SelectItem>
+                            <SelectItem value="10">
+                              10 Rings ({calculateWaypointCount(10)} pins)
+                            </SelectItem>
+                            <SelectItem value="11">
+                              11 Rings ({calculateWaypointCount(11)} pins)
+                            </SelectItem>
                           </>
                         )}
                         {scanConfig.pattern === "line" && (
                           <>
-                            <SelectItem value="5">5 Points</SelectItem>
-                            <SelectItem value="10">10 Points</SelectItem>
-                            <SelectItem value="15">15 Points</SelectItem>
-                            <SelectItem value="20">20 Points</SelectItem>
-                            <SelectItem value="25">25 Points</SelectItem>
+                            <SelectItem value="5">5 Points Line</SelectItem>
+                            <SelectItem value="10">10 Points Line</SelectItem>
+                            <SelectItem value="15">15 Points Line</SelectItem>
+                            <SelectItem value="20">20 Points Line</SelectItem>
+                            <SelectItem value="25">25 Points Line</SelectItem>
+                            <SelectItem value="30">30 Points Line</SelectItem>
                           </>
                         )}
                       </SelectContent>
