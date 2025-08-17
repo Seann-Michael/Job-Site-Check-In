@@ -396,7 +396,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item">
+                        <SelectContent sideOffset={4}>
                           <SelectItem value="daily">Daily</SelectItem>
                           <SelectItem value="weekly">Weekly</SelectItem>
                           <SelectItem value="biweekly">Bi-weekly</SelectItem>
@@ -553,7 +553,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item">
+                        <SelectContent sideOffset={4}>
                           <SelectItem value="10">Top 10</SelectItem>
                           <SelectItem value="20">Top 20</SelectItem>
                           <SelectItem value="30">Top 30</SelectItem>
@@ -579,7 +579,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item">
+                        <SelectContent sideOffset={4}>
                           <SelectItem value="circle">
                             <div className="flex items-center gap-2">
                               <Circle className="h-4 w-4" />
@@ -615,7 +615,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item">
+                        <SelectContent sideOffset={4}>
                           <SelectItem value="standard">Standard</SelectItem>
                           <SelectItem value="expedited">
                             Expedited (+50%)
@@ -651,7 +651,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item">
+                        <SelectContent sideOffset={4}>
                           <SelectItem value="grid">
                             <div className="flex items-center gap-2">
                               <Grid3X3 className="h-4 w-4" />
@@ -700,7 +700,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item" className="max-h-60">
+                        <SelectContent sideOffset={4} className="max-h-60">
                           {scanConfig.pattern === "grid" && (
                             <>
                               <SelectItem value="9">
@@ -810,7 +810,7 @@ export default function GeoGridScan() {
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="item">
+                        <SelectContent sideOffset={4}>
                           <SelectItem value="0.1">
                             0.1 {scanConfig.unit}
                           </SelectItem>
