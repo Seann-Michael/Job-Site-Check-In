@@ -929,7 +929,7 @@ export default function GeoGridScan() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="w-full" style={{ height: '768px', overflowAnchor: 'auto' }}>
+              <div className="w-full" style={{ height: '1000px', minHeight: '1000px', overflowAnchor: 'auto' }}>
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
                   zoom={12}
