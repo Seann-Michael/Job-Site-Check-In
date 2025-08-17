@@ -94,6 +94,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   );
   const [isDragging, setIsDragging] = useState(false);
   const [draggedWaypoint, setDraggedWaypoint] = useState<string | null>(null);
+  const [tempWaypointPositions, setTempWaypointPositions] = useState<Record<string, { lat: number; lng: number }>>({});
 
   // Use refs to avoid re-renders when these values change
   const originalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
