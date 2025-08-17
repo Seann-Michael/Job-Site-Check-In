@@ -54,6 +54,8 @@ import {
   generateWaypoints,
   toggleWaypoint,
   getEnabledWaypointsCount,
+  updateWaypointPosition,
+  moveAllWaypointsRelative,
   type Waypoint,
   type WaypointGenerationOptions,
 } from "@/lib/waypointGenerator";
@@ -144,6 +146,23 @@ export default function GeoGridScan() {
   const handleWaypointToggle = (waypointId: string) => {
     setWaypoints(toggleWaypoint(waypoints, waypointId));
   };
+
+  // Handle waypoint drag
+  const handleWaypointDrag = useCallback((waypointId: string, newPosition: { lat: number; lng: number }) => {
+    const updatedWaypoints = updateWaypointPosition(
+      waypoints,
+      waypointId,
+      newPosition,
+      ADMIN_BUSINESS.coordinates,
+      scanConfig.unit
+    );
+    setWaypoints(updatedWaypoints);
+  }, [waypoints, scanConfig.unit]);
+
+  // Handle when all waypoints are moved (center drag)
+  const handleWaypointsDragComplete = useCallback((updatedWaypoints: Waypoint[]) => {
+    setWaypoints(updatedWaypoints);
+  }, []);
 
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
@@ -1037,11 +1056,18 @@ export default function GeoGridScan() {
                 <GoogleMapComponent
                   center={ADMIN_BUSINESS.coordinates}
                   zoom={12}
-                  markers={getMapMarkers()}
                   height="100%"
                   showControls={true}
                   showDirectionsButton={false}
                   className="h-full border-0 rounded-lg"
+                  waypointData={waypoints}
+                  onWaypointToggle={handleWaypointToggle}
+                  onWaypointDrag={handleWaypointDrag}
+                  onWaypointsDragComplete={handleWaypointsDragComplete}
+                  scanConfig={{
+                    unit: scanConfig.unit,
+                    distanceBetween: scanConfig.distanceBetween
+                  }}
                 />
               </div>
               <div className="text-sm text-gray-600 mt-4">
