@@ -718,16 +718,6 @@ export default function GeoGridScan() {
                             </SelectItem>
                           </>
                         )}
-                        {scanConfig.pattern === "line" && (
-                          <>
-                            <SelectItem value="5">5 Points Line</SelectItem>
-                            <SelectItem value="10">10 Points Line</SelectItem>
-                            <SelectItem value="15">15 Points Line</SelectItem>
-                            <SelectItem value="20">20 Points Line</SelectItem>
-                            <SelectItem value="25">25 Points Line</SelectItem>
-                            <SelectItem value="30">30 Points Line</SelectItem>
-                          </>
-                        )}
                       </SelectContent>
                     </Select>
                   </div>
