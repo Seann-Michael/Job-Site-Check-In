@@ -338,6 +338,10 @@ export default function ScanHistory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
+  // Bulk selection state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+
   // Recurring scans state
   const [recurringScans, setRecurringScans] =
     useState<RecurringScan[]>(mockRecurringScans);
