@@ -80,8 +80,7 @@ interface ScanHistoryItem {
 interface RecurringScan {
   id: string;
   name: string;
-  business: string;
-  keywords: string[];
+  keyword: string; // Single keyword instead of array
   schedule: string;
   frequency: "daily" | "weekly" | "monthly";
   status: "active" | "paused" | "stopped";
