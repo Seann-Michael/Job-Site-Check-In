@@ -431,6 +431,37 @@ export default function GeoGridScan() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* AI Keyword Suggestions */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-medium text-blue-900">AI-Suggested Keywords</h4>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                      Based on {ADMIN_BUSINESS.name}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Smart keyword suggestions based on your Google My Business profile and location
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["pizza restaurant", "italian food", "pizza delivery", "local pizza", "pizza near me", "family restaurant"].map((suggestion) => (
+                      <Badge
+                        key={suggestion}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-blue-100 transition-colors border-blue-300"
+                        onClick={() => {
+                          if (!keywords.includes(suggestion)) {
+                            setKeywords([...keywords, suggestion]);
+                            toast.success(`Added "${suggestion}" keyword`);
+                          }
+                        }}
+                      >
+                        + {suggestion}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <Input
                     value={newKeyword}
