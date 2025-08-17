@@ -594,6 +594,56 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             </GoogleMap>
           </div>
 
+          {/* Map Controls */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Enable all waypoints
+                    if (onWaypointToggle && waypointData.length > 0) {
+                      waypointData.forEach(waypoint => {
+                        if (!waypoint.enabled && !waypoint.isCenter) {
+                          onWaypointToggle(waypoint.id);
+                        }
+                      });
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Enable All Pins
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Center the map on the center waypoint
+                    const centerWaypoint = waypointData.find(w => w.isCenter);
+                    if (centerWaypoint && map) {
+                      map.setCenter(centerWaypoint.coordinates);
+                      map.setZoom(14);
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="4"></circle>
+                  </svg>
+                  Center Pin
+                </Button>
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                {waypointData.filter(w => w.enabled).length} of {waypointData.length} pins enabled
+              </div>
+            </div>
+          </div>
 
         </CardContent>
       </Card>
