@@ -560,8 +560,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         <div
           style={{
             width: "100%",
-            height: height === "100%" ? "384px" : height,
-            minHeight: "300px",
+            height: height || "384px",
+            minHeight: height || "300px",
+            position: 'relative' // Ensure proper positioning context
           }}
         >
           <GoogleMap
