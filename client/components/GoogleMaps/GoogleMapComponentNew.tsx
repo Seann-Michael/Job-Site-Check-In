@@ -92,6 +92,13 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(
     null,
   );
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedWaypoint, setDraggedWaypoint] = useState<string | null>(null);
+
+  // Use refs to avoid re-renders when these values change
+  const originalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  const hasInitializedBounds = useRef(false);
+  const previousWaypointCount = useRef(0);
 
   const apiKey = getGoogleMapsApiKey();
   console.log(
