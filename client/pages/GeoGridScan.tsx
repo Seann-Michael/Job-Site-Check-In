@@ -1353,6 +1353,21 @@ export default function GeoGridScan() {
             </CardContent>
           </Card>
 
+          {/* Map Configuration */}
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Map Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Empty container for future map configuration options */}
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Scan Summary - Moved under map */}
           <div className="mt-8">
             <Card>
