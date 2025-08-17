@@ -203,26 +203,6 @@ export default function GeoGridScan() {
     [scanConfig.unit, scanConfig.distanceBetween],
   );
 
-  // Handle map load to get instance
-  const handleMapLoad = useCallback((map: google.maps.Map) => {
-    setMapInstance(map);
-
-    // Add listener for zoom changes on the map to sync our state
-    map.addListener('zoom_changed', () => {
-      const currentZoom = map.getZoom();
-      if (currentZoom && currentZoom !== mapZoom) {
-        setMapZoom(currentZoom);
-      }
-    });
-  }, [mapZoom]);
-
-  // Handle zoom changes to update map directly
-  const handleZoomChange = useCallback((newZoom: number) => {
-    setMapZoom(newZoom);
-    if (mapInstance) {
-      mapInstance.setZoom(newZoom);
-    }
-  }, [mapInstance]);
 
   // Calculate scan cost - each keyword creates a duplicate scan
   const scanCost = useMemo(() => {
