@@ -676,6 +676,23 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/agency/admin/tasks/:taskId"
+                  element={
+                    <ProtectedRoute>
+                      <TaskView />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Admin Tasks Routes */}
+                <Route
+                  path="/admin/tasks/:taskId"
+                  element={
+                    <ProtectedRoute>
+                      <TaskView />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/agency/admin/help"
                   element={
                     <ProtectedRoute>
