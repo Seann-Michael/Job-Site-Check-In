@@ -290,16 +290,25 @@ export default function AdminTasks() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/admin/tasks/${task.id}`);
+              }}>
                 <Eye className="h-4 w-4 mr-2" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/admin/tasks/${task.id}`);
+              }}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Task
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Trash className="h-4 w-4 mr-2" />
                 Delete
               </DropdownMenuItem>
