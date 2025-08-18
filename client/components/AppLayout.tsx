@@ -49,6 +49,7 @@ import {
   Clock,
   Target,
   TrendingUp,
+  Database,
   Calendar,
   CreditCard,
   HelpCircle,
