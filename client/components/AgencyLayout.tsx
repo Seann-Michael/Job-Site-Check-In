@@ -55,6 +55,7 @@ import {
   Percent,
   FolderKanban,
   ClipboardCheck,
+  Database,
 } from "lucide-react";
 import React, { useState, useEffect, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
