@@ -326,7 +326,7 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
     },
     {
       id: "leads",
-      label: "Lead Database",
+      label: "Get Leads",
       href: "/agency/admin/leads",
       icon: Database,
       active: location.pathname.startsWith("/agency/admin/leads"),
