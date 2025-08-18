@@ -697,6 +697,15 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Admin Lead Management Routes */}
+                <Route
+                  path="/admin/leads"
+                  element={
+                    <ProtectedRoute>
+                      <AdminLeads />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/agency/admin/help"
                   element={
