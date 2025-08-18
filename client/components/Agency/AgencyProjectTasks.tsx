@@ -60,6 +60,7 @@ export function AgencyProjectTasks({
   tasks,
   onTasksChange,
 }: AgencyProjectTasksProps) {
+  const navigate = useNavigate();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<AgencyProjectTask | null>(
     null,
