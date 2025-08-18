@@ -826,7 +826,7 @@ export default function TaskView() {
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         checked={showInternalNotes}
-                        onCheckedChange={setShowInternalNotes}
+                        onCheckedChange={(checked) => setShowInternalNotes(checked === true)}
                       />
                       <Label>Show internal notes</Label>
                     </div>
