@@ -589,11 +589,14 @@ export function AgencyProjectTasks({
                         </DropdownMenuItem>
                       ))}
                       <DropdownMenuItem
-                        onClick={() => setEditingTask(task)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/agency/admin/tasks/${task.id}`);
+                        }}
                         className="text-blue-600"
                       >
                         <Edit className="h-4 w-4 mr-2" />
-                        Edit Task
+                        View/Edit Task
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDeleteTask(task.id)}
