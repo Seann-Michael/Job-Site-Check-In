@@ -688,6 +688,15 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Agency Lead Management Routes */}
+                <Route
+                  path="/agency/admin/leads"
+                  element={
+                    <ProtectedRoute>
+                      <AgencyLeads />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Admin Tasks Routes */}
                 <Route
                   path="/admin/tasks/:taskId"
