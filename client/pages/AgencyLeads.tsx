@@ -150,11 +150,11 @@ const mockStats: LeadStats = {
 };
 
 interface AgencyCredits {
-  current_credits: 256;
-  total_purchased: 1000;
-  total_spent: 744;
-  monthly_allocation: 500;
-  used_this_month: 256;
+  current_credits: number;
+  total_purchased: number;
+  total_spent: number;
+  monthly_allocation: number;
+  used_this_month: number;
 }
 
 const mockAgencyCredits: AgencyCredits = {
