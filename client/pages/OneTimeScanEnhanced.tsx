@@ -366,7 +366,7 @@ export default function OneTimeScanEnhanced() {
                       <Switch
                         id="service-based"
                         checked={isServiceBased}
-                        onCheckedChange={setIsServiceBased}
+                        onCheckedChange={(checked) => setIsServiceBased(checked === true)}
                       />
                       <Label htmlFor="service-based">
                         Service-based business (no physical address)
