@@ -295,6 +295,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "leads",
+      label: "Lead Database",
+      href: "/admin/leads",
+      icon: Database,
+      active: location.pathname.startsWith("/admin/leads"),
+      comingSoon: false,
+    },
+    {
       id: "reviews",
       label: "Reviews",
       href: "/admin/reviews",
