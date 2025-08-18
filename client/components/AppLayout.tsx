@@ -434,7 +434,9 @@ export function AppLayout({
                     </Link>
                   ) : (
                     <div
-                      onClick={() => item.subItems && toggleMenuExpansion(item.id)}
+                      onClick={() =>
+                        item.subItems && toggleMenuExpansion(item.id)
+                      }
                       className={cn(
                         "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] flex-1 cursor-pointer",
                         item.active && !item.subItems?.some((sub) => sub.active)
