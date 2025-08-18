@@ -479,9 +479,10 @@ export function AgencyProjectTasks({
           filteredTasks.map((task) => (
             <Card
               key={task.id}
-              className={`transition-colors ${
+              className={`transition-colors cursor-pointer hover:shadow-md ${
                 isTaskOverdue(task) ? "border-red-200 bg-red-50/50" : ""
               }`}
+              onClick={() => navigate(`/agency/admin/tasks/${task.id}`)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
