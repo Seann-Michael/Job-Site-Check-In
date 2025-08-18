@@ -276,7 +276,10 @@ export default function AdminTasks() {
   };
 
   const TaskCard = ({ task }: { task: AdminTask }) => (
-    <Card className="mb-3 cursor-pointer hover:shadow-md transition-shadow">
+    <Card
+      className="mb-3 cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => navigate(`/admin/tasks/${task.id}`)}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <h4 className="font-medium text-sm leading-tight">{task.title}</h4>
