@@ -583,7 +583,7 @@ export default function GeoGridScan() {
                       onValueChange={(value) =>
                         setScanConfig({
                           ...scanConfig,
-                          pattern: value as "circle" | "grid" | "line",
+                          pattern: value as "circle" | "grid",
                         })
                       }
                     >
