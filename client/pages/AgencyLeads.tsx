@@ -412,7 +412,7 @@ export default function AgencyLeads() {
   const totalUnlockCost = selectedLockedLeads.reduce((sum, lead) => sum + lead.unlock_credits_cost, 0);
 
   return (
-    <AppLayout>
+    <AgencyLayout>
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -923,6 +923,6 @@ export default function AgencyLeads() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </AgencyLayout>
   );
 }
