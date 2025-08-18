@@ -1,3 +1,8 @@
+/**
+ * Tasks Management Page
+ * URL: /admin/tasks
+ * Description: Comprehensive task management with kanban and list views
+ */
 import React, { useState } from "react";
 import {
   DragDropContext,
