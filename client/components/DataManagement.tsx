@@ -229,7 +229,7 @@ export function DataManagement({ projects = [] }: DataManagementProps) {
               <Switch
                 id="include-media"
                 checked={includeMedia}
-                onCheckedChange={setIncludeMedia}
+                onCheckedChange={(checked) => setIncludeMedia(checked === true)}
               />
               <Label htmlFor="include-media">Include media files</Label>
             </div>
