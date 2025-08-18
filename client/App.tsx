@@ -109,6 +109,7 @@ import AgencyProjectEdit from "./pages/AgencyProjectEdit";
 
 // Agency Task Management
 import AgencyTasks from "./pages/AgencyTasks";
+import TaskView from "./pages/TaskView";
 
 const queryClient = new QueryClient();
 
