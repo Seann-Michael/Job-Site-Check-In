@@ -222,7 +222,7 @@ const mockTasks: AdminTask[] = [
   },
 ];
 
-export default function AdminTasks() {
+export default function Tasks() {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<AdminTask[]>(mockTasks);
   const [columns] = useState<TaskColumn[]>(mockColumns);
