@@ -24,7 +24,7 @@ const Automation = lazy(() => import("./pages/Automation"));
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Audits from "./pages/Audits";
-import AdminTasks from "./pages/AdminTasks";
+import Tasks from "./pages/Tasks";
 import Gallery from "./pages/Gallery";
 import Index from "./pages/Index";
 import AddProject from "./pages/AddProject";
