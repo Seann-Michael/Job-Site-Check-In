@@ -868,6 +868,14 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/super-admin/leads"
+                  element={
+                    <ProtectedRoute>
+                      <SuperAdminLeads />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Legacy/manual route redirects */}
                 <Route
