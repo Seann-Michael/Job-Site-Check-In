@@ -296,7 +296,7 @@ export function AppLayout({
     },
     {
       id: "leads",
-      label: "Lead Database",
+      label: "Get Leads",
       href: "/admin/leads",
       icon: Database,
       active: location.pathname.startsWith("/admin/leads"),
