@@ -111,6 +111,11 @@ import AgencyProjectEdit from "./pages/AgencyProjectEdit";
 import AgencyTasks from "./pages/AgencyTasks";
 import TaskView from "./pages/TaskView";
 
+// Lead Management
+import SuperAdminLeads from "./pages/SuperAdminLeads";
+import AdminLeads from "./pages/AdminLeads";
+import AgencyLeads from "./pages/AgencyLeads";
+
 const queryClient = new QueryClient();
 
 // PWA Service Worker Registration
