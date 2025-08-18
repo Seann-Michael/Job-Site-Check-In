@@ -324,6 +324,14 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       comingSoon: false,
     },
     {
+      id: "leads",
+      label: "Lead Database",
+      href: "/agency/admin/leads",
+      icon: Database,
+      active: location.pathname.startsWith("/agency/admin/leads"),
+      comingSoon: false,
+    },
+    {
       id: "business-owners",
       label: "Business Owners",
       href: "/agency/admin/business-owners",
