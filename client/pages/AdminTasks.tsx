@@ -218,6 +218,7 @@ const mockTasks: AdminTask[] = [
 ];
 
 export default function AdminTasks() {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<AdminTask[]>(mockTasks);
   const [columns] = useState<TaskColumn[]>(mockColumns);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
