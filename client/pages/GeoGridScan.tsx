@@ -447,16 +447,29 @@ export default function GeoGridScan() {
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-3">
                     <Zap className="h-4 w-4 text-blue-600" />
-                    <h4 className="font-medium text-blue-900">AI-Suggested Keywords</h4>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                    <h4 className="font-medium text-blue-900">
+                      AI-Suggested Keywords
+                    </h4>
+                    <Badge
+                      variant="secondary"
+                      className="bg-blue-100 text-blue-800 text-xs"
+                    >
                       Based on {ADMIN_BUSINESS.name}
                     </Badge>
                   </div>
                   <p className="text-sm text-blue-700 mb-3">
-                    Smart keyword suggestions based on your Google My Business profile and location
+                    Smart keyword suggestions based on your Google My Business
+                    profile and location
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {["pizza restaurant", "italian food", "pizza delivery", "local pizza", "pizza near me", "family restaurant"].map((suggestion) => (
+                    {[
+                      "pizza restaurant",
+                      "italian food",
+                      "pizza delivery",
+                      "local pizza",
+                      "pizza near me",
+                      "family restaurant",
+                    ].map((suggestion) => (
                       <Badge
                         key={suggestion}
                         variant="outline"
@@ -552,7 +565,9 @@ export default function GeoGridScan() {
                   </div>
 
                   <div className="max-w-[360px]">
-                    <Label className="text-sm font-medium">Priority Level</Label>
+                    <Label className="text-sm font-medium">
+                      Priority Level
+                    </Label>
                     <Select
                       value={scanConfig.priority}
                       onValueChange={(value) =>
@@ -570,8 +585,12 @@ export default function GeoGridScan() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="expedited">Expedited (+50%)</SelectItem>
-                        <SelectItem value="priority">Priority (+100%)</SelectItem>
+                        <SelectItem value="expedited">
+                          Expedited (+50%)
+                        </SelectItem>
+                        <SelectItem value="priority">
+                          Priority (+100%)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -634,7 +653,9 @@ export default function GeoGridScan() {
                         if (scanConfig.pattern === "circle") {
                           setTimeout(() => {
                             // This will trigger the Google Maps center pin functionality
-                            window.dispatchEvent(new CustomEvent('centerMapToWaypoints'));
+                            window.dispatchEvent(
+                              new CustomEvent("centerMapToWaypoints"),
+                            );
                           }, 100);
                         }
                       }}
@@ -645,9 +666,7 @@ export default function GeoGridScan() {
                       <SelectContent className="max-h-60">
                         {scanConfig.pattern === "grid" && (
                           <>
-                            <SelectItem value="9">
-                              3×3 Grid (9 pins)
-                            </SelectItem>
+                            <SelectItem value="9">3×3 Grid (9 pins)</SelectItem>
                             <SelectItem value="16">
                               4×4 Grid (16 pins)
                             </SelectItem>
@@ -725,7 +744,9 @@ export default function GeoGridScan() {
                   </div>
 
                   <div className="max-w-[360px]">
-                    <Label className="text-sm font-medium">Distance Between Pins</Label>
+                    <Label className="text-sm font-medium">
+                      Distance Between Pins
+                    </Label>
                     <Select
                       value={scanConfig.distanceBetween.toString()}
                       onValueChange={(value) =>
@@ -809,7 +830,8 @@ export default function GeoGridScan() {
                       value={scanConfig.device}
                       onValueChange={(value) => {
                         const newDevice = value as "desktop" | "mobile";
-                        const newOS = newDevice === "desktop" ? "windows" : "android";
+                        const newOS =
+                          newDevice === "desktop" ? "windows" : "android";
                         setScanConfig({
                           ...scanConfig,
                           device: newDevice,
@@ -863,9 +885,7 @@ export default function GeoGridScan() {
                 </div>
               </CardContent>
             </Card>
-
           </div>
-
         </div>
 
         {/* Google Map */}
@@ -944,8 +964,12 @@ export default function GeoGridScan() {
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Search Depth:</span>
-                      <span className="text-sm font-medium">Top {scanConfig.depth}</span>
+                      <span className="text-sm text-gray-600">
+                        Search Depth:
+                      </span>
+                      <span className="text-sm font-medium">
+                        Top {scanConfig.depth}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Priority:</span>

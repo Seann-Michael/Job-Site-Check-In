@@ -156,7 +156,8 @@ const mockTask: ExtendedTask = {
   id: "task-1",
   projectId: "project-1",
   title: "Implement comprehensive task management system",
-  description: "Create a detailed task view page with JIRA-like functionality including notes, attachments, sub-tasks, work logs, and activity tracking.",
+  description:
+    "Create a detailed task view page with JIRA-like functionality including notes, attachments, sub-tasks, work logs, and activity tracking.",
   status: "in-progress",
   priority: "high",
   assignedTo: "user-1",
@@ -288,7 +289,8 @@ const mockTask: ExtendedTask = {
 const mockNotes: TaskNote[] = [
   {
     id: "note-1",
-    content: "Initial implementation is progressing well. The UI components are coming together nicely. @jane.doe please review the design mockups when ready.",
+    content:
+      "Initial implementation is progressing well. The UI components are coming together nicely. @jane.doe please review the design mockups when ready.",
     isInternal: false,
     authorId: "user-1",
     authorName: "John Smith",
@@ -298,7 +300,8 @@ const mockNotes: TaskNote[] = [
   },
   {
     id: "note-2",
-    content: "There's a dependency on the backend API that might cause delays. We should prioritize the API development.",
+    content:
+      "There's a dependency on the backend API that might cause delays. We should prioritize the API development.",
     isInternal: true,
     authorId: "user-2",
     authorName: "Jane Doe",
@@ -307,7 +310,8 @@ const mockNotes: TaskNote[] = [
   },
   {
     id: "note-3",
-    content: "Client requested additional features for the notes section. @john.smith let's discuss in our next meeting.",
+    content:
+      "Client requested additional features for the notes section. @john.smith let's discuss in our next meeting.",
     isInternal: false,
     authorId: "user-3",
     authorName: "Mike Johnson",
@@ -333,19 +337,21 @@ const availableSprints = [
 export default function TaskView() {
   const { taskId } = useParams();
   const navigate = useNavigate();
-  
+
   const [task, setTask] = useState<ExtendedTask>(mockTask);
   const [notes, setNotes] = useState<TaskNote[]>(mockNotes);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<ExtendedTask>(mockTask);
   const [newNote, setNewNote] = useState("");
-  const [noteVisibility, setNoteVisibility] = useState<"internal" | "external">("external");
+  const [noteVisibility, setNoteVisibility] = useState<"internal" | "external">(
+    "external",
+  );
   const [newSubtask, setNewSubtask] = useState("");
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [newWorkLog, setNewWorkLog] = useState({
     timeSpent: "",
     description: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
   });
   const [isAddingWorkLog, setIsAddingWorkLog] = useState(false);
   const [newTag, setNewTag] = useState("");
@@ -369,7 +375,7 @@ export default function TaskView() {
     let interval: NodeJS.Timeout;
     if (timeTracking.isActive && timeTracking.startTime) {
       interval = setInterval(() => {
-        setTimeTracking(prev => ({
+        setTimeTracking((prev) => ({
           ...prev,
           elapsedTime: Date.now() - (prev.startTime?.getTime() || 0),
         }));
@@ -391,7 +397,8 @@ export default function TaskView() {
       ...task,
       status: newStatus as any,
       updatedAt: new Date().toISOString(),
-      completedDate: newStatus === "completed" ? new Date().toISOString() : undefined,
+      completedDate:
+        newStatus === "completed" ? new Date().toISOString() : undefined,
     };
     setTask(updatedTask);
     setEditedTask(updatedTask);
@@ -449,11 +456,16 @@ export default function TaskView() {
   };
 
   const handleToggleSubtask = (subtaskId: string) => {
-    const updatedSubtasks = task.subtasks?.map(st => 
-      st.id === subtaskId 
-        ? { ...st, completed: !st.completed, completedAt: !st.completed ? new Date().toISOString() : undefined }
-        : st
-    ) || [];
+    const updatedSubtasks =
+      task.subtasks?.map((st) =>
+        st.id === subtaskId
+          ? {
+              ...st,
+              completed: !st.completed,
+              completedAt: !st.completed ? new Date().toISOString() : undefined,
+            }
+          : st,
+      ) || [];
 
     const updatedTask = { ...task, subtasks: updatedSubtasks };
     setTask(updatedTask);
@@ -483,7 +495,7 @@ export default function TaskView() {
     setNewWorkLog({
       timeSpent: "",
       description: "",
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split("T")[0],
     });
     setIsAddingWorkLog(false);
     toast.success("Work log added successfully");
@@ -505,7 +517,7 @@ export default function TaskView() {
   const handleRemoveTag = (tagToRemove: string) => {
     const updatedTask = {
       ...task,
-      tags: task.tags?.filter(tag => tag !== tagToRemove) || [],
+      tags: task.tags?.filter((tag) => tag !== tagToRemove) || [],
     };
     setTask(updatedTask);
     setEditedTask(updatedTask);
@@ -523,7 +535,8 @@ export default function TaskView() {
 
   const stopTimeTracking = () => {
     if (timeTracking.startTime && timeTracking.elapsedTime > 0) {
-      const hours = Math.round((timeTracking.elapsedTime / (1000 * 60 * 60)) * 100) / 100;
+      const hours =
+        Math.round((timeTracking.elapsedTime / (1000 * 60 * 60)) * 100) / 100;
       setNewWorkLog({
         ...newWorkLog,
         timeSpent: hours.toString(),
@@ -550,7 +563,7 @@ export default function TaskView() {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
   const getStatusIcon = (status: string) => {
@@ -583,9 +596,11 @@ export default function TaskView() {
     }
   };
 
-  const completedSubtasks = task.subtasks?.filter(st => st.completed).length || 0;
+  const completedSubtasks =
+    task.subtasks?.filter((st) => st.completed).length || 0;
   const totalSubtasks = task.subtasks?.length || 0;
-  const progressPercentage = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
+  const progressPercentage =
+    totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
   return (
     <AppLayout>
@@ -593,11 +608,7 @@ export default function TaskView() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate(-1)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -623,8 +634,8 @@ export default function TaskView() {
                 Start Timer
               </Button>
             )}
-            <Button 
-              variant={isEditing ? "default" : "outline"} 
+            <Button
+              variant={isEditing ? "default" : "outline"}
               size="sm"
               onClick={() => setIsEditing(!isEditing)}
             >
@@ -670,7 +681,10 @@ export default function TaskView() {
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(task.status)}
                     <Badge variant={getPriorityColor(task.priority) as any}>
-                      {TASK_PRIORITIES.find(p => p.value === task.priority)?.label}
+                      {
+                        TASK_PRIORITIES.find((p) => p.value === task.priority)
+                          ?.label
+                      }
                     </Badge>
                   </div>
                 </CardTitle>
@@ -682,20 +696,35 @@ export default function TaskView() {
                       <Label>Title</Label>
                       <Input
                         value={editedTask.title}
-                        onChange={(e) => setEditedTask({...editedTask, title: e.target.value})}
+                        onChange={(e) =>
+                          setEditedTask({
+                            ...editedTask,
+                            title: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <div>
                       <Label>Description</Label>
                       <Textarea
                         value={editedTask.description || ""}
-                        onChange={(e) => setEditedTask({...editedTask, description: e.target.value})}
+                        onChange={(e) =>
+                          setEditedTask({
+                            ...editedTask,
+                            description: e.target.value,
+                          })
+                        }
                         rows={4}
                       />
                     </div>
                     <div className="flex space-x-2">
                       <Button onClick={handleSaveTask}>Save Changes</Button>
-                      <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsEditing(false)}
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -709,7 +738,9 @@ export default function TaskView() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Progress</span>
-                      <span>{completedSubtasks}/{totalSubtasks} subtasks completed</span>
+                      <span>
+                        {completedSubtasks}/{totalSubtasks} subtasks completed
+                      </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
                   </div>
@@ -721,9 +752,11 @@ export default function TaskView() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>Subtasks ({completedSubtasks}/{totalSubtasks})</span>
-                  <Button 
-                    size="sm" 
+                  <span>
+                    Subtasks ({completedSubtasks}/{totalSubtasks})
+                  </span>
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => setIsAddingSubtask(true)}
                   >
@@ -739,31 +772,50 @@ export default function TaskView() {
                       placeholder="Enter subtask title..."
                       value={newSubtask}
                       onChange={(e) => setNewSubtask(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddSubtask()}
                     />
-                    <Button size="sm" onClick={handleAddSubtask}>Add</Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsAddingSubtask(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleAddSubtask}>
+                      Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsAddingSubtask(false)}
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 )}
                 {task.subtasks?.map((subtask) => (
-                  <div key={subtask.id} className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50">
+                  <div
+                    key={subtask.id}
+                    className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50"
+                  >
                     <Checkbox
                       checked={subtask.completed}
                       onCheckedChange={() => handleToggleSubtask(subtask.id)}
                     />
-                    <span className={subtask.completed ? "line-through text-gray-500" : ""}>
+                    <span
+                      className={
+                        subtask.completed ? "line-through text-gray-500" : ""
+                      }
+                    >
                       {subtask.title}
                     </span>
                     {subtask.completedAt && (
                       <span className="text-xs text-gray-400">
-                        Completed {new Date(subtask.completedAt).toLocaleDateString()}
+                        Completed{" "}
+                        {new Date(subtask.completedAt).toLocaleDateString()}
                       </span>
                     )}
                   </div>
                 ))}
-                {(!task.subtasks || task.subtasks.length === 0) && !isAddingSubtask && (
-                  <p className="text-gray-500 text-center py-4">No subtasks yet</p>
-                )}
+                {(!task.subtasks || task.subtasks.length === 0) &&
+                  !isAddingSubtask && (
+                    <p className="text-gray-500 text-center py-4">
+                      No subtasks yet
+                    </p>
+                  )}
               </CardContent>
             </Card>
 
@@ -778,7 +830,7 @@ export default function TaskView() {
                     <TabsTrigger value="attachments">Attachments</TabsTrigger>
                   </TabsList>
                 </CardHeader>
-                
+
                 <TabsContent value="notes">
                   <CardContent className="space-y-4">
                     {/* Add Note */}
@@ -787,7 +839,12 @@ export default function TaskView() {
                         <Label>Add Note</Label>
                         <div className="flex items-center space-x-2">
                           <Label className="text-sm">Visibility:</Label>
-                          <Select value={noteVisibility} onValueChange={(value: any) => setNoteVisibility(value)}>
+                          <Select
+                            value={noteVisibility}
+                            onValueChange={(value: any) =>
+                              setNoteVisibility(value)
+                            }
+                          >
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
@@ -814,7 +871,10 @@ export default function TaskView() {
                         onChange={(e) => setNewNote(e.target.value)}
                         rows={3}
                       />
-                      <Button onClick={handleAddNote} disabled={!newNote.trim()}>
+                      <Button
+                        onClick={handleAddNote}
+                        disabled={!newNote.trim()}
+                      >
                         <MessageSquare className="h-4 w-4 mr-2" />
                         Add Note
                       </Button>
@@ -826,7 +886,9 @@ export default function TaskView() {
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         checked={showInternalNotes}
-                        onCheckedChange={(checked) => setShowInternalNotes(checked === true)}
+                        onCheckedChange={(checked) =>
+                          setShowInternalNotes(checked === true)
+                        }
                       />
                       <Label>Show internal notes</Label>
                     </div>
@@ -834,37 +896,52 @@ export default function TaskView() {
                     {/* Notes List */}
                     <div className="space-y-4">
                       {notes
-                        .filter(note => showInternalNotes || !note.isInternal)
+                        .filter((note) => showInternalNotes || !note.isInternal)
                         .map((note) => (
-                        <div key={note.id} className="border rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarFallback className="text-xs">
-                                  {note.authorName.split(" ").map(n => n[0]).join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="font-medium text-sm">{note.authorName}</span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(note.createdAt).toLocaleString()}
-                              </span>
-                              {note.isInternal && (
-                                <Badge variant="secondary" className="text-xs">
-                                  <EyeOff className="h-3 w-3 mr-1" />
-                                  Internal
-                                </Badge>
-                              )}
+                          <div
+                            key={note.id}
+                            className="border rounded-lg p-4 space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs">
+                                    {note.authorName
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium text-sm">
+                                  {note.authorName}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(note.createdAt).toLocaleString()}
+                                </span>
+                                {note.isInternal && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    <EyeOff className="h-3 w-3 mr-1" />
+                                    Internal
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                            <p className="text-sm whitespace-pre-wrap">
+                              {note.content}
+                            </p>
+                            {note.mentions && note.mentions.length > 0 && (
+                              <div className="flex items-center space-x-1 text-xs text-blue-600">
+                                <AtSign className="h-3 w-3" />
+                                <span>
+                                  Mentioned: {note.mentions.join(", ")}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{note.content}</p>
-                          {note.mentions && note.mentions.length > 0 && (
-                            <div className="flex items-center space-x-1 text-xs text-blue-600">
-                              <AtSign className="h-3 w-3" />
-                              <span>Mentioned: {note.mentions.join(", ")}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </CardContent>
                 </TabsContent>
@@ -873,15 +950,23 @@ export default function TaskView() {
                   <CardContent>
                     <div className="space-y-4">
                       {task.activityLog?.map((activity) => (
-                        <div key={activity.id} className="flex items-start space-x-3 pb-3 border-b last:border-b-0">
+                        <div
+                          key={activity.id}
+                          className="flex items-start space-x-3 pb-3 border-b last:border-b-0"
+                        >
                           <Avatar className="h-6 w-6 mt-1">
                             <AvatarFallback className="text-xs">
-                              {activity.userName.split(" ").map(n => n[0]).join("")}
+                              {activity.userName
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <p className="text-sm">
-                              <span className="font-medium">{activity.userName}</span>{" "}
+                              <span className="font-medium">
+                                {activity.userName}
+                              </span>{" "}
                               {activity.description}
                             </p>
                             <p className="text-xs text-gray-500">
@@ -907,7 +992,12 @@ export default function TaskView() {
                               type="number"
                               placeholder="e.g., 2.5"
                               value={newWorkLog.timeSpent}
-                              onChange={(e) => setNewWorkLog({...newWorkLog, timeSpent: e.target.value})}
+                              onChange={(e) =>
+                                setNewWorkLog({
+                                  ...newWorkLog,
+                                  timeSpent: e.target.value,
+                                })
+                              }
                             />
                           </div>
                           <div>
@@ -915,7 +1005,12 @@ export default function TaskView() {
                             <Input
                               type="date"
                               value={newWorkLog.date}
-                              onChange={(e) => setNewWorkLog({...newWorkLog, date: e.target.value})}
+                              onChange={(e) =>
+                                setNewWorkLog({
+                                  ...newWorkLog,
+                                  date: e.target.value,
+                                })
+                              }
                             />
                           </div>
                         </div>
@@ -924,13 +1019,23 @@ export default function TaskView() {
                           <Textarea
                             placeholder="What work was done?"
                             value={newWorkLog.description}
-                            onChange={(e) => setNewWorkLog({...newWorkLog, description: e.target.value})}
+                            onChange={(e) =>
+                              setNewWorkLog({
+                                ...newWorkLog,
+                                description: e.target.value,
+                              })
+                            }
                             rows={2}
                           />
                         </div>
                         <div className="flex space-x-2">
                           <Button onClick={handleAddWorkLog}>Log Work</Button>
-                          <Button variant="outline" onClick={() => setIsAddingWorkLog(false)}>Cancel</Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsAddingWorkLog(false)}
+                          >
+                            Cancel
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -950,21 +1055,32 @@ export default function TaskView() {
                             <div className="flex items-center space-x-2">
                               <Avatar className="h-6 w-6">
                                 <AvatarFallback className="text-xs">
-                                  {log.userName.split(" ").map(n => n[0]).join("")}
+                                  {log.userName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-sm">{log.userName}</span>
+                              <span className="font-medium text-sm">
+                                {log.userName}
+                              </span>
                               <Badge variant="outline" className="text-xs">
                                 {formatTimeSpent(log.timeSpent)}
                               </Badge>
                             </div>
-                            <span className="text-xs text-gray-500">{log.date}</span>
+                            <span className="text-xs text-gray-500">
+                              {log.date}
+                            </span>
                           </div>
-                          <p className="text-sm text-gray-700">{log.description}</p>
+                          <p className="text-sm text-gray-700">
+                            {log.description}
+                          </p>
                         </div>
                       ))}
                       {(!task.workLogs || task.workLogs.length === 0) && (
-                        <p className="text-gray-500 text-center py-4">No work logged yet</p>
+                        <p className="text-gray-500 text-center py-4">
+                          No work logged yet
+                        </p>
                       )}
                     </div>
 
@@ -976,7 +1092,12 @@ export default function TaskView() {
                           <div>
                             <span className="text-gray-600">Total Logged:</span>
                             <span className="ml-2 font-medium">
-                              {formatTimeSpent(task.workLogs.reduce((sum, log) => sum + log.timeSpent, 0))}
+                              {formatTimeSpent(
+                                task.workLogs.reduce(
+                                  (sum, log) => sum + log.timeSpent,
+                                  0,
+                                ),
+                              )}
                             </span>
                           </div>
                           <div>
@@ -1000,7 +1121,9 @@ export default function TaskView() {
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                       <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-500">No attachments yet</p>
-                      <p className="text-sm text-gray-400">Drag and drop files here or click upload</p>
+                      <p className="text-sm text-gray-400">
+                        Drag and drop files here or click upload
+                      </p>
                     </div>
                   </CardContent>
                 </TabsContent>
@@ -1018,7 +1141,10 @@ export default function TaskView() {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Status</Label>
-                  <Select value={task.status} onValueChange={handleStatusChange}>
+                  <Select
+                    value={task.status}
+                    onValueChange={handleStatusChange}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1037,9 +1163,11 @@ export default function TaskView() {
 
                 <div>
                   <Label>Priority</Label>
-                  <Select 
-                    value={task.priority} 
-                    onValueChange={(value) => setTask({...task, priority: value as any})}
+                  <Select
+                    value={task.priority}
+                    onValueChange={(value) =>
+                      setTask({ ...task, priority: value as any })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1056,13 +1184,13 @@ export default function TaskView() {
 
                 <div>
                   <Label>Assignee</Label>
-                  <Select 
-                    value={task.assignedTo || "unassigned"} 
+                  <Select
+                    value={task.assignedTo || "unassigned"}
                     onValueChange={(value) => {
-                      const user = availableUsers.find(u => u.id === value);
+                      const user = availableUsers.find((u) => u.id === value);
                       if (user) {
                         setTask({
-                          ...task, 
+                          ...task,
                           assignedTo: value,
                           assignedToName: user.name,
                           assignedToEmail: user.email,
@@ -1086,13 +1214,17 @@ export default function TaskView() {
 
                 <div>
                   <Label>Sprint</Label>
-                  <Select 
-                    value={task.sprint?.id || "none"} 
+                  <Select
+                    value={task.sprint?.id || "none"}
                     onValueChange={(value) => {
-                      const sprint = availableSprints.find(s => s.id === value);
+                      const sprint = availableSprints.find(
+                        (s) => s.id === value,
+                      );
                       setTask({
                         ...task,
-                        sprint: sprint ? { id: sprint.id, name: sprint.name } : undefined,
+                        sprint: sprint
+                          ? { id: sprint.id, name: sprint.name }
+                          : undefined,
                       });
                     }}
                   >
@@ -1122,16 +1254,20 @@ export default function TaskView() {
                   <Label>Start Date</Label>
                   <Input
                     type="date"
-                    value={task.startDate?.split('T')[0] || ""}
-                    onChange={(e) => setTask({...task, startDate: e.target.value})}
+                    value={task.startDate?.split("T")[0] || ""}
+                    onChange={(e) =>
+                      setTask({ ...task, startDate: e.target.value })
+                    }
                   />
                 </div>
                 <div>
                   <Label>Due Date</Label>
                   <Input
                     type="date"
-                    value={task.dueDate?.split('T')[0] || ""}
-                    onChange={(e) => setTask({...task, dueDate: e.target.value})}
+                    value={task.dueDate?.split("T")[0] || ""}
+                    onChange={(e) =>
+                      setTask({ ...task, dueDate: e.target.value })
+                    }
                   />
                 </div>
                 {task.completedDate && (
@@ -1139,7 +1275,7 @@ export default function TaskView() {
                     <Label>Completed Date</Label>
                     <Input
                       type="date"
-                      value={task.completedDate.split('T')[0]}
+                      value={task.completedDate.split("T")[0]}
                       readOnly
                       className="bg-gray-50"
                     />
@@ -1166,7 +1302,12 @@ export default function TaskView() {
                     <Input
                       type="number"
                       value={task.estimatedHours || ""}
-                      onChange={(e) => setTask({...task, estimatedHours: parseInt(e.target.value) || undefined})}
+                      onChange={(e) =>
+                        setTask({
+                          ...task,
+                          estimatedHours: parseInt(e.target.value) || undefined,
+                        })
+                      }
                       placeholder="Hours"
                     />
                   </div>
@@ -1183,10 +1324,15 @@ export default function TaskView() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Progress</span>
-                      <span>{Math.round((task.actualHours / task.estimatedHours) * 100)}%</span>
+                      <span>
+                        {Math.round(
+                          (task.actualHours / task.estimatedHours) * 100,
+                        )}
+                        %
+                      </span>
                     </div>
-                    <Progress 
-                      value={(task.actualHours / task.estimatedHours) * 100} 
+                    <Progress
+                      value={(task.actualHours / task.estimatedHours) * 100}
                       className="h-2"
                     />
                   </div>
@@ -1218,7 +1364,7 @@ export default function TaskView() {
                     placeholder="Add tag..."
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
                   />
                   <Button size="sm" onClick={handleAddTag}>
                     <Plus className="h-4 w-4" />
@@ -1239,15 +1385,22 @@ export default function TaskView() {
                 <CardContent>
                   <div className="space-y-2">
                     {task.blockers.map((blocker) => (
-                      <div key={blocker.id} className="p-2 bg-yellow-50 rounded border">
+                      <div
+                        key={blocker.id}
+                        className="p-2 bg-yellow-50 rounded border"
+                      >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">{blocker.taskTitle}</span>
+                          <span className="text-sm font-medium">
+                            {blocker.taskTitle}
+                          </span>
                           <Badge variant="outline" className="text-xs">
                             {blocker.type}
                           </Badge>
                         </div>
                         {blocker.reason && (
-                          <p className="text-xs text-gray-600 mt-1">{blocker.reason}</p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {blocker.reason}
+                          </p>
                         )}
                       </div>
                     ))}
@@ -1268,7 +1421,10 @@ export default function TaskView() {
                 <CardContent>
                   <div className="space-y-2">
                     {task.linkedTasks.map((linkedTask) => (
-                      <div key={linkedTask.id} className="flex items-center justify-between p-2 border rounded">
+                      <div
+                        key={linkedTask.id}
+                        className="flex items-center justify-between p-2 border rounded"
+                      >
                         <span className="text-sm">{linkedTask.title}</span>
                         <div className="flex items-center space-x-2">
                           <Badge variant="outline" className="text-xs">

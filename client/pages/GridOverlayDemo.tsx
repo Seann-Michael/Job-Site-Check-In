@@ -232,7 +232,9 @@ export default function GridOverlayDemo() {
                     <Switch
                       id="grid-lines"
                       checked={showGridLines}
-                      onCheckedChange={(checked) => setShowGridLines(checked === true)}
+                      onCheckedChange={(checked) =>
+                        setShowGridLines(checked === true)
+                      }
                     />
                   </div>
 
@@ -241,7 +243,9 @@ export default function GridOverlayDemo() {
                     <Switch
                       id="ranking-colors"
                       checked={showRankingColors}
-                      onCheckedChange={(checked) => setShowRankingColors(checked === true)}
+                      onCheckedChange={(checked) =>
+                        setShowRankingColors(checked === true)
+                      }
                     />
                   </div>
 
@@ -250,7 +254,9 @@ export default function GridOverlayDemo() {
                     <Switch
                       id="editable"
                       checked={editable}
-                      onCheckedChange={(checked) => setEditable(checked === true)}
+                      onCheckedChange={(checked) =>
+                        setEditable(checked === true)
+                      }
                     />
                   </div>
                 </div>

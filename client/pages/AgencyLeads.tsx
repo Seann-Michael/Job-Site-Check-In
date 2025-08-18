@@ -168,12 +168,13 @@ const mockAgencyCredits: AgencyCredits = {
 export default function AgencyLeads() {
   const [leads, setLeads] = useState<GMBLeadDisplay[]>(mockLeads);
   const [stats, setStats] = useState<LeadStats>(mockStats);
-  const [agencyCredits, setAgencyCredits] = useState<AgencyCredits>(mockAgencyCredits);
+  const [agencyCredits, setAgencyCredits] =
+    useState<AgencyCredits>(mockAgencyCredits);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<LeadFilters>({});
   const [sortOptions, setSortOptions] = useState<LeadSortOptions>({
-    field: 'created_at',
-    direction: 'desc',
+    field: "created_at",
+    direction: "desc",
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -187,9 +188,21 @@ export default function AgencyLeads() {
 
   // Mock client list for agency
   const mockClients = [
-    { id: "client-1", name: "ABC Marketing Corp", email: "contact@abcmarketing.com" },
-    { id: "client-2", name: "XYZ Real Estate", email: "info@xyzrealestate.com" },
-    { id: "client-3", name: "Local Business Hub", email: "hello@localbusinesshub.com" },
+    {
+      id: "client-1",
+      name: "ABC Marketing Corp",
+      email: "contact@abcmarketing.com",
+    },
+    {
+      id: "client-2",
+      name: "XYZ Real Estate",
+      email: "info@xyzrealestate.com",
+    },
+    {
+      id: "client-3",
+      name: "Local Business Hub",
+      email: "hello@localbusinesshub.com",
+    },
   ];
 
   // Fetch leads data
@@ -199,7 +212,7 @@ export default function AgencyLeads() {
       // In real implementation, call your API here
       // const response = await fetch('/api/agency/leads', { ... });
       // setLeads(response.leads);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
     } catch (error) {
       toast.error("Failed to fetch leads");
     } finally {
@@ -224,7 +237,9 @@ export default function AgencyLeads() {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       // Only select unlockable (locked) leads
-      const unlockableLeads = leads.filter(lead => !lead.is_unlocked).map(lead => lead.id);
+      const unlockableLeads = leads
+        .filter((lead) => !lead.is_unlocked)
+        .map((lead) => lead.id);
       setSelectedLeads(new Set(unlockableLeads));
     } else {
       setSelectedLeads(new Set());
@@ -232,7 +247,7 @@ export default function AgencyLeads() {
   };
 
   const handleUnlockLead = async (leadId: string) => {
-    const lead = leads.find(l => l.id === leadId);
+    const lead = leads.find((l) => l.id === leadId);
     if (!lead || lead.is_unlocked) return;
 
     if (agencyCredits.current_credits < lead.unlock_credits_cost) {
@@ -242,27 +257,31 @@ export default function AgencyLeads() {
 
     try {
       // In real implementation, call unlock API
-      setLeads(leads.map(l => 
-        l.id === leadId 
-          ? { 
-              ...l, 
-              is_unlocked: true,
-              business_name: "Joe's Pizza Palace", // Reveal actual data
-              phone: "+1-555-0123",
-              email: "contact@joespizza.com",
-              website: "https://joespizza.com",
-              street_address: "123 Main St",
-            }
-          : l
-      ));
-      
+      setLeads(
+        leads.map((l) =>
+          l.id === leadId
+            ? {
+                ...l,
+                is_unlocked: true,
+                business_name: "Joe's Pizza Palace", // Reveal actual data
+                phone: "+1-555-0123",
+                email: "contact@joespizza.com",
+                website: "https://joespizza.com",
+                street_address: "123 Main St",
+              }
+            : l,
+        ),
+      );
+
       setAgencyCredits({
         ...agencyCredits,
-        current_credits: agencyCredits.current_credits - lead.unlock_credits_cost,
+        current_credits:
+          agencyCredits.current_credits - lead.unlock_credits_cost,
         total_spent: agencyCredits.total_spent + lead.unlock_credits_cost,
-        used_this_month: agencyCredits.used_this_month + lead.unlock_credits_cost,
+        used_this_month:
+          agencyCredits.used_this_month + lead.unlock_credits_cost,
       });
-      
+
       toast.success(`Lead unlocked! ${lead.unlock_credits_cost} credits used`);
     } catch (error) {
       toast.error("Failed to unlock lead");
@@ -270,61 +289,73 @@ export default function AgencyLeads() {
   };
 
   const handleBulkUnlock = async () => {
-    const selectedUnlockedLeads = leads.filter(lead => 
-      selectedLeads.has(lead.id) && !lead.is_unlocked
+    const selectedUnlockedLeads = leads.filter(
+      (lead) => selectedLeads.has(lead.id) && !lead.is_unlocked,
     );
-    
+
     if (selectedUnlockedLeads.length === 0) {
       toast.error("No locked leads selected");
       return;
     }
 
-    const totalCost = selectedUnlockedLeads.reduce((sum, lead) => sum + lead.unlock_credits_cost, 0);
-    
+    const totalCost = selectedUnlockedLeads.reduce(
+      (sum, lead) => sum + lead.unlock_credits_cost,
+      0,
+    );
+
     if (agencyCredits.current_credits < totalCost) {
-      toast.error(`Insufficient credits. Need ${totalCost}, have ${agencyCredits.current_credits}`);
+      toast.error(
+        `Insufficient credits. Need ${totalCost}, have ${agencyCredits.current_credits}`,
+      );
       return;
     }
 
-    setBulkUnlockLeads(selectedUnlockedLeads.map(lead => lead.id));
+    setBulkUnlockLeads(selectedUnlockedLeads.map((lead) => lead.id));
     setShowUnlockDialog(true);
   };
 
   const confirmBulkUnlock = async () => {
-    const selectedUnlockedLeads = leads.filter(lead => 
-      bulkUnlockLeads.includes(lead.id) && !lead.is_unlocked
+    const selectedUnlockedLeads = leads.filter(
+      (lead) => bulkUnlockLeads.includes(lead.id) && !lead.is_unlocked,
     );
-    
-    const totalCost = selectedUnlockedLeads.reduce((sum, lead) => sum + lead.unlock_credits_cost, 0);
+
+    const totalCost = selectedUnlockedLeads.reduce(
+      (sum, lead) => sum + lead.unlock_credits_cost,
+      0,
+    );
 
     try {
       // In real implementation, call bulk unlock API
-      setLeads(leads.map(lead => 
-        bulkUnlockLeads.includes(lead.id) && !lead.is_unlocked
-          ? { 
-              ...lead, 
-              is_unlocked: true,
-              business_name: "Sample Business Name", // Reveal actual data
-              phone: "+1-555-XXXX",
-              email: "contact@business.com",
-              website: "https://business.com",
-              street_address: "123 Sample St",
-            }
-          : lead
-      ));
-      
+      setLeads(
+        leads.map((lead) =>
+          bulkUnlockLeads.includes(lead.id) && !lead.is_unlocked
+            ? {
+                ...lead,
+                is_unlocked: true,
+                business_name: "Sample Business Name", // Reveal actual data
+                phone: "+1-555-XXXX",
+                email: "contact@business.com",
+                website: "https://business.com",
+                street_address: "123 Sample St",
+              }
+            : lead,
+        ),
+      );
+
       setAgencyCredits({
         ...agencyCredits,
         current_credits: agencyCredits.current_credits - totalCost,
         total_spent: agencyCredits.total_spent + totalCost,
         used_this_month: agencyCredits.used_this_month + totalCost,
       });
-      
+
       setSelectedLeads(new Set());
       setShowUnlockDialog(false);
       setBulkUnlockLeads([]);
-      
-      toast.success(`${selectedUnlockedLeads.length} leads unlocked! ${totalCost} credits used`);
+
+      toast.success(
+        `${selectedUnlockedLeads.length} leads unlocked! ${totalCost} credits used`,
+      );
     } catch (error) {
       toast.error("Failed to unlock leads");
     }
@@ -336,8 +367,8 @@ export default function AgencyLeads() {
       return;
     }
 
-    const selectedUnlockedLeads = leads.filter(lead => 
-      selectedLeads.has(lead.id) && lead.is_unlocked
+    const selectedUnlockedLeads = leads.filter(
+      (lead) => selectedLeads.has(lead.id) && lead.is_unlocked,
     );
 
     if (selectedUnlockedLeads.length === 0) {
@@ -347,8 +378,10 @@ export default function AgencyLeads() {
 
     try {
       // In real implementation, call assign API
-      const client = mockClients.find(c => c.id === selectedClient);
-      toast.success(`${selectedUnlockedLeads.length} leads assigned to ${client?.name}`);
+      const client = mockClients.find((c) => c.id === selectedClient);
+      toast.success(
+        `${selectedUnlockedLeads.length} leads assigned to ${client?.name}`,
+      );
       setSelectedLeads(new Set());
       setShowAssignDialog(false);
       setSelectedClient("");
@@ -358,28 +391,35 @@ export default function AgencyLeads() {
   };
 
   const handleExportUnlocked = async () => {
-    const unlockedLeads = leads.filter(lead => lead.is_unlocked);
-    
+    const unlockedLeads = leads.filter((lead) => lead.is_unlocked);
+
     if (unlockedLeads.length === 0) {
       toast.error("No unlocked leads to export");
       return;
     }
 
     try {
-      const csvContent = "data:text/csv;charset=utf-8," 
-        + "Business Name,Phone,Email,Website,City,State,Rating,Reviews,Category\n"
-        + unlockedLeads.map(lead => 
-          `"${lead.business_name}","${lead.phone}","${lead.email}","${lead.website}","${lead.city}","${lead.state}",${lead.gmb_rating},${lead.gmb_reviews_count},"${lead.gmb_category}"`
-        ).join("\n");
-      
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        "Business Name,Phone,Email,Website,City,State,Rating,Reviews,Category\n" +
+        unlockedLeads
+          .map(
+            (lead) =>
+              `"${lead.business_name}","${lead.phone}","${lead.email}","${lead.website}","${lead.city}","${lead.state}",${lead.gmb_rating},${lead.gmb_reviews_count},"${lead.gmb_category}"`,
+          )
+          .join("\n");
+
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `agency-unlocked-leads-${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute(
+        "download",
+        `agency-unlocked-leads-${new Date().toISOString().split("T")[0]}.csv`,
+      );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast.success("Unlocked leads exported successfully");
     } catch (error) {
       toast.error("Failed to export leads");
@@ -388,28 +428,35 @@ export default function AgencyLeads() {
 
   const getQualityVariant = (quality: string) => {
     switch (quality) {
-      case 'hot': return 'destructive';
-      case 'warm': return 'default';
-      case 'cold': return 'secondary';
-      default: return 'outline';
+      case "hot":
+        return "destructive";
+      case "warm":
+        return "default";
+      case "cold":
+        return "secondary";
+      default:
+        return "outline";
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
-  const selectedLockedLeads = leads.filter(lead => 
-    selectedLeads.has(lead.id) && !lead.is_unlocked
+  const selectedLockedLeads = leads.filter(
+    (lead) => selectedLeads.has(lead.id) && !lead.is_unlocked,
   );
-  const selectedUnlockedLeads = leads.filter(lead => 
-    selectedLeads.has(lead.id) && lead.is_unlocked
+  const selectedUnlockedLeads = leads.filter(
+    (lead) => selectedLeads.has(lead.id) && lead.is_unlocked,
   );
-  const totalUnlockCost = selectedLockedLeads.reduce((sum, lead) => sum + lead.unlock_credits_cost, 0);
+  const totalUnlockCost = selectedLockedLeads.reduce(
+    (sum, lead) => sum + lead.unlock_credits_cost,
+    0,
+  );
 
   return (
     <AgencyLayout>
@@ -418,16 +465,21 @@ export default function AgencyLeads() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Lead Database</h1>
-            <p className="text-gray-600">Access premium leads for your agency clients</p>
+            <p className="text-gray-600">
+              Access premium leads for your agency clients
+            </p>
           </div>
           <div className="flex items-center space-x-2">
             <Card className="px-4 py-2">
               <div className="flex items-center space-x-2">
                 <CreditCard className="h-4 w-4 text-blue-600" />
-                <span className="font-medium">{agencyCredits.current_credits}</span>
+                <span className="font-medium">
+                  {agencyCredits.current_credits}
+                </span>
                 <span className="text-sm text-gray-500">credits</span>
                 <div className="text-xs text-gray-400">
-                  ({agencyCredits.used_this_month}/{agencyCredits.monthly_allocation} used this month)
+                  ({agencyCredits.used_this_month}/
+                  {agencyCredits.monthly_allocation} used this month)
                 </div>
               </div>
             </Card>
@@ -445,36 +497,44 @@ export default function AgencyLeads() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Available Leads</p>
-                  <p className="text-2xl font-bold">{stats.total_leads.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">
+                    {stats.total_leads.toLocaleString()}
+                  </p>
                 </div>
                 <Building className="h-8 w-8 text-blue-600" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Agency Unlocked</p>
-                  <p className="text-2xl font-bold">{stats.unlocked_leads.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">
+                    {stats.unlocked_leads.toLocaleString()}
+                  </p>
                   <p className="text-xs text-gray-500">Ready for clients</p>
                 </div>
                 <Unlock className="h-8 w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Monthly Budget</p>
-                  <p className="text-2xl font-bold">{agencyCredits.monthly_allocation}</p>
+                  <p className="text-2xl font-bold">
+                    {agencyCredits.monthly_allocation}
+                  </p>
                   <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                    <div 
-                      className="bg-blue-600 h-1.5 rounded-full" 
-                      style={{width: `${(agencyCredits.used_this_month / agencyCredits.monthly_allocation) * 100}%`}}
+                    <div
+                      className="bg-blue-600 h-1.5 rounded-full"
+                      style={{
+                        width: `${(agencyCredits.used_this_month / agencyCredits.monthly_allocation) * 100}%`,
+                      }}
                     ></div>
                   </div>
                 </div>
@@ -482,14 +542,18 @@ export default function AgencyLeads() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Hot Leads</p>
-                  <p className="text-2xl font-bold">{stats.leads_by_quality.hot.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">High quality prospects</p>
+                  <p className="text-2xl font-bold">
+                    {stats.leads_by_quality.hot.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    High quality prospects
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-red-600" />
               </div>
@@ -518,8 +582,14 @@ export default function AgencyLeads() {
                   <Filter className="h-4 w-4 mr-2" />
                   Filters
                 </Button>
-                <Button variant="outline" onClick={fetchLeads} disabled={isLoading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                <Button
+                  variant="outline"
+                  onClick={fetchLeads}
+                  disabled={isLoading}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </Button>
               </div>
@@ -529,7 +599,7 @@ export default function AgencyLeads() {
                   <span className="text-sm text-gray-600">
                     {selectedLeads.size} leads selected
                   </span>
-                  
+
                   {totalUnlockCost > 0 && (
                     <Button
                       onClick={handleBulkUnlock}
@@ -541,7 +611,7 @@ export default function AgencyLeads() {
                       Unlock ({totalUnlockCost} credits)
                     </Button>
                   )}
-                  
+
                   {selectedUnlockedLeads.length > 0 && (
                     <Button
                       onClick={() => setShowAssignDialog(true)}
@@ -564,23 +634,29 @@ export default function AgencyLeads() {
                     <Label>City</Label>
                     <Input
                       placeholder="Filter by city"
-                      value={filters.city || ''}
-                      onChange={(e) => setFilters({...filters, city: e.target.value})}
+                      value={filters.city || ""}
+                      onChange={(e) =>
+                        setFilters({ ...filters, city: e.target.value })
+                      }
                     />
                   </div>
                   <div>
                     <Label>State</Label>
                     <Input
                       placeholder="Filter by state"
-                      value={filters.state || ''}
-                      onChange={(e) => setFilters({...filters, state: e.target.value})}
+                      value={filters.state || ""}
+                      onChange={(e) =>
+                        setFilters({ ...filters, state: e.target.value })
+                      }
                     />
                   </div>
                   <div>
                     <Label>Category</Label>
                     <Select
-                      value={filters.gmb_category || ''}
-                      onValueChange={(value) => setFilters({...filters, gmb_category: value})}
+                      value={filters.gmb_category || ""}
+                      onValueChange={(value) =>
+                        setFilters({ ...filters, gmb_category: value })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All categories" />
@@ -598,8 +674,13 @@ export default function AgencyLeads() {
                   <div>
                     <Label>Unlock Status</Label>
                     <Select
-                      value={filters.unlocked_status || 'all'}
-                      onValueChange={(value) => setFilters({...filters, unlocked_status: value as any})}
+                      value={filters.unlocked_status || "all"}
+                      onValueChange={(value) =>
+                        setFilters({
+                          ...filters,
+                          unlocked_status: value as any,
+                        })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All leads" />
@@ -613,15 +694,10 @@ export default function AgencyLeads() {
                   </div>
                 </div>
                 <div className="flex justify-end space-x-2 mt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setFilters({})}
-                  >
+                  <Button variant="outline" onClick={() => setFilters({})}>
                     Clear Filters
                   </Button>
-                  <Button onClick={fetchLeads}>
-                    Apply Filters
-                  </Button>
+                  <Button onClick={fetchLeads}>Apply Filters</Button>
                 </div>
               </div>
             )}
@@ -637,7 +713,11 @@ export default function AgencyLeads() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedLeads.size > 0 && selectedLockedLeads.length === leads.filter(l => !l.is_unlocked).length}
+                        checked={
+                          selectedLeads.size > 0 &&
+                          selectedLockedLeads.length ===
+                            leads.filter((l) => !l.is_unlocked).length
+                        }
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
@@ -658,7 +738,9 @@ export default function AgencyLeads() {
                       <TableCell>
                         <Checkbox
                           checked={selectedLeads.has(lead.id)}
-                          onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
+                          onCheckedChange={(checked) =>
+                            handleSelectLead(lead.id, checked as boolean)
+                          }
                         />
                       </TableCell>
                       <TableCell>
@@ -714,7 +796,9 @@ export default function AgencyLeads() {
                             <MapPin className="h-3 w-3 mr-1" />
                             {lead.city}, {lead.state}
                           </div>
-                          <div className="text-xs text-gray-500">{lead.zip_code}</div>
+                          <div className="text-xs text-gray-500">
+                            {lead.zip_code}
+                          </div>
                           {!lead.is_unlocked && (
                             <div className="text-xs text-gray-400 flex items-center mt-1">
                               <EyeOff className="h-3 w-3 mr-1" />
@@ -738,19 +822,32 @@ export default function AgencyLeads() {
                         <div>
                           <div className="text-sm">{lead.gmb_category}</div>
                           {lead.price_range && (
-                            <div className="text-xs text-gray-500">{lead.price_range}</div>
+                            <div className="text-xs text-gray-500">
+                              {lead.price_range}
+                            </div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getQualityVariant(lead.lead_quality) as any}>
-                          {LEAD_QUALITY_OPTIONS.find(opt => opt.value === lead.lead_quality)?.label}
+                        <Badge
+                          variant={getQualityVariant(lead.lead_quality) as any}
+                        >
+                          {
+                            LEAD_QUALITY_OPTIONS.find(
+                              (opt) => opt.value === lead.lead_quality,
+                            )?.label
+                          }
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <div className="text-sm font-medium">{lead.lead_score}</div>
-                          <Progress value={lead.data_completeness_score} className="w-16 h-2" />
+                          <div className="text-sm font-medium">
+                            {lead.lead_score}
+                          </div>
+                          <Progress
+                            value={lead.data_completeness_score}
+                            className="w-16 h-2"
+                          />
                         </div>
                       </TableCell>
                       <TableCell>
@@ -774,7 +871,10 @@ export default function AgencyLeads() {
                             <Button
                               size="sm"
                               onClick={() => handleUnlockLead(lead.id)}
-                              disabled={agencyCredits.current_credits < lead.unlock_credits_cost}
+                              disabled={
+                                agencyCredits.current_credits <
+                                lead.unlock_credits_cost
+                              }
                               className="bg-blue-600 hover:bg-blue-700"
                             >
                               <Unlock className="h-3 w-3 mr-1" />
@@ -818,7 +918,9 @@ export default function AgencyLeads() {
             {/* Pagination */}
             <div className="flex items-center justify-between p-4 border-t">
               <div className="text-sm text-gray-500">
-                Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, stats.total_leads)} of {stats.total_leads} leads
+                Showing {(currentPage - 1) * perPage + 1} to{" "}
+                {Math.min(currentPage * perPage, stats.total_leads)} of{" "}
+                {stats.total_leads} leads
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -836,7 +938,9 @@ export default function AgencyLeads() {
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= Math.ceil(stats.total_leads / perPage)}
+                  disabled={
+                    currentPage >= Math.ceil(stats.total_leads / perPage)
+                  }
                 >
                   Next
                 </Button>
@@ -855,28 +959,41 @@ export default function AgencyLeads() {
               <div className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="font-medium">Unlock {bulkUnlockLeads.length} leads?</p>
+                  <p className="font-medium">
+                    Unlock {bulkUnlockLeads.length} leads?
+                  </p>
                   <p className="text-sm text-gray-600">
-                    This will cost {totalUnlockCost} credits and reveal all contact information.
+                    This will cost {totalUnlockCost} credits and reveal all
+                    contact information.
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Current Credits:</span>
-                  <span className="font-medium ml-2">{agencyCredits.current_credits}</span>
+                  <span className="font-medium ml-2">
+                    {agencyCredits.current_credits}
+                  </span>
                 </div>
                 <div>
                   <span className="text-gray-500">After Unlock:</span>
-                  <span className="font-medium ml-2">{agencyCredits.current_credits - totalUnlockCost}</span>
+                  <span className="font-medium ml-2">
+                    {agencyCredits.current_credits - totalUnlockCost}
+                  </span>
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowUnlockDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowUnlockDialog(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={confirmBulkUnlock} className="bg-blue-600 hover:bg-blue-700">
+              <Button
+                onClick={confirmBulkUnlock}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
                 Confirm Unlock
               </Button>
             </DialogFooter>
@@ -891,14 +1008,19 @@ export default function AgencyLeads() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="p-4 bg-green-50 rounded-lg">
-                <p className="font-medium">Assign {selectedUnlockedLeads.length} unlocked leads</p>
+                <p className="font-medium">
+                  Assign {selectedUnlockedLeads.length} unlocked leads
+                </p>
                 <p className="text-sm text-gray-600">
                   These leads will be shared with the selected client.
                 </p>
               </div>
               <div>
                 <Label>Select Client</Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <Select
+                  value={selectedClient}
+                  onValueChange={setSelectedClient}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a client..." />
                   </SelectTrigger>
@@ -913,12 +1035,13 @@ export default function AgencyLeads() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowAssignDialog(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleAssignToClient}>
-                Assign Leads
-              </Button>
+              <Button onClick={handleAssignToClient}>Assign Leads</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
