@@ -332,6 +332,14 @@ export function AppLayout({
       ],
     },
     {
+      id: "tools",
+      label: "Tools",
+      href: "/admin/tools",
+      icon: Settings,
+      active: location.pathname === "/admin/tools",
+      comingSoon: false,
+    },
+    {
       id: "help",
       label: "Help",
       href: "/admin/help",
