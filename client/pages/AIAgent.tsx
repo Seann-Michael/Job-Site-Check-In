@@ -73,6 +73,84 @@ interface AIResponse {
   processing_time: string;
 }
 
+interface TemplatePrompt {
+  id: string;
+  title: string;
+  description: string;
+  prompt: string;
+  category: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const templatePrompts: TemplatePrompt[] = [
+  {
+    id: "seo-audit",
+    title: "SEO Site Audit",
+    description: "Get a comprehensive SEO analysis",
+    prompt: "Please provide a comprehensive SEO audit checklist for my website. Include technical SEO, on-page optimization, content strategy, and link building recommendations.",
+    category: "SEO",
+    icon: Search,
+  },
+  {
+    id: "keyword-research",
+    title: "Keyword Research Strategy",
+    description: "Find profitable keywords for your niche",
+    prompt: "Help me develop a keyword research strategy for my [industry/niche]. I want to find high-value, low-competition keywords that I can realistically rank for.",
+    category: "SEO",
+    icon: Target,
+  },
+  {
+    id: "content-strategy",
+    title: "Content Marketing Plan",
+    description: "Create a content strategy that converts",
+    prompt: "Create a 90-day content marketing strategy for my business. Include content pillars, topic ideas, publishing schedule, and distribution channels that will help me attract and convert my target audience.",
+    category: "Content",
+    icon: FileText,
+  },
+  {
+    id: "competitor-analysis",
+    title: "Competitor Analysis",
+    description: "Analyze your competition effectively",
+    prompt: "Walk me through how to conduct a comprehensive competitor analysis for digital marketing. What should I look for in terms of SEO, content, social media, and paid advertising strategies?",
+    category: "Strategy",
+    icon: TrendingUp,
+  },
+  {
+    id: "local-seo",
+    title: "Local SEO Optimization",
+    description: "Dominate local search results",
+    prompt: "Provide a complete local SEO strategy for my business. Include Google Business Profile optimization, local citations, review management, and location-based content recommendations.",
+    category: "Local SEO",
+    icon: Globe,
+  },
+  {
+    id: "conversion-optimization",
+    title: "Conversion Rate Optimization",
+    description: "Improve your website's conversion rate",
+    prompt: "Help me optimize my website for better conversions. What are the key elements I should test and improve to increase my conversion rate from visitors to customers?",
+    category: "CRO",
+    icon: TrendingUp,
+  },
+  {
+    id: "social-media-strategy",
+    title: "Social Media Strategy",
+    description: "Build a winning social media presence",
+    prompt: "Create a social media marketing strategy for my business. Include platform selection, content types, posting frequency, engagement tactics, and how to measure success.",
+    category: "Social Media",
+    icon: MessageSquare,
+  },
+  {
+    id: "email-marketing",
+    title: "Email Marketing Campaign",
+    description: "Design effective email campaigns",
+    prompt: "Help me design an email marketing campaign that converts. Include email sequences, subject line strategies, content ideas, and automation workflows for lead nurturing.",
+    category: "Email",
+    icon: FileText,
+  },
+];
+
+const categories = ["All", "SEO", "Content", "Strategy", "Local SEO", "CRO", "Social Media", "Email"];
+
 export default function AIAgent() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
