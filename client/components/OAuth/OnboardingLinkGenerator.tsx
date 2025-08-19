@@ -60,6 +60,23 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
   const [generatedLink, setGeneratedLink] = useState<GeneratedLink | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  // Load custom platforms on component mount
+  useEffect(() => {
+    fetchCustomPlatforms();
+  }, []);
+
+  const fetchCustomPlatforms = async () => {
+    try {
+      const response = await fetch('/api/oauth/custom-platforms');
+      if (response.ok) {
+        const data = await response.json();
+        setCustomPlatforms(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching custom platforms:', error);
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: OnboardingFormErrors = {};
 
