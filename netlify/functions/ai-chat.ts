@@ -136,8 +136,9 @@ Each of these elements works together to improve your overall digital presence.`
       // Deduct credits from user account
       const { error: deductError } = await supabase
         .from('user_credits')
-        .update({ 
-          credits_remaining: creditData.credits_remaining - creditsToDeduct,
+        .update({
+          current_credits: creditData.current_credits - creditsToDeduct,
+          total_spent: creditData.total_spent + creditsToDeduct,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
@@ -152,16 +153,9 @@ Each of these elements works together to improve your overall digital presence.`
         .from('credit_transactions')
         .insert({
           user_id: user.id,
-          transaction_type: 'debit',
-          amount: creditsToDeduct,
+          transaction_type: 'usage',
+          credits_amount: creditsToDeduct,
           description: 'AI Agent query (mock)',
-          metadata: {
-            message_length: message.length,
-            response_length: randomResponse.length,
-            actual_cost: actualCost,
-            markup_rate: 150,
-            note: 'Mock response while DataForSEO integration is configured'
-          },
           created_at: new Date().toISOString()
         });
 
