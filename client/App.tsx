@@ -213,6 +213,22 @@ const App = () => (
                     </div>
                   }
                 />
+                <Route
+                  path="/onboard/*"
+                  element={
+                    <div className="min-h-screen bg-background flex items-center justify-center">
+                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
+                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <p className="text-muted-foreground">
+                          This onboarding link is invalid or incomplete. Please check the link provided by your agency.
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Valid onboarding links should include an agency token.
+                        </p>
+                      </div>
+                    </div>
+                  }
+                />
 
                 {/* Protected routes */}
                 <Route
