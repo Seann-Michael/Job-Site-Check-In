@@ -216,6 +216,7 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
       client_email: '',
       client_company: '',
       selected_platforms: [],
+      selected_custom_platforms: [],
       access_level: 'read_only',
       branding: {
         primary_color: '#2563eb',
