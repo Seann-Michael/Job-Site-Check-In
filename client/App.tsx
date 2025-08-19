@@ -937,7 +937,9 @@ const App = () => (
                 />
                 <Route
                   path="/AgencyClientAccess"
-                  element={<Navigate to="/agency/admin/client-access" replace />}
+                  element={
+                    <Navigate to="/agency/admin/client-access" replace />
+                  }
                 />
 
                 {/* Builder.io compatibility routes (URLs without separators) */}

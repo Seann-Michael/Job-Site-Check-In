@@ -1,6 +1,6 @@
-import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
@@ -14,10 +14,10 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 
 const headers = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Content-Type': 'application/json',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Content-Type": "application/json",
 };
 
 interface OAuthConfig {
@@ -32,58 +32,58 @@ interface OAuthConfig {
 // OAuth configurations for each platform
 const getOAuthConfig = (platform: string, baseUrl: string): OAuthConfig => {
   const redirectUri = `${baseUrl}/api/oauth/${platform}/callback`;
-  
+
   switch (platform) {
-    case 'google_ads':
+    case "google_ads":
       return {
         clientId: GOOGLE_CLIENT_ID!,
         clientSecret: GOOGLE_CLIENT_SECRET!,
-        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        scopes: ['https://www.googleapis.com/auth/adwords'],
-        redirectUri
+        authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenUrl: "https://oauth2.googleapis.com/token",
+        scopes: ["https://www.googleapis.com/auth/adwords"],
+        redirectUri,
       };
-    
-    case 'google_analytics':
+
+    case "google_analytics":
       return {
         clientId: GOOGLE_CLIENT_ID!,
         clientSecret: GOOGLE_CLIENT_SECRET!,
-        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        scopes: ['https://www.googleapis.com/auth/analytics.readonly'],
-        redirectUri
+        authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenUrl: "https://oauth2.googleapis.com/token",
+        scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+        redirectUri,
       };
-    
-    case 'google_search_console':
+
+    case "google_search_console":
       return {
         clientId: GOOGLE_CLIENT_ID!,
         clientSecret: GOOGLE_CLIENT_SECRET!,
-        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        scopes: ['https://www.googleapis.com/auth/webmasters.readonly'],
-        redirectUri
+        authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenUrl: "https://oauth2.googleapis.com/token",
+        scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
+        redirectUri,
       };
-    
-    case 'google_my_business':
+
+    case "google_my_business":
       return {
         clientId: GOOGLE_CLIENT_ID!,
         clientSecret: GOOGLE_CLIENT_SECRET!,
-        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        scopes: ['https://www.googleapis.com/auth/business.manage'],
-        redirectUri
+        authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenUrl: "https://oauth2.googleapis.com/token",
+        scopes: ["https://www.googleapis.com/auth/business.manage"],
+        redirectUri,
       };
-    
-    case 'meta_ads':
+
+    case "meta_ads":
       return {
         clientId: META_APP_ID!,
         clientSecret: META_APP_SECRET!,
-        authUrl: 'https://www.facebook.com/v18.0/dialog/oauth',
-        tokenUrl: 'https://graph.facebook.com/v18.0/oauth/access_token',
-        scopes: ['ads_management', 'ads_read', 'business_management'],
-        redirectUri
+        authUrl: "https://www.facebook.com/v18.0/dialog/oauth",
+        tokenUrl: "https://graph.facebook.com/v18.0/oauth/access_token",
+        scopes: ["ads_management", "ads_read", "business_management"],
+        redirectUri,
       };
-    
+
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
@@ -93,72 +93,73 @@ const getOAuthConfig = (platform: string, baseUrl: string): OAuthConfig => {
 async function startOAuthFlow(event: HandlerEvent, platform: string) {
   try {
     const params = new URLSearchParams(event.queryStringParameters || {});
-    const token = params.get('token');
-    
+    const token = params.get("token");
+
     if (!token) {
-      throw new Error('Onboarding token is required');
+      throw new Error("Onboarding token is required");
     }
-    
+
     // Verify onboarding session
     const { data: session, error } = await supabase
-      .from('onboarding_sessions')
-      .select('*')
-      .eq('onboarding_token', token)
+      .from("onboarding_sessions")
+      .select("*")
+      .eq("onboarding_token", token)
       .single();
-    
+
     if (error || !session) {
-      throw new Error('Invalid onboarding session');
+      throw new Error("Invalid onboarding session");
     }
-    
+
     if (new Date(session.expires_at) < new Date()) {
-      throw new Error('Onboarding session expired');
+      throw new Error("Onboarding session expired");
     }
-    
+
     // Check if platform is required for this session
     if (!session.required_platforms.includes(platform)) {
-      throw new Error('Platform not required for this session');
+      throw new Error("Platform not required for this session");
     }
-    
-    const baseUrl = process.env.VITE_APP_URL || event.headers.origin || 'https://localhost:3000';
+
+    const baseUrl =
+      process.env.VITE_APP_URL ||
+      event.headers.origin ||
+      "https://localhost:3000";
     const config = getOAuthConfig(platform, baseUrl);
-    
+
     // Generate state parameter for security
-    const state = crypto.randomBytes(32).toString('base64url');
-    
+    const state = crypto.randomBytes(32).toString("base64url");
+
     // Store state and session info temporarily
-    await supabase
-      .from('oauth_activity_log')
-      .insert({
-        session_id: session.id,
-        platform,
-        event_type: 'oauth_started',
-        event_data: { state }
-      });
-    
+    await supabase.from("oauth_activity_log").insert({
+      session_id: session.id,
+      platform,
+      event_type: "oauth_started",
+      event_data: { state },
+    });
+
     // Build authorization URL
     const authUrl = new URL(config.authUrl);
-    authUrl.searchParams.set('client_id', config.clientId);
-    authUrl.searchParams.set('redirect_uri', config.redirectUri);
-    authUrl.searchParams.set('scope', config.scopes.join(' '));
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('state', `${state}:${token}`);
-    authUrl.searchParams.set('access_type', 'offline'); // For Google APIs
-    authUrl.searchParams.set('prompt', 'consent'); // Force consent for refresh token
-    
+    authUrl.searchParams.set("client_id", config.clientId);
+    authUrl.searchParams.set("redirect_uri", config.redirectUri);
+    authUrl.searchParams.set("scope", config.scopes.join(" "));
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("state", `${state}:${token}`);
+    authUrl.searchParams.set("access_type", "offline"); // For Google APIs
+    authUrl.searchParams.set("prompt", "consent"); // Force consent for refresh token
+
     // Redirect to OAuth provider
     return {
       statusCode: 302,
       headers: {
         ...headers,
-        'Location': authUrl.toString()
+        Location: authUrl.toString(),
       },
-      body: ''
+      body: "",
     };
   } catch (error) {
     return {
       statusCode: 400,
       headers,
-      body: JSON.stringify({ error: (error as Error).message })
+      body: JSON.stringify({ error: (error as Error).message }),
     };
   }
 }
@@ -167,72 +168,74 @@ async function startOAuthFlow(event: HandlerEvent, platform: string) {
 async function handleOAuthCallback(event: HandlerEvent, platform: string) {
   try {
     const params = new URLSearchParams(event.queryStringParameters || {});
-    const code = params.get('code');
-    const state = params.get('state');
-    const error = params.get('error');
-    
+    const code = params.get("code");
+    const state = params.get("state");
+    const error = params.get("error");
+
     if (error) {
       throw new Error(`OAuth error: ${error}`);
     }
-    
+
     if (!code || !state) {
-      throw new Error('Missing authorization code or state');
+      throw new Error("Missing authorization code or state");
     }
-    
+
     // Parse state to get original token
-    const [stateParam, token] = state.split(':');
-    
+    const [stateParam, token] = state.split(":");
+
     if (!token) {
-      throw new Error('Invalid state parameter');
+      throw new Error("Invalid state parameter");
     }
-    
+
     // Verify onboarding session
     const { data: session, error: sessionError } = await supabase
-      .from('onboarding_sessions')
-      .select('*')
-      .eq('onboarding_token', token)
+      .from("onboarding_sessions")
+      .select("*")
+      .eq("onboarding_token", token)
       .single();
-    
+
     if (sessionError || !session) {
-      throw new Error('Invalid onboarding session');
+      throw new Error("Invalid onboarding session");
     }
-    
-    const baseUrl = process.env.VITE_APP_URL || event.headers.origin || 'https://localhost:3000';
+
+    const baseUrl =
+      process.env.VITE_APP_URL ||
+      event.headers.origin ||
+      "https://localhost:3000";
     const config = getOAuthConfig(platform, baseUrl);
-    
+
     // Exchange code for access token
     const tokenResponse = await exchangeCodeForToken(code, config, platform);
-    
+
     // Get account information
-    const accountInfo = await getAccountInfo(tokenResponse.access_token, platform);
-    
+    const accountInfo = await getAccountInfo(
+      tokenResponse.access_token,
+      platform,
+    );
+
     // Store access credentials
-    await supabase
-      .from('client_access')
-      .upsert({
-        session_id: session.id,
-        platform,
-        access_token: tokenResponse.access_token,
-        refresh_token: tokenResponse.refresh_token,
-        token_expires_at: tokenResponse.expires_at,
-        account_info: accountInfo,
-        permissions: config.scopes,
-        scopes: config.scopes,
-        status: 'connected',
-        is_active: true,
-        last_sync_at: new Date().toISOString()
-      });
-    
+    await supabase.from("client_access").upsert({
+      session_id: session.id,
+      platform,
+      access_token: tokenResponse.access_token,
+      refresh_token: tokenResponse.refresh_token,
+      token_expires_at: tokenResponse.expires_at,
+      account_info: accountInfo,
+      permissions: config.scopes,
+      scopes: config.scopes,
+      status: "connected",
+      is_active: true,
+      last_sync_at: new Date().toISOString(),
+    });
+
     // Log successful connection
-    await supabase
-      .from('oauth_activity_log')
-      .insert({
-        session_id: session.id,
-        platform,
-        event_type: 'oauth_success',
-        event_data: { accountInfo }
-      });
-    
+    await supabase.from("oauth_activity_log").insert({
+      session_id: session.id,
+      platform,
+      event_type: "oauth_success",
+      event_data: { accountInfo },
+    });
+
     // Return success page with postMessage to parent window
     const successHtml = `
       <!DOCTYPE html>
@@ -287,13 +290,17 @@ async function handleOAuthCallback(event: HandlerEvent, platform: string) {
         <div class="container">
           <div class="success-icon">✓</div>
           <h1>Successfully Connected!</h1>
-          <p>Your ${platform.replace('_', ' ')} account has been connected.</p>
-          ${accountInfo.accountName ? `
+          <p>Your ${platform.replace("_", " ")} account has been connected.</p>
+          ${
+            accountInfo.accountName
+              ? `
             <div class="account-info">
               <strong>Account:</strong> ${accountInfo.accountName}
-              ${accountInfo.email ? `<br><strong>Email:</strong> ${accountInfo.email}` : ''}
+              ${accountInfo.email ? `<br><strong>Email:</strong> ${accountInfo.email}` : ""}
             </div>
-          ` : ''}
+          `
+              : ""
+          }
           <p>You can close this window and continue with the onboarding process.</p>
           <button onclick="window.close()">Close Window</button>
         </div>
@@ -319,49 +326,50 @@ async function handleOAuthCallback(event: HandlerEvent, platform: string) {
       </body>
       </html>
     `;
-    
+
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': 'text/html'
+        "Content-Type": "text/html",
       },
-      body: successHtml
+      body: successHtml,
     };
   } catch (error) {
-    console.error('OAuth callback error:', error);
-    
+    console.error("OAuth callback error:", error);
+
     // Log error
     if (error instanceof Error) {
       try {
         const params = new URLSearchParams(event.queryStringParameters || {});
-        const state = params.get('state');
-        const [, token] = (state || '').split(':');
-        
+        const state = params.get("state");
+        const [, token] = (state || "").split(":");
+
         if (token) {
           const { data: session } = await supabase
-            .from('onboarding_sessions')
-            .select('id')
-            .eq('onboarding_token', token)
+            .from("onboarding_sessions")
+            .select("id")
+            .eq("onboarding_token", token)
             .single();
-          
+
           if (session) {
-            await supabase
-              .from('oauth_activity_log')
-              .insert({
-                session_id: session.id,
-                platform,
-                event_type: 'oauth_error',
-                event_data: { error: error.message }
-              });
+            await supabase.from("oauth_activity_log").insert({
+              session_id: session.id,
+              platform,
+              event_type: "oauth_error",
+              event_data: { error: error.message },
+            });
           }
         }
       } catch (logError) {
-        console.error('Failed to log OAuth error:', logError);
+        console.error("Failed to log OAuth error:", logError);
       }
     }
-    
-    const baseUrl = process.env.VITE_APP_URL || event.headers.origin || 'https://localhost:3000';
-    
+
+    const baseUrl =
+      process.env.VITE_APP_URL ||
+      event.headers.origin ||
+      "https://localhost:3000";
+
     // Return error page
     const errorHtml = `
       <!DOCTYPE html>
@@ -420,7 +428,7 @@ async function handleOAuthCallback(event: HandlerEvent, platform: string) {
         <div class="container">
           <div class="error-icon">✗</div>
           <h1>Connection Failed</h1>
-          <p>We couldn't connect your ${platform.replace('_', ' ')} account.</p>
+          <p>We couldn't connect your ${platform.replace("_", " ")} account.</p>
           <div class="error-message">
             ${(error as Error).message}
           </div>
@@ -448,42 +456,46 @@ async function handleOAuthCallback(event: HandlerEvent, platform: string) {
       </body>
       </html>
     `;
-    
+
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': 'text/html'
+        "Content-Type": "text/html",
       },
-      body: errorHtml
+      body: errorHtml,
     };
   }
 }
 
 // Helper function to exchange authorization code for access token
-async function exchangeCodeForToken(code: string, config: OAuthConfig, platform: string) {
+async function exchangeCodeForToken(
+  code: string,
+  config: OAuthConfig,
+  platform: string,
+) {
   const tokenData = new URLSearchParams({
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     code,
     redirect_uri: config.redirectUri,
     client_id: config.clientId,
-    client_secret: config.clientSecret
+    client_secret: config.clientSecret,
   });
-  
+
   const response = await fetch(config.tokenUrl, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: tokenData.toString()
+    body: tokenData.toString(),
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Token exchange failed: ${errorText}`);
   }
-  
+
   const tokenResponse = await response.json();
-  
+
   // Calculate token expiry
   let expiresAt = null;
   if (tokenResponse.expires_in) {
@@ -491,222 +503,243 @@ async function exchangeCodeForToken(code: string, config: OAuthConfig, platform:
     expiryDate.setSeconds(expiryDate.getSeconds() + tokenResponse.expires_in);
     expiresAt = expiryDate.toISOString();
   }
-  
+
   return {
     access_token: tokenResponse.access_token,
     refresh_token: tokenResponse.refresh_token,
-    expires_at: expiresAt
+    expires_at: expiresAt,
   };
 }
 
 // Helper function to get account information from each platform
 async function getAccountInfo(accessToken: string, platform: string) {
   switch (platform) {
-    case 'google_ads':
+    case "google_ads":
       return await getGoogleAdsAccountInfo(accessToken);
-    case 'google_analytics':
+    case "google_analytics":
       return await getGoogleAnalyticsAccountInfo(accessToken);
-    case 'google_search_console':
+    case "google_search_console":
       return await getGoogleSearchConsoleAccountInfo(accessToken);
-    case 'google_my_business':
+    case "google_my_business":
       return await getGoogleMyBusinessAccountInfo(accessToken);
-    case 'meta_ads':
+    case "meta_ads":
       return await getMetaAdsAccountInfo(accessToken);
     default:
-      return { accountName: 'Unknown Account', platform };
+      return { accountName: "Unknown Account", platform };
   }
 }
 
 async function getGoogleAdsAccountInfo(accessToken: string) {
   try {
-    const response = await fetch('https://googleads.googleapis.com/v14/customers:listAccessibleCustomers', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN || ''
-      }
-    });
-    
+    const response = await fetch(
+      "https://googleads.googleapis.com/v14/customers:listAccessibleCustomers",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",
+        },
+      },
+    );
+
     if (!response.ok) {
-      throw new Error('Failed to fetch Google Ads account info');
+      throw new Error("Failed to fetch Google Ads account info");
     }
-    
+
     const data = await response.json();
-    const customerId = data.resourceNames?.[0]?.split('/')?.pop();
-    
+    const customerId = data.resourceNames?.[0]?.split("/")?.pop();
+
     if (customerId) {
       // Get customer details
-      const customerResponse = await fetch(`https://googleads.googleapis.com/v14/customers/${customerId}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN || ''
-        }
-      });
-      
+      const customerResponse = await fetch(
+        `https://googleads.googleapis.com/v14/customers/${customerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",
+          },
+        },
+      );
+
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
         return {
           accountId: customerId,
-          accountName: customerData.descriptiveName || `Google Ads Account ${customerId}`,
-          platform: 'google_ads'
+          accountName:
+            customerData.descriptiveName || `Google Ads Account ${customerId}`,
+          platform: "google_ads",
         };
       }
     }
-    
+
     return {
-      accountId: customerId || 'unknown',
-      accountName: 'Google Ads Account',
-      platform: 'google_ads'
+      accountId: customerId || "unknown",
+      accountName: "Google Ads Account",
+      platform: "google_ads",
     };
   } catch (error) {
-    console.error('Error getting Google Ads account info:', error);
+    console.error("Error getting Google Ads account info:", error);
     return {
-      accountName: 'Google Ads Account',
-      platform: 'google_ads'
+      accountName: "Google Ads Account",
+      platform: "google_ads",
     };
   }
 }
 
 async function getGoogleAnalyticsAccountInfo(accessToken: string) {
   try {
-    const response = await fetch('https://analyticsadmin.googleapis.com/v1beta/accounts', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
+    const response = await fetch(
+      "https://analyticsadmin.googleapis.com/v1beta/accounts",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
     if (!response.ok) {
-      throw new Error('Failed to fetch Google Analytics account info');
+      throw new Error("Failed to fetch Google Analytics account info");
     }
-    
+
     const data = await response.json();
     const account = data.accounts?.[0];
-    
+
     return {
-      accountId: account?.name || 'unknown',
-      accountName: account?.displayName || 'Google Analytics Account',
-      platform: 'google_analytics'
+      accountId: account?.name || "unknown",
+      accountName: account?.displayName || "Google Analytics Account",
+      platform: "google_analytics",
     };
   } catch (error) {
-    console.error('Error getting Google Analytics account info:', error);
+    console.error("Error getting Google Analytics account info:", error);
     return {
-      accountName: 'Google Analytics Account',
-      platform: 'google_analytics'
+      accountName: "Google Analytics Account",
+      platform: "google_analytics",
     };
   }
 }
 
 async function getGoogleSearchConsoleAccountInfo(accessToken: string) {
   try {
-    const response = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
+    const response = await fetch(
+      "https://www.googleapis.com/webmasters/v3/sites",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
     if (!response.ok) {
-      throw new Error('Failed to fetch Search Console account info');
+      throw new Error("Failed to fetch Search Console account info");
     }
-    
+
     const data = await response.json();
     const site = data.siteEntry?.[0];
-    
+
     return {
-      accountId: site?.siteUrl || 'unknown',
-      accountName: site?.siteUrl || 'Google Search Console',
-      platform: 'google_search_console'
+      accountId: site?.siteUrl || "unknown",
+      accountName: site?.siteUrl || "Google Search Console",
+      platform: "google_search_console",
     };
   } catch (error) {
-    console.error('Error getting Google Search Console account info:', error);
+    console.error("Error getting Google Search Console account info:", error);
     return {
-      accountName: 'Google Search Console',
-      platform: 'google_search_console'
+      accountName: "Google Search Console",
+      platform: "google_search_console",
     };
   }
 }
 
 async function getGoogleMyBusinessAccountInfo(accessToken: string) {
   try {
-    const response = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
+    const response = await fetch(
+      "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
     if (!response.ok) {
-      throw new Error('Failed to fetch Google My Business account info');
+      throw new Error("Failed to fetch Google My Business account info");
     }
-    
+
     const data = await response.json();
     const account = data.accounts?.[0];
-    
+
     return {
-      accountId: account?.name || 'unknown',
-      accountName: account?.accountName || 'Google My Business',
-      platform: 'google_my_business'
+      accountId: account?.name || "unknown",
+      accountName: account?.accountName || "Google My Business",
+      platform: "google_my_business",
     };
   } catch (error) {
-    console.error('Error getting Google My Business account info:', error);
+    console.error("Error getting Google My Business account info:", error);
     return {
-      accountName: 'Google My Business',
-      platform: 'google_my_business'
+      accountName: "Google My Business",
+      platform: "google_my_business",
     };
   }
 }
 
 async function getMetaAdsAccountInfo(accessToken: string) {
   try {
-    const response = await fetch(`https://graph.facebook.com/v18.0/me/adaccounts?access_token=${accessToken}`);
-    
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/me/adaccounts?access_token=${accessToken}`,
+    );
+
     if (!response.ok) {
-      throw new Error('Failed to fetch Meta Ads account info');
+      throw new Error("Failed to fetch Meta Ads account info");
     }
-    
+
     const data = await response.json();
     const account = data.data?.[0];
-    
+
     return {
-      accountId: account?.id || 'unknown',
-      accountName: account?.name || 'Meta Ads Account',
-      platform: 'meta_ads'
+      accountId: account?.id || "unknown",
+      accountName: account?.name || "Meta Ads Account",
+      platform: "meta_ads",
     };
   } catch (error) {
-    console.error('Error getting Meta Ads account info:', error);
+    console.error("Error getting Meta Ads account info:", error);
     return {
-      accountName: 'Meta Ads Account',
-      platform: 'meta_ads'
+      accountName: "Meta Ads Account",
+      platform: "meta_ads",
     };
   }
 }
 
 // Main handler
-export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+export const handler: Handler = async (
+  event: HandlerEvent,
+  context: HandlerContext,
+) => {
   // Handle CORS preflight
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
   }
 
-  const path = event.path.replace('/api/', '');
-  const pathParts = path.split('/');
+  const path = event.path.replace("/api/", "");
+  const pathParts = path.split("/");
 
   try {
-    if (pathParts[0] === 'oauth' && pathParts[2] === 'authorize') {
+    if (pathParts[0] === "oauth" && pathParts[2] === "authorize") {
       return await startOAuthFlow(event, pathParts[1]);
     }
-    
-    if (pathParts[0] === 'oauth' && pathParts[2] === 'callback') {
+
+    if (pathParts[0] === "oauth" && pathParts[2] === "callback") {
       return await handleOAuthCallback(event, pathParts[1]);
     }
 
     return {
       statusCode: 404,
       headers,
-      body: JSON.stringify({ error: 'Endpoint not found' })
+      body: JSON.stringify({ error: "Endpoint not found" }),
     };
   } catch (error) {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: "Internal server error" }),
     };
   }
 };

@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Badge } from '../ui/badge';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Badge } from "../ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from "../ui/select";
 import {
   Dialog,
   DialogContent,
@@ -19,35 +25,35 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../ui/dialog';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '../ui/table';
+} from "../ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
-import { Checkbox } from '../ui/checkbox';
-import { Alert, AlertDescription } from '../ui/alert';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
+} from "../ui/dropdown-menu";
+import { Checkbox } from "../ui/checkbox";
+import { Alert, AlertDescription } from "../ui/alert";
+import {
+  Plus,
+  Edit,
+  Trash2,
   MoreHorizontal,
   Save,
   X,
   Info,
   Settings,
-  Eye
-} from 'lucide-react';
-import { CustomPlatform, CustomPlatformField } from '../../types/oauth';
+  Eye,
+} from "lucide-react";
+import { CustomPlatform, CustomPlatformField } from "../../types/oauth";
 
 interface CustomPlatformManagerProps {
   onPlatformsUpdated?: () => void;
@@ -61,54 +67,54 @@ interface CustomPlatformFormProps {
 }
 
 const fieldTypeOptions = [
-  { value: 'text', label: 'Text Input' },
-  { value: 'textarea', label: 'Long Text (Textarea)' },
-  { value: 'email', label: 'Email Address' },
-  { value: 'url', label: 'Website URL' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Dropdown (Select)' },
-  { value: 'checkbox', label: 'Checkbox' }
+  { value: "text", label: "Text Input" },
+  { value: "textarea", label: "Long Text (Textarea)" },
+  { value: "email", label: "Email Address" },
+  { value: "url", label: "Website URL" },
+  { value: "number", label: "Number" },
+  { value: "select", label: "Dropdown (Select)" },
+  { value: "checkbox", label: "Checkbox" },
 ];
 
 const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
   platform,
   isOpen,
   onClose,
-  onSave
+  onSave,
 }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    instructions: '',
-    icon_url: '',
-    fields: [] as CustomPlatformField[]
+    name: "",
+    description: "",
+    instructions: "",
+    icon_url: "",
+    fields: [] as CustomPlatformField[],
   });
 
   const [newField, setNewField] = useState<Partial<CustomPlatformField>>({
-    type: 'text',
-    label: '',
-    placeholder: '',
+    type: "text",
+    label: "",
+    placeholder: "",
     required: false,
     options: [],
-    description: ''
+    description: "",
   });
 
   useEffect(() => {
     if (platform) {
       setFormData({
         name: platform.name,
-        description: platform.description || '',
+        description: platform.description || "",
         instructions: platform.instructions,
-        icon_url: platform.icon_url || '',
-        fields: platform.fields
+        icon_url: platform.icon_url || "",
+        fields: platform.fields,
       });
     } else {
       setFormData({
-        name: '',
-        description: '',
-        instructions: '',
-        icon_url: '',
-        fields: []
+        name: "",
+        description: "",
+        instructions: "",
+        icon_url: "",
+        fields: [],
       });
     }
   }, [platform, isOpen]);
@@ -118,33 +124,33 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
 
     const field: CustomPlatformField = {
       id: `field_${Date.now()}`,
-      type: newField.type as CustomPlatformField['type'],
+      type: newField.type as CustomPlatformField["type"],
       label: newField.label,
-      placeholder: newField.placeholder || '',
+      placeholder: newField.placeholder || "",
       required: newField.required || false,
-      options: newField.type === 'select' ? newField.options : undefined,
-      description: newField.description || ''
+      options: newField.type === "select" ? newField.options : undefined,
+      description: newField.description || "",
     };
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      fields: [...prev.fields, field]
+      fields: [...prev.fields, field],
     }));
 
     setNewField({
-      type: 'text',
-      label: '',
-      placeholder: '',
+      type: "text",
+      label: "",
+      placeholder: "",
       required: false,
       options: [],
-      description: ''
+      description: "",
     });
   };
 
   const removeField = (fieldId: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      fields: prev.fields.filter(f => f.id !== fieldId)
+      fields: prev.fields.filter((f) => f.id !== fieldId),
     }));
   };
 
@@ -162,10 +168,11 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {platform ? 'Edit Custom Platform' : 'Create Custom Platform'}
+            {platform ? "Edit Custom Platform" : "Create Custom Platform"}
           </DialogTitle>
           <DialogDescription>
-            Create a custom platform connection that clients can complete during onboarding
+            Create a custom platform connection that clients can complete during
+            onboarding
           </DialogDescription>
         </DialogHeader>
 
@@ -179,7 +186,9 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder="e.g., CRM Integration"
                 />
               </div>
@@ -188,7 +197,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
                 <Input
                   id="icon_url"
                   value={formData.icon_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, icon_url: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      icon_url: e.target.value,
+                    }))
+                  }
                   placeholder="https://example.com/icon.png"
                 />
               </div>
@@ -198,7 +212,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
               <Input
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 placeholder="Brief description of what this platform does"
               />
             </div>
@@ -207,7 +226,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
               <Textarea
                 id="instructions"
                 value={formData.instructions}
-                onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    instructions: e.target.value,
+                  }))
+                }
                 placeholder="Provide clear instructions for what the client needs to do or provide..."
                 rows={4}
               />
@@ -218,7 +242,8 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Custom Fields</h3>
             <p className="text-sm text-muted-foreground">
-              Add fields that clients need to fill out to complete this platform connection.
+              Add fields that clients need to fill out to complete this platform
+              connection.
             </p>
 
             {/* Existing Fields */}
@@ -226,22 +251,35 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
               <div className="space-y-2">
                 <h4 className="font-medium">Current Fields</h4>
                 <div className="space-y-2">
-                  {formData.fields.map(field => (
-                    <div key={field.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  {formData.fields.map((field) => (
+                    <div
+                      key={field.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{field.label}</span>
                           <Badge variant="secondary" className="text-xs">
-                            {fieldTypeOptions.find(opt => opt.value === field.type)?.label}
+                            {
+                              fieldTypeOptions.find(
+                                (opt) => opt.value === field.type,
+                              )?.label
+                            }
                           </Badge>
-                          {field.required && <Badge variant="destructive" className="text-xs">Required</Badge>}
+                          {field.required && (
+                            <Badge variant="destructive" className="text-xs">
+                              Required
+                            </Badge>
+                          )}
                         </div>
                         {field.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{field.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {field.description}
+                          </p>
                         )}
                         {field.options && field.options.length > 0 && (
                           <p className="text-sm text-muted-foreground mt-1">
-                            Options: {field.options.join(', ')}
+                            Options: {field.options.join(", ")}
                           </p>
                         )}
                       </div>
@@ -264,15 +302,20 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div className="space-y-2">
                   <Label>Field Type</Label>
-                  <Select 
-                    value={newField.type} 
-                    onValueChange={(value) => setNewField(prev => ({ ...prev, type: value as CustomPlatformField['type'] }))}
+                  <Select
+                    value={newField.type}
+                    onValueChange={(value) =>
+                      setNewField((prev) => ({
+                        ...prev,
+                        type: value as CustomPlatformField["type"],
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {fieldTypeOptions.map(option => (
+                      {fieldTypeOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -284,7 +327,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
                   <Label>Field Label</Label>
                   <Input
                     value={newField.label}
-                    onChange={(e) => setNewField(prev => ({ ...prev, label: e.target.value }))}
+                    onChange={(e) =>
+                      setNewField((prev) => ({
+                        ...prev,
+                        label: e.target.value,
+                      }))
+                    }
                     placeholder="e.g., Account Username"
                   />
                 </div>
@@ -294,7 +342,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
                   <Label>Placeholder Text</Label>
                   <Input
                     value={newField.placeholder}
-                    onChange={(e) => setNewField(prev => ({ ...prev, placeholder: e.target.value }))}
+                    onChange={(e) =>
+                      setNewField((prev) => ({
+                        ...prev,
+                        placeholder: e.target.value,
+                      }))
+                    }
                     placeholder="Help text for the field"
                   />
                 </div>
@@ -302,21 +355,30 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
                   <Label>Description</Label>
                   <Input
                     value={newField.description}
-                    onChange={(e) => setNewField(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setNewField((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
                     placeholder="Additional context for this field"
                   />
                 </div>
               </div>
-              
-              {newField.type === 'select' && (
+
+              {newField.type === "select" && (
                 <div className="space-y-2 mb-3">
                   <Label>Options (one per line)</Label>
                   <Textarea
-                    value={newField.options?.join('\n') || ''}
-                    onChange={(e) => setNewField(prev => ({ 
-                      ...prev, 
-                      options: e.target.value.split('\n').filter(opt => opt.trim()) 
-                    }))}
+                    value={newField.options?.join("\n") || ""}
+                    onChange={(e) =>
+                      setNewField((prev) => ({
+                        ...prev,
+                        options: e.target.value
+                          .split("\n")
+                          .filter((opt) => opt.trim()),
+                      }))
+                    }
                     placeholder="Option 1&#10;Option 2&#10;Option 3"
                     rows={3}
                   />
@@ -328,7 +390,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
                   <Checkbox
                     id="required"
                     checked={newField.required}
-                    onCheckedChange={(checked) => setNewField(prev => ({ ...prev, required: checked === true }))}
+                    onCheckedChange={(checked) =>
+                      setNewField((prev) => ({
+                        ...prev,
+                        required: checked === true,
+                      }))
+                    }
                   />
                   <Label htmlFor="required">Required field</Label>
                 </div>
@@ -345,9 +412,12 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name.trim() || !formData.instructions.trim()}>
+            <Button
+              onClick={handleSave}
+              disabled={!formData.name.trim() || !formData.instructions.trim()}
+            >
               <Save className="h-4 w-4 mr-2" />
-              {platform ? 'Update Platform' : 'Create Platform'}
+              {platform ? "Update Platform" : "Create Platform"}
             </Button>
           </div>
         </div>
@@ -356,10 +426,13 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
   );
 };
 
-export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ onPlatformsUpdated }) => {
+export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({
+  onPlatformsUpdated,
+}) => {
   const [platforms, setPlatforms] = useState<CustomPlatform[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPlatform, setSelectedPlatform] = useState<CustomPlatform | null>(null);
+  const [selectedPlatform, setSelectedPlatform] =
+    useState<CustomPlatform | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
@@ -370,16 +443,16 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
     try {
       setLoading(true);
       // TODO: Replace with actual API call
-      const response = await fetch('/api/oauth/custom-platforms');
+      const response = await fetch("/api/oauth/custom-platforms");
       if (response.ok) {
         const data = await response.json();
         setPlatforms(data.data || []);
       } else {
-        console.warn('Custom platforms API not available');
+        console.warn("Custom platforms API not available");
         setPlatforms([]);
       }
     } catch (error) {
-      console.error('Error fetching custom platforms:', error);
+      console.error("Error fetching custom platforms:", error);
       setPlatforms([]);
     } finally {
       setLoading(false);
@@ -388,15 +461,15 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
 
   const savePlatform = async (platformData: Partial<CustomPlatform>) => {
     try {
-      const method = selectedPlatform ? 'PUT' : 'POST';
-      const url = selectedPlatform 
+      const method = selectedPlatform ? "PUT" : "POST";
+      const url = selectedPlatform
         ? `/api/oauth/custom-platforms/${selectedPlatform.id}`
-        : '/api/oauth/custom-platforms';
+        : "/api/oauth/custom-platforms";
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(platformData)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(platformData),
       });
 
       if (response.ok) {
@@ -405,22 +478,25 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
         setSelectedPlatform(null);
       }
     } catch (error) {
-      console.error('Error saving platform:', error);
+      console.error("Error saving platform:", error);
     }
   };
 
   const deletePlatform = async (platformId: string) => {
     try {
-      const response = await fetch(`/api/oauth/custom-platforms/${platformId}`, {
-        method: 'DELETE'
-      });
+      const response = await fetch(
+        `/api/oauth/custom-platforms/${platformId}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (response.ok) {
         fetchPlatforms();
         onPlatformsUpdated?.();
       }
     } catch (error) {
-      console.error('Error deleting platform:', error);
+      console.error("Error deleting platform:", error);
     }
   };
 
@@ -439,7 +515,9 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
       <div className="flex items-center justify-center min-h-32">
         <div className="text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-sm text-muted-foreground">Loading custom platforms...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading custom platforms...
+          </p>
         </div>
       </div>
     );
@@ -467,7 +545,8 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
               <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <h4 className="font-medium mb-2">No Custom Platforms Yet</h4>
               <p className="text-sm mb-4">
-                Create custom platform connections for services not in our standard list.
+                Create custom platform connections for services not in our
+                standard list.
               </p>
               <Button onClick={handleCreate}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -489,13 +568,13 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
               </TableRow>
             </TableHeader>
             <TableBody>
-              {platforms.map(platform => (
+              {platforms.map((platform) => (
                 <TableRow key={platform.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {platform.icon_url && (
-                        <img 
-                          src={platform.icon_url} 
+                        <img
+                          src={platform.icon_url}
                           alt={platform.name}
                           className="w-6 h-6 object-contain"
                         />
@@ -503,7 +582,8 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
                       <div>
                         <div className="font-medium">{platform.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          Created {new Date(platform.created_at).toLocaleDateString()}
+                          Created{" "}
+                          {new Date(platform.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
@@ -511,14 +591,18 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
                   <TableCell>
                     <div className="max-w-xs">
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {platform.description || 'No description'}
+                        {platform.description || "No description"}
                       </p>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {platform.fields.slice(0, 3).map(field => (
-                        <Badge key={field.id} variant="outline" className="text-xs">
+                      {platform.fields.slice(0, 3).map((field) => (
+                        <Badge
+                          key={field.id}
+                          variant="outline"
+                          className="text-xs"
+                        >
                           {field.label}
                         </Badge>
                       ))}
@@ -530,8 +614,10 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={platform.is_active ? 'default' : 'secondary'}>
-                      {platform.is_active ? 'Active' : 'Inactive'}
+                    <Badge
+                      variant={platform.is_active ? "default" : "secondary"}
+                    >
+                      {platform.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -546,7 +632,7 @@ export const CustomPlatformManager: React.FC<CustomPlatformManagerProps> = ({ on
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => deletePlatform(platform.id)}
                           className="text-red-600"
                         >
