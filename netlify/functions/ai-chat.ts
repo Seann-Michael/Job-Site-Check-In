@@ -12,6 +12,7 @@ const DATAFORSEO_PASSWORD = process.env.DATAFORSEO_PASSWORD;
 
 interface AIRequest {
   message: string;
+  session_id?: string;
 }
 
 const handler: Handler = async (event, context) => {
