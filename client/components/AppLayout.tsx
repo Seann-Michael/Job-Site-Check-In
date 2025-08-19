@@ -342,6 +342,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "ai-agent",
+      label: "AI Agent",
+      href: "/admin/ai-agent",
+      icon: Bot,
+      active: location.pathname === "/admin/ai-agent",
+      comingSoon: false,
+    },
+    {
       id: "help",
       label: "Help",
       href: "/admin/help",
