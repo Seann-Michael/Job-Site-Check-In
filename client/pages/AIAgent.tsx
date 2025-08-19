@@ -1005,30 +1005,63 @@ export default function AIAgent() {
 
                 {/* Input Area */}
                 <div className="border-t p-3 md:p-4">
-                  <div className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <textarea
-                        ref={textareaRef}
-                        value={currentMessage}
-                        onChange={(e) => setCurrentMessage(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Ask me about SEO, marketing strategies..."
-                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none min-h-[44px]"
-                        rows={2}
-                        disabled={isLoading}
-                      />
+                  <div className="space-y-2">
+                    {/* Template Quick Access */}
+                    {currentSessionId && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowTemplates(!showTemplates)}
+                          className="text-xs"
+                        >
+                          <Lightbulb className="h-3 w-3 mr-1" />
+                          Templates
+                        </Button>
+                        {showTemplates && (
+                          <div className="flex gap-1 overflow-x-auto">
+                            {filteredTemplates.slice(0, 3).map((template) => (
+                              <Button
+                                key={template.id}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => selectTemplate(template)}
+                                className="whitespace-nowrap text-xs h-7 px-2"
+                              >
+                                <template.icon className="h-3 w-3 mr-1" />
+                                {template.title}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <textarea
+                          ref={textareaRef}
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Ask me about SEO, marketing strategies... or use a template above"
+                          className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none min-h-[44px]"
+                          rows={2}
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <Button
+                        onClick={sendMessage}
+                        disabled={!currentMessage.trim() || isLoading}
+                        className="self-end min-h-[44px] min-w-[44px]"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      onClick={sendMessage}
-                      disabled={!currentMessage.trim() || isLoading}
-                      className="self-end min-h-[44px] min-w-[44px]"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
                   </div>
 
                   {userCredits !== null && userCredits < 10 && (
