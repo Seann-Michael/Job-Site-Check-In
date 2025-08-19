@@ -696,6 +696,22 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/agency/admin/crm"
+                  element={
+                    <ProtectedRoute>
+                      <CRM />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agency/admin/crm/clients/:clientId"
+                  element={
+                    <ProtectedRoute>
+                      <CRMClientDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/agency/admin/business-owners"
                   element={
                     <ProtectedRoute>
