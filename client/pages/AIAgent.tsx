@@ -78,6 +78,7 @@ export default function AIAgent() {
   const [newChatTitle, setNewChatTitle] = useState("");
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
