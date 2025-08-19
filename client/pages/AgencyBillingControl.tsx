@@ -920,6 +920,90 @@ export default function AgencyBillingControl() {
         </DialogContent>
       </Dialog>
 
+      {/* Allocation Settings Dialog */}
+      <Dialog open={showAllocationSettingsDialog} onOpenChange={setShowAllocationSettingsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Monthly Allocation Settings
+            </DialogTitle>
+            <DialogDescription>
+              Configure automatic monthly credit allocations for {selectedRelationship?.admin_profile.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Enable Automatic Monthly Allocation</Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically transfer credits to this admin each month
+                </p>
+              </div>
+              <Switch
+                checked={allocationSettings.autoAllocateEnabled}
+                onCheckedChange={(checked) =>
+                  setAllocationSettings(prev => ({ ...prev, autoAllocateEnabled: checked }))
+                }
+              />
+            </div>
+
+            {allocationSettings.autoAllocateEnabled && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="monthly-credits">Monthly Credits Amount</Label>
+                  <Input
+                    id="monthly-credits"
+                    type="number"
+                    value={allocationSettings.monthlyCreditsAllocation}
+                    onChange={(e) =>
+                      setAllocationSettings(prev => ({
+                        ...prev,
+                        monthlyCreditsAllocation: parseInt(e.target.value) || 0
+                      }))
+                    }
+                    min="0"
+                    placeholder="Enter monthly credit amount"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="allocation-day">Allocation Day of Month</Label>
+                  <Select
+                    value={allocationSettings.allocationDayOfMonth.toString()}
+                    onValueChange={(value) =>
+                      setAllocationSettings(prev => ({
+                        ...prev,
+                        allocationDayOfMonth: parseInt(value)
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                        <SelectItem key={day} value={day.toString()}>
+                          {day === 1 ? '1st' : day === 2 ? '2nd' : day === 3 ? '3rd' : `${day}th`} of each month
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowAllocationSettingsDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={updateAllocationSettings}>
+                Save Settings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Terminate Relationship Dialog */}
       <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>
         <DialogContent>
