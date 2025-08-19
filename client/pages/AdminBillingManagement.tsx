@@ -608,6 +608,87 @@ export default function AdminBillingManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Allocation History Dialog */}
+      <Dialog open={showAllocationHistoryDialog} onOpenChange={setShowAllocationHistoryDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              Credit Allocation History
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRelationship && (
+                <>Credit allocations from {selectedRelationship.agency_profile.agency_name}</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {allocationHistory.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No credit allocations found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Credits</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allocationHistory.map((allocation) => (
+                    <TableRow key={allocation.id}>
+                      <TableCell>
+                        <Badge variant={allocation.allocation_type === 'monthly_auto' ? 'default' : 'secondary'}>
+                          {allocation.allocation_type === 'monthly_auto' ? 'Monthly Auto' :
+                           allocation.allocation_type === 'manual' ? 'Manual' : 'Bonus'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {allocation.credits_amount} credits
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          allocation.status === 'processed' ? 'default' :
+                          allocation.status === 'failed' ? 'destructive' :
+                          allocation.status === 'cancelled' ? 'secondary' : 'outline'
+                        }>
+                          {allocation.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[200px] truncate" title={allocation.allocation_reason}>
+                          {allocation.allocation_reason || 'N/A'}
+                        </div>
+                        {allocation.failure_reason && (
+                          <div className="text-sm text-red-600">
+                            {allocation.failure_reason}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          {new Date(allocation.created_at).toLocaleDateString()}
+                        </div>
+                        {allocation.processed_at && (
+                          <div className="text-sm text-muted-foreground">
+                            Processed: {new Date(allocation.processed_at).toLocaleDateString()}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Terminate Relationship Dialog */}
       <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>
         <DialogContent>
