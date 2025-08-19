@@ -74,10 +74,12 @@ export default function AdminBillingManagement() {
   const { user, token } = useAuth();
   const [relationships, setRelationships] = useState<BillingRelationship[]>([]);
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
+  const [allocationHistory, setAllocationHistory] = useState<any[]>([]);
   const [preferences, setPreferences] = useState<BillingPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedRelationship, setSelectedRelationship] = useState<BillingRelationship | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showAllocationHistoryDialog, setShowAllocationHistoryDialog] = useState(false);
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
   const [terminationReason, setTerminationReason] = useState('');
 
