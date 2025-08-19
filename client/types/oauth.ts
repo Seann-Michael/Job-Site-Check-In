@@ -254,10 +254,20 @@ export type SupportedPlatform = typeof SUPPORTED_PLATFORMS[number];
 
 export const PLATFORM_DISPLAY_NAMES: Record<SupportedPlatform, string> = {
   google_ads: 'Google Ads',
+  google_analytics: 'Analytics',
+  google_merchant_center: 'Merchant Center',
+  google_search_console: 'Search Console',
+  google_tag_manager: 'Tag Manager',
+  google_my_business: 'Business Profile',
+  facebook_pages: 'Facebook Pages',
   meta_ads: 'Meta Ads',
-  google_analytics: 'Google Analytics',
-  google_search_console: 'Google Search Console',
-  google_my_business: 'Google My Business',
+  meta_product_catalog: 'Product Catalog',
+  meta_pixels: 'Meta Pixels',
+  instagram: 'Instagram',
+  whatsapp_business: 'WhatsApp',
+  shopify: 'Store Collaborator',
+  youtube_studio: 'YouTube Studio',
+  wordpress: 'WordPress',
   tiktok_ads: 'TikTok Ads'
 };
 
