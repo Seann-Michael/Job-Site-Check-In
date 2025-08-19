@@ -342,10 +342,20 @@ $$ LANGUAGE plpgsql;
 -- Insert default platform configurations
 INSERT INTO platform_configurations (platform, display_name, icon_url, description, scopes) VALUES
 ('google_ads', 'Google Ads', '/icons/google-ads.svg', 'Manage Google Ads campaigns and view performance data', ARRAY['https://www.googleapis.com/auth/adwords']),
+('google_analytics', 'Analytics', '/icons/google-analytics.svg', 'Access website analytics and reporting data', ARRAY['https://www.googleapis.com/auth/analytics.readonly']),
+('google_merchant_center', 'Merchant Center', '/icons/google-merchant-center.svg', 'Manage product listings and shopping campaigns', ARRAY['https://www.googleapis.com/auth/content']),
+('google_search_console', 'Search Console', '/icons/google-search-console.svg', 'View search performance and indexing data', ARRAY['https://www.googleapis.com/auth/webmasters.readonly']),
+('google_tag_manager', 'Tag Manager', '/icons/google-tag-manager.svg', 'Manage website tracking tags and analytics', ARRAY['https://www.googleapis.com/auth/tagmanager.edit.containers']),
+('google_my_business', 'Business Profile', '/icons/google-my-business.svg', 'Manage business listings and customer reviews', ARRAY['https://www.googleapis.com/auth/business.manage']),
+('facebook_pages', 'Facebook Pages', '/icons/facebook-pages.svg', 'Manage Facebook business pages and posts', ARRAY['pages_manage_posts', 'pages_read_engagement', 'pages_manage_metadata']),
 ('meta_ads', 'Meta Ads', '/icons/meta-ads.svg', 'Manage Facebook and Instagram advertising campaigns', ARRAY['ads_management', 'ads_read', 'business_management']),
-('google_analytics', 'Google Analytics', '/icons/google-analytics.svg', 'Access website analytics and reporting data', ARRAY['https://www.googleapis.com/auth/analytics.readonly']),
-('google_search_console', 'Google Search Console', '/icons/google-search-console.svg', 'View search performance and indexing data', ARRAY['https://www.googleapis.com/auth/webmasters.readonly']),
-('google_my_business', 'Google My Business', '/icons/google-my-business.svg', 'Manage business listings and customer reviews', ARRAY['https://www.googleapis.com/auth/business.manage']),
+('meta_product_catalog', 'Product Catalog', '/icons/meta-catalog.svg', 'Manage product catalogs for Facebook and Instagram', ARRAY['catalog_management', 'business_management']),
+('meta_pixels', 'Meta Pixels', '/icons/meta-pixels.svg', 'Track website conversions and optimize ads', ARRAY['ads_management', 'business_management']),
+('instagram', 'Instagram', '/icons/instagram.svg', 'Manage Instagram business account and content', ARRAY['instagram_basic', 'instagram_content_publish']),
+('whatsapp_business', 'WhatsApp', '/icons/whatsapp.svg', 'Manage WhatsApp Business messaging and automation', ARRAY['whatsapp_business_messaging', 'whatsapp_business_management']),
+('shopify', 'Store Collaborator', '/icons/shopify.svg', 'Access Shopify store data and manage products', ARRAY['read_products', 'read_orders', 'read_customers']),
+('youtube_studio', 'YouTube Studio', '/icons/youtube.svg', 'Manage YouTube channel content and analytics', ARRAY['https://www.googleapis.com/auth/youtube', 'https://www.googleapis.com/auth/youtube.readonly']),
+('wordpress', 'WordPress', '/icons/wordpress.svg', 'Manage WordPress website content and plugins', ARRAY['read', 'edit_posts']),
 ('tiktok_ads', 'TikTok Ads', '/icons/tiktok-ads.svg', 'Manage TikTok advertising campaigns', ARRAY['user.info.basic', 'advertiser.read']);
 
 -- Function to update connected platforms in onboarding session
