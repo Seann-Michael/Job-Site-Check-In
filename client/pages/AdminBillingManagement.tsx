@@ -150,6 +150,34 @@ export default function AdminBillingManagement() {
     }
   };
 
+  const loadAllocationHistory = async (relationshipId?: string) => {
+    if (!token) return;
+
+    try {
+      let url = '/api/credit-allocation/history';
+      if (relationshipId) {
+        url += `?relationshipId=${relationshipId}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAllocationHistory(data.allocations || []);
+      } else {
+        throw new Error('Failed to load allocation history');
+      }
+    } catch (error) {
+      console.error('Error loading allocation history:', error);
+      toast.error('Failed to load allocation history');
+    }
+  };
+
   const updatePreferences = async (newPreferences: Partial<BillingPreferences>) => {
     if (!token) return;
 
