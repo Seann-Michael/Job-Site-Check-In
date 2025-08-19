@@ -49,6 +49,7 @@ import BusinessDetail from "./pages/BusinessDetail";
 import BusinessManagement from "./pages/BusinessManagement";
 import UserManagement from "./pages/UserManagement";
 import { CrashLogs } from "./pages/CrashLogs";
+import PublicOnboarding from "./pages/PublicOnboarding";
 
 import Profile from "./pages/Profile";
 import PublicProject from "./pages/PublicProject";
