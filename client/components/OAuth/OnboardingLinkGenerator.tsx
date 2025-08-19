@@ -90,7 +90,7 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
       newErrors.client_email = 'Please enter a valid email address';
     }
 
-    if (form.selected_platforms.length === 0) {
+    if (form.selected_platforms.length === 0 && form.selected_custom_platforms.length === 0) {
       newErrors.selected_platforms = 'Please select at least one platform';
     }
 
