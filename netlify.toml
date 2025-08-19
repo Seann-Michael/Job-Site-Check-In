@@ -76,6 +76,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/credit-allocation/*"
+  status = 200
+  to = "/.netlify/functions/credit-allocation/:splat"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
