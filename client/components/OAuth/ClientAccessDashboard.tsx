@@ -94,20 +94,38 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const fetchClientAccess = async () => {
     try {
       const response = await fetch(`/api/oauth/sessions/${session.id}/access`);
-      const data = await response.json();
-      setClientAccess(data.data || []);
+      if (response.ok) {
+        const text = await response.text();
+        if (text) {
+          const data = JSON.parse(text);
+          setClientAccess(data.data || []);
+        }
+      } else {
+        console.warn('Client access API not available:', response.status);
+        setClientAccess([]);
+      }
     } catch (error) {
       console.error('Error fetching client access:', error);
+      setClientAccess([]);
     }
   };
 
   const fetchActivityLog = async () => {
     try {
       const response = await fetch(`/api/oauth/sessions/${session.id}/activity`);
-      const data = await response.json();
-      setActivityLog(data.data || []);
+      if (response.ok) {
+        const text = await response.text();
+        if (text) {
+          const data = JSON.parse(text);
+          setActivityLog(data.data || []);
+        }
+      } else {
+        console.warn('Activity log API not available:', response.status);
+        setActivityLog([]);
+      }
     } catch (error) {
       console.error('Error fetching activity log:', error);
+      setActivityLog([]);
     }
   };
 
