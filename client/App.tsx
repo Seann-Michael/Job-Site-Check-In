@@ -630,6 +630,22 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/agency/admin/client-access"
+                  element={
+                    <ProtectedRoute>
+                      <AgencyClientAccess />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agency/admin/client-access/create"
+                  element={
+                    <ProtectedRoute>
+                      <AgencyClientAccess />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/agency/admin/settings"
                   element={
                     <ProtectedRoute>
