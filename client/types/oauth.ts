@@ -273,10 +273,20 @@ export const PLATFORM_DISPLAY_NAMES: Record<SupportedPlatform, string> = {
 
 export const PLATFORM_DESCRIPTIONS: Record<SupportedPlatform, string> = {
   google_ads: 'Manage Google Ads campaigns and view performance data',
-  meta_ads: 'Manage Facebook and Instagram advertising campaigns',
   google_analytics: 'Access website analytics and reporting data',
+  google_merchant_center: 'Manage product listings and shopping campaigns',
   google_search_console: 'View search performance and indexing data',
+  google_tag_manager: 'Manage website tracking tags and analytics',
   google_my_business: 'Manage business listings and customer reviews',
+  facebook_pages: 'Manage Facebook business pages and posts',
+  meta_ads: 'Manage Facebook and Instagram advertising campaigns',
+  meta_product_catalog: 'Manage product catalogs for Facebook and Instagram',
+  meta_pixels: 'Track website conversions and optimize ads',
+  instagram: 'Manage Instagram business account and content',
+  whatsapp_business: 'Manage WhatsApp Business messaging and automation',
+  shopify: 'Access Shopify store data and manage products',
+  youtube_studio: 'Manage YouTube channel content and analytics',
+  wordpress: 'Manage WordPress website content and plugins',
   tiktok_ads: 'Manage TikTok advertising campaigns'
 };
 
