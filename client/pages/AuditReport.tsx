@@ -204,8 +204,43 @@ export default function AuditReport() {
   };
 
   const generatePDF = async (report: AuditReport) => {
-    toast.info('PDF generation feature coming soon!');
-    // TODO: Implement PDF generation
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportId: report.id,
+        }),
+      });
+
+      if (response.ok) {
+        const htmlContent = await response.text();
+
+        // Open in new window for printing
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+
+          // Trigger print dialog after content loads
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+
+        toast.success('PDF preview opened in new window');
+      } else {
+        throw new Error('Failed to generate PDF');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
   };
 
   const shareReport = async (report: AuditReport) => {
