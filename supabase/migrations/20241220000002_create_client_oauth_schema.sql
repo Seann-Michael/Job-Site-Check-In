@@ -84,6 +84,32 @@ CREATE TABLE oauth_activity_log (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Custom Platforms table (agency-created platforms)
+CREATE TABLE custom_platforms (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agency_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    instructions TEXT NOT NULL,
+    fields JSONB NOT NULL DEFAULT '[]',
+    icon_url VARCHAR(500),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Custom Platform Responses table (client responses to custom fields)
+CREATE TABLE custom_platform_responses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID NOT NULL REFERENCES onboarding_sessions(id) ON DELETE CASCADE,
+    custom_platform_id UUID NOT NULL REFERENCES custom_platforms(id) ON DELETE CASCADE,
+    field_responses JSONB NOT NULL DEFAULT '{}',
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(session_id, custom_platform_id)
+);
+
 -- Platform Configuration table (for managing OAuth app credentials)
 CREATE TABLE platform_configurations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
