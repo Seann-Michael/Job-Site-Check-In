@@ -566,6 +566,15 @@ const App = () => (
                 />
 
                 <Route
+                  path="/admin/tools"
+                  element={
+                    <ProtectedRoute>
+                      <Tools />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
                   path="/admin/help"
                   element={
                     <ProtectedRoute>
