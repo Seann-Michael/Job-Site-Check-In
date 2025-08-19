@@ -214,6 +214,22 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/onboard/:token"
+                  element={
+                    <div className="min-h-screen bg-background flex items-center justify-center">
+                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
+                        <h1 className="text-2xl font-bold text-foreground">Onboarding Link Format Changed</h1>
+                        <p className="text-muted-foreground">
+                          This appears to be an old onboarding link format. Please request a new onboarding link from your agency.
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          The new onboarding system uses static, reusable links that can be shared with multiple clients.
+                        </p>
+                      </div>
+                    </div>
+                  }
+                />
+                <Route
                   path="/onboard/*"
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
