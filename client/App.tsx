@@ -586,6 +586,15 @@ const App = () => (
                 />
 
                 <Route
+                  path="/admin/ai-agent"
+                  element={
+                    <ProtectedRoute>
+                      <AIAgent />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
                   path="/admin/help"
                   element={
                     <ProtectedRoute>
