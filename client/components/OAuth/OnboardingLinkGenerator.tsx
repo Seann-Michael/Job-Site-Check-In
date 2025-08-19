@@ -318,6 +318,7 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
   }
 
   return (
+    <React.Fragment>
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -603,6 +604,22 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
         </Button>
       </CardContent>
     </Card>
+
+    {/* Custom Platform Manager Dialog */}
+    {showCustomPlatformManager && (
+      <Dialog open={showCustomPlatformManager} onOpenChange={setShowCustomPlatformManager}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Custom Platforms</DialogTitle>
+            <DialogDescription>
+              Create and manage custom platform connections for your onboarding process
+            </DialogDescription>
+          </DialogHeader>
+          <CustomPlatformManager onPlatformsUpdated={fetchCustomPlatforms} />
+        </DialogContent>
+      </Dialog>
+    )}
+    </React.Fragment>
   );
 };
 
