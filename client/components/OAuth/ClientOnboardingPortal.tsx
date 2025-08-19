@@ -14,13 +14,15 @@ import {
   HelpCircle,
   Lock
 } from 'lucide-react';
-import { 
+import {
   OnboardingSession,
   PlatformConfiguration,
   OAuthFlowState,
   PLATFORM_DISPLAY_NAMES,
   PLATFORM_DESCRIPTIONS,
-  PlatformStatus
+  PlatformStatus,
+  CustomPlatform,
+  CustomPlatformField
 } from '../../types/oauth';
 
 interface ClientOnboardingPortalProps {
