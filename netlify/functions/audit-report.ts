@@ -448,6 +448,36 @@ export const handler: Handler = async (event, context) => {
           };
         }
 
+        // Handle public report access (no auth required)
+        if (pathParts.includes('public')) {
+          const shareToken = pathParts[pathParts.length - 1];
+
+          const { data: report, error } = await supabase
+            .from('audit_reports')
+            .select(`
+              id, website_url, report_title, audit_type, summary_metrics, created_at,
+              audit_findings(id, category, subcategory, severity, title, description, recommendation, page_url, impact_score, fix_difficulty, estimated_fix_time)
+            `)
+            .eq('public_share_token', shareToken)
+            .eq('is_public', true)
+            .or(`public_expiry_date.is.null,public_expiry_date.gt.${new Date().toISOString()}`)
+            .single();
+
+          if (error || !report) {
+            return {
+              statusCode: 404,
+              headers,
+              body: JSON.stringify({ error: 'Report not found or not publicly accessible' }),
+            };
+          }
+
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ report }),
+          };
+        }
+
         // Get specific audit report
         const reportId = pathParts[pathParts.length - 1];
         if (reportId && reportId !== 'reports') {
