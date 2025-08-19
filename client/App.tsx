@@ -1163,10 +1163,6 @@ const App = () => (
                   element={<Navigate to="/agency/admin/billing" replace />}
                 />
                 <Route
-                  path="/AgencyCommission"
-                  element={<Navigate to="/agency/admin/commission" replace />}
-                />
-                <Route
                   path="/AgencyAudits"
                   element={<Navigate to="/agency/admin/audits" replace />}
                 />
