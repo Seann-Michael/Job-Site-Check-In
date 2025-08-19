@@ -272,7 +272,7 @@ export default function AgencyBillingControl() {
         return;
       }
 
-      const response = await fetch('/api/billing/admin-agency/transfer-credits', {
+      const response = await fetch('/api/credit-allocation/manual-allocation', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -281,6 +281,7 @@ export default function AgencyBillingControl() {
         body: JSON.stringify({
           relationshipId: selectedRelationship.id,
           creditsAmount,
+          allocationReason: 'Manual credit transfer',
         }),
       });
 
