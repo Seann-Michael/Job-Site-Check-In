@@ -621,6 +621,15 @@ const App = () => (
                 />
 
                 <Route
+                  path="/admin/billing"
+                  element={
+                    <ProtectedRoute>
+                      <AdminBillingManagement />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
                   path="/admin/help"
                   element={
                     <ProtectedRoute>
