@@ -59,10 +59,18 @@ export default function AIAgent() {
 
   const loadUserCredits = async () => {
     try {
+      const token = localStorage.getItem("supabase_token");
+      console.log("Token exists:", !!token);
+      if (!token) {
+        console.warn("No auth token found");
+        setUserCredits(null);
+        return;
+      }
+
       console.log("Loading user credits from /api/credit-system/balance");
       const response = await fetch("/api/credit-system/balance", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
