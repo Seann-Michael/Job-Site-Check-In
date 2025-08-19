@@ -481,6 +481,19 @@ export default function AIAgent() {
     }
   };
 
+  const selectTemplate = (template: TemplatePrompt) => {
+    setCurrentMessage(template.prompt);
+    setShowTemplates(false);
+    // Focus the textarea after a brief delay
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+  };
+
+  const filteredTemplates = templatePrompts.filter(template =>
+    selectedCategory === "All" || template.category === selectedCategory
+  );
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
