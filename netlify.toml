@@ -82,6 +82,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/audit-report/*"
+  status = 200
+  to = "/.netlify/functions/audit-report/:splat"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
