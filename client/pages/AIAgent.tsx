@@ -28,6 +28,12 @@ import {
   Clock,
   Menu,
   X,
+  Lightbulb,
+  Target,
+  Search,
+  TrendingUp,
+  FileText,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
