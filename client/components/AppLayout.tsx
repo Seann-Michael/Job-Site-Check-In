@@ -313,6 +313,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "billing",
+      label: "Billing",
+      href: "/admin/billing",
+      icon: CreditCard,
+      active: location.pathname.startsWith("/admin/billing"),
+      comingSoon: false,
+    },
+    {
       id: "reviews",
       label: "Reviews",
       href: "/admin/reviews",
