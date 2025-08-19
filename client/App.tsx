@@ -283,6 +283,10 @@ const App = () => (
                   element={<Navigate to="/admin/tools" replace />}
                 />
                 <Route
+                  path="/AIAgent"
+                  element={<Navigate to="/admin/ai-agent" replace />}
+                />
+                <Route
                   path="/onboard/:token"
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
