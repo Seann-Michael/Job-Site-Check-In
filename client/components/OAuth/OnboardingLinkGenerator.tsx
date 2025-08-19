@@ -43,6 +43,7 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
     client_email: '',
     client_company: '',
     selected_platforms: [],
+    selected_custom_platforms: [],
     access_level: 'read_only',
     branding: {
       primary_color: '#2563eb',
@@ -50,6 +51,9 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
       logo_url: undefined
     }
   });
+
+  const [customPlatforms, setCustomPlatforms] = useState<CustomPlatform[]>([]);
+  const [showCustomPlatformManager, setShowCustomPlatformManager] = useState(false);
 
   const [errors, setErrors] = useState<OnboardingFormErrors>({});
   const [isGenerating, setIsGenerating] = useState(false);
