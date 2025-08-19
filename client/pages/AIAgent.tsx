@@ -874,6 +874,135 @@ export default function AIAgent() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* Templates Section */}
+                {!currentSessionId ? (
+                  <div className="border-t p-3 md:p-4 bg-muted/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-orange-500" />
+                        <h3 className="font-medium text-sm">Template Prompts</h3>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowTemplates(!showTemplates)}
+                      >
+                        {showTemplates ? "Hide" : "Show"} Templates
+                      </Button>
+                    </div>
+
+                    {showTemplates && (
+                      <div className="space-y-3">
+                        {/* Category Filter */}
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {categories.map((category) => (
+                            <Button
+                              key={category}
+                              variant={selectedCategory === category ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedCategory(category)}
+                              className="whitespace-nowrap flex-shrink-0"
+                            >
+                              {category}
+                            </Button>
+                          ))}
+                        </div>
+
+                        {/* Template Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+                          {filteredTemplates.map((template) => (
+                            <Card
+                              key={template.id}
+                              className="cursor-pointer hover:bg-accent/50 transition-colors"
+                              onClick={() => selectTemplate(template)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-start gap-3">
+                                  <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                                    <template.icon className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-sm mb-1 truncate">
+                                      {template.title}
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground line-clamp-2">
+                                      {template.description}
+                                    </p>
+                                    <div className="mt-2">
+                                      <span className="inline-block px-2 py-1 bg-secondary text-xs rounded">
+                                        {template.category}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {filteredTemplates.length === 0 && (
+                          <div className="text-center py-6 text-muted-foreground">
+                            <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No templates found in this category</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Show templates in active chat */
+                  currentSessionId && messages.length === 0 && (
+                    <div className="border-t p-3 md:p-4 bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="h-4 w-4 text-orange-500" />
+                          <h3 className="font-medium text-sm">Get Started with Templates</h3>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowTemplates(!showTemplates)}
+                        >
+                          {showTemplates ? "Hide" : "Show"}
+                        </Button>
+                      </div>
+
+                      {showTemplates && (
+                        <div className="space-y-3">
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {categories.slice(0, 4).map((category) => (
+                              <Button
+                                key={category}
+                                variant={selectedCategory === category ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setSelectedCategory(category)}
+                                className="whitespace-nowrap flex-shrink-0"
+                              >
+                                {category}
+                              </Button>
+                            ))}
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {filteredTemplates.slice(0, 6).map((template) => (
+                              <Button
+                                key={template.id}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => selectTemplate(template)}
+                                className="h-auto p-2 text-left justify-start"
+                              >
+                                <template.icon className="h-3 w-3 mr-2 flex-shrink-0" />
+                                <span className="text-xs truncate">{template.title}</span>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+
                 {/* Input Area */}
                 <div className="border-t p-3 md:p-4">
                   <div className="flex gap-2">
