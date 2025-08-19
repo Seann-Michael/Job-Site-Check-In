@@ -86,11 +86,21 @@ export const OnboardingLinkGenerator: React.FC<
     try {
       const response = await fetch("/api/oauth/custom-platforms");
       if (response.ok) {
-        const data = await response.json();
-        setCustomPlatforms(data.data || []);
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          setCustomPlatforms(data.data || []);
+        } else {
+          console.warn("Custom platforms API returned non-JSON response");
+          setCustomPlatforms([]);
+        }
+      } else {
+        console.warn(`Custom platforms API returned ${response.status}: ${response.statusText}`);
+        setCustomPlatforms([]);
       }
     } catch (error) {
       console.error("Error fetching custom platforms:", error);
+      setCustomPlatforms([]);
     }
   };
 
