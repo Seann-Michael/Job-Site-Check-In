@@ -109,6 +109,35 @@ const handler: Handler = async (event, context) => {
         };
       }
 
+      // Verify session exists and belongs to user
+      const { data: session, error: sessionError } = await supabase
+        .from('ai_chat_sessions')
+        .select('id')
+        .eq('id', session_id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (sessionError || !session) {
+        return {
+          statusCode: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          body: JSON.stringify({ error: 'Session not found' }),
+        };
+      }
+
+      // Save user message to database
+      await supabase
+        .from('ai_chat_messages')
+        .insert({
+          session_id: session_id,
+          user_id: user.id,
+          message_type: 'user',
+          content: message.trim(),
+        });
+
       // For now, provide a mock AI response while DataForSEO integration is being configured
       const mockResponses = [
         `Great question about "${message.trim()}"! Here are some key insights:
