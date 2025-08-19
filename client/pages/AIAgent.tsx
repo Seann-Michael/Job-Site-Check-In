@@ -59,17 +59,30 @@ export default function AIAgent() {
 
   const loadUserCredits = async () => {
     try {
+      console.log("Loading user credits from /api/credit-system/balance");
       const response = await fetch("/api/credit-system/balance", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
         },
       });
 
+      console.log("Credit response status:", response.status);
+      console.log("Credit response headers:", Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
-        const data = await response.json();
-        setUserCredits(data.current_credits || 0);
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          console.log("Credit data received:", data);
+          setUserCredits(data.current_credits || 0);
+        } else {
+          const text = await response.text();
+          console.warn("Credit API returned non-JSON:", text);
+          setUserCredits(null);
+        }
       } else {
-        console.warn("Failed to load credits, setting to null");
+        const errorText = await response.text();
+        console.warn(`Failed to load credits (${response.status}):`, errorText);
         setUserCredits(null);
       }
     } catch (error) {
