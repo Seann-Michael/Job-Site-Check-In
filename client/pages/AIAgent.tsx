@@ -64,7 +64,7 @@ export default function AIAgent() {
           Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setUserCredits(data.credits || 0);
@@ -102,7 +102,7 @@ export default function AIAgent() {
       loading: true,
     };
 
-    setMessages(prev => [...prev, userMessage, loadingMessage]);
+    setMessages((prev) => [...prev, userMessage, loadingMessage]);
     const messageToSend = currentMessage.trim();
     setCurrentMessage("");
     setIsLoading(true);
@@ -129,8 +129,8 @@ export default function AIAgent() {
       const creditsUsed = Math.ceil(data.cost * 1.5); // 50% markup
 
       // Update the loading message with the actual response
-      setMessages(prev =>
-        prev.map(msg =>
+      setMessages((prev) =>
+        prev.map((msg) =>
           msg.id === loadingMessage.id
             ? {
                 ...msg,
@@ -139,28 +139,29 @@ export default function AIAgent() {
                 credits: creditsUsed,
                 loading: false,
               }
-            : msg
-        )
+            : msg,
+        ),
       );
 
       // Update user credits
-      setUserCredits(prev => prev ? Math.max(0, prev - creditsUsed) : null);
+      setUserCredits((prev) => (prev ? Math.max(0, prev - creditsUsed) : null));
 
       toast.success(`Response received! Used ${creditsUsed} credits.`);
     } catch (error) {
       console.error("Error sending message:", error);
-      
+
       // Replace loading message with error
-      setMessages(prev =>
-        prev.map(msg =>
+      setMessages((prev) =>
+        prev.map((msg) =>
           msg.id === loadingMessage.id
             ? {
                 ...msg,
-                content: "Sorry, I encountered an error processing your request. Please try again.",
+                content:
+                  "Sorry, I encountered an error processing your request. Please try again.",
                 loading: false,
               }
-            : msg
-        )
+            : msg,
+        ),
       );
 
       toast.error("Failed to get AI response. Please try again.");
@@ -198,10 +199,11 @@ export default function AIAgent() {
               AI Agent
             </h1>
             <p className="text-muted-foreground">
-              Powered by DataForSEO AI - Ask questions about SEO, marketing, and business strategy
+              Powered by DataForSEO AI - Ask questions about SEO, marketing, and
+              business strategy
             </p>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {userCredits !== null && (
               <div className="flex items-center gap-2">
@@ -222,8 +224,9 @@ export default function AIAgent() {
         <Alert>
           <Sparkles className="h-4 w-4" />
           <AlertDescription>
-            Each AI query consumes credits based on complexity and response length. 
-            Costs are calculated dynamically and marked up 50% for platform maintenance.
+            Each AI query consumes credits based on complexity and response
+            length. Costs are calculated dynamically and marked up 50% for
+            platform maintenance.
           </AlertDescription>
         </Alert>
 
@@ -236,7 +239,8 @@ export default function AIAgent() {
                 AI Assistant
               </CardTitle>
               <CardDescription>
-                Ask me anything about SEO, digital marketing, content strategy, or business growth
+                Ask me anything about SEO, digital marketing, content strategy,
+                or business growth
               </CardDescription>
             </CardHeader>
 
@@ -246,10 +250,13 @@ export default function AIAgent() {
                 {messages.length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                    <h3 className="text-lg font-semibold mb-2">Ready to Help!</h3>
+                    <h3 className="text-lg font-semibold mb-2">
+                      Ready to Help!
+                    </h3>
                     <p className="text-sm max-w-md mx-auto">
-                      Start a conversation by asking me about SEO strategies, content ideas, 
-                      keyword research, competitor analysis, or any marketing questions.
+                      Start a conversation by asking me about SEO strategies,
+                      content ideas, keyword research, competitor analysis, or
+                      any marketing questions.
                     </p>
                   </div>
                 )}
@@ -263,7 +270,9 @@ export default function AIAgent() {
                   >
                     <div
                       className={`flex gap-3 max-w-[80%] ${
-                        message.type === "user" ? "flex-row-reverse" : "flex-row"
+                        message.type === "user"
+                          ? "flex-row-reverse"
+                          : "flex-row"
                       }`}
                     >
                       {/* Avatar */}
@@ -301,12 +310,14 @@ export default function AIAgent() {
                         </div>
 
                         {/* Cost and credits info */}
-                        {message.type === "ai" && message.cost && !message.loading && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
-                            <span>Cost: ${message.cost.toFixed(4)}</span>
-                            <span>{message.credits} credits used</span>
-                          </div>
-                        )}
+                        {message.type === "ai" &&
+                          message.cost &&
+                          !message.loading && (
+                            <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                              <span>Cost: ${message.cost.toFixed(4)}</span>
+                              <span>{message.credits} credits used</span>
+                            </div>
+                          )}
 
                         {/* Copy button for AI responses */}
                         {message.type === "ai" && !message.loading && (
@@ -358,7 +369,8 @@ export default function AIAgent() {
                   <Alert className="mt-2">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Low credits remaining ({userCredits}). Consider purchasing more credits to continue using the AI Agent.
+                      Low credits remaining ({userCredits}). Consider purchasing
+                      more credits to continue using the AI Agent.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -372,8 +384,13 @@ export default function AIAgent() {
           <CardContent className="p-4">
             <h3 className="font-semibold mb-2">Tips for better results:</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Be specific with your questions for more targeted advice</li>
-              <li>• Ask about competitor analysis, keyword research, or content strategies</li>
+              <li>
+                • Be specific with your questions for more targeted advice
+              </li>
+              <li>
+                • Ask about competitor analysis, keyword research, or content
+                strategies
+              </li>
               <li>• Request step-by-step guides for SEO improvements</li>
               <li>• Inquire about industry trends and best practices</li>
             </ul>
