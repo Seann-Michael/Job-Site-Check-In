@@ -88,6 +88,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/generate-pdf"
+  status = 200
+  to = "/.netlify/functions/generate-pdf"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
