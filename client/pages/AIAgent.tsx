@@ -763,7 +763,7 @@ export default function AIAgent() {
                 </div>
 
                 {/* Input Area */}
-                <div className="border-t p-4">
+                <div className="border-t p-3 md:p-4">
                   <div className="flex gap-2">
                     <div className="flex-1 relative">
                       <textarea
@@ -771,8 +771,8 @@ export default function AIAgent() {
                         value={currentMessage}
                         onChange={(e) => setCurrentMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Ask me about SEO, marketing strategies, content ideas..."
-                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                        placeholder="Ask me about SEO, marketing strategies..."
+                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none min-h-[44px]"
                         rows={2}
                         disabled={isLoading}
                       />
@@ -780,7 +780,7 @@ export default function AIAgent() {
                     <Button
                       onClick={sendMessage}
                       disabled={!currentMessage.trim() || isLoading}
-                      className="self-end"
+                      className="self-end min-h-[44px] min-w-[44px]"
                     >
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
