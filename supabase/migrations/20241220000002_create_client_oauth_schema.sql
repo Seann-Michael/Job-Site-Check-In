@@ -180,6 +180,8 @@ CREATE INDEX idx_custom_platform_responses_platform ON custom_platform_responses
 CREATE TRIGGER update_onboarding_sessions_updated_at BEFORE UPDATE ON onboarding_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_client_access_updated_at BEFORE UPDATE ON client_access FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_platform_configurations_updated_at BEFORE UPDATE ON platform_configurations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_custom_platforms_updated_at BEFORE UPDATE ON custom_platforms FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_custom_platform_responses_updated_at BEFORE UPDATE ON custom_platform_responses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Enable Row Level Security
 ALTER TABLE onboarding_sessions ENABLE ROW LEVEL SECURITY;
