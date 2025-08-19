@@ -59,7 +59,7 @@ export default function AIAgent() {
 
   const loadUserCredits = async () => {
     try {
-      const response = await fetch("/api/credits/balance", {
+      const response = await fetch("/api/credit-system/balance", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
         },
@@ -67,10 +67,14 @@ export default function AIAgent() {
 
       if (response.ok) {
         const data = await response.json();
-        setUserCredits(data.credits || 0);
+        setUserCredits(data.current_credits || 0);
+      } else {
+        console.warn("Failed to load credits, setting to null");
+        setUserCredits(null);
       }
     } catch (error) {
       console.error("Error loading user credits:", error);
+      setUserCredits(null);
     }
   };
 
