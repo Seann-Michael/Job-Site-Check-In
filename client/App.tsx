@@ -1287,6 +1287,16 @@ const App = () => (
                   element={<Navigate to="/support" replace />}
                 />
 
+                {/* CRM Redirect Routes (moved from admin to agency) */}
+                <Route
+                  path="/admin/crm"
+                  element={<Navigate to="/agency/admin/crm" replace />}
+                />
+                <Route
+                  path="/admin/crm/clients/:clientId"
+                  element={<Navigate to="/agency/admin/crm/clients/:clientId" replace />}
+                />
+
                 {/* Super Admin Compatibility Routes */}
                 <Route
                   path="/SuperAdmin"
