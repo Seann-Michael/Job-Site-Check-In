@@ -88,7 +88,7 @@ export default function AgencyClientAccess() {
             </div>
 
             {/* Link Generator */}
-            <OnboardingLinkGenerator onLinkGenerated={handleLinkGenerated} />
+            <StaticLinkGenerator onLinkGenerated={handleLinkGenerated} />
           </>
         )}
       </div>
