@@ -344,6 +344,14 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       comingSoon: false,
     },
     {
+      id: "client-access",
+      label: "Client Access",
+      href: "/agency/admin/client-access",
+      icon: Link2,
+      active: location.pathname.startsWith("/agency/admin/client-access"),
+      comingSoon: false,
+    },
+    {
       id: "business-owners",
       label: "Business Owners",
       href: "/agency/admin/business-owners",
