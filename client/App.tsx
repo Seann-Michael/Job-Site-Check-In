@@ -197,6 +197,22 @@ const App = () => (
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
                 <Route path="/onboard/agency/:agencyToken" element={<PublicOnboarding />} />
+                <Route
+                  path="/PublicOnboarding"
+                  element={
+                    <div className="min-h-screen bg-background flex items-center justify-center">
+                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
+                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <p className="text-muted-foreground">
+                          This onboarding link is invalid or incomplete. Please use the complete link provided by your agency.
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Onboarding links should look like: <code>/onboard/agency/your-agency-token</code>
+                        </p>
+                      </div>
+                    </div>
+                  }
+                />
 
                 {/* Protected routes */}
                 <Route
