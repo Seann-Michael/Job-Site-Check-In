@@ -172,7 +172,7 @@ Each of these elements works together to improve your overall digital presence.`
           response: randomResponse,
           cost: actualCost,
           credits_used: creditsToDeduct,
-          credits_remaining: creditData.credits_remaining - creditsToDeduct,
+          credits_remaining: creditData.current_credits - creditsToDeduct,
           processing_time: '1.5s',
           note: 'Mock AI response - DataForSEO integration in progress'
         }),
