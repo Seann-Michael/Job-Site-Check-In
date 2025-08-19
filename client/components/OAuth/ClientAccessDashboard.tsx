@@ -576,6 +576,17 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({ on
 
   return (
     <div className="space-y-6">
+      {/* API Status Message */}
+      {!apiAvailable && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            The Client Access Management APIs are being deployed. Some features may not be fully functional yet.
+            The system will automatically connect once the backend services are ready.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header Stats */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
