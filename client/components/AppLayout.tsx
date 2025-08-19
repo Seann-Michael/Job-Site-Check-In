@@ -700,8 +700,6 @@ export function AppLayout({
                   {/* Notifications */}
                   <NotificationDropdown />
 
-                  {/* Credit Display */}
-                  <CreditDisplay />
 
                   {/* Theme Toggle */}
                   <ThemeToggle />
@@ -741,26 +739,6 @@ export function AppLayout({
             {showFooter && <Footer />}
           </main>
 
-          {/* Mobile Bottom Navigation */}
-          <div className="md:hidden border-t bg-background p-2 mobile-bottom-safe">
-            <div className="grid grid-cols-4 gap-1">
-              {sidebarItems.slice(0, 4).map((item) => (
-                <Link
-                  key={item.id}
-                  to={item.href}
-                  className={cn(
-                    "flex flex-col items-center space-y-1 px-2 py-3 rounded-lg text-xs font-medium transition-colors min-h-[60px] justify-center",
-                    item.active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="text-xs truncate">{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* App Notifications */}
