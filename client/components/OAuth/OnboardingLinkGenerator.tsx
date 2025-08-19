@@ -20,6 +20,13 @@ import {
   ExternalLink
 } from 'lucide-react';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import {
   OnboardingLinkForm,
   OnboardingFormErrors,
   GeneratedLink,
