@@ -704,22 +704,22 @@ export default function AIAgent() {
                       >
                         {/* Avatar */}
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                             message.type === "user"
                               ? "bg-blue-100 text-blue-600"
                               : "bg-gray-100 text-gray-600"
                           }`}
                         >
                           {message.type === "user" ? (
-                            <User className="h-4 w-4" />
+                            <User className="h-3 w-3 md:h-4 md:w-4" />
                           ) : (
-                            <Bot className="h-4 w-4" />
+                            <Bot className="h-3 w-3 md:h-4 md:w-4" />
                           )}
                         </div>
 
                         {/* Message Content */}
                         <div
-                          className={`rounded-lg p-3 ${
+                          className={`rounded-lg p-2 md:p-3 ${
                             message.type === "user"
                               ? "bg-blue-600 text-white"
                               : "bg-gray-100 text-gray-900"
