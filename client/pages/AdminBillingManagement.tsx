@@ -361,8 +361,21 @@ export default function AdminBillingManagement() {
                                 loadRelationshipHistory(relationship.id);
                                 setShowHistoryDialog(true);
                               }}
+                              title="Billing History"
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRelationship(relationship);
+                                loadAllocationHistory(relationship.id);
+                                setShowAllocationHistoryDialog(true);
+                              }}
+                              title="Credit Allocations"
+                            >
+                              <Wallet className="h-4 w-4 text-green-500" />
                             </Button>
                             {relationship.status === 'active' && (
                               <Button
@@ -372,6 +385,7 @@ export default function AdminBillingManagement() {
                                   setSelectedRelationship(relationship);
                                   setShowTerminateDialog(true);
                                 }}
+                                title="Terminate Relationship"
                               >
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
