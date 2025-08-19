@@ -79,20 +79,20 @@ const handler: Handler = async (event, context) => {
       // Check user's credit balance
       const { data: creditData, error: creditError } = await supabase
         .from('user_credits')
-        .select('credits_remaining')
+        .select('current_credits')
         .eq('user_id', user.id)
         .single();
 
-      if (creditError || !creditData || creditData.credits_remaining <= 0) {
+      if (creditError || !creditData || creditData.current_credits <= 0) {
         return {
           statusCode: 402,
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             error: 'Insufficient credits',
-            credits_remaining: creditData?.credits_remaining || 0
+            credits_remaining: creditData?.current_credits || 0
           }),
         };
       }
