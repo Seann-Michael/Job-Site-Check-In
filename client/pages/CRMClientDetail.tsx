@@ -305,20 +305,20 @@ export default function CRMClientDetail() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <AgencyLayout>
         <div className="p-6">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-1/4"></div>
             <div className="h-64 bg-gray-200 rounded"></div>
           </div>
         </div>
-      </AppLayout>
+      </AgencyLayout>
     );
   }
 
   if (!client) {
     return (
-      <AppLayout>
+      <AgencyLayout>
         <div className="p-6">
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold">Client not found</h2>
@@ -328,19 +328,12 @@ export default function CRMClientDetail() {
             </Link>
           </div>
         </div>
-      </AppLayout>
+      </AgencyLayout>
     );
   }
 
   return (
-    <AppLayout
-      title={client.company_name}
-      breadcrumbs={[
-        { label: "Dashboard", href: "/admin/dashboard" },
-        { label: "CRM", href: "/admin/crm" },
-        { label: client.company_name },
-      ]}
-    >
+    <AgencyLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -846,6 +839,6 @@ export default function CRMClientDetail() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </AgencyLayout>
   );
 }
