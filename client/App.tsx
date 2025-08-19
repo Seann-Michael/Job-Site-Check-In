@@ -262,6 +262,7 @@ const App = () => (
                     </div>
                   }
                 />
+                <Route path="/Tools" element={<Navigate to="/admin/tools" replace />} />
                 <Route
                   path="/onboard/:token"
                   element={
