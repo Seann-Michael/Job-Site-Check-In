@@ -332,14 +332,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/address-test"
-                  element={
-                    <ProtectedRoute>
-                      <AddressTest />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/app-pages"
                   element={
                     <ProtectedRoute>
