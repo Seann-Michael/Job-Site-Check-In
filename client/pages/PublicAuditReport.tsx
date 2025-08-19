@@ -92,66 +92,40 @@ export default function PublicAuditReport() {
   };
 
   const generatePDF = async () => {
-    // TODO: Implement PDF generation for public reports
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${report?.report_title} - SEO Audit Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .header { text-align: center; margin-bottom: 30px; }
-              .score { font-size: 48px; font-weight: bold; color: ${getScoreColor(report?.summary_metrics.overall_score || 0)}; }
-              .metrics { display: flex; justify-content: space-around; margin: 20px 0; }
-              .metric { text-align: center; }
-              .findings { margin-top: 30px; }
-              .finding { margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-              .severity-critical { border-left: 4px solid #dc2626; }
-              .severity-high { border-left: 4px solid #ea580c; }
-              .severity-medium { border-left: 4px solid #d97706; }
-              .severity-low { border-left: 4px solid #2563eb; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>${report?.report_title}</h1>
-              <p>${report?.website_url}</p>
-              <div class="score">${report?.summary_metrics.overall_score}/100</div>
-              <p>Overall SEO Score</p>
-            </div>
-            <div class="metrics">
-              <div class="metric">
-                <h3>${report?.summary_metrics.total_issues_found}</h3>
-                <p>Total Issues</p>
-              </div>
-              <div class="metric">
-                <h3>${report?.summary_metrics.total_pages_analyzed}</h3>
-                <p>Pages Analyzed</p>
-              </div>
-              <div class="metric">
-                <h3>${report?.summary_metrics.critical_issues}</h3>
-                <p>Critical Issues</p>
-              </div>
-            </div>
-            <div class="findings">
-              <h2>Issues & Recommendations</h2>
-              ${report?.audit_findings.map(finding => `
-                <div class="finding severity-${finding.severity}">
-                  <h3>${finding.title}</h3>
-                  <p><strong>Severity:</strong> ${finding.severity.toUpperCase()}</p>
-                  <p><strong>Description:</strong> ${finding.description}</p>
-                  <p><strong>Recommendation:</strong> ${finding.recommendation}</p>
-                  <p><strong>Page:</strong> ${finding.page_url}</p>
-                  <p><strong>Estimated Fix Time:</strong> ${finding.estimated_fix_time} minutes</p>
-                </div>
-              `).join('')}
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
+    if (!report || !shareToken) return;
+
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shareToken: shareToken,
+        }),
+      });
+
+      if (response.ok) {
+        const htmlContent = await response.text();
+
+        // Open in new window for printing
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+
+          // Trigger print dialog after content loads
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+      } else {
+        throw new Error('Failed to generate PDF');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Fallback to simple window print
+      window.print();
     }
   };
 
