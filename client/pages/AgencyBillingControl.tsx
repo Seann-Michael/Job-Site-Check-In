@@ -91,8 +91,14 @@ export default function AgencyBillingControl() {
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [showAllocationSettingsDialog, setShowAllocationSettingsDialog] = useState(false);
   const [terminationReason, setTerminationReason] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
+  const [allocationSettings, setAllocationSettings] = useState({
+    autoAllocateEnabled: true,
+    monthlyCreditsAllocation: 100,
+    allocationDayOfMonth: 1,
+  });
   const [newRelationship, setNewRelationship] = useState<NewRelationshipForm>({
     adminUserId: '',
     billingArrangement: 'agency_sponsored',
