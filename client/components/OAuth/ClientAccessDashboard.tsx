@@ -397,19 +397,67 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({ on
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch stats
-      const statsResponse = await fetch('/api/oauth/stats');
-      const statsData = await statsResponse.json();
-      setStats(statsData.data);
 
-      // Fetch sessions
-      const sessionsResponse = await fetch(`/api/oauth/sessions?page=${page}&limit=25`);
-      const sessionsData = await sessionsResponse.json();
-      setSessions(sessionsData.data);
-      setTotalPages(sessionsData.pagination.totalPages);
+      // Fetch stats with proper error handling
+      try {
+        const statsResponse = await fetch('/api/oauth/stats');
+        if (statsResponse.ok) {
+          const statsText = await statsResponse.text();
+          if (statsText) {
+            const statsData = JSON.parse(statsText);
+            setStats(statsData.data);
+          }
+        } else {
+          console.warn('Stats API not available:', statsResponse.status);
+          // Set default stats
+          setStats({
+            total_active_connections: 0,
+            pending_onboarding_links: 0,
+            connections_this_month: 0,
+            average_onboarding_time: 0
+          });
+        }
+      } catch (statsError) {
+        console.warn('Error fetching stats, using defaults:', statsError);
+        setStats({
+          total_active_connections: 0,
+          pending_onboarding_links: 0,
+          connections_this_month: 0,
+          average_onboarding_time: 0
+        });
+      }
+
+      // Fetch sessions with proper error handling
+      try {
+        const sessionsResponse = await fetch(`/api/oauth/sessions?page=${page}&limit=25`);
+        if (sessionsResponse.ok) {
+          const sessionsText = await sessionsResponse.text();
+          if (sessionsText) {
+            const sessionsData = JSON.parse(sessionsText);
+            setSessions(sessionsData.data || []);
+            setTotalPages(sessionsData.pagination?.totalPages || 1);
+          }
+        } else {
+          console.warn('Sessions API not available:', sessionsResponse.status);
+          setSessions([]);
+          setTotalPages(1);
+        }
+      } catch (sessionsError) {
+        console.warn('Error fetching sessions, using defaults:', sessionsError);
+        setSessions([]);
+        setTotalPages(1);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Set default values
+      setStats({
+        total_active_connections: 0,
+        pending_onboarding_links: 0,
+        connections_this_month: 0,
+        average_onboarding_time: 0
+      });
+      setSessions([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
