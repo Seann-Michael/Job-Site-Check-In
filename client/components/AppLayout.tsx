@@ -305,6 +305,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "crm",
+      label: "CRM",
+      href: "/admin/crm",
+      icon: UserCheck,
+      active: location.pathname.startsWith("/admin/crm"),
+      comingSoon: false,
+    },
+    {
       id: "reviews",
       label: "Reviews",
       href: "/admin/reviews",
