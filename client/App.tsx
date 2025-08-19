@@ -709,7 +709,7 @@ const App = () => (
                   path="/agency/admin/billing"
                   element={
                     <ProtectedRoute>
-                      <AgencyBilling />
+                      <AgencyBillingControl />
                     </ProtectedRoute>
                   }
                 />
