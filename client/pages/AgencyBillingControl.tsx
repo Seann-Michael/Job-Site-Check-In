@@ -268,6 +268,67 @@ export default function AgencyBillingControl() {
     }
   };
 
+  const loadAllocationSettings = async (relationshipId: string) => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/credit-allocation/relationship-settings?relationshipId=${relationshipId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const relationship = data.relationship;
+        setAllocationSettings({
+          autoAllocateEnabled: relationship.auto_allocate_enabled || false,
+          monthlyCreditsAllocation: relationship.monthly_credit_allocation || 0,
+          allocationDayOfMonth: relationship.allocation_day_of_month || 1,
+        });
+      } else {
+        throw new Error('Failed to load allocation settings');
+      }
+    } catch (error) {
+      console.error('Error loading allocation settings:', error);
+      toast.error('Failed to load allocation settings');
+    }
+  };
+
+  const updateAllocationSettings = async () => {
+    if (!selectedRelationship || !token) return;
+
+    try {
+      const response = await fetch('/api/credit-allocation/allocation-settings', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          relationshipId: selectedRelationship.id,
+          autoAllocateEnabled: allocationSettings.autoAllocateEnabled,
+          monthlyCreditsAllocation: allocationSettings.monthlyCreditsAllocation,
+          allocationDayOfMonth: allocationSettings.allocationDayOfMonth,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Allocation settings updated successfully');
+        setShowAllocationSettingsDialog(false);
+        setSelectedRelationship(null);
+        loadData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update allocation settings');
+      }
+    } catch (error) {
+      console.error('Error updating allocation settings:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update allocation settings');
+    }
+  };
+
   const transferCredits = async () => {
     if (!selectedRelationship || !token || !transferAmount) return;
 
