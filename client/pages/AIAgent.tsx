@@ -228,9 +228,8 @@ export default function AIAgent() {
         <Alert>
           <Sparkles className="h-4 w-4" />
           <AlertDescription>
-            Each AI query consumes credits based on complexity and response
-            length. Costs are calculated dynamically and marked up 50% for
-            platform maintenance.
+            <strong>Demo Mode:</strong> AI Agent is currently using mock responses for testing.
+            Each query consumes a small number of credits. DataForSEO integration is being configured.
           </AlertDescription>
         </Alert>
 
