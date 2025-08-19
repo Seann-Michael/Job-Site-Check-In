@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { AppLayout } from "../components/AppLayout";
+import { AgencyLayout } from "../components/AgencyLayout";
 import {
   Card,
   CardContent,
