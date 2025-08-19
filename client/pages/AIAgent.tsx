@@ -125,6 +125,7 @@ export default function AIAgent() {
     setIsLoading(true);
 
     try {
+      console.log("Sending AI message to /api/ai/chat");
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
@@ -136,11 +137,24 @@ export default function AIAgent() {
         }),
       });
 
+      console.log("AI response status:", response.status);
+      console.log("AI response headers:", Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`AI API error (${response.status}):`, errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("AI API returned non-JSON:", text);
+        throw new Error("API returned non-JSON response");
       }
 
       const data: AIResponse = await response.json();
+      console.log("AI response data:", data);
 
       // Calculate credits used (markup the cost)
       const creditsUsed = Math.ceil(data.cost * 1.5); // 50% markup
