@@ -134,9 +134,16 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       const response = await fetch(`/api/oauth/test/${platform}?sessionId=${session.id}`, {
         method: 'POST'
       });
-      const result = await response.json();
-      // TODO: Show toast notification with result
-      console.log('Connection test result:', result);
+      if (response.ok) {
+        const text = await response.text();
+        if (text) {
+          const result = JSON.parse(text);
+          console.log('Connection test result:', result);
+          // TODO: Show toast notification with result
+        }
+      } else {
+        console.warn('Connection test API not available:', response.status);
+      }
     } catch (error) {
       console.error('Error testing connection:', error);
     }
