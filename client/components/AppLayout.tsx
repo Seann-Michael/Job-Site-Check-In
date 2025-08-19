@@ -269,10 +269,10 @@ export function AppLayout({
       comingSoon: false,
       subItems: [
         {
-          id: "site-audit",
-          label: "Site Audit",
-          href: "/admin/audits",
-          active: location.pathname === "/admin/audits",
+          id: "audit-reports",
+          label: "SEO Audit Reports",
+          href: "/admin/audit-reports",
+          active: location.pathname === "/admin/audit-reports",
         },
         {
           id: "geo-grid-scan",
