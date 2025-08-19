@@ -26,6 +26,8 @@ import {
   Trash2,
   Edit2,
   Clock,
+  Menu,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
