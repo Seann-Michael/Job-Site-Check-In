@@ -559,7 +559,10 @@ export default function AIAgent() {
                   className={`cursor-pointer transition-colors hover:bg-accent/50 ${
                     currentSessionId === session.id ? "ring-2 ring-primary" : ""
                   }`}
-                  onClick={() => selectSession(session.id)}
+                  onClick={() => {
+                    selectSession(session.id);
+                    setIsMobileSidebarOpen(false);
+                  }}
                 >
                   <CardContent className="p-3">
                     {editingSessionId === session.id ? (
