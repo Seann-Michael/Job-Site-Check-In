@@ -70,6 +70,7 @@ import AgencyBusinessOwnerEdit from "./pages/AgencyBusinessOwnerEdit";
 import AddAgencyAdminUser from "./pages/AddAgencyAdminUser";
 import AgencyAdminUserDetail from "./pages/AgencyAdminUserDetail";
 import AgencyAdminUserEdit from "./pages/AgencyAdminUserEdit";
+import AgencyClientAccess from "./pages/AgencyClientAccess";
 import SuperAdminAgencyManagement from "./pages/SuperAdminAgencyManagement";
 import SuperAdminSettings from "./pages/SuperAdminSettings";
 import SuperAdminStaff from "./pages/SuperAdminStaff";
