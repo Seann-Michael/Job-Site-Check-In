@@ -19,15 +19,17 @@ import {
   AlertCircle,
   ExternalLink
 } from 'lucide-react';
-import { 
-  OnboardingLinkForm, 
-  OnboardingFormErrors, 
+import {
+  OnboardingLinkForm,
+  OnboardingFormErrors,
   GeneratedLink,
   SUPPORTED_PLATFORMS,
   PLATFORM_DISPLAY_NAMES,
   PLATFORM_DESCRIPTIONS,
-  AccessLevel
+  AccessLevel,
+  CustomPlatform
 } from '../../types/oauth';
+import { CustomPlatformManager } from './CustomPlatformManager';
 
 interface OnboardingLinkGeneratorProps {
   onLinkGenerated?: (link: GeneratedLink, sessionId: string) => void;
