@@ -70,6 +70,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/billing/admin-agency/*"
+  status = 200
+  to = "/.netlify/functions/admin-agency-billing/:splat"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
