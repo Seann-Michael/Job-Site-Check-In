@@ -25,6 +25,7 @@ import {
   Plus,
   Eye,
   Trash2,
+  Wallet,
 } from 'lucide-react';
 
 interface BillingRelationship {
