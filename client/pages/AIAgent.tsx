@@ -925,7 +925,11 @@ export default function AIAgent() {
                                     <h4 className="font-medium text-sm mb-1 truncate">
                                       {template.title}
                                     </h4>
-                                    <p className="text-xs text-muted-foreground line-clamp-2">
+                                    <p className="text-xs text-muted-foreground line-clamp-2 overflow-hidden" style={{
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical'
+                                    }}>
                                       {template.description}
                                     </p>
                                     <div className="mt-2">
