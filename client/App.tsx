@@ -49,6 +49,8 @@ import { CrashLogs } from "./pages/CrashLogs";
 import PublicOnboarding from "./pages/PublicOnboarding";
 import Tools from "./pages/Tools";
 import AIAgent from "./pages/AIAgent";
+import CRM from "./pages/CRM";
+import CRMClientDetail from "./pages/CRMClientDetail";
 
 import Profile from "./pages/Profile";
 import PublicProject from "./pages/PublicProject";
