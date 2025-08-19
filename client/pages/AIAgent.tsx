@@ -133,12 +133,18 @@ export default function AIAgent() {
     setIsLoading(true);
 
     try {
+      const token = localStorage.getItem("supabase_token");
+      console.log("Token exists:", !!token);
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
       console.log("Sending AI message to /api/ai/chat");
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           message: messageToSend,
