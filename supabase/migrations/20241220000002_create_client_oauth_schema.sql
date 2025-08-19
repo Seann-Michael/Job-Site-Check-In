@@ -170,6 +170,12 @@ CREATE INDEX idx_webhook_events_platform ON webhook_events(platform);
 CREATE INDEX idx_webhook_events_processed ON webhook_events(processed);
 CREATE INDEX idx_webhook_events_created ON webhook_events(created_at);
 
+CREATE INDEX idx_custom_platforms_agency_user ON custom_platforms(agency_user_id);
+CREATE INDEX idx_custom_platforms_active ON custom_platforms(is_active);
+
+CREATE INDEX idx_custom_platform_responses_session ON custom_platform_responses(session_id);
+CREATE INDEX idx_custom_platform_responses_platform ON custom_platform_responses(custom_platform_id);
+
 -- Add triggers for updated_at
 CREATE TRIGGER update_onboarding_sessions_updated_at BEFORE UPDATE ON onboarding_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_client_access_updated_at BEFORE UPDATE ON client_access FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
