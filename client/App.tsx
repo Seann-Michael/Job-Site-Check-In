@@ -332,14 +332,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/add-project"
-                  element={
-                    <ProtectedRoute>
-                      <AdminAddProjectMinimal />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/address-test"
                   element={
                     <ProtectedRoute>
