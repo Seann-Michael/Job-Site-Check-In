@@ -138,7 +138,7 @@ Each of these elements works together to improve your overall digital presence.`
         .from('user_credits')
         .update({
           current_credits: creditData.current_credits - creditsToDeduct,
-          total_spent: creditData.total_spent + creditsToDeduct,
+          total_spent: (creditData.total_spent || 0) + creditsToDeduct,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
