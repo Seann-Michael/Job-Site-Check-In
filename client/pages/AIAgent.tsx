@@ -440,8 +440,20 @@ export default function AIAgent() {
           transition-transform duration-300 ease-in-out
           p-4 md:p-0
         `}>
-          {/* Header */}
-          <div className="flex items-center justify-between">
+          {/* Mobile Sidebar Header */}
+          <div className="md:hidden flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Chat History</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden md:flex items-center justify-between">
             <h2 className="text-lg font-semibold">Chat History</h2>
             <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
               <DialogTrigger asChild>
