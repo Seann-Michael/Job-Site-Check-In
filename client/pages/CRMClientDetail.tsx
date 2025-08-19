@@ -323,7 +323,7 @@ export default function CRMClientDetail() {
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold">Client not found</h2>
             <p className="text-muted-foreground">The client you're looking for doesn't exist.</p>
-            <Link to="/admin/crm">
+            <Link to="/agency/admin/crm">
               <Button className="mt-4">Back to CRM</Button>
             </Link>
           </div>
@@ -338,7 +338,7 @@ export default function CRMClientDetail() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/admin/crm">
+            <Link to="/agency/admin/crm">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to CRM
