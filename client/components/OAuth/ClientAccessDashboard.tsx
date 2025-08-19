@@ -433,9 +433,11 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({ on
           if (statsText) {
             const statsData = JSON.parse(statsText);
             setStats(statsData.data);
+            setApiAvailable(true);
           }
         } else {
           console.warn('Stats API not available:', statsResponse.status);
+          setApiAvailable(false);
           // Set default stats
           setStats({
             total_active_connections: 0,
@@ -446,6 +448,7 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({ on
         }
       } catch (statsError) {
         console.warn('Error fetching stats, using defaults:', statsError);
+        setApiAvailable(false);
         setStats({
           total_active_connections: 0,
           pending_onboarding_links: 0,
