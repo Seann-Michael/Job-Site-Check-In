@@ -253,10 +253,36 @@ CREATE POLICY "Super admins can manage platform configurations" ON platform_conf
 CREATE POLICY "Super admins can manage webhook events" ON webhook_events
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM user_profiles 
+            SELECT 1 FROM user_profiles
             WHERE id = auth.uid() AND role = 'super_admin'
         )
     );
+
+-- RLS Policies for custom_platforms
+CREATE POLICY "Agency users can manage their own custom platforms" ON custom_platforms
+    FOR ALL USING (
+        agency_user_id = auth.uid() OR
+        EXISTS (
+            SELECT 1 FROM user_profiles
+            WHERE id = auth.uid() AND role = 'super_admin'
+        )
+    );
+
+-- RLS Policies for custom_platform_responses
+CREATE POLICY "Agency users can view responses for their custom platforms" ON custom_platform_responses
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM custom_platforms
+            WHERE id = custom_platform_responses.custom_platform_id
+            AND (agency_user_id = auth.uid() OR EXISTS (
+                SELECT 1 FROM user_profiles
+                WHERE id = auth.uid() AND role = 'super_admin'
+            ))
+        )
+    );
+
+CREATE POLICY "Users can create responses for custom platforms" ON custom_platform_responses
+    FOR INSERT WITH CHECK (TRUE); -- Allow clients to submit responses
 
 -- Function to generate unique onboarding token
 CREATE OR REPLACE FUNCTION generate_onboarding_token()
