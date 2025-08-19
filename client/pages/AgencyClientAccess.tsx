@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { AgencyLayout } from "../components/AgencyLayout";
 import { ClientAccessDashboard } from "../components/OAuth/ClientAccessDashboard";
-import { OnboardingLinkGenerator } from "../components/OAuth/OnboardingLinkGenerator";
+import { StaticLinkGenerator } from "../components/OAuth/StaticLinkGenerator";
 import { Button } from "../components/ui/button";
 import {
   Card,
