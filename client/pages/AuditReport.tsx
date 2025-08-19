@@ -1,905 +1,637 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
-import { GoogleMapComponent } from "@/components/GoogleMaps/GoogleMapComponentNew";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { AppLayout } from '../components/AppLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Badge } from '../components/ui/badge';
+import { Progress } from '../components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { toast } from 'sonner';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  ArrowLeft,
+  Search,
+  Globe,
+  FileText,
   Download,
   Share2,
-  MapPin,
-  Clock,
+  AlertTriangle,
   CheckCircle,
-  AlertCircle,
   XCircle,
-  FileText,
-  Star,
+  Clock,
   TrendingUp,
-  Globe,
-  Smartphone,
-  Search,
-  Users,
+  TrendingDown,
   Eye,
-  EyeOff,
-} from "lucide-react";
+  ExternalLink,
+  Copy,
+  Filter,
+  BarChart3,
+  Zap,
+  Shield,
+  Smartphone,
+  Link,
+  Image,
+  Code,
+  Loader2,
+  Play,
+  RefreshCw,
+} from 'lucide-react';
 
-interface MapMarker {
+interface AuditReport {
   id: string;
-  position: { lat: number; lng: number };
-  title: string;
-  content?: string;
-  color?: string;
-  rank?: number | null;
-  icon?: string;
-  type: "business" | "competitor" | "scan";
-}
-
-interface CompetitorData {
-  id: string;
-  name: string;
-  position: { lat: number; lng: number };
-  rank: number;
-  visibility: number;
-  category: string;
-}
-
-interface GeoGridScanData {
-  id: string;
-  businessName: string;
-  businessLocation: { lat: number; lng: number };
-  gmbProfileUrl: string;
-  scanDate: string;
-  scanType: string;
-  overallVisibility: number;
-  status: "completed" | "in-progress" | "failed";
-  scanResults: {
-    gridCoverage: {
-      totalGridPoints: number;
-      scannedPoints: number;
-      visibility: number;
-      averageRank: number;
-    };
-    localPack: {
-      appearances: number;
-      totalSearches: number;
-      averagePosition: number;
-      visibility: number;
-    };
-    organicResults: {
-      appearances: number;
-      totalSearches: number;
-      averagePosition: number;
-      visibility: number;
-    };
-    geoDistribution: {
-      strongAreas: string[];
-      weakAreas: string[];
-      noVisibility: string[];
-    };
-    keywordPerformance: {
-      topKeywords: Array<{
-        keyword: string;
-        rank: number;
-        visibility: number;
-      }>;
-      improvementOpportunities: string[];
-    };
-    scanLocations: Array<{
-      id: string;
-      position: { lat: number; lng: number };
-      rank: number;
-      searchTerm: string;
-    }>;
-    competitors: CompetitorData[];
+  website_url: string;
+  report_title: string;
+  audit_type: 'on_page' | 'off_page' | 'comprehensive';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  summary_metrics: {
+    overall_score: number;
+    total_pages_analyzed: number;
+    total_issues_found: number;
+    critical_issues: number;
+    high_issues: number;
+    medium_issues: number;
+    low_issues: number;
   };
+  public_share_token: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+  audit_findings: AuditFinding[];
 }
 
-// Mock data for demonstration
-const mockGeoScanData: GeoGridScanData = {
-  id: "3",
-  businessName: "Local Restaurant & Grill",
-  businessLocation: { lat: 40.7589, lng: -73.9851 }, // Times Square area
-  gmbProfileUrl: "https://business.google.com/n/12345678901234567890",
-  scanDate: "2024-01-20T10:30:00Z",
-  scanType: "5km Grid Scan - Downtown Area",
-  overallVisibility: 73,
-  status: "completed",
-  scanResults: {
-    gridCoverage: {
-      totalGridPoints: 100,
-      scannedPoints: 97,
-      visibility: 73,
-      averageRank: 2.8,
-    },
-    localPack: {
-      appearances: 68,
-      totalSearches: 100,
-      averagePosition: 2.3,
-      visibility: 68,
-    },
-    organicResults: {
-      appearances: 45,
-      totalSearches: 100,
-      averagePosition: 4.7,
-      visibility: 45,
-    },
-    geoDistribution: {
-      strongAreas: ["Downtown Core", "Business District", "Main Street"],
-      weakAreas: ["North Suburbs", "Industrial Zone"],
-      noVisibility: ["Airport Area", "Highway Corridor"],
-    },
-    keywordPerformance: {
-      topKeywords: [
-        { keyword: "restaurant near me", rank: 1.8, visibility: 85 },
-        { keyword: "best local food", rank: 2.4, visibility: 72 },
-        { keyword: "downtown dining", rank: 3.1, visibility: 58 },
-      ],
-      improvementOpportunities: [
-        "Target 'lunch specials' keyword in northern areas",
-        "Improve visibility for 'family restaurant' searches",
-        "Optimize for 'outdoor seating' queries",
-      ],
-    },
-    scanLocations: [
-      {
-        id: "1",
-        position: { lat: 40.7614, lng: -73.9776 },
-        rank: 1,
-        searchTerm: "restaurant near me",
-      },
-      {
-        id: "2",
-        position: { lat: 40.7505, lng: -73.9934 },
-        rank: 3,
-        searchTerm: "best local food",
-      },
-      {
-        id: "3",
-        position: { lat: 40.7648, lng: -73.9808 },
-        rank: 2,
-        searchTerm: "downtown dining",
-      },
-      {
-        id: "4",
-        position: { lat: 40.758, lng: -73.9855 },
-        rank: 4,
-        searchTerm: "family restaurant",
-      },
-      {
-        id: "5",
-        position: { lat: 40.7549, lng: -73.984 },
-        rank: 1,
-        searchTerm: "lunch specials",
-      },
-      {
-        id: "6",
-        position: { lat: 40.7622, lng: -73.9789 },
-        rank: 5,
-        searchTerm: "outdoor dining",
-      },
-    ],
-    competitors: [
-      {
-        id: "c1",
-        name: "Bella Vista Italian",
-        position: { lat: 40.7591, lng: -73.9857 },
-        rank: 1,
-        visibility: 85,
-        category: "Italian Restaurant",
-      },
-      {
-        id: "c2",
-        name: "Corner Bistro",
-        position: { lat: 40.7601, lng: -73.9841 },
-        rank: 2,
-        visibility: 78,
-        category: "American Bistro",
-      },
-      {
-        id: "c3",
-        name: "Metro Diner",
-        position: { lat: 40.7578, lng: -73.9863 },
-        rank: 3,
-        visibility: 72,
-        category: "Casual Dining",
-      },
-      {
-        id: "c4",
-        name: "Urban Grill House",
-        position: { lat: 40.7595, lng: -73.9848 },
-        rank: 4,
-        visibility: 65,
-        category: "Steakhouse",
-      },
-      {
-        id: "c5",
-        name: "Rooftop Café",
-        position: { lat: 40.7585, lng: -73.9839 },
-        rank: 6,
-        visibility: 58,
-        category: "Café",
-      },
-    ],
-  },
-};
+interface AuditFinding {
+  id: string;
+  category: string;
+  subcategory: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  title: string;
+  description: string;
+  recommendation: string;
+  page_url: string;
+  impact_score: number;
+  fix_difficulty: 'easy' | 'medium' | 'hard';
+  estimated_fix_time: number;
+}
 
-const getVisibilityColor = (score: number) => {
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  return "text-red-600";
-};
-
-const getVisibilityVariant = (score: number) => {
-  if (score >= 80) return "default";
-  if (score >= 60) return "secondary";
-  return "destructive";
-};
-
-const getRankColor = (rank: number) => {
-  if (rank <= 3) return "#10b981"; // green
-  if (rank <= 10) return "#f59e0b"; // yellow
-  return "#ef4444"; // red
-};
+interface NewAuditForm {
+  websiteUrl: string;
+  reportTitle: string;
+  auditType: 'on_page' | 'off_page' | 'comprehensive';
+  maxPages: number;
+}
 
 export default function AuditReport() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [scanData, setScanData] = useState<GeoGridScanData | null>(null);
+  const { user, token } = useAuth();
+  const [reports, setReports] = useState<AuditReport[]>([]);
+  const [selectedReport, setSelectedReport] = useState<AuditReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showCompetitorResults, setShowCompetitorResults] = useState(false);
-  const [showCompetitorLocations, setShowCompetitorLocations] = useState(false);
-
-  // Generate map markers based on current toggles
-  const getMapMarkers = (): MapMarker[] => {
-    if (!scanData) return [];
-
-    const markers: MapMarker[] = [];
-
-    // Always show business location
-    markers.push({
-      id: "business",
-      position: scanData.businessLocation,
-      title: scanData.businessName,
-      content: `<div class="p-2"><h3 class="font-medium">${scanData.businessName}</h3><p class="text-sm text-gray-600">Your Business Location</p></div>`,
-      color: "#3B82F6",
-      icon: "business",
-      type: "business",
-    });
-
-    // Add scan location markers
-    scanData.scanResults.scanLocations.forEach((location) => {
-      markers.push({
-        id: location.id,
-        position: location.position,
-        title: `Rank #${location.rank} - ${location.searchTerm}`,
-        content: `<div class="p-2"><h4 class="font-medium">Rank #${location.rank}</h4><p class="text-sm text-gray-600">${location.searchTerm}</p></div>`,
-        color: getRankColor(location.rank),
-        rank: location.rank,
-        type: "scan",
-      });
-    });
-
-    // Add competitor locations if toggle is enabled
-    if (showCompetitorLocations && scanData.scanResults.competitors) {
-      scanData.scanResults.competitors.forEach((competitor) => {
-        markers.push({
-          id: competitor.id,
-          position: competitor.position,
-          title: `${competitor.name} - Rank #${competitor.rank}`,
-          content: `<div class="p-2"><h4 class="font-medium">${competitor.name}</h4><p class="text-sm text-gray-600">${competitor.category}</p><p class="text-sm text-gray-600">Rank: #${competitor.rank} | Visibility: ${competitor.visibility}%</p></div>`,
-          color: "#8B5CF6",
-          rank: competitor.rank,
-          type: "competitor",
-        });
-      });
-    }
-
-    return markers;
-  };
+  const [runningAudit, setRunningAudit] = useState(false);
+  const [showNewAuditDialog, setShowNewAuditDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [filterSeverity, setFilterSeverity] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  
+  const [newAuditForm, setNewAuditForm] = useState<NewAuditForm>({
+    websiteUrl: '',
+    reportTitle: '',
+    auditType: 'comprehensive',
+    maxPages: 50,
+  });
 
   useEffect(() => {
-    // Simulate API call to fetch geo scan data
-    const fetchGeoScanData = async () => {
+    loadReports();
+  }, [token]);
+
+  const loadReports = async () => {
+    if (!token) return;
+
+    try {
       setLoading(true);
-      // In a real implementation, you would fetch geo grid scan data based on the ID
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setScanData(mockGeoScanData);
+      const response = await fetch('/api/audit-report/reports', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setReports(data.reports || []);
+      } else {
+        throw new Error('Failed to load reports');
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+      toast.error('Failed to load audit reports');
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
-    fetchGeoScanData();
-  }, [id]);
+  const loadReportDetails = async (reportId: string) => {
+    if (!token) return;
 
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="p-6 max-w-6xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-muted rounded w-1/3"></div>
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-48 bg-muted rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </AppLayout>
-    );
-  }
+    try {
+      const response = await fetch(`/api/audit-report/${reportId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-  if (!scanData) {
-    return (
-      <AppLayout>
-        <div className="p-6 max-w-6xl mx-auto">
-          <Card>
-            <CardContent className="text-center py-12">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">
-                Geo Scan Report Not Found
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                The geo grid scan report with ID "{id}" could not be found.
-              </p>
-              <Button onClick={() => navigate("/admin/audits")}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to GMB Scans
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </AppLayout>
-    );
-  }
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedReport(data.report);
+      } else {
+        throw new Error('Failed to load report details');
+      }
+    } catch (error) {
+      console.error('Error loading report details:', error);
+      toast.error('Failed to load report details');
+    }
+  };
+
+  const startNewAudit = async () => {
+    if (!token || !newAuditForm.websiteUrl) return;
+
+    try {
+      setRunningAudit(true);
+      
+      // Validate URL
+      const url = new URL(newAuditForm.websiteUrl.startsWith('http') 
+        ? newAuditForm.websiteUrl 
+        : `https://${newAuditForm.websiteUrl}`);
+
+      const response = await fetch('/api/audit-report/start-audit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          websiteUrl: url.toString(),
+          reportTitle: newAuditForm.reportTitle || `SEO Audit for ${url.hostname}`,
+          auditType: newAuditForm.auditType,
+          maxPages: newAuditForm.maxPages,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`Audit started successfully! Score: ${data.auditScore}/100`);
+        setShowNewAuditDialog(false);
+        setNewAuditForm({
+          websiteUrl: '',
+          reportTitle: '',
+          auditType: 'comprehensive',
+          maxPages: 50,
+        });
+        loadReports();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start audit');
+      }
+    } catch (error) {
+      console.error('Error starting audit:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start audit');
+    } finally {
+      setRunningAudit(false);
+    }
+  };
+
+  const generatePDF = async (report: AuditReport) => {
+    toast.info('PDF generation feature coming soon!');
+    // TODO: Implement PDF generation
+  };
+
+  const shareReport = async (report: AuditReport) => {
+    if (!token) return;
+
+    try {
+      // Make report public if not already
+      if (!report.is_public) {
+        // TODO: Implement public sharing toggle
+        toast.info('Public sharing feature coming soon!');
+        return;
+      }
+
+      // Copy share URL to clipboard
+      const shareUrl = `${window.location.origin}/public/audit-report/${report.public_share_token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Share URL copied to clipboard!');
+    } catch (error) {
+      console.error('Error sharing report:', error);
+      toast.error('Failed to copy share URL');
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-blue-100 text-blue-800';
+      case 'info': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical': return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'high': return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case 'medium': return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'low': return <CheckCircle className="h-4 w-4 text-blue-500" />;
+      default: return <CheckCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return 'text-green-600';
+    if (score >= 70) return 'text-yellow-600';
+    if (score >= 50) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const filteredFindings = selectedReport?.audit_findings?.filter(finding => {
+    const severityMatch = filterSeverity === 'all' || finding.severity === filterSeverity;
+    const categoryMatch = filterCategory === 'all' || finding.category === filterCategory;
+    return severityMatch && categoryMatch;
+  }) || [];
+
+  const categories = [...new Set(selectedReport?.audit_findings?.map(f => f.category) || [])];
 
   return (
-    <AppLayout>
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <AppLayout
+      title="SEO Audit Reports"
+      breadcrumbs={[
+        { label: "Dashboard", href: "/admin/projects" },
+        { label: "Audit Reports" },
+      ]}
+    >
+      <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/admin/audits")}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                GMB Geo Grid Scan #{scanData.id}
-              </h1>
-              <p className="text-muted-foreground">
-                Generated on {new Date(scanData.scanDate).toLocaleDateString()}
-              </p>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">SEO Audit Reports</h1>
+            <p className="text-muted-foreground">
+              Comprehensive technical SEO analysis powered by DataForSEO
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export PDF
-            </Button>
-          </div>
+          <Dialog open={showNewAuditDialog} onOpenChange={setShowNewAuditDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Play className="h-4 w-4 mr-2" />
+                Start New Audit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Start New SEO Audit</DialogTitle>
+                <DialogDescription>
+                  Analyze your website's technical SEO performance and get actionable recommendations.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="website-url">Website URL *</Label>
+                  <Input
+                    id="website-url"
+                    placeholder="https://example.com"
+                    value={newAuditForm.websiteUrl}
+                    onChange={(e) => setNewAuditForm(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="report-title">Report Title</Label>
+                  <Input
+                    id="report-title"
+                    placeholder="Custom report name (optional)"
+                    value={newAuditForm.reportTitle}
+                    onChange={(e) => setNewAuditForm(prev => ({ ...prev, reportTitle: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="audit-type">Audit Type</Label>
+                  <Select
+                    value={newAuditForm.auditType}
+                    onValueChange={(value: any) => setNewAuditForm(prev => ({ ...prev, auditType: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comprehensive">Comprehensive (On-page + Off-page)</SelectItem>
+                      <SelectItem value="on_page">On-page Only</SelectItem>
+                      <SelectItem value="off_page">Off-page Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="max-pages">Max Pages to Analyze</Label>
+                  <Select
+                    value={newAuditForm.maxPages.toString()}
+                    onValueChange={(value) => setNewAuditForm(prev => ({ ...prev, maxPages: parseInt(value) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10 pages</SelectItem>
+                      <SelectItem value="25">25 pages</SelectItem>
+                      <SelectItem value="50">50 pages</SelectItem>
+                      <SelectItem value="100">100 pages</SelectItem>
+                      <SelectItem value="250">250 pages</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowNewAuditDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={startNewAudit} disabled={runningAudit || !newAuditForm.websiteUrl}>
+                    {runningAudit && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Start Audit
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        {/* Interactive Map Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Geo Grid Scan Results
-                </CardTitle>
-                <CardDescription>
-                  Interactive map showing scan locations and competitor analysis
-                </CardDescription>
+        {/* Reports List */}
+        {!selectedReport && (
+          <div>
+            {loading ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p>Loading audit reports...</p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={showCompetitorResults ? "default" : "outline"}
-                  size="sm"
-                  onClick={() =>
-                    setShowCompetitorResults(!showCompetitorResults)
-                  }
-                >
-                  {showCompetitorResults ? (
-                    <Eye className="h-4 w-4 mr-1" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 mr-1" />
-                  )}
-                  Competitor Results
-                </Button>
-                <Button
-                  variant={showCompetitorLocations ? "default" : "outline"}
-                  size="sm"
-                  onClick={() =>
-                    setShowCompetitorLocations(!showCompetitorLocations)
-                  }
-                >
-                  {showCompetitorLocations ? (
-                    <Eye className="h-4 w-4 mr-1" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 mr-1" />
-                  )}
-                  Competitor Pins
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <GoogleMapComponent
-              center={scanData.businessLocation}
-              zoom={13}
-              height="400px"
-              markers={getMapMarkers()}
-              showControls={true}
-              showDirectionsButton={false}
-              className="mb-4"
-            />
-
-            {/* Map Legend */}
-            <div className="flex flex-wrap gap-4 pt-4 border-t">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Your Business</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Top 3 Rankings</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Top 10 Rankings</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Below Top 10</span>
-              </div>
-              {showCompetitorLocations && (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
-                  <span className="text-sm text-gray-600">Competitors</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Business Info & Overall Visibility */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div className="space-y-2">
-                <CardTitle className="text-xl">
-                  {scanData.businessName}
-                </CardTitle>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Globe className="h-4 w-4" />
-                  <span className="text-sm">{scanData.gmbProfileUrl}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-sm">
-                    {scanData.scanType} &#8226;{" "}
-                    {new Date(scanData.scanDate).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              <div className="text-center">
-                <div
-                  className={`text-4xl font-bold ${getVisibilityColor(scanData.overallVisibility)}`}
-                >
-                  {scanData.overallVisibility}%
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Overall Visibility
-                </div>
-                <Badge
-                  variant={getVisibilityVariant(scanData.overallVisibility)}
-                  className="mt-2"
-                >
-                  {scanData.status}
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* Geo Grid Scan Results */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Grid Coverage */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Grid Coverage
-                </CardTitle>
-                <Badge
-                  variant={getVisibilityVariant(
-                    scanData.scanResults.gridCoverage.visibility,
-                  )}
-                >
-                  {scanData.scanResults.gridCoverage.visibility}%
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {scanData.scanResults.gridCoverage.scannedPoints}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Scanned Points
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-muted-foreground">
-                    {scanData.scanResults.gridCoverage.totalGridPoints}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Total Grid Points
-                  </div>
-                </div>
-              </div>
-              <Separator />
-              <div className="text-center">
-                <div className="text-lg font-bold text-blue-600">
-                  Avg Rank: {scanData.scanResults.gridCoverage.averageRank}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Average ranking position across all grid points
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Local Pack Performance */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="h-5 w-5" />
-                  Local Pack
-                </CardTitle>
-                <Badge
-                  variant={getVisibilityVariant(
-                    scanData.scanResults.localPack.visibility,
-                  )}
-                >
-                  {scanData.scanResults.localPack.visibility}%
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {scanData.scanResults.localPack.appearances}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Appearances
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {scanData.scanResults.localPack.averagePosition}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Avg Position
-                  </div>
-                </div>
-              </div>
-              <Separator />
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">
-                  Appeared in {scanData.scanResults.localPack.appearances} of{" "}
-                  {scanData.scanResults.localPack.totalSearches} local pack
-                  searches
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Organic Results */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Organic Results
-                </CardTitle>
-                <Badge
-                  variant={getVisibilityVariant(
-                    scanData.scanResults.organicResults.visibility,
-                  )}
-                >
-                  {scanData.scanResults.organicResults.visibility}%
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {scanData.scanResults.organicResults.appearances}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Appearances
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {scanData.scanResults.organicResults.averagePosition}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Avg Position
-                  </div>
-                </div>
-              </div>
-              <Separator />
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">
-                  GMB profile appeared in organic results for{" "}
-                  {scanData.scanResults.organicResults.appearances} searches
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Geographic Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Geographic Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Strong Areas
-                </h4>
-                <div className="flex flex-wrap gap-1">
-                  {scanData.scanResults.geoDistribution.strongAreas.map(
-                    (area, index) => (
-                      <Badge key={index} variant="default" className="text-xs">
-                        {area}
-                      </Badge>
-                    ),
-                  )}
-                </div>
-              </div>
-              <div>
-                <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4 text-yellow-500" />
-                  Weak Areas
-                </h4>
-                <div className="flex flex-wrap gap-1">
-                  {scanData.scanResults.geoDistribution.weakAreas.map(
-                    (area, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {area}
-                      </Badge>
-                    ),
-                  )}
-                </div>
-              </div>
-              <div>
-                <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  No Visibility
-                </h4>
-                <div className="flex flex-wrap gap-1">
-                  {scanData.scanResults.geoDistribution.noVisibility.map(
-                    (area, index) => (
-                      <Badge
-                        key={index}
-                        variant="destructive"
-                        className="text-xs"
-                      >
-                        {area}
-                      </Badge>
-                    ),
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Keyword Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" />
-                Top Keywords
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium text-sm mb-2">
-                  Best Performing Keywords
-                </h4>
-                <div className="space-y-2">
-                  {scanData.scanResults.keywordPerformance.topKeywords.map(
-                    (keyword, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-muted/50 rounded"
-                      >
-                        <span className="text-sm font-medium">
-                          {keyword.keyword}
-                        </span>
+            ) : reports.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No audit reports yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Start your first SEO audit to analyze your website's performance.
+                  </p>
+                  <Button onClick={() => setShowNewAuditDialog(true)}>
+                    <Play className="h-4 w-4 mr-2" />
+                    Start New Audit
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {reports.map((report) => (
+                  <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Globe className="h-5 w-5 text-muted-foreground" />
+                            <h3 className="font-semibold">{report.report_title}</h3>
+                            <Badge variant="outline" className="capitalize">
+                              {report.audit_type.replace('_', ' ')}
+                            </Badge>
+                            <Badge 
+                              variant={report.status === 'completed' ? 'default' : 
+                                      report.status === 'failed' ? 'destructive' : 'secondary'}
+                            >
+                              {report.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-3">{report.website_url}</p>
+                          {report.summary_metrics && (
+                            <div className="flex items-center gap-6">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Score:</span>
+                                <span className={`font-bold ${getScoreColor(report.summary_metrics.overall_score)}`}>
+                                  {report.summary_metrics.overall_score}/100
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Issues:</span>
+                                <span className="font-medium">{report.summary_metrics.total_issues_found}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Pages:</span>
+                                <span className="font-medium">{report.summary_metrics.total_pages_analyzed}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            Rank {keyword.rank}
-                          </span>
-                          <Badge
-                            variant={getVisibilityVariant(keyword.visibility)}
-                            className="text-xs"
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generatePDF(report)}
                           >
-                            {keyword.visibility}%
-                          </Badge>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => shareReport(report)}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadReportDetails(report.id)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
                         </div>
                       </div>
-                    ),
-                  )}
-                </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-              <Separator />
-              <div>
-                <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4 text-blue-500" />
-                  Growth Opportunities
-                </h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  {scanData.scanResults.keywordPerformance.improvementOpportunities.map(
-                    (opportunity, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-blue-500 mt-1">&#8226;</span>
-                        {opportunity}
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+        )}
 
-          {/* Summary Card */}
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Geo Grid Scan Summary</CardTitle>
-              <CardDescription>
-                Geographic visibility analysis and ranking performance across
-                the scanned area
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <div
-                    className={`text-lg font-bold ${getVisibilityColor(scanData.scanResults.gridCoverage.visibility)}`}
-                  >
-                    {scanData.scanResults.gridCoverage.visibility}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Grid Coverage
-                  </div>
-                </div>
-                <div>
-                  <div
-                    className={`text-lg font-bold ${getVisibilityColor(scanData.scanResults.localPack.visibility)}`}
-                  >
-                    {scanData.scanResults.localPack.visibility}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Local Pack
-                  </div>
-                </div>
-                <div>
-                  <div
-                    className={`text-lg font-bold ${getVisibilityColor(scanData.scanResults.organicResults.visibility)}`}
-                  >
-                    {scanData.scanResults.organicResults.visibility}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">Organic</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-blue-600">
-                    {scanData.scanResults.gridCoverage.averageRank}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Avg Rank</div>
-                </div>
-              </div>
-              <Separator />
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Key Insights</h4>
-                <p className="text-sm text-muted-foreground">
-                  This GMB profile shows strong visibility in{" "}
-                  {scanData.scanResults.geoDistribution.strongAreas.length} core
-                  areas. Focus on expanding presence in{" "}
-                  {scanData.scanResults.geoDistribution.weakAreas.join(", ")} to
-                  improve overall geographic coverage. The profile performs best
-                  for location-based searches with an average local pack
-                  position of {scanData.scanResults.localPack.averagePosition}.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Report Details */}
+        {selectedReport && (
+          <div className="space-y-6">
+            {/* Back Button */}
+            <Button variant="ghost" onClick={() => setSelectedReport(null)}>
+              ← Back to Reports
+            </Button>
 
-          {/* Competitor Results Section */}
-          {showCompetitorResults && (
+            {/* Report Header */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Competitor Analysis
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5" />
+                      {selectedReport.report_title}
+                    </CardTitle>
+                    <CardDescription className="mt-2">
+                      {selectedReport.website_url} • {new Date(selectedReport.created_at).toLocaleDateString()}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => generatePDF(selectedReport)}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                    <Button variant="outline" onClick={() => shareReport(selectedReport)}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share Report
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {scanData.scanResults.competitors.map((competitor) => (
-                    <div
-                      key={competitor.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div>
-                        <h4 className="font-medium">{competitor.name}</h4>
-                        <p className="text-sm text-gray-600">
-                          {competitor.category}
-                        </p>
+                {selectedReport.summary_metrics && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="text-center">
+                      <div className={`text-3xl font-bold ${getScoreColor(selectedReport.summary_metrics.overall_score)}`}>
+                        {selectedReport.summary_metrics.overall_score}
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <div className="text-sm font-medium">Rank</div>
-                          <Badge
-                            variant={
-                              competitor.rank <= 3 ? "default" : "secondary"
-                            }
-                          >
-                            #{competitor.rank}
-                          </Badge>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium">Visibility</div>
-                          <Badge
-                            variant={getVisibilityVariant(
-                              competitor.visibility,
-                            )}
-                          >
-                            {competitor.visibility}%
-                          </Badge>
-                        </div>
-                      </div>
+                      <div className="text-sm text-muted-foreground">Overall Score</div>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold">{selectedReport.summary_metrics.total_issues_found}</div>
+                      <div className="text-sm text-muted-foreground">Total Issues</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold">{selectedReport.summary_metrics.total_pages_analyzed}</div>
+                      <div className="text-sm text-muted-foreground">Pages Analyzed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex justify-center gap-2">
+                        <span className="text-red-600 font-semibold">{selectedReport.summary_metrics.critical_issues}</span>
+                        <span className="text-orange-600 font-semibold">{selectedReport.summary_metrics.high_issues}</span>
+                        <span className="text-yellow-600 font-semibold">{selectedReport.summary_metrics.medium_issues}</span>
+                        <span className="text-blue-600 font-semibold">{selectedReport.summary_metrics.low_issues}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">Critical • High • Medium • Low</div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-        </div>
+
+            {/* Issues and Findings */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Issues & Recommendations</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Severities</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category} className="capitalize">
+                            {category.replace('_', ' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredFindings.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                    <h3 className="text-lg font-semibold mb-2">No issues found</h3>
+                    <p className="text-muted-foreground">
+                      {selectedReport.audit_findings?.length === 0 
+                        ? "Great! Your website has no technical SEO issues."
+                        : "No issues match the current filters."
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Issue</TableHead>
+                        <TableHead>Severity</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Page</TableHead>
+                        <TableHead>Fix Time</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredFindings.map((finding) => (
+                        <TableRow key={finding.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{finding.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {finding.description.substring(0, 100)}...
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getSeverityColor(finding.severity)}>
+                              {finding.severity}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {finding.category.replace('_', ' ')}
+                          </TableCell>
+                          <TableCell>
+                            <a 
+                              href={finding.page_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              <span className="truncate max-w-[200px]">
+                                {finding.page_url.replace(/^https?:\/\//, '')}
+                              </span>
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {finding.estimated_fix_time}m
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm">
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
