@@ -34,6 +34,24 @@
 
 [[redirects]]
   force = true
+  from = "/api/oauth/custom-platforms"
+  status = 200
+  to = "/.netlify/functions/custom-platforms"
+
+[[redirects]]
+  force = true
+  from = "/api/oauth/agency-config/*"
+  status = 200
+  to = "/.netlify/functions/agency-config/:splat"
+
+[[redirects]]
+  force = true
+  from = "/api/oauth/client-onboard"
+  status = 200
+  to = "/.netlify/functions/client-onboard"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
