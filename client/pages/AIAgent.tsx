@@ -493,9 +493,49 @@ export default function AIAgent() {
             </Dialog>
           </div>
 
+          {/* Mobile New Chat Button */}
+          <div className="md:hidden">
+            <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
+              <DialogTrigger asChild>
+                <Button className="w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Chat
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Start New Chat</DialogTitle>
+                  <DialogDescription>
+                    Give your new chat session a descriptive title
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-chat-title">Chat Title</Label>
+                    <Input
+                      id="mobile-chat-title"
+                      value={newChatTitle}
+                      onChange={(e) => setNewChatTitle(e.target.value)}
+                      placeholder="e.g., SEO Strategy Discussion"
+                      onKeyPress={(e) => e.key === "Enter" && createNewChat()}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={createNewChat} disabled={!newChatTitle.trim()}>
+                      Create Chat
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowNewChatDialog(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
           {/* Credits Display */}
           {userCredits !== null && (
-            <Card>
+            <Card className="hidden md:block">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-blue-600" />
