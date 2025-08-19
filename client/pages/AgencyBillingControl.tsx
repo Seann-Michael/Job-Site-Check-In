@@ -563,8 +563,21 @@ export default function AgencyBillingControl() {
                                   size="sm"
                                   onClick={() => {
                                     setSelectedRelationship(relationship);
+                                    loadAllocationSettings(relationship.id);
+                                    setShowAllocationSettingsDialog(true);
+                                  }}
+                                  title="Allocation Settings"
+                                >
+                                  <Settings className="h-4 w-4 text-purple-500" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedRelationship(relationship);
                                     setShowTransferDialog(true);
                                   }}
+                                  title="Transfer Credits"
                                 >
                                   <Send className="h-4 w-4 text-blue-500" />
                                 </Button>
@@ -575,6 +588,7 @@ export default function AgencyBillingControl() {
                                     setSelectedRelationship(relationship);
                                     setShowTerminateDialog(true);
                                   }}
+                                  title="Terminate Relationship"
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
