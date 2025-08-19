@@ -407,6 +407,14 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       comingSoon: true,
     },
     {
+      id: "crm",
+      label: "CRM",
+      href: "/agency/admin/crm",
+      icon: UserCheck,
+      active: location.pathname.startsWith("/agency/admin/crm"),
+      comingSoon: false,
+    },
+    {
       id: "billing",
       label: "Billing",
       href: "/agency/admin/billing",
