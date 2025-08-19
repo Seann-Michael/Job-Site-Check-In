@@ -405,6 +405,7 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({ on
   const [selectedSession, setSelectedSession] = useState<OnboardingSession | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [apiAvailable, setApiAvailable] = useState(true);
 
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = session.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
