@@ -1093,10 +1093,6 @@ const App = () => (
 
                 {/* Additional Admin Routes */}
                 <Route
-                  path="/AddressTest"
-                  element={<Navigate to="/admin/address-test" replace />}
-                />
-                <Route
                   path="/AppPages"
                   element={<Navigate to="/admin/app-pages" replace />}
                 />
