@@ -52,6 +52,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/ai/chat"
+  status = 200
+  to = "/.netlify/functions/ai-chat"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
