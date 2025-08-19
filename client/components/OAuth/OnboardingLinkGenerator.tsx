@@ -101,9 +101,18 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
   const handlePlatformToggle = (platform: string, checked: boolean) => {
     setForm(prev => ({
       ...prev,
-      selected_platforms: checked 
+      selected_platforms: checked
         ? [...prev.selected_platforms, platform]
         : prev.selected_platforms.filter(p => p !== platform)
+    }));
+  };
+
+  const handleCustomPlatformToggle = (platformId: string, checked: boolean) => {
+    setForm(prev => ({
+      ...prev,
+      selected_custom_platforms: checked
+        ? [...prev.selected_custom_platforms, platformId]
+        : prev.selected_custom_platforms.filter(p => p !== platformId)
     }));
   };
 
