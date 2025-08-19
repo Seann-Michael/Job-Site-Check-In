@@ -638,14 +638,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/agency/admin/commission"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyCommission />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/agency/admin/analytics"
                   element={
                     <ProtectedRoute>
