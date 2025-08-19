@@ -53,6 +53,8 @@ import CRM from "./pages/CRM";
 import CRMClientDetail from "./pages/CRMClientDetail";
 import AdminBillingManagement from "./pages/AdminBillingManagement";
 import AgencyBillingControl from "./pages/AgencyBillingControl";
+import AuditReport from "./pages/AuditReport";
+import PublicAuditReport from "./pages/PublicAuditReport";
 
 import Profile from "./pages/Profile";
 import PublicProject from "./pages/PublicProject";
