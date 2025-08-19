@@ -18,7 +18,6 @@ import { AppNotifications } from "@/components/UpdateNotification";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Footer } from "@/components/Footer";
 import { CreditProvider } from "@/components/CreditProvider";
-import { CreditDisplay } from "@/components/CreditDisplay";
 import { CompanySelector } from "@/components/CompanySelector";
 
 import {
