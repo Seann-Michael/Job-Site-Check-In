@@ -25,6 +25,7 @@ CREATE TABLE onboarding_sessions (
     
     -- Required platforms array
     required_platforms TEXT[] NOT NULL DEFAULT '{}',
+    required_custom_platforms TEXT[] DEFAULT '{}',
     
     -- Connected platforms tracking
     connected_platforms JSONB DEFAULT '[]',
