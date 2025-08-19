@@ -698,7 +698,7 @@ export default function AIAgent() {
                       }`}
                     >
                       <div
-                        className={`flex gap-3 max-w-[80%] ${
+                        className={`flex gap-2 md:gap-3 max-w-[85%] md:max-w-[80%] ${
                           message.type === "user" ? "flex-row-reverse" : "flex-row"
                         }`}
                       >
