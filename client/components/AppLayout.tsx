@@ -58,6 +58,7 @@ import {
   Maximize2,
   Minimize2,
   Wrench,
+  Bot,
 } from "lucide-react";
 import React, { useState, useEffect, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
