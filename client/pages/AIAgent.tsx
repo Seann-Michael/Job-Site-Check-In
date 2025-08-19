@@ -402,9 +402,44 @@ export default function AIAgent() {
         { label: "AI Agent" },
       ]}
     >
-      <div className="p-6 h-full flex gap-6">
+      <div className="p-3 md:p-6 h-full flex flex-col md:flex-row gap-3 md:gap-6">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+            <h1 className="text-lg font-semibold">AI Agent</h1>
+          </div>
+          {userCredits !== null && (
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-blue-600" />
+              <span className="font-semibold text-sm">{userCredits}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {isMobileSidebarOpen && (
+          <div
+            className="md:hidden fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <div className="w-80 flex flex-col space-y-4">
+        <div className={`
+          ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 fixed md:relative inset-y-0 left-0 z-50 md:z-auto
+          w-80 md:w-80 flex flex-col space-y-4 bg-background md:bg-transparent
+          border-r md:border-none shadow-lg md:shadow-none
+          transition-transform duration-300 ease-in-out
+          p-4 md:p-0
+        `}>
           {/* Header */}
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Chat History</h2>
