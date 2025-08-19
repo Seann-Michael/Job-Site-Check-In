@@ -49,8 +49,7 @@ export default function AgencyClientAccess() {
                   Client Access Management
                 </h1>
                 <p className="text-muted-foreground">
-                  Create branded onboarding links for clients to connect their
-                  marketing platforms
+                  Create static, reusable onboarding links that can be shared with unlimited clients
                 </p>
               </div>
               <Button onClick={handleCreateNew}>
