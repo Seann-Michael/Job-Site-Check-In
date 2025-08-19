@@ -79,7 +79,7 @@ const handler: Handler = async (event, context) => {
       // Check user's credit balance
       const { data: creditData, error: creditError } = await supabase
         .from('user_credits')
-        .select('current_credits')
+        .select('current_credits, total_spent')
         .eq('user_id', user.id)
         .single();
 
