@@ -233,10 +233,20 @@ export interface ClientAccessStatsResponse {
 // Form validation schemas
 export const SUPPORTED_PLATFORMS = [
   'google_ads',
-  'meta_ads', 
   'google_analytics',
+  'google_merchant_center',
   'google_search_console',
+  'google_tag_manager',
   'google_my_business',
+  'facebook_pages',
+  'meta_ads',
+  'meta_product_catalog',
+  'meta_pixels',
+  'instagram',
+  'whatsapp_business',
+  'shopify',
+  'youtube_studio',
+  'wordpress',
   'tiktok_ads'
 ] as const;
 
