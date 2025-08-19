@@ -1382,10 +1382,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/agency-admin/commission"
-                  element={<Navigate to="/agency/admin/commission" replace />}
-                />
-                <Route
                   path="/agency-admin/reports"
                   element={<Navigate to="/agency/admin/reports" replace />}
                 />
