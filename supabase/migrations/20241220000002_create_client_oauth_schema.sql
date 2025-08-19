@@ -189,6 +189,8 @@ ALTER TABLE client_access ENABLE ROW LEVEL SECURITY;
 ALTER TABLE oauth_activity_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_configurations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_platforms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_platform_responses ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for onboarding_sessions
 CREATE POLICY "Agency users can manage their own onboarding sessions" ON onboarding_sessions
