@@ -649,7 +649,7 @@ export default function AIAgent() {
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 w-full md:w-auto">
           {!currentSessionId ? (
             <Card className="flex-1 flex items-center justify-center">
               <CardContent className="text-center">
