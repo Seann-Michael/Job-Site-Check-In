@@ -189,6 +189,22 @@ Each of these elements works together to improve your overall digital presence.`
         // Continue anyway, we don't want to fail the AI response
       }
 
+      // Save AI response to database
+      await supabase
+        .from('ai_chat_messages')
+        .insert({
+          session_id: session_id,
+          user_id: user.id,
+          message_type: 'ai',
+          content: randomResponse,
+          credits_used: creditsToDeduct,
+          cost: actualCost,
+          processing_time: '1.5s',
+          metadata: {
+            note: 'Mock response while DataForSEO integration is configured'
+          }
+        });
+
       // Log the transaction
       await supabase
         .from('credit_transactions')
