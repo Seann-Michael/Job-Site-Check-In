@@ -196,6 +196,7 @@ const App = () => (
                 <Route path="/public/project/:id" element={<PublicProject />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
+                <Route path="/onboard/agency/:agencyToken" element={<PublicOnboarding />} />
 
                 {/* Protected routes */}
                 <Route
