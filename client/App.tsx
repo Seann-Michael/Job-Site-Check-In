@@ -51,6 +51,8 @@ import Tools from "./pages/Tools";
 import AIAgent from "./pages/AIAgent";
 import CRM from "./pages/CRM";
 import CRMClientDetail from "./pages/CRMClientDetail";
+import AdminBillingManagement from "./pages/AdminBillingManagement";
+import AgencyBillingControl from "./pages/AgencyBillingControl";
 
 import Profile from "./pages/Profile";
 import PublicProject from "./pages/PublicProject";
