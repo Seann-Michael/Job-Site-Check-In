@@ -28,7 +28,6 @@ import Tasks from "./pages/Tasks";
 import Gallery from "./pages/Gallery";
 import Index from "./pages/Index";
 import AddProject from "./pages/AddProject";
-import AdminAddProjectMinimal from "./pages/AdminAddProjectMinimal";
 import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
