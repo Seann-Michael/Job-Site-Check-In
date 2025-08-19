@@ -1,53 +1,53 @@
-import { Handler } from '@netlify/functions';
-import { authMiddleware } from './auth-middleware';
-import { createClient } from '@supabase/supabase-js';
+import { Handler } from "@netlify/functions";
+import { authMiddleware } from "./auth-middleware";
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const handler: Handler = async (event, context) => {
   try {
     const { path, httpMethod, body, queryStringParameters } = event;
-    
+
     // Handle GET requests for fetching agency config
-    if (httpMethod === 'GET') {
-      const agencyToken = path?.split('/').pop();
-      
+    if (httpMethod === "GET") {
+      const agencyToken = path?.split("/").pop();
+
       if (!agencyToken) {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Agency token is required' }),
+          body: JSON.stringify({ error: "Agency token is required" }),
         };
       }
 
       try {
         const { data: agencyConfig, error } = await supabase
-          .from('agency_static_configs')
-          .select('*')
-          .eq('agency_token', agencyToken)
+          .from("agency_static_configs")
+          .select("*")
+          .eq("agency_token", agencyToken)
           .single();
 
         if (error || !agencyConfig) {
           return {
             statusCode: 404,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Configuration not found' }),
+            body: JSON.stringify({ error: "Configuration not found" }),
           };
         }
 
         return {
           statusCode: 200,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
           body: JSON.stringify({
             config: agencyConfig.config,
@@ -55,20 +55,20 @@ const handler: Handler = async (event, context) => {
           }),
         };
       } catch (error) {
-        console.error('Error fetching agency config:', error);
+        console.error("Error fetching agency config:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ error: "Internal server error" }),
         };
       }
     }
 
     // Handle POST requests for creating agency config (protected)
-    if (httpMethod === 'POST') {
+    if (httpMethod === "POST") {
       // Apply auth middleware for POST requests
       const authResult = await authMiddleware(event);
       if (authResult.statusCode !== 200) {
@@ -79,10 +79,10 @@ const handler: Handler = async (event, context) => {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Request body is required' }),
+          body: JSON.stringify({ error: "Request body is required" }),
         };
       }
 
@@ -93,10 +93,12 @@ const handler: Handler = async (event, context) => {
           return {
             statusCode: 400,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Agency token and config are required' }),
+            body: JSON.stringify({
+              error: "Agency token and config are required",
+            }),
           };
         }
 
@@ -105,25 +107,25 @@ const handler: Handler = async (event, context) => {
 
         // Check if agency token already exists
         const { data: existing } = await supabase
-          .from('agency_static_configs')
-          .select('id')
-          .eq('agency_token', agency_token)
+          .from("agency_static_configs")
+          .select("id")
+          .eq("agency_token", agency_token)
           .single();
 
         if (existing) {
           return {
             statusCode: 409,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Agency token already exists' }),
+            body: JSON.stringify({ error: "Agency token already exists" }),
           };
         }
 
         // Insert new agency config
         const { data, error } = await supabase
-          .from('agency_static_configs')
+          .from("agency_static_configs")
           .insert({
             agency_token,
             config,
@@ -134,22 +136,24 @@ const handler: Handler = async (event, context) => {
           .single();
 
         if (error) {
-          console.error('Error creating agency config:', error);
+          console.error("Error creating agency config:", error);
           return {
             statusCode: 500,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Failed to create agency configuration' }),
+            body: JSON.stringify({
+              error: "Failed to create agency configuration",
+            }),
           };
         }
 
         return {
           statusCode: 201,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
           body: JSON.stringify({
             success: true,
@@ -157,48 +161,48 @@ const handler: Handler = async (event, context) => {
           }),
         };
       } catch (error) {
-        console.error('Error processing request:', error);
+        console.error("Error processing request:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ error: "Internal server error" }),
         };
       }
     }
 
     // Handle OPTIONS requests (CORS preflight)
-    if (httpMethod === 'OPTIONS') {
+    if (httpMethod === "OPTIONS") {
       return {
         statusCode: 200,
         headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         },
-        body: '',
+        body: "",
       };
     }
 
     return {
       statusCode: 405,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify({ error: 'Method not allowed' }),
+      body: JSON.stringify({ error: "Method not allowed" }),
     };
   } catch (error) {
-    console.error('Unhandled error:', error);
+    console.error("Unhandled error:", error);
     return {
       statusCode: 500,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ error: "Internal server error" }),
     };
   }
 };

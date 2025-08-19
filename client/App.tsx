@@ -197,18 +197,25 @@ const App = () => (
                 <Route path="/public/project/:id" element={<PublicProject />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
-                <Route path="/onboard/agency/:agencyToken" element={<PublicOnboarding />} />
+                <Route
+                  path="/onboard/agency/:agencyToken"
+                  element={<PublicOnboarding />}
+                />
                 <Route
                   path="/PublicOnboarding"
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                          Invalid Onboarding Link
+                        </h1>
                         <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please use the complete link provided by your agency.
+                          This onboarding link is invalid or incomplete. Please
+                          use the complete link provided by your agency.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like: <code>/onboard/agency/your-agency-token</code>
+                          Onboarding links should look like:{" "}
+                          <code>/onboard/agency/your-agency-token</code>
                         </p>
                       </div>
                     </div>
@@ -219,12 +226,16 @@ const App = () => (
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                          Invalid Onboarding Link
+                        </h1>
                         <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please use the complete link provided by your agency.
+                          This onboarding link is invalid or incomplete. Please
+                          use the complete link provided by your agency.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like: <code>/onboard/agency/your-agency-token</code>
+                          Onboarding links should look like:{" "}
+                          <code>/onboard/agency/your-agency-token</code>
                         </p>
                       </div>
                     </div>
@@ -235,12 +246,16 @@ const App = () => (
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                          Invalid Onboarding Link
+                        </h1>
                         <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please use the complete link provided by your agency.
+                          This onboarding link is invalid or incomplete. Please
+                          use the complete link provided by your agency.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like: <code>/onboard/agency/your-agency-token</code>
+                          Onboarding links should look like:{" "}
+                          <code>/onboard/agency/your-agency-token</code>
                         </p>
                       </div>
                     </div>
@@ -251,29 +266,40 @@ const App = () => (
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                          Invalid Onboarding Link
+                        </h1>
                         <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please use the complete link provided by your agency.
+                          This onboarding link is invalid or incomplete. Please
+                          use the complete link provided by your agency.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like: <code>/onboard/agency/your-agency-token</code>
+                          Onboarding links should look like:{" "}
+                          <code>/onboard/agency/your-agency-token</code>
                         </p>
                       </div>
                     </div>
                   }
                 />
-                <Route path="/Tools" element={<Navigate to="/admin/tools" replace />} />
+                <Route
+                  path="/Tools"
+                  element={<Navigate to="/admin/tools" replace />}
+                />
                 <Route
                   path="/onboard/:token"
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">Onboarding Link Format Changed</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                          Onboarding Link Format Changed
+                        </h1>
                         <p className="text-muted-foreground">
-                          This appears to be an old onboarding link format. Please request a new onboarding link from your agency.
+                          This appears to be an old onboarding link format.
+                          Please request a new onboarding link from your agency.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          The new onboarding system uses static, reusable links that can be shared with multiple clients.
+                          The new onboarding system uses static, reusable links
+                          that can be shared with multiple clients.
                         </p>
                       </div>
                     </div>
@@ -284,9 +310,12 @@ const App = () => (
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">Invalid Onboarding Link</h1>
+                        <h1 className="text-2xl font-bold text-foreground">
+                          Invalid Onboarding Link
+                        </h1>
                         <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please check the link provided by your agency.
+                          This onboarding link is invalid or incomplete. Please
+                          check the link provided by your agency.
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Valid onboarding links should include an agency token.

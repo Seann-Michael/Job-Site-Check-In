@@ -1,30 +1,30 @@
-import { Handler } from '@netlify/functions';
-import { authMiddleware } from './auth-middleware';
-import { createClient } from '@supabase/supabase-js';
+import { Handler } from "@netlify/functions";
+import { authMiddleware } from "./auth-middleware";
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const handler: Handler = async (event, context) => {
   try {
     const { httpMethod, body } = event;
-    
+
     // Handle OPTIONS requests (CORS preflight)
-    if (httpMethod === 'OPTIONS') {
+    if (httpMethod === "OPTIONS") {
       return {
         statusCode: 200,
         headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         },
-        body: '',
+        body: "",
       };
     }
 
     // Handle GET requests - fetch all custom platforms for authenticated user
-    if (httpMethod === 'GET') {
+    if (httpMethod === "GET") {
       // Apply auth middleware
       const authResult = await authMiddleware(event);
       if (authResult.statusCode !== 200) {
@@ -35,28 +35,28 @@ const handler: Handler = async (event, context) => {
         const user = JSON.parse(authResult.body).user;
 
         const { data: customPlatforms, error } = await supabase
-          .from('custom_platforms')
-          .select('*')
-          .eq('created_by', user.id)
-          .order('created_at', { ascending: false });
+          .from("custom_platforms")
+          .select("*")
+          .eq("created_by", user.id)
+          .order("created_at", { ascending: false });
 
         if (error) {
-          console.error('Error fetching custom platforms:', error);
+          console.error("Error fetching custom platforms:", error);
           return {
             statusCode: 500,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Failed to fetch custom platforms' }),
+            body: JSON.stringify({ error: "Failed to fetch custom platforms" }),
           };
         }
 
         return {
           statusCode: 200,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
           body: JSON.stringify({
             success: true,
@@ -64,20 +64,20 @@ const handler: Handler = async (event, context) => {
           }),
         };
       } catch (error) {
-        console.error('Error processing GET request:', error);
+        console.error("Error processing GET request:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ error: "Internal server error" }),
         };
       }
     }
 
     // Handle POST requests - create new custom platform
-    if (httpMethod === 'POST') {
+    if (httpMethod === "POST") {
       // Apply auth middleware
       const authResult = await authMiddleware(event);
       if (authResult.statusCode !== 200) {
@@ -88,10 +88,10 @@ const handler: Handler = async (event, context) => {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Request body is required' }),
+          body: JSON.stringify({ error: "Request body is required" }),
         };
       }
 
@@ -104,15 +104,15 @@ const handler: Handler = async (event, context) => {
           return {
             statusCode: 400,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Name and fields are required' }),
+            body: JSON.stringify({ error: "Name and fields are required" }),
           };
         }
 
         const { data, error } = await supabase
-          .from('custom_platforms')
+          .from("custom_platforms")
           .insert({
             ...platformData,
             created_by: user.id,
@@ -122,22 +122,22 @@ const handler: Handler = async (event, context) => {
           .single();
 
         if (error) {
-          console.error('Error creating custom platform:', error);
+          console.error("Error creating custom platform:", error);
           return {
             statusCode: 500,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Failed to create custom platform' }),
+            body: JSON.stringify({ error: "Failed to create custom platform" }),
           };
         }
 
         return {
           statusCode: 201,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
           body: JSON.stringify({
             success: true,
@@ -145,20 +145,20 @@ const handler: Handler = async (event, context) => {
           }),
         };
       } catch (error) {
-        console.error('Error processing POST request:', error);
+        console.error("Error processing POST request:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ error: "Internal server error" }),
         };
       }
     }
 
     // Handle PUT requests - update custom platform
-    if (httpMethod === 'PUT') {
+    if (httpMethod === "PUT") {
       // Apply auth middleware
       const authResult = await authMiddleware(event);
       if (authResult.statusCode !== 200) {
@@ -169,10 +169,10 @@ const handler: Handler = async (event, context) => {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Request body is required' }),
+          body: JSON.stringify({ error: "Request body is required" }),
         };
       }
 
@@ -184,33 +184,33 @@ const handler: Handler = async (event, context) => {
           return {
             statusCode: 400,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Platform ID is required' }),
+            body: JSON.stringify({ error: "Platform ID is required" }),
           };
         }
 
         const { data, error } = await supabase
-          .from('custom_platforms')
+          .from("custom_platforms")
           .update({
             ...platformData,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', platformData.id)
-          .eq('created_by', user.id) // Ensure user can only update their own platforms
+          .eq("id", platformData.id)
+          .eq("created_by", user.id) // Ensure user can only update their own platforms
           .select()
           .single();
 
         if (error) {
-          console.error('Error updating custom platform:', error);
+          console.error("Error updating custom platform:", error);
           return {
             statusCode: 500,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Failed to update custom platform' }),
+            body: JSON.stringify({ error: "Failed to update custom platform" }),
           };
         }
 
@@ -218,18 +218,20 @@ const handler: Handler = async (event, context) => {
           return {
             statusCode: 404,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Platform not found or access denied' }),
+            body: JSON.stringify({
+              error: "Platform not found or access denied",
+            }),
           };
         }
 
         return {
           statusCode: 200,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
           body: JSON.stringify({
             success: true,
@@ -237,20 +239,20 @@ const handler: Handler = async (event, context) => {
           }),
         };
       } catch (error) {
-        console.error('Error processing PUT request:', error);
+        console.error("Error processing PUT request:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ error: "Internal server error" }),
         };
       }
     }
 
     // Handle DELETE requests - delete custom platform
-    if (httpMethod === 'DELETE') {
+    if (httpMethod === "DELETE") {
       // Apply auth middleware
       const authResult = await authMiddleware(event);
       if (authResult.statusCode !== 200) {
@@ -262,10 +264,10 @@ const handler: Handler = async (event, context) => {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Platform ID is required' }),
+          body: JSON.stringify({ error: "Platform ID is required" }),
         };
       }
 
@@ -273,43 +275,43 @@ const handler: Handler = async (event, context) => {
         const user = JSON.parse(authResult.body).user;
 
         const { error } = await supabase
-          .from('custom_platforms')
+          .from("custom_platforms")
           .delete()
-          .eq('id', platformId)
-          .eq('created_by', user.id); // Ensure user can only delete their own platforms
+          .eq("id", platformId)
+          .eq("created_by", user.id); // Ensure user can only delete their own platforms
 
         if (error) {
-          console.error('Error deleting custom platform:', error);
+          console.error("Error deleting custom platform:", error);
           return {
             statusCode: 500,
             headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
             },
-            body: JSON.stringify({ error: 'Failed to delete custom platform' }),
+            body: JSON.stringify({ error: "Failed to delete custom platform" }),
           };
         }
 
         return {
           statusCode: 200,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
           body: JSON.stringify({
             success: true,
-            message: 'Platform deleted successfully',
+            message: "Platform deleted successfully",
           }),
         };
       } catch (error) {
-        console.error('Error processing DELETE request:', error);
+        console.error("Error processing DELETE request:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ error: "Internal server error" }),
         };
       }
     }
@@ -317,20 +319,20 @@ const handler: Handler = async (event, context) => {
     return {
       statusCode: 405,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify({ error: 'Method not allowed' }),
+      body: JSON.stringify({ error: "Method not allowed" }),
     };
   } catch (error) {
-    console.error('Unhandled error:', error);
+    console.error("Unhandled error:", error);
     return {
       statusCode: 500,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ error: "Internal server error" }),
     };
   }
 };

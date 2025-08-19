@@ -87,7 +87,7 @@ export const OnboardingLinkGenerator: React.FC<
       console.log("Fetching custom platforms from /api/oauth/custom-platforms");
       const response = await fetch("/api/oauth/custom-platforms", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("supabase_token")}`,
+          Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
           "Content-Type": "application/json",
         },
       });
@@ -101,13 +101,18 @@ export const OnboardingLinkGenerator: React.FC<
           console.log("Custom platforms data:", data);
           setCustomPlatforms(data.data || []);
         } else {
-          console.warn("Custom platforms API returned non-JSON response, content-type:", contentType);
+          console.warn(
+            "Custom platforms API returned non-JSON response, content-type:",
+            contentType,
+          );
           const text = await response.text();
           console.warn("Response body:", text);
           setCustomPlatforms([]);
         }
       } else {
-        console.warn(`Custom platforms API returned ${response.status}: ${response.statusText}`);
+        console.warn(
+          `Custom platforms API returned ${response.status}: ${response.statusText}`,
+        );
         const errorText = await response.text();
         console.warn("Error response body:", errorText);
         setCustomPlatforms([]);

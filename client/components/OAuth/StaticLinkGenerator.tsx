@@ -93,13 +93,16 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
       console.log("Fetching custom platforms from /api/oauth/custom-platforms");
       const response = await fetch("/api/oauth/custom-platforms", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("supabase_token")}`,
+          Authorization: `Bearer ${localStorage.getItem("supabase_token")}`,
           "Content-Type": "application/json",
         },
       });
 
       console.log("Response status:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries()),
+      );
 
       if (response.ok) {
         const contentType = response.headers.get("content-type");
@@ -108,13 +111,18 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
           console.log("Custom platforms data:", data);
           setCustomPlatforms(data.data || []);
         } else {
-          console.warn("Custom platforms API returned non-JSON response, content-type:", contentType);
+          console.warn(
+            "Custom platforms API returned non-JSON response, content-type:",
+            contentType,
+          );
           const text = await response.text();
           console.warn("Response body:", text);
           setCustomPlatforms([]);
         }
       } else {
-        console.warn(`Custom platforms API returned ${response.status}: ${response.statusText}`);
+        console.warn(
+          `Custom platforms API returned ${response.status}: ${response.statusText}`,
+        );
         const errorText = await response.text();
         console.warn("Error response body:", errorText);
         setCustomPlatforms([]);
@@ -218,7 +226,7 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
     try {
       // Generate a unique agency token
       const agencyToken = `agency_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
+
       // Save the agency configuration
       const response = await fetch("/api/oauth/agency-config", {
         method: "POST",
@@ -238,7 +246,7 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
 
       // Generate the static link
       const staticLink = `${window.location.origin}/onboard/agency/${agencyToken}`;
-      
+
       setGeneratedLink(staticLink);
       onLinkGenerated?.(staticLink, config);
       toast.success("Static onboarding link generated successfully!");
@@ -288,7 +296,8 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
             Static Onboarding Link Generated
           </CardTitle>
           <CardDescription>
-            Share this link with any number of clients. Each client who uses this link will be onboarded with the same platform connections.
+            Share this link with any number of clients. Each client who uses
+            this link will be onboarded with the same platform connections.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -322,24 +331,28 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              <strong>Reusable Link:</strong> This link can be shared with unlimited clients. Each client will see the same onboarding process with your selected platforms. No login required for clients.
+              <strong>Reusable Link:</strong> This link can be shared with
+              unlimited clients. Each client will see the same onboarding
+              process with your selected platforms. No login required for
+              clients.
             </AlertDescription>
           </Alert>
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              variant="outline"
-              onClick={resetForm}
-              className="flex-1"
-            >
+            <Button variant="outline" onClick={resetForm} className="flex-1">
               Generate New Configuration
             </Button>
           </div>
 
           {/* Selected Platforms Preview */}
           <div className="space-y-2">
-            <Label>Selected Platforms ({config.selected_platforms.length + config.selected_custom_platforms.length})</Label>
+            <Label>
+              Selected Platforms (
+              {config.selected_platforms.length +
+                config.selected_custom_platforms.length}
+              )
+            </Label>
             <div className="flex flex-wrap gap-2">
               {config.selected_platforms.map((platform) => (
                 <Badge key={platform} variant="secondary">
@@ -351,7 +364,9 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
                 </Badge>
               ))}
               {config.selected_custom_platforms.map((platformId) => {
-                const platform = customPlatforms.find(p => p.id === platformId);
+                const platform = customPlatforms.find(
+                  (p) => p.id === platformId,
+                );
                 return platform ? (
                   <Badge key={platformId} variant="outline">
                     {platform.name}
@@ -377,8 +392,9 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
             />
           </CardTitle>
           <CardDescription>
-            Create a single, reusable link that can be shared with any number of clients. 
-            All clients using this link will have the same onboarding experience with your selected platforms.
+            Create a single, reusable link that can be shared with any number of
+            clients. All clients using this link will have the same onboarding
+            experience with your selected platforms.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -405,7 +421,9 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="company_name">Company Name for Branding *</Label>
+                <Label htmlFor="company_name">
+                  Company Name for Branding *
+                </Label>
                 <Input
                   id="company_name"
                   value={config.branding.company_name}
@@ -427,7 +445,9 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="instructions">Instructions for Clients (Optional)</Label>
+              <Label htmlFor="instructions">
+                Instructions for Clients (Optional)
+              </Label>
               <textarea
                 id="instructions"
                 value={config.instructions}

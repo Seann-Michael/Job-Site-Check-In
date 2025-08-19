@@ -1,8 +1,8 @@
-import { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
+import { Handler } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const handler: Handler = async (event, context) => {
@@ -10,27 +10,27 @@ const handler: Handler = async (event, context) => {
     const { httpMethod, body } = event;
 
     // Handle OPTIONS requests (CORS preflight)
-    if (httpMethod === 'OPTIONS') {
+    if (httpMethod === "OPTIONS") {
       return {
         statusCode: 200,
         headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
         },
-        body: '',
+        body: "",
       };
     }
 
     // Only allow POST requests
-    if (httpMethod !== 'POST') {
+    if (httpMethod !== "POST") {
       return {
         statusCode: 405,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ error: 'Method not allowed' }),
+        body: JSON.stringify({ error: "Method not allowed" }),
       };
     }
 
@@ -38,25 +38,27 @@ const handler: Handler = async (event, context) => {
       return {
         statusCode: 400,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ error: 'Request body is required' }),
+        body: JSON.stringify({ error: "Request body is required" }),
       };
     }
 
     try {
-      const { agency_token, client_info, selected_platforms } = JSON.parse(body);
+      const { agency_token, client_info, selected_platforms } =
+        JSON.parse(body);
 
       if (!agency_token || !client_info || !selected_platforms) {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ 
-            error: 'Agency token, client info, and selected platforms are required' 
+          body: JSON.stringify({
+            error:
+              "Agency token, client info, and selected platforms are required",
           }),
         };
       }
@@ -66,57 +68,58 @@ const handler: Handler = async (event, context) => {
         return {
           statusCode: 400,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ 
-            error: 'Client name and email are required' 
+          body: JSON.stringify({
+            error: "Client name and email are required",
           }),
         };
       }
 
       // Verify agency token exists
       const { data: agencyConfig, error: agencyError } = await supabase
-        .from('agency_static_configs')
-        .select('id, created_by, config')
-        .eq('agency_token', agency_token)
+        .from("agency_static_configs")
+        .select("id, created_by, config")
+        .eq("agency_token", agency_token)
         .single();
 
       if (agencyError || !agencyConfig) {
         return {
           statusCode: 404,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Invalid agency token' }),
+          body: JSON.stringify({ error: "Invalid agency token" }),
         };
       }
 
       // Check if client has already submitted for this agency
       const { data: existingSubmission } = await supabase
-        .from('client_onboarding_submissions')
-        .select('id')
-        .eq('agency_token', agency_token)
-        .eq('client_email', client_info.email)
+        .from("client_onboarding_submissions")
+        .select("id")
+        .eq("agency_token", agency_token)
+        .eq("client_email", client_info.email)
         .single();
 
       if (existingSubmission) {
         return {
           statusCode: 409,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ 
-            error: 'You have already submitted an onboarding request for this agency' 
+          body: JSON.stringify({
+            error:
+              "You have already submitted an onboarding request for this agency",
           }),
         };
       }
 
       // Create client onboarding submission
       const { data, error } = await supabase
-        .from('client_onboarding_submissions')
+        .from("client_onboarding_submissions")
         .insert({
           agency_token,
           agency_config_id: agencyConfig.id,
@@ -125,22 +128,25 @@ const handler: Handler = async (event, context) => {
           client_company: client_info.company || null,
           client_phone: client_info.phone || null,
           selected_platforms,
-          custom_platform_responses: client_info.custom_platform_responses || {},
-          status: 'pending',
+          custom_platform_responses:
+            client_info.custom_platform_responses || {},
+          status: "pending",
           submitted_at: new Date().toISOString(),
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating client submission:', error);
+        console.error("Error creating client submission:", error);
         return {
           statusCode: 500,
           headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-          body: JSON.stringify({ error: 'Failed to submit onboarding request' }),
+          body: JSON.stringify({
+            error: "Failed to submit onboarding request",
+          }),
         };
       }
 
@@ -150,35 +156,35 @@ const handler: Handler = async (event, context) => {
       return {
         statusCode: 201,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({
           success: true,
           submission_id: data.id,
-          message: 'Onboarding request submitted successfully',
+          message: "Onboarding request submitted successfully",
         }),
       };
     } catch (parseError) {
-      console.error('Error parsing request body:', parseError);
+      console.error("Error parsing request body:", parseError);
       return {
         statusCode: 400,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ error: 'Invalid JSON in request body' }),
+        body: JSON.stringify({ error: "Invalid JSON in request body" }),
       };
     }
   } catch (error) {
-    console.error('Unhandled error:', error);
+    console.error("Unhandled error:", error);
     return {
       statusCode: 500,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ error: "Internal server error" }),
     };
   }
 };

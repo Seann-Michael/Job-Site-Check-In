@@ -49,7 +49,8 @@ export default function AgencyClientAccess() {
                   Client Access Management
                 </h1>
                 <p className="text-muted-foreground">
-                  Create static, reusable onboarding links that can be shared with unlimited clients
+                  Create static, reusable onboarding links that can be shared
+                  with unlimited clients
                 </p>
               </div>
               <Button onClick={handleCreateNew}>
@@ -81,7 +82,8 @@ export default function AgencyClientAccess() {
                     Create Static Onboarding Link
                   </h1>
                   <p className="text-muted-foreground">
-                    Generate a reusable link that can be shared with unlimited clients
+                    Generate a reusable link that can be shared with unlimited
+                    clients
                   </p>
                 </div>
               </div>

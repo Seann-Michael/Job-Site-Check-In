@@ -47,33 +47,51 @@ const tools: Tool[] = [
   // SEO & Analytics Tools
   {
     name: "SEMrush",
-    description: "Complete SEO toolkit for keyword research, competitor analysis, and ranking tracking.",
+    description:
+      "Complete SEO toolkit for keyword research, competitor analysis, and ranking tracking.",
     category: "SEO & Analytics",
     price: "$129.95/month",
     rating: 4.5,
-    features: ["Keyword Research", "Competitor Analysis", "Site Audit", "Backlink Analysis"],
+    features: [
+      "Keyword Research",
+      "Competitor Analysis",
+      "Site Audit",
+      "Backlink Analysis",
+    ],
     icon: Search,
     url: "https://semrush.com",
     isAffiliate: true,
-    badge: "Most Popular"
+    badge: "Most Popular",
   },
   {
     name: "Google Analytics 4",
-    description: "Free web analytics service that tracks and reports website traffic and user behavior.",
+    description:
+      "Free web analytics service that tracks and reports website traffic and user behavior.",
     category: "SEO & Analytics",
     price: "Free",
     rating: 4.3,
-    features: ["User Tracking", "Conversion Analytics", "Custom Reports", "Real-time Data"],
+    features: [
+      "User Tracking",
+      "Conversion Analytics",
+      "Custom Reports",
+      "Real-time Data",
+    ],
     icon: BarChart3,
     url: "https://analytics.google.com",
   },
   {
     name: "Ahrefs",
-    description: "Comprehensive SEO toolset for backlink analysis, keyword research, and content marketing.",
+    description:
+      "Comprehensive SEO toolset for backlink analysis, keyword research, and content marketing.",
     category: "SEO & Analytics",
     price: "$99/month",
     rating: 4.6,
-    features: ["Backlink Analysis", "Keyword Explorer", "Content Gap", "Rank Tracker"],
+    features: [
+      "Backlink Analysis",
+      "Keyword Explorer",
+      "Content Gap",
+      "Rank Tracker",
+    ],
     icon: TrendingUp,
     url: "https://ahrefs.com",
     isAffiliate: true,
@@ -82,22 +100,34 @@ const tools: Tool[] = [
   // Social Media Management
   {
     name: "Hootsuite",
-    description: "Social media management platform for scheduling posts and analyzing performance.",
+    description:
+      "Social media management platform for scheduling posts and analyzing performance.",
     category: "Social Media",
     price: "$49/month",
     rating: 4.1,
-    features: ["Multi-platform Posting", "Analytics", "Team Collaboration", "Content Calendar"],
+    features: [
+      "Multi-platform Posting",
+      "Analytics",
+      "Team Collaboration",
+      "Content Calendar",
+    ],
     icon: MessageSquare,
     url: "https://hootsuite.com",
     isAffiliate: true,
   },
   {
     name: "Buffer",
-    description: "Simple social media scheduling and analytics tool for small businesses.",
+    description:
+      "Simple social media scheduling and analytics tool for small businesses.",
     category: "Social Media",
     price: "$15/month",
     rating: 4.4,
-    features: ["Post Scheduling", "Analytics", "Team Features", "Browser Extension"],
+    features: [
+      "Post Scheduling",
+      "Analytics",
+      "Team Features",
+      "Browser Extension",
+    ],
     icon: Calendar,
     url: "https://buffer.com",
     isAffiliate: true,
@@ -106,7 +136,8 @@ const tools: Tool[] = [
   // Email Marketing
   {
     name: "Mailchimp",
-    description: "All-in-one marketing platform for email campaigns, automation, and audience insights.",
+    description:
+      "All-in-one marketing platform for email campaigns, automation, and audience insights.",
     category: "Email Marketing",
     price: "$10/month",
     rating: 4.2,
@@ -114,15 +145,21 @@ const tools: Tool[] = [
     icon: Mail,
     url: "https://mailchimp.com",
     isAffiliate: true,
-    badge: "Beginner Friendly"
+    badge: "Beginner Friendly",
   },
   {
     name: "ConvertKit",
-    description: "Email marketing platform designed for creators and online businesses.",
+    description:
+      "Email marketing platform designed for creators and online businesses.",
     category: "Email Marketing",
     price: "$29/month",
     rating: 4.5,
-    features: ["Visual Automation", "Subscriber Tagging", "Landing Pages", "Integrations"],
+    features: [
+      "Visual Automation",
+      "Subscriber Tagging",
+      "Landing Pages",
+      "Integrations",
+    ],
     icon: Users,
     url: "https://convertkit.com",
     isAffiliate: true,
@@ -131,19 +168,26 @@ const tools: Tool[] = [
   // Design & Creative
   {
     name: "Canva Pro",
-    description: "Professional design platform with templates, stock photos, and collaboration tools.",
+    description:
+      "Professional design platform with templates, stock photos, and collaboration tools.",
     category: "Design & Creative",
     price: "$12.99/month",
     rating: 4.7,
-    features: ["Design Templates", "Stock Photos", "Brand Kit", "Team Collaboration"],
+    features: [
+      "Design Templates",
+      "Stock Photos",
+      "Brand Kit",
+      "Team Collaboration",
+    ],
     icon: Camera,
     url: "https://canva.com/pro",
     isAffiliate: true,
-    badge: "Essential"
+    badge: "Essential",
   },
   {
     name: "Adobe Creative Suite",
-    description: "Industry-standard creative applications for design, video, and web development.",
+    description:
+      "Industry-standard creative applications for design, video, and web development.",
     category: "Design & Creative",
     price: "$54.99/month",
     rating: 4.6,
@@ -156,7 +200,8 @@ const tools: Tool[] = [
   // Website & Development
   {
     name: "WordPress.com",
-    description: "Popular content management system for building and managing websites.",
+    description:
+      "Popular content management system for building and managing websites.",
     category: "Website & Development",
     price: "$25/month",
     rating: 4.0,
@@ -167,7 +212,8 @@ const tools: Tool[] = [
   },
   {
     name: "Webflow",
-    description: "Visual web design platform that generates clean, semantic code automatically.",
+    description:
+      "Visual web design platform that generates clean, semantic code automatically.",
     category: "Website & Development",
     price: "$23/month",
     rating: 4.4,
@@ -180,7 +226,8 @@ const tools: Tool[] = [
   // Marketing Automation
   {
     name: "HubSpot",
-    description: "Comprehensive inbound marketing, sales, and customer service platform.",
+    description:
+      "Comprehensive inbound marketing, sales, and customer service platform.",
     category: "Marketing Automation",
     price: "$45/month",
     rating: 4.4,
@@ -188,15 +235,21 @@ const tools: Tool[] = [
     icon: Zap,
     url: "https://hubspot.com",
     isAffiliate: true,
-    badge: "All-in-One"
+    badge: "All-in-One",
   },
   {
     name: "ActiveCampaign",
-    description: "Customer experience automation platform combining email marketing and CRM.",
+    description:
+      "Customer experience automation platform combining email marketing and CRM.",
     category: "Marketing Automation",
     price: "$39/month",
     rating: 4.5,
-    features: ["Email Automation", "CRM", "Sales Automation", "Machine Learning"],
+    features: [
+      "Email Automation",
+      "CRM",
+      "Sales Automation",
+      "Machine Learning",
+    ],
     icon: Target,
     url: "https://activecampaign.com",
     isAffiliate: true,
@@ -205,22 +258,34 @@ const tools: Tool[] = [
   // Project Management
   {
     name: "Monday.com",
-    description: "Work operating system for teams to run projects and workflows efficiently.",
+    description:
+      "Work operating system for teams to run projects and workflows efficiently.",
     category: "Project Management",
     price: "$24/month",
     rating: 4.3,
-    features: ["Project Tracking", "Team Collaboration", "Custom Workflows", "Time Tracking"],
+    features: [
+      "Project Tracking",
+      "Team Collaboration",
+      "Custom Workflows",
+      "Time Tracking",
+    ],
     icon: Calendar,
     url: "https://monday.com",
     isAffiliate: true,
   },
   {
     name: "Asana",
-    description: "Project management tool for organizing work and improving team productivity.",
+    description:
+      "Project management tool for organizing work and improving team productivity.",
     category: "Project Management",
     price: "$10.99/month",
     rating: 4.2,
-    features: ["Task Management", "Team Collaboration", "Reporting", "Goal Setting"],
+    features: [
+      "Task Management",
+      "Team Collaboration",
+      "Reporting",
+      "Goal Setting",
+    ],
     icon: Users,
     url: "https://asana.com",
     isAffiliate: true,
@@ -229,21 +294,33 @@ const tools: Tool[] = [
   // Payment & Invoicing
   {
     name: "Stripe",
-    description: "Online payment processing platform for internet businesses of all sizes.",
+    description:
+      "Online payment processing platform for internet businesses of all sizes.",
     category: "Payment & Invoicing",
     price: "2.9% + 30¢ per transaction",
     rating: 4.5,
-    features: ["Online Payments", "Subscriptions", "Invoicing", "International"],
+    features: [
+      "Online Payments",
+      "Subscriptions",
+      "Invoicing",
+      "International",
+    ],
     icon: CreditCard,
     url: "https://stripe.com",
   },
   {
     name: "FreshBooks",
-    description: "Cloud-based accounting software designed for small business owners.",
+    description:
+      "Cloud-based accounting software designed for small business owners.",
     category: "Payment & Invoicing",
     price: "$15/month",
     rating: 4.4,
-    features: ["Invoicing", "Expense Tracking", "Time Tracking", "Client Portal"],
+    features: [
+      "Invoicing",
+      "Expense Tracking",
+      "Time Tracking",
+      "Client Portal",
+    ],
     icon: FileText,
     url: "https://freshbooks.com",
     isAffiliate: true,
@@ -267,9 +344,11 @@ export default function Tools() {
   const [searchTerm, setSearchTerm] = React.useState("");
 
   const filteredTools = tools.filter((tool) => {
-    const matchesCategory = selectedCategory === "All" || tool.category === selectedCategory;
-    const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "All" || tool.category === selectedCategory;
+    const matchesSearch =
+      tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tool.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -281,8 +360,8 @@ export default function Tools() {
           i < Math.floor(rating)
             ? "fill-yellow-400 text-yellow-400"
             : i < rating
-            ? "fill-yellow-200 text-yellow-400"
-            : "text-gray-300"
+              ? "fill-yellow-200 text-yellow-400"
+              : "text-gray-300"
         }`}
       />
     ));
@@ -300,9 +379,11 @@ export default function Tools() {
         {/* Header */}
         <div className="space-y-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Marketing Tools</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Marketing Tools
+            </h1>
             <p className="text-muted-foreground">
-              Recommended tools and software to help grow your marketing agency. 
+              Recommended tools and software to help grow your marketing agency.
               Some links may contain affiliate codes to support our platform.
             </p>
           </div>
@@ -325,7 +406,9 @@ export default function Tools() {
               {categories.map((category) => (
                 <Button
                   key={category}
-                  variant={selectedCategory === category ? "default" : "outline"}
+                  variant={
+                    selectedCategory === category ? "default" : "outline"
+                  }
                   size="sm"
                   onClick={() => setSelectedCategory(category)}
                   className="whitespace-nowrap"
@@ -348,7 +431,7 @@ export default function Tools() {
                   </Badge>
                 </div>
               )}
-              
+
               <CardHeader className="pb-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -356,7 +439,9 @@ export default function Tools() {
                   </div>
                   <div className="flex-1">
                     <CardTitle className="text-lg">{tool.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{tool.category}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {tool.category}
+                    </p>
                   </div>
                 </div>
               </CardHeader>
@@ -400,14 +485,10 @@ export default function Tools() {
                 </div>
 
                 {/* Action Button */}
-                <Button 
-                  asChild 
-                  className="w-full"
-                  size="sm"
-                >
-                  <a 
-                    href={tool.url} 
-                    target="_blank" 
+                <Button asChild className="w-full" size="sm">
+                  <a
+                    href={tool.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2"
                   >
@@ -424,7 +505,9 @@ export default function Tools() {
         {filteredTools.length === 0 && (
           <div className="text-center py-12">
             <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-muted-foreground">No tools found</h3>
+            <h3 className="text-lg font-semibold text-muted-foreground">
+              No tools found
+            </h3>
             <p className="text-sm text-muted-foreground">
               Try adjusting your search or filter criteria.
             </p>
@@ -435,10 +518,12 @@ export default function Tools() {
         <Card className="bg-muted/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
-              <strong>Disclaimer:</strong> Some links on this page are affiliate links, which means we may earn a commission 
-              if you make a purchase through these links at no additional cost to you. This helps support our platform and allows 
-              us to continue providing valuable tools and resources. We only recommend tools that we believe will benefit your 
-              marketing agency.
+              <strong>Disclaimer:</strong> Some links on this page are affiliate
+              links, which means we may earn a commission if you make a purchase
+              through these links at no additional cost to you. This helps
+              support our platform and allows us to continue providing valuable
+              tools and resources. We only recommend tools that we believe will
+              benefit your marketing agency.
             </p>
           </CardContent>
         </Card>

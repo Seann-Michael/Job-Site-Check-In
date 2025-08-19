@@ -60,7 +60,7 @@ export default function PublicOnboarding() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  
+
   const [clientForm, setClientForm] = useState<ClientForm>({
     name: "",
     email: "",
@@ -68,7 +68,7 @@ export default function PublicOnboarding() {
     phone: "",
     custom_platform_responses: {},
   });
-  
+
   const [formErrors, setFormErrors] = useState<any>({});
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 
@@ -82,7 +82,7 @@ export default function PublicOnboarding() {
     try {
       setLoading(true);
       const response = await fetch(`/api/oauth/agency-config/${agencyToken}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           setError("Invalid or expired onboarding link");
@@ -94,18 +94,17 @@ export default function PublicOnboarding() {
 
       const data = await response.json();
       setAgencyConfig(data.config);
-      
+
       // Load custom platforms if any are selected
       if (data.config.selected_custom_platforms?.length > 0) {
         await loadCustomPlatforms(data.config.selected_custom_platforms);
       }
-      
+
       // Pre-select all platforms
       setSelectedPlatforms([
         ...data.config.selected_platforms,
         ...data.config.selected_custom_platforms,
       ]);
-      
     } catch (error) {
       console.error("Error loading agency config:", error);
       setError("Failed to load onboarding configuration");
@@ -123,8 +122,8 @@ export default function PublicOnboarding() {
           const data = await response.json();
           const allCustomPlatforms = data.data || [];
           // Filter to only show the ones selected by agency
-          const selectedCustomPlatforms = allCustomPlatforms.filter((p: CustomPlatform) =>
-            platformIds.includes(p.id)
+          const selectedCustomPlatforms = allCustomPlatforms.filter(
+            (p: CustomPlatform) => platformIds.includes(p.id),
           );
           setCustomPlatforms(selectedCustomPlatforms);
         }
@@ -156,9 +155,13 @@ export default function PublicOnboarding() {
       if (selectedPlatforms.includes(platform.id)) {
         platform.fields.forEach((field) => {
           if (field.required) {
-            const value = clientForm.custom_platform_responses[`${platform.id}_${field.name}`];
+            const value =
+              clientForm.custom_platform_responses[
+                `${platform.id}_${field.name}`
+              ];
             if (!value || (typeof value === "string" && !value.trim())) {
-              errors[`custom_${platform.id}_${field.name}`] = `${field.label} is required`;
+              errors[`custom_${platform.id}_${field.name}`] =
+                `${field.label} is required`;
             }
           }
         });
@@ -171,13 +174,15 @@ export default function PublicOnboarding() {
 
   const handlePlatformToggle = (platformId: string, checked: boolean) => {
     setSelectedPlatforms((prev) =>
-      checked
-        ? [...prev, platformId]
-        : prev.filter((id) => id !== platformId)
+      checked ? [...prev, platformId] : prev.filter((id) => id !== platformId),
     );
   };
 
-  const handleCustomFieldChange = (platformId: string, fieldName: string, value: any) => {
+  const handleCustomFieldChange = (
+    platformId: string,
+    fieldName: string,
+    value: any,
+  ) => {
     setClientForm((prev) => ({
       ...prev,
       custom_platform_responses: {
@@ -189,7 +194,7 @@ export default function PublicOnboarding() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -215,7 +220,6 @@ export default function PublicOnboarding() {
       const data = await response.json();
       setSubmitted(true);
       toast.success("Onboarding request submitted successfully!");
-      
     } catch (error) {
       console.error("Error submitting onboarding:", error);
       toast.error("Failed to submit onboarding request. Please try again.");
@@ -278,15 +282,19 @@ export default function PublicOnboarding() {
                   Onboarding Request Submitted!
                 </h2>
                 <p className="text-muted-foreground">
-                  Thank you for submitting your onboarding request. 
-                  {agencyConfig.branding.company_name} will contact you soon to complete the platform connections.
+                  Thank you for submitting your onboarding request.
+                  {agencyConfig.branding.company_name} will contact you soon to
+                  complete the platform connections.
                 </p>
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">What happens next?</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Your agency will review your information</li>
-                  <li>• They will guide you through connecting your selected platforms</li>
+                  <li>
+                    • They will guide you through connecting your selected
+                    platforms
+                  </li>
                   <li>• You'll receive access to your marketing dashboard</li>
                 </ul>
               </div>
@@ -298,10 +306,10 @@ export default function PublicOnboarding() {
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-background"
-      style={{ 
-        background: `linear-gradient(135deg, ${agencyConfig.branding.primary_color}10 0%, ${agencyConfig.branding.primary_color}05 100%)` 
+      style={{
+        background: `linear-gradient(135deg, ${agencyConfig.branding.primary_color}10 0%, ${agencyConfig.branding.primary_color}05 100%)`,
       }}
     >
       <div className="container mx-auto px-4 py-8">
@@ -315,7 +323,7 @@ export default function PublicOnboarding() {
                 className="h-12 w-auto max-w-48 object-contain"
               />
             ) : (
-              <div 
+              <div
                 className="flex h-12 w-12 items-center justify-center rounded-lg text-white shadow-lg"
                 style={{ backgroundColor: agencyConfig.branding.primary_color }}
               >
@@ -327,7 +335,8 @@ export default function PublicOnboarding() {
             Welcome to {agencyConfig.branding.company_name}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Connect your marketing platforms to get started with professional digital marketing services
+            Connect your marketing platforms to get started with professional
+            digital marketing services
           </p>
         </div>
 
@@ -345,12 +354,17 @@ export default function PublicOnboarding() {
         <Card className="w-full max-w-4xl mx-auto">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" style={{ color: agencyConfig.branding.primary_color }} />
+              <Shield
+                className="h-5 w-5"
+                style={{ color: agencyConfig.branding.primary_color }}
+              />
               Platform Connection Request
             </CardTitle>
             <CardDescription>
-              Fill out your information and select the platforms you'd like {agencyConfig.branding.company_name} to manage for you.
-              Your information is secure and will only be used to set up your marketing services.
+              Fill out your information and select the platforms you'd like{" "}
+              {agencyConfig.branding.company_name} to manage for you. Your
+              information is secure and will only be used to set up your
+              marketing services.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -365,7 +379,10 @@ export default function PublicOnboarding() {
                       id="name"
                       value={clientForm.name}
                       onChange={(e) =>
-                        setClientForm((prev) => ({ ...prev, name: e.target.value }))
+                        setClientForm((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
                       }
                       placeholder="John Smith"
                       className={formErrors.name ? "border-red-500" : ""}
@@ -381,7 +398,10 @@ export default function PublicOnboarding() {
                       type="email"
                       value={clientForm.email}
                       onChange={(e) =>
-                        setClientForm((prev) => ({ ...prev, email: e.target.value }))
+                        setClientForm((prev) => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
                       }
                       placeholder="john@company.com"
                       className={formErrors.email ? "border-red-500" : ""}
@@ -396,7 +416,10 @@ export default function PublicOnboarding() {
                       id="company"
                       value={clientForm.company}
                       onChange={(e) =>
-                        setClientForm((prev) => ({ ...prev, company: e.target.value }))
+                        setClientForm((prev) => ({
+                          ...prev,
+                          company: e.target.value,
+                        }))
                       }
                       placeholder="Your Company"
                     />
@@ -408,7 +431,10 @@ export default function PublicOnboarding() {
                       type="tel"
                       value={clientForm.phone}
                       onChange={(e) =>
-                        setClientForm((prev) => ({ ...prev, phone: e.target.value }))
+                        setClientForm((prev) => ({
+                          ...prev,
+                          phone: e.target.value,
+                        }))
                       }
                       placeholder="(555) 123-4567"
                     />
@@ -419,7 +445,9 @@ export default function PublicOnboarding() {
               {/* Platform Selection */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Platform Connections</h3>
+                  <h3 className="text-lg font-semibold">
+                    Platform Connections
+                  </h3>
                   {formErrors.platforms && (
                     <p className="text-sm text-red-500 flex items-center gap-1">
                       <AlertCircle className="h-4 w-4" />
@@ -428,8 +456,10 @@ export default function PublicOnboarding() {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Select the platforms you'd like {agencyConfig.branding.company_name} to connect and manage for you.
-                  You'll maintain ownership and can revoke access at any time.
+                  Select the platforms you'd like{" "}
+                  {agencyConfig.branding.company_name} to connect and manage for
+                  you. You'll maintain ownership and can revoke access at any
+                  time.
                 </p>
 
                 {/* Standard Platforms */}
@@ -454,14 +484,24 @@ export default function PublicOnboarding() {
                               htmlFor={platform}
                               className="font-medium cursor-pointer"
                             >
-                              {PLATFORM_DISPLAY_NAMES[platform as keyof typeof PLATFORM_DISPLAY_NAMES]}
+                              {
+                                PLATFORM_DISPLAY_NAMES[
+                                  platform as keyof typeof PLATFORM_DISPLAY_NAMES
+                                ]
+                              }
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                              {PLATFORM_DESCRIPTIONS[platform as keyof typeof PLATFORM_DESCRIPTIONS]}
+                              {
+                                PLATFORM_DESCRIPTIONS[
+                                  platform as keyof typeof PLATFORM_DESCRIPTIONS
+                                ]
+                              }
                             </p>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Lock className="h-3 w-3" />
-                              {agencyConfig.access_level === "read_only" ? "Read-only access" : "Full management access"}
+                              {agencyConfig.access_level === "read_only"
+                                ? "Read-only access"
+                                : "Full management access"}
                             </div>
                           </div>
                         </div>
@@ -476,13 +516,19 @@ export default function PublicOnboarding() {
                     <h4 className="font-medium">Additional Platforms</h4>
                     <div className="space-y-4">
                       {customPlatforms.map((platform) => (
-                        <div key={platform.id} className="border rounded-lg p-4 space-y-4">
+                        <div
+                          key={platform.id}
+                          className="border rounded-lg p-4 space-y-4"
+                        >
                           <div className="flex items-start space-x-3">
                             <Checkbox
                               id={`custom_${platform.id}`}
                               checked={selectedPlatforms.includes(platform.id)}
                               onCheckedChange={(checked) =>
-                                handlePlatformToggle(platform.id, checked as boolean)
+                                handlePlatformToggle(
+                                  platform.id,
+                                  checked as boolean,
+                                )
                               }
                             />
                             <div className="flex-1">
@@ -504,83 +550,140 @@ export default function PublicOnboarding() {
                               </p>
                               {platform.instructions && (
                                 <p className="text-sm text-blue-600 mt-2">
-                                  <strong>Instructions:</strong> {platform.instructions}
+                                  <strong>Instructions:</strong>{" "}
+                                  {platform.instructions}
                                 </p>
                               )}
                             </div>
                           </div>
 
                           {/* Custom Platform Fields */}
-                          {selectedPlatforms.includes(platform.id) && platform.fields.length > 0 && (
-                            <div className="ml-6 pl-4 border-l space-y-3">
-                              <p className="text-sm font-medium">Required Information:</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {platform.fields.map((field) => (
-                                  <div key={field.name} className="space-y-2">
-                                    <Label htmlFor={`${platform.id}_${field.name}`}>
-                                      {field.label} {field.required && "*"}
-                                    </Label>
-                                    {field.type === "select" ? (
-                                      <select
-                                        id={`${platform.id}_${field.name}`}
-                                        value={clientForm.custom_platform_responses[`${platform.id}_${field.name}`] || ""}
-                                        onChange={(e) =>
-                                          handleCustomFieldChange(platform.id, field.name, e.target.value)
-                                        }
-                                        className="w-full px-3 py-2 border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-md"
+                          {selectedPlatforms.includes(platform.id) &&
+                            platform.fields.length > 0 && (
+                              <div className="ml-6 pl-4 border-l space-y-3">
+                                <p className="text-sm font-medium">
+                                  Required Information:
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {platform.fields.map((field) => (
+                                    <div key={field.name} className="space-y-2">
+                                      <Label
+                                        htmlFor={`${platform.id}_${field.name}`}
                                       >
-                                        <option value="">Select...</option>
-                                        {field.options?.map((option) => (
-                                          <option key={option} value={option}>
-                                            {option}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : field.type === "textarea" ? (
-                                      <textarea
-                                        id={`${platform.id}_${field.name}`}
-                                        value={clientForm.custom_platform_responses[`${platform.id}_${field.name}`] || ""}
-                                        onChange={(e) =>
-                                          handleCustomFieldChange(platform.id, field.name, e.target.value)
-                                        }
-                                        placeholder={field.placeholder}
-                                        className="min-h-[80px] w-full px-3 py-2 border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-md"
-                                      />
-                                    ) : field.type === "checkbox" ? (
-                                      <div className="flex items-center space-x-2">
-                                        <Checkbox
+                                        {field.label} {field.required && "*"}
+                                      </Label>
+                                      {field.type === "select" ? (
+                                        <select
                                           id={`${platform.id}_${field.name}`}
-                                          checked={clientForm.custom_platform_responses[`${platform.id}_${field.name}`] || false}
-                                          onCheckedChange={(checked) =>
-                                            handleCustomFieldChange(platform.id, field.name, checked)
+                                          value={
+                                            clientForm
+                                              .custom_platform_responses[
+                                              `${platform.id}_${field.name}`
+                                            ] || ""
+                                          }
+                                          onChange={(e) =>
+                                            handleCustomFieldChange(
+                                              platform.id,
+                                              field.name,
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full px-3 py-2 border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-md"
+                                        >
+                                          <option value="">Select...</option>
+                                          {field.options?.map((option) => (
+                                            <option key={option} value={option}>
+                                              {option}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : field.type === "textarea" ? (
+                                        <textarea
+                                          id={`${platform.id}_${field.name}`}
+                                          value={
+                                            clientForm
+                                              .custom_platform_responses[
+                                              `${platform.id}_${field.name}`
+                                            ] || ""
+                                          }
+                                          onChange={(e) =>
+                                            handleCustomFieldChange(
+                                              platform.id,
+                                              field.name,
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder={field.placeholder}
+                                          className="min-h-[80px] w-full px-3 py-2 border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-md"
+                                        />
+                                      ) : field.type === "checkbox" ? (
+                                        <div className="flex items-center space-x-2">
+                                          <Checkbox
+                                            id={`${platform.id}_${field.name}`}
+                                            checked={
+                                              clientForm
+                                                .custom_platform_responses[
+                                                `${platform.id}_${field.name}`
+                                              ] || false
+                                            }
+                                            onCheckedChange={(checked) =>
+                                              handleCustomFieldChange(
+                                                platform.id,
+                                                field.name,
+                                                checked,
+                                              )
+                                            }
+                                          />
+                                          <Label
+                                            htmlFor={`${platform.id}_${field.name}`}
+                                            className="text-sm"
+                                          >
+                                            {field.placeholder || "Yes"}
+                                          </Label>
+                                        </div>
+                                      ) : (
+                                        <Input
+                                          id={`${platform.id}_${field.name}`}
+                                          type={field.type}
+                                          value={
+                                            clientForm
+                                              .custom_platform_responses[
+                                              `${platform.id}_${field.name}`
+                                            ] || ""
+                                          }
+                                          onChange={(e) =>
+                                            handleCustomFieldChange(
+                                              platform.id,
+                                              field.name,
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder={field.placeholder}
+                                          className={
+                                            formErrors[
+                                              `custom_${platform.id}_${field.name}`
+                                            ]
+                                              ? "border-red-500"
+                                              : ""
                                           }
                                         />
-                                        <Label htmlFor={`${platform.id}_${field.name}`} className="text-sm">
-                                          {field.placeholder || "Yes"}
-                                        </Label>
-                                      </div>
-                                    ) : (
-                                      <Input
-                                        id={`${platform.id}_${field.name}`}
-                                        type={field.type}
-                                        value={clientForm.custom_platform_responses[`${platform.id}_${field.name}`] || ""}
-                                        onChange={(e) =>
-                                          handleCustomFieldChange(platform.id, field.name, e.target.value)
-                                        }
-                                        placeholder={field.placeholder}
-                                        className={formErrors[`custom_${platform.id}_${field.name}`] ? "border-red-500" : ""}
-                                      />
-                                    )}
-                                    {formErrors[`custom_${platform.id}_${field.name}`] && (
-                                      <p className="text-sm text-red-500">
-                                        {formErrors[`custom_${platform.id}_${field.name}`]}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
+                                      )}
+                                      {formErrors[
+                                        `custom_${platform.id}_${field.name}`
+                                      ] && (
+                                        <p className="text-sm text-red-500">
+                                          {
+                                            formErrors[
+                                              `custom_${platform.id}_${field.name}`
+                                            ]
+                                          }
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       ))}
                     </div>
@@ -592,8 +695,10 @@ export default function PublicOnboarding() {
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Your data is secure:</strong> {agencyConfig.branding.company_name} will only access the platforms you select. 
-                  You maintain full ownership of your accounts and can revoke access at any time.
+                  <strong>Your data is secure:</strong>{" "}
+                  {agencyConfig.branding.company_name} will only access the
+                  platforms you select. You maintain full ownership of your
+                  accounts and can revoke access at any time.
                 </AlertDescription>
               </Alert>
 
@@ -623,8 +728,8 @@ export default function PublicOnboarding() {
         {/* Footer */}
         <div className="text-center mt-8 text-sm text-muted-foreground">
           <p>
-            Powered by {agencyConfig.branding.company_name} • 
-            Your information is protected and secure
+            Powered by {agencyConfig.branding.company_name} • Your information
+            is protected and secure
           </p>
         </div>
       </div>

@@ -708,7 +708,6 @@ export function AppLayout({
                   {/* Notifications */}
                   <NotificationDropdown />
 
-
                   {/* Theme Toggle */}
                   <ThemeToggle />
 
@@ -746,7 +745,6 @@ export function AppLayout({
             {/* Footer - Always at bottom */}
             {showFooter && <Footer />}
           </main>
-
         </div>
 
         {/* App Notifications */}
