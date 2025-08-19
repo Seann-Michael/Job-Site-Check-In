@@ -336,7 +336,7 @@ export function AppLayout({
       id: "tools",
       label: "Tools",
       href: "/admin/tools",
-      icon: Settings,
+      icon: Wrench,
       active: location.pathname === "/admin/tools",
       comingSoon: false,
     },
