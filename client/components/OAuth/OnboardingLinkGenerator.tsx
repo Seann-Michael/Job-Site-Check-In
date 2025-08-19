@@ -395,6 +395,65 @@ export const OnboardingLinkGenerator: React.FC<OnboardingLinkGeneratorProps> = (
               </div>
             ))}
           </div>
+
+          {/* Custom Platforms Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">Custom Platforms</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCustomPlatformManager(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Manage Custom Platforms
+              </Button>
+            </div>
+
+            {customPlatforms.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customPlatforms.map(platform => (
+                  <div key={platform.id} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <Checkbox
+                      id={`custom_${platform.id}`}
+                      checked={form.selected_custom_platforms.includes(platform.id)}
+                      onCheckedChange={(checked) => handleCustomPlatformToggle(platform.id, checked as boolean)}
+                    />
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor={`custom_${platform.id}`} className="font-medium cursor-pointer flex items-center gap-2">
+                        {platform.icon_url && (
+                          <img
+                            src={platform.icon_url}
+                            alt={platform.name}
+                            className="w-4 h-4 object-contain"
+                          />
+                        )}
+                        {platform.name}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {platform.description || 'Custom platform integration'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {platform.fields.length} field{platform.fields.length !== 1 ? 's' : ''} required
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                <p className="text-sm">No custom platforms created yet.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setShowCustomPlatformManager(true)}
+                >
+                  Create Custom Platform
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Access Level Configuration */}
