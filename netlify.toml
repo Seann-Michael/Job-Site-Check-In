@@ -58,6 +58,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/ai/sessions*"
+  status = 200
+  to = "/.netlify/functions/ai-sessions/:splat"
+
+[[redirects]]
+  force = true
   from = "/api/credit-system/*"
   status = 200
   to = "/.netlify/functions/credit-system/:splat"
