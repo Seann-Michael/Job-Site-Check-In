@@ -89,11 +89,34 @@ export interface OAuthActivityLog {
   created_at: string;
 }
 
+export interface CustomPlatformField {
+  id: string;
+  type: 'text' | 'textarea' | 'select' | 'checkbox' | 'url' | 'email' | 'number';
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[]; // For select fields
+  description?: string;
+}
+
+export interface CustomPlatform {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  fields: CustomPlatformField[];
+  icon_url?: string;
+  created_by: string; // agency user id
+  created_at: string;
+  updated_at: string;
+}
+
 export interface OnboardingLinkForm {
   client_name: string;
   client_email: string;
   client_company?: string;
   selected_platforms: string[];
+  selected_custom_platforms: string[];
   access_level: AccessLevel;
   branding: BrandingConfig;
 }
