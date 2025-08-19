@@ -94,20 +94,63 @@ export default function CreditPurchase() {
     setIsProcessing(true);
 
     try {
+      // Generate a purchase session ID for tracking
+      const purchaseSessionId = `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Ensure admin direct billing before processing payment
+      const token = localStorage.getItem('supabase.auth.token');
+      if (token) {
+        try {
+          await fetch('/api/credit-allocation/ensure-admin-billing', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              purchaseSessionId,
+            }),
+          });
+        } catch (billingError) {
+          console.warn('Failed to set admin direct billing:', billingError);
+          // Continue with purchase - this is just a precaution
+        }
+      }
+
       // Simulate payment processing delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Add credits to user account
-      const packageInfo = creditPackages.find((p) => p.id === packageId);
-      addCredits(
-        credits,
-        "purchase",
-        `Credit purchase: ${packageInfo?.name || "Custom"} - $${amount}`,
-      );
+      // Add credits to user account (using the credit-system API that now ensures admin billing)
+      if (token) {
+        const response = await fetch('/api/credit-system/purchase', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            package_id: packageId,
+            purchase_session_id: purchaseSessionId,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Credit purchase failed');
+        }
+      } else {
+        // Fallback to local credit system
+        const packageInfo = creditPackages.find((p) => p.id === packageId);
+        addCredits(
+          credits,
+          "purchase",
+          `Credit purchase: ${packageInfo?.name || "Custom"} - $${amount} (Direct Admin Billing)`,
+        );
+      }
 
       toast.success(
         `Successfully purchased ${formatCredits(credits)} credits!`,
       );
+      toast.info("Purchase billed directly to your admin account");
       navigate("/admin/projects");
     } catch (error) {
       toast.error("Payment failed. Please try again.");
