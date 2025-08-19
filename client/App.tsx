@@ -935,6 +935,10 @@ const App = () => (
                   path="/OneTimeScan"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
+                <Route
+                  path="/AgencyClientAccess"
+                  element={<Navigate to="/agency/admin/client-access" replace />}
+                />
 
                 {/* Builder.io compatibility routes (URLs without separators) */}
                 <Route
