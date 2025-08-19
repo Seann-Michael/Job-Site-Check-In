@@ -214,17 +214,34 @@ async function getCreditPackages(event: HandlerEvent) {
 async function createCreditPurchase(event: HandlerEvent) {
   try {
     const user = await getUserFromAuth(event.headers.authorization);
-    const { package_id, user_id }: CreditPurchaseRequest = JSON.parse(event.body || '{}');
-    
+    const { package_id, user_id, purchase_session_id }: CreditPurchaseRequest & { purchase_session_id?: string } = JSON.parse(event.body || '{}');
+
+    // Get user profile to determine role
+    const userProfile = await getUserProfile(user.id);
+
     // For admin purchases for other users
     const targetUserId = user_id || user.id;
     if (user_id && user.id !== user_id) {
-      const profile = await getUserProfile(user.id);
-      if (profile.role !== 'super_admin') {
+      if (userProfile.role !== 'super_admin') {
         throw new Error('Insufficient permissions to purchase credits for other users');
       }
     }
-    
+
+    // If this is an admin making a purchase for themselves, ensure it's billed to admin
+    if (userProfile.role === 'admin' && targetUserId === user.id) {
+      // Call function to ensure admin direct billing
+      const { error: billingError } = await supabase
+        .rpc('ensure_admin_direct_billing', {
+          p_admin_user_id: user.id,
+          p_purchase_session_id: purchase_session_id || null,
+        });
+
+      if (billingError) {
+        console.warn('Failed to set admin direct billing override:', billingError.message);
+        // Continue with purchase but log the warning
+      }
+    }
+
     const creditPackage = CREDIT_PACKAGES.find(pkg => pkg.id === package_id);
     if (!creditPackage) {
       throw new Error('Invalid credit package');
@@ -232,12 +249,13 @@ async function createCreditPurchase(event: HandlerEvent) {
 
     // For demo purposes, we'll simulate a successful payment
     // In a real implementation, you would integrate with Stripe or another payment processor
-    
+    // The billing override ensures that for admins, the payment is charged to their account
+
     const totalCredits = creditPackage.credits + (creditPackage.bonus_credits || 0);
-    
+
     // Add credits to user account
     const currentCredits = await getUserCredits(targetUserId);
-    
+
     const { error: updateError } = await supabase
       .from('user_credits')
       .update({
@@ -245,21 +263,25 @@ async function createCreditPurchase(event: HandlerEvent) {
         total_purchased: currentCredits.total_purchased + totalCredits,
       })
       .eq('user_id', targetUserId);
-    
+
     if (updateError) {
       throw updateError;
     }
-    
-    // Log transaction
+
+    // Log transaction with billing information
+    const transactionDescription = userProfile.role === 'admin' && targetUserId === user.id
+      ? `Purchased ${creditPackage.name} - ${creditPackage.credits} credits${creditPackage.bonus_credits ? ` + ${creditPackage.bonus_credits} bonus` : ''} (Direct Admin Billing)`
+      : `Purchased ${creditPackage.name} - ${creditPackage.credits} credits${creditPackage.bonus_credits ? ` + ${creditPackage.bonus_credits} bonus` : ''}`;
+
     const { error: transactionError } = await supabase
       .from('credit_transactions')
       .insert({
         user_id: targetUserId,
         transaction_type: 'purchase',
         credits_amount: totalCredits,
-        description: `Purchased ${creditPackage.name} - ${creditPackage.credits} credits${creditPackage.bonus_credits ? ` + ${creditPackage.bonus_credits} bonus` : ''}`,
+        description: transactionDescription,
       });
-    
+
     if (transactionError) {
       throw transactionError;
     }
