@@ -78,11 +78,10 @@ export default function AgencyClientAccess() {
                 </Button>
                 <div>
                   <h1 className="text-3xl font-bold tracking-tight">
-                    Create Onboarding Link
+                    Create Static Onboarding Link
                   </h1>
                   <p className="text-muted-foreground">
-                    Generate a branded link for your client to connect their
-                    platforms
+                    Generate a reusable link that can be shared with unlimited clients
                   </p>
                 </div>
               </div>
