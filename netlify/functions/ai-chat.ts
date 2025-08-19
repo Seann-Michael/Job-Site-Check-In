@@ -62,7 +62,7 @@ const handler: Handler = async (event, context) => {
     }
 
     try {
-      const { message }: AIRequest = JSON.parse(body);
+      const { message, session_id }: AIRequest = JSON.parse(body);
 
       if (!message || !message.trim()) {
         return {
@@ -72,6 +72,17 @@ const handler: Handler = async (event, context) => {
             'Access-Control-Allow-Origin': '*',
           },
           body: JSON.stringify({ error: 'Message is required' }),
+        };
+      }
+
+      if (!session_id) {
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          body: JSON.stringify({ error: 'Session ID is required' }),
         };
       }
 
