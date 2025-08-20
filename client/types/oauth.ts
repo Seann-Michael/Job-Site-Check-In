@@ -122,6 +122,7 @@ export interface CustomPlatform {
   instructions: string;
   fields: CustomPlatformField[];
   icon_url?: string;
+  is_active: boolean;
   created_by: string; // agency user id
   created_at: string;
   updated_at: string;
