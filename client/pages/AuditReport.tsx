@@ -1,18 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { AppLayout } from '../components/AppLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Badge } from '../components/ui/badge';
-import { Progress } from '../components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { AppLayout } from "../components/AppLayout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import { Badge } from "../components/ui/badge";
+import { Progress } from "../components/ui/progress";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { toast } from "sonner";
 import {
   Search,
   Globe,
@@ -39,14 +70,14 @@ import {
   Loader2,
   Play,
   RefreshCw,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface AuditReport {
   id: string;
   website_url: string;
   report_title: string;
-  audit_type: 'on_page' | 'off_page' | 'comprehensive';
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  audit_type: "on_page" | "off_page" | "comprehensive";
+  status: "pending" | "running" | "completed" | "failed";
   summary_metrics: {
     overall_score: number;
     total_pages_analyzed: number;
@@ -67,20 +98,20 @@ interface AuditFinding {
   id: string;
   category: string;
   subcategory: string;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  severity: "critical" | "high" | "medium" | "low" | "info";
   title: string;
   description: string;
   recommendation: string;
   page_url: string;
   impact_score: number;
-  fix_difficulty: 'easy' | 'medium' | 'hard';
+  fix_difficulty: "easy" | "medium" | "hard";
   estimated_fix_time: number;
 }
 
 interface NewAuditForm {
   websiteUrl: string;
   reportTitle: string;
-  auditType: 'on_page' | 'off_page' | 'comprehensive';
+  auditType: "on_page" | "off_page" | "comprehensive";
   maxPages: number;
 }
 
@@ -88,18 +119,20 @@ export default function AuditReport() {
   const { user } = useAuth();
   const token = user?.token;
   const [reports, setReports] = useState<AuditReport[]>([]);
-  const [selectedReport, setSelectedReport] = useState<AuditReport | null>(null);
+  const [selectedReport, setSelectedReport] = useState<AuditReport | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [runningAudit, setRunningAudit] = useState(false);
   const [showNewAuditDialog, setShowNewAuditDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [filterSeverity, setFilterSeverity] = useState<string>('all');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  
+  const [filterSeverity, setFilterSeverity] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+
   const [newAuditForm, setNewAuditForm] = useState<NewAuditForm>({
-    websiteUrl: '',
-    reportTitle: '',
-    auditType: 'comprehensive',
+    websiteUrl: "",
+    reportTitle: "",
+    auditType: "comprehensive",
     maxPages: 50,
   });
 
@@ -112,10 +145,10 @@ export default function AuditReport() {
 
     try {
       setLoading(true);
-      const response = await fetch('/api/audit-report/reports', {
+      const response = await fetch("/api/audit-report/reports", {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -123,11 +156,11 @@ export default function AuditReport() {
         const data = await response.json();
         setReports(data.reports || []);
       } else {
-        throw new Error('Failed to load reports');
+        throw new Error("Failed to load reports");
       }
     } catch (error) {
-      console.error('Error loading reports:', error);
-      toast.error('Failed to load audit reports');
+      console.error("Error loading reports:", error);
+      toast.error("Failed to load audit reports");
     } finally {
       setLoading(false);
     }
@@ -139,8 +172,8 @@ export default function AuditReport() {
     try {
       const response = await fetch(`/api/audit-report/${reportId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -148,11 +181,11 @@ export default function AuditReport() {
         const data = await response.json();
         setSelectedReport(data.report);
       } else {
-        throw new Error('Failed to load report details');
+        throw new Error("Failed to load report details");
       }
     } catch (error) {
-      console.error('Error loading report details:', error);
-      toast.error('Failed to load report details');
+      console.error("Error loading report details:", error);
+      toast.error("Failed to load report details");
     }
   };
 
@@ -161,21 +194,24 @@ export default function AuditReport() {
 
     try {
       setRunningAudit(true);
-      
-      // Validate URL
-      const url = new URL(newAuditForm.websiteUrl.startsWith('http') 
-        ? newAuditForm.websiteUrl 
-        : `https://${newAuditForm.websiteUrl}`);
 
-      const response = await fetch('/api/audit-report/start-audit', {
-        method: 'POST',
+      // Validate URL
+      const url = new URL(
+        newAuditForm.websiteUrl.startsWith("http")
+          ? newAuditForm.websiteUrl
+          : `https://${newAuditForm.websiteUrl}`,
+      );
+
+      const response = await fetch("/api/audit-report/start-audit", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           websiteUrl: url.toString(),
-          reportTitle: newAuditForm.reportTitle || `SEO Audit for ${url.hostname}`,
+          reportTitle:
+            newAuditForm.reportTitle || `SEO Audit for ${url.hostname}`,
           auditType: newAuditForm.auditType,
           maxPages: newAuditForm.maxPages,
         }),
@@ -183,22 +219,26 @@ export default function AuditReport() {
 
       if (response.ok) {
         const data = await response.json();
-        toast.success(`Audit started successfully! Score: ${data.auditScore}/100`);
+        toast.success(
+          `Audit started successfully! Score: ${data.auditScore}/100`,
+        );
         setShowNewAuditDialog(false);
         setNewAuditForm({
-          websiteUrl: '',
-          reportTitle: '',
-          auditType: 'comprehensive',
+          websiteUrl: "",
+          reportTitle: "",
+          auditType: "comprehensive",
           maxPages: 50,
         });
         loadReports();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start audit');
+        throw new Error(errorData.error || "Failed to start audit");
       }
     } catch (error) {
-      console.error('Error starting audit:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to start audit');
+      console.error("Error starting audit:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to start audit",
+      );
     } finally {
       setRunningAudit(false);
     }
@@ -208,11 +248,11 @@ export default function AuditReport() {
     if (!token) return;
 
     try {
-      const response = await fetch('/api/generate-pdf', {
-        method: 'POST',
+      const response = await fetch("/api/generate-pdf", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           reportId: report.id,
@@ -223,7 +263,7 @@ export default function AuditReport() {
         const htmlContent = await response.text();
 
         // Open in new window for printing
-        const printWindow = window.open('', '_blank');
+        const printWindow = window.open("", "_blank");
         if (printWindow) {
           printWindow.document.write(htmlContent);
           printWindow.document.close();
@@ -234,13 +274,13 @@ export default function AuditReport() {
           };
         }
 
-        toast.success('PDF preview opened in new window');
+        toast.success("PDF preview opened in new window");
       } else {
-        throw new Error('Failed to generate PDF');
+        throw new Error("Failed to generate PDF");
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF');
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
     }
   };
 
@@ -251,55 +291,71 @@ export default function AuditReport() {
       // Make report public if not already
       if (!report.is_public) {
         // TODO: Implement public sharing toggle
-        toast.info('Public sharing feature coming soon!');
+        toast.info("Public sharing feature coming soon!");
         return;
       }
 
       // Copy share URL to clipboard
       const shareUrl = `${window.location.origin}/public/audit-report/${report.public_share_token}`;
       await navigator.clipboard.writeText(shareUrl);
-      toast.success('Share URL copied to clipboard!');
+      toast.success("Share URL copied to clipboard!");
     } catch (error) {
-      console.error('Error sharing report:', error);
-      toast.error('Failed to copy share URL');
+      console.error("Error sharing report:", error);
+      toast.error("Failed to copy share URL");
     }
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-blue-100 text-blue-800';
-      case 'info': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "critical":
+        return "bg-red-100 text-red-800";
+      case "high":
+        return "bg-orange-100 text-orange-800";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800";
+      case "low":
+        return "bg-blue-100 text-blue-800";
+      case "info":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'critical': return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'high': return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-      case 'medium': return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'low': return <CheckCircle className="h-4 w-4 text-blue-500" />;
-      default: return <CheckCircle className="h-4 w-4 text-gray-500" />;
+      case "critical":
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case "high":
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case "medium":
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "low":
+        return <CheckCircle className="h-4 w-4 text-blue-500" />;
+      default:
+        return <CheckCircle className="h-4 w-4 text-gray-500" />;
     }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
-    if (score >= 50) return 'text-orange-600';
-    return 'text-red-600';
+    if (score >= 90) return "text-green-600";
+    if (score >= 70) return "text-yellow-600";
+    if (score >= 50) return "text-orange-600";
+    return "text-red-600";
   };
 
-  const filteredFindings = selectedReport?.audit_findings?.filter(finding => {
-    const severityMatch = filterSeverity === 'all' || finding.severity === filterSeverity;
-    const categoryMatch = filterCategory === 'all' || finding.category === filterCategory;
-    return severityMatch && categoryMatch;
-  }) || [];
+  const filteredFindings =
+    selectedReport?.audit_findings?.filter((finding) => {
+      const severityMatch =
+        filterSeverity === "all" || finding.severity === filterSeverity;
+      const categoryMatch =
+        filterCategory === "all" || finding.category === filterCategory;
+      return severityMatch && categoryMatch;
+    }) || [];
 
-  const categories = [...new Set(selectedReport?.audit_findings?.map(f => f.category) || [])];
+  const categories = [
+    ...new Set(selectedReport?.audit_findings?.map((f) => f.category) || []),
+  ];
 
   return (
     <AppLayout
@@ -318,7 +374,10 @@ export default function AuditReport() {
               Comprehensive technical SEO analysis powered by DataForSEO
             </p>
           </div>
-          <Dialog open={showNewAuditDialog} onOpenChange={setShowNewAuditDialog}>
+          <Dialog
+            open={showNewAuditDialog}
+            onOpenChange={setShowNewAuditDialog}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Play className="h-4 w-4 mr-2" />
@@ -329,7 +388,8 @@ export default function AuditReport() {
               <DialogHeader>
                 <DialogTitle>Start New SEO Audit</DialogTitle>
                 <DialogDescription>
-                  Analyze your website's technical SEO performance and get actionable recommendations.
+                  Analyze your website's technical SEO performance and get
+                  actionable recommendations.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -339,7 +399,12 @@ export default function AuditReport() {
                     id="website-url"
                     placeholder="https://example.com"
                     value={newAuditForm.websiteUrl}
-                    onChange={(e) => setNewAuditForm(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                    onChange={(e) =>
+                      setNewAuditForm((prev) => ({
+                        ...prev,
+                        websiteUrl: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -348,20 +413,29 @@ export default function AuditReport() {
                     id="report-title"
                     placeholder="Custom report name (optional)"
                     value={newAuditForm.reportTitle}
-                    onChange={(e) => setNewAuditForm(prev => ({ ...prev, reportTitle: e.target.value }))}
+                    onChange={(e) =>
+                      setNewAuditForm((prev) => ({
+                        ...prev,
+                        reportTitle: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="audit-type">Audit Type</Label>
                   <Select
                     value={newAuditForm.auditType}
-                    onValueChange={(value: any) => setNewAuditForm(prev => ({ ...prev, auditType: value }))}
+                    onValueChange={(value: any) =>
+                      setNewAuditForm((prev) => ({ ...prev, auditType: value }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="comprehensive">Comprehensive (On-page + Off-page)</SelectItem>
+                      <SelectItem value="comprehensive">
+                        Comprehensive (On-page + Off-page)
+                      </SelectItem>
                       <SelectItem value="on_page">On-page Only</SelectItem>
                       <SelectItem value="off_page">Off-page Only</SelectItem>
                     </SelectContent>
@@ -371,7 +445,12 @@ export default function AuditReport() {
                   <Label htmlFor="max-pages">Max Pages to Analyze</Label>
                   <Select
                     value={newAuditForm.maxPages.toString()}
-                    onValueChange={(value) => setNewAuditForm(prev => ({ ...prev, maxPages: parseInt(value) }))}
+                    onValueChange={(value) =>
+                      setNewAuditForm((prev) => ({
+                        ...prev,
+                        maxPages: parseInt(value),
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -386,11 +465,19 @@ export default function AuditReport() {
                   </Select>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowNewAuditDialog(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowNewAuditDialog(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={startNewAudit} disabled={runningAudit || !newAuditForm.websiteUrl}>
-                    {runningAudit && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Button
+                    onClick={startNewAudit}
+                    disabled={runningAudit || !newAuditForm.websiteUrl}
+                  >
+                    {runningAudit && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
                     Start Audit
                   </Button>
                 </div>
@@ -411,9 +498,12 @@ export default function AuditReport() {
               <Card>
                 <CardContent className="text-center py-12">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No audit reports yet</h3>
+                  <h3 className="text-lg font-semibold mb-2">
+                    No audit reports yet
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    Start your first SEO audit to analyze your website's performance.
+                    Start your first SEO audit to analyze your website's
+                    performance.
                   </p>
                   <Button onClick={() => setShowNewAuditDialog(true)}>
                     <Play className="h-4 w-4 mr-2" />
@@ -424,39 +514,63 @@ export default function AuditReport() {
             ) : (
               <div className="grid gap-4">
                 {reports.map((report) => (
-                  <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <Card
+                    key={report.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <Globe className="h-5 w-5 text-muted-foreground" />
-                            <h3 className="font-semibold">{report.report_title}</h3>
+                            <h3 className="font-semibold">
+                              {report.report_title}
+                            </h3>
                             <Badge variant="outline" className="capitalize">
-                              {report.audit_type.replace('_', ' ')}
+                              {report.audit_type.replace("_", " ")}
                             </Badge>
-                            <Badge 
-                              variant={report.status === 'completed' ? 'default' : 
-                                      report.status === 'failed' ? 'destructive' : 'secondary'}
+                            <Badge
+                              variant={
+                                report.status === "completed"
+                                  ? "default"
+                                  : report.status === "failed"
+                                    ? "destructive"
+                                    : "secondary"
+                              }
                             >
                               {report.status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">{report.website_url}</p>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {report.website_url}
+                          </p>
                           {report.summary_metrics && (
                             <div className="flex items-center gap-6">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Score:</span>
-                                <span className={`font-bold ${getScoreColor(report.summary_metrics.overall_score)}`}>
+                                <span className="text-sm text-muted-foreground">
+                                  Score:
+                                </span>
+                                <span
+                                  className={`font-bold ${getScoreColor(report.summary_metrics.overall_score)}`}
+                                >
                                   {report.summary_metrics.overall_score}/100
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Issues:</span>
-                                <span className="font-medium">{report.summary_metrics.total_issues_found}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  Issues:
+                                </span>
+                                <span className="font-medium">
+                                  {report.summary_metrics.total_issues_found}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Pages:</span>
-                                <span className="font-medium">{report.summary_metrics.total_pages_analyzed}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  Pages:
+                                </span>
+                                <span className="font-medium">
+                                  {report.summary_metrics.total_pages_analyzed}
+                                </span>
                               </div>
                             </div>
                           )}
@@ -512,15 +626,22 @@ export default function AuditReport() {
                       {selectedReport.report_title}
                     </CardTitle>
                     <CardDescription className="mt-2">
-                      {selectedReport.website_url} • {new Date(selectedReport.created_at).toLocaleDateString()}
+                      {selectedReport.website_url} •{" "}
+                      {new Date(selectedReport.created_at).toLocaleDateString()}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => generatePDF(selectedReport)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => generatePDF(selectedReport)}
+                    >
                       <Download className="h-4 w-4 mr-2" />
                       Download PDF
                     </Button>
-                    <Button variant="outline" onClick={() => shareReport(selectedReport)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => shareReport(selectedReport)}
+                    >
                       <Share2 className="h-4 w-4 mr-2" />
                       Share Report
                     </Button>
@@ -531,27 +652,49 @@ export default function AuditReport() {
                 {selectedReport.summary_metrics && (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="text-center">
-                      <div className={`text-3xl font-bold ${getScoreColor(selectedReport.summary_metrics.overall_score)}`}>
+                      <div
+                        className={`text-3xl font-bold ${getScoreColor(selectedReport.summary_metrics.overall_score)}`}
+                      >
                         {selectedReport.summary_metrics.overall_score}
                       </div>
-                      <div className="text-sm text-muted-foreground">Overall Score</div>
+                      <div className="text-sm text-muted-foreground">
+                        Overall Score
+                      </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold">{selectedReport.summary_metrics.total_issues_found}</div>
-                      <div className="text-sm text-muted-foreground">Total Issues</div>
+                      <div className="text-3xl font-bold">
+                        {selectedReport.summary_metrics.total_issues_found}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Total Issues
+                      </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold">{selectedReport.summary_metrics.total_pages_analyzed}</div>
-                      <div className="text-sm text-muted-foreground">Pages Analyzed</div>
+                      <div className="text-3xl font-bold">
+                        {selectedReport.summary_metrics.total_pages_analyzed}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Pages Analyzed
+                      </div>
                     </div>
                     <div className="text-center">
                       <div className="flex justify-center gap-2">
-                        <span className="text-red-600 font-semibold">{selectedReport.summary_metrics.critical_issues}</span>
-                        <span className="text-orange-600 font-semibold">{selectedReport.summary_metrics.high_issues}</span>
-                        <span className="text-yellow-600 font-semibold">{selectedReport.summary_metrics.medium_issues}</span>
-                        <span className="text-blue-600 font-semibold">{selectedReport.summary_metrics.low_issues}</span>
+                        <span className="text-red-600 font-semibold">
+                          {selectedReport.summary_metrics.critical_issues}
+                        </span>
+                        <span className="text-orange-600 font-semibold">
+                          {selectedReport.summary_metrics.high_issues}
+                        </span>
+                        <span className="text-yellow-600 font-semibold">
+                          {selectedReport.summary_metrics.medium_issues}
+                        </span>
+                        <span className="text-blue-600 font-semibold">
+                          {selectedReport.summary_metrics.low_issues}
+                        </span>
                       </div>
-                      <div className="text-sm text-muted-foreground">Critical • High • Medium • Low</div>
+                      <div className="text-sm text-muted-foreground">
+                        Critical • High • Medium • Low
+                      </div>
                     </div>
                   </div>
                 )}
@@ -564,7 +707,10 @@ export default function AuditReport() {
                 <div className="flex items-center justify-between">
                   <CardTitle>Issues & Recommendations</CardTitle>
                   <div className="flex items-center gap-2">
-                    <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+                    <Select
+                      value={filterSeverity}
+                      onValueChange={setFilterSeverity}
+                    >
                       <SelectTrigger className="w-[140px]">
                         <SelectValue />
                       </SelectTrigger>
@@ -576,15 +722,22 @@ export default function AuditReport() {
                         <SelectItem value="low">Low</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <Select
+                      value={filterCategory}
+                      onValueChange={setFilterCategory}
+                    >
                       <SelectTrigger className="w-[140px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
                         {categories.map((category) => (
-                          <SelectItem key={category} value={category} className="capitalize">
-                            {category.replace('_', ' ')}
+                          <SelectItem
+                            key={category}
+                            value={category}
+                            className="capitalize"
+                          >
+                            {category.replace("_", " ")}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -596,12 +749,13 @@ export default function AuditReport() {
                 {filteredFindings.length === 0 ? (
                   <div className="text-center py-8">
                     <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                    <h3 className="text-lg font-semibold mb-2">No issues found</h3>
+                    <h3 className="text-lg font-semibold mb-2">
+                      No issues found
+                    </h3>
                     <p className="text-muted-foreground">
-                      {selectedReport.audit_findings?.length === 0 
+                      {selectedReport.audit_findings?.length === 0
                         ? "Great! Your website has no technical SEO issues."
-                        : "No issues match the current filters."
-                      }
+                        : "No issues match the current filters."}
                     </p>
                   </div>
                 ) : (
@@ -628,22 +782,24 @@ export default function AuditReport() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getSeverityColor(finding.severity)}>
+                            <Badge
+                              className={getSeverityColor(finding.severity)}
+                            >
                               {finding.severity}
                             </Badge>
                           </TableCell>
                           <TableCell className="capitalize">
-                            {finding.category.replace('_', ' ')}
+                            {finding.category.replace("_", " ")}
                           </TableCell>
                           <TableCell>
-                            <a 
-                              href={finding.page_url} 
-                              target="_blank" 
+                            <a
+                              href={finding.page_url}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline flex items-center gap-1"
                             >
                               <span className="truncate max-w-[200px]">
-                                {finding.page_url.replace(/^https?:\/\//, '')}
+                                {finding.page_url.replace(/^https?:\/\//, "")}
                               </span>
                               <ExternalLink className="h-3 w-3" />
                             </a>

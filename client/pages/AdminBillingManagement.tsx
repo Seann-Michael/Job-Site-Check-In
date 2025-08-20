@@ -1,17 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Switch } from '../components/ui/switch';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../hooks/useAuth";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Switch } from "../components/ui/switch";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { toast } from "sonner";
 import {
   CreditCard,
   Users,
@@ -26,17 +57,22 @@ import {
   Eye,
   Trash2,
   Wallet,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface BillingRelationship {
   id: string;
   admin_user_id: string;
   agency_user_id: string;
-  billing_arrangement: 'admin_direct' | 'agency_sponsored' | 'agency_allocated';
+  billing_arrangement: "admin_direct" | "agency_sponsored" | "agency_allocated";
   monthly_credit_allocation: number;
   billing_start_date: string;
   billing_end_date?: string;
-  status: 'active' | 'admin_ejected' | 'agency_ejected' | 'mutual_terminated' | 'expired';
+  status:
+    | "active"
+    | "admin_ejected"
+    | "agency_ejected"
+    | "mutual_terminated"
+    | "expired";
   created_at: string;
   terminated_at?: string;
   terminated_by?: string;
@@ -77,13 +113,17 @@ export default function AdminBillingManagement() {
   const [relationships, setRelationships] = useState<BillingRelationship[]>([]);
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [allocationHistory, setAllocationHistory] = useState<any[]>([]);
-  const [preferences, setPreferences] = useState<BillingPreferences | null>(null);
+  const [preferences, setPreferences] = useState<BillingPreferences | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
-  const [selectedRelationship, setSelectedRelationship] = useState<BillingRelationship | null>(null);
+  const [selectedRelationship, setSelectedRelationship] =
+    useState<BillingRelationship | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
-  const [showAllocationHistoryDialog, setShowAllocationHistoryDialog] = useState(false);
+  const [showAllocationHistoryDialog, setShowAllocationHistoryDialog] =
+    useState(false);
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
-  const [terminationReason, setTerminationReason] = useState('');
+  const [terminationReason, setTerminationReason] = useState("");
 
   useEffect(() => {
     loadData();
@@ -94,14 +134,17 @@ export default function AdminBillingManagement() {
 
     try {
       setLoading(true);
-      
+
       // Load relationships
-      const relationshipsResponse = await fetch('/api/billing/admin-agency/relationships', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const relationshipsResponse = await fetch(
+        "/api/billing/admin-agency/relationships",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (relationshipsResponse.ok) {
         const relationshipsData = await relationshipsResponse.json();
@@ -109,21 +152,23 @@ export default function AdminBillingManagement() {
       }
 
       // Load preferences
-      const preferencesResponse = await fetch('/api/billing/admin-agency/preferences', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const preferencesResponse = await fetch(
+        "/api/billing/admin-agency/preferences",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (preferencesResponse.ok) {
         const preferencesData = await preferencesResponse.json();
         setPreferences(preferencesData.preferences);
       }
-
     } catch (error) {
-      console.error('Error loading billing data:', error);
-      toast.error('Failed to load billing data');
+      console.error("Error loading billing data:", error);
+      toast.error("Failed to load billing data");
     } finally {
       setLoading(false);
     }
@@ -133,22 +178,25 @@ export default function AdminBillingManagement() {
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/billing/admin-agency/history?relationshipId=${relationshipId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `/api/billing/admin-agency/history?relationshipId=${relationshipId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setBillingHistory(data.history || []);
       } else {
-        throw new Error('Failed to load history');
+        throw new Error("Failed to load history");
       }
     } catch (error) {
-      console.error('Error loading billing history:', error);
-      toast.error('Failed to load billing history');
+      console.error("Error loading billing history:", error);
+      toast.error("Failed to load billing history");
     }
   };
 
@@ -156,15 +204,15 @@ export default function AdminBillingManagement() {
     if (!token) return;
 
     try {
-      let url = '/api/credit-allocation/history';
+      let url = "/api/credit-allocation/history";
       if (relationshipId) {
         url += `?relationshipId=${relationshipId}`;
       }
 
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -172,37 +220,42 @@ export default function AdminBillingManagement() {
         const data = await response.json();
         setAllocationHistory(data.allocations || []);
       } else {
-        throw new Error('Failed to load allocation history');
+        throw new Error("Failed to load allocation history");
       }
     } catch (error) {
-      console.error('Error loading allocation history:', error);
-      toast.error('Failed to load allocation history');
+      console.error("Error loading allocation history:", error);
+      toast.error("Failed to load allocation history");
     }
   };
 
-  const updatePreferences = async (newPreferences: Partial<BillingPreferences>) => {
+  const updatePreferences = async (
+    newPreferences: Partial<BillingPreferences>,
+  ) => {
     if (!token) return;
 
     try {
-      const response = await fetch('/api/billing/admin-agency/update-preferences', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "/api/billing/admin-agency/update-preferences",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newPreferences),
         },
-        body: JSON.stringify(newPreferences),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setPreferences(data.preferences);
-        toast.success('Preferences updated successfully');
+        toast.success("Preferences updated successfully");
       } else {
-        throw new Error('Failed to update preferences');
+        throw new Error("Failed to update preferences");
       }
     } catch (error) {
-      console.error('Error updating preferences:', error);
-      toast.error('Failed to update preferences');
+      console.error("Error updating preferences:", error);
+      toast.error("Failed to update preferences");
     }
   };
 
@@ -210,43 +263,54 @@ export default function AdminBillingManagement() {
     if (!selectedRelationship || !token) return;
 
     try {
-      const response = await fetch('/api/billing/admin-agency/terminate-relationship', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "/api/billing/admin-agency/terminate-relationship",
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            relationshipId: selectedRelationship.id,
+            terminationReason,
+            newStatus: "admin_ejected",
+          }),
         },
-        body: JSON.stringify({
-          relationshipId: selectedRelationship.id,
-          terminationReason,
-          newStatus: 'admin_ejected',
-        }),
-      });
+      );
 
       if (response.ok) {
-        toast.success('Relationship terminated successfully');
+        toast.success("Relationship terminated successfully");
         setShowTerminateDialog(false);
         setSelectedRelationship(null);
-        setTerminationReason('');
+        setTerminationReason("");
         loadData();
       } else {
-        throw new Error('Failed to terminate relationship');
+        throw new Error("Failed to terminate relationship");
       }
     } catch (error) {
-      console.error('Error terminating relationship:', error);
-      toast.error('Failed to terminate relationship');
+      console.error("Error terminating relationship:", error);
+      toast.error("Failed to terminate relationship");
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
-      case 'admin_ejected':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Admin Ejected</Badge>;
-      case 'agency_ejected':
+      case "active":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Active
+          </Badge>
+        );
+      case "admin_ejected":
+        return (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            Admin Ejected
+          </Badge>
+        );
+      case "agency_ejected":
         return <Badge variant="destructive">Agency Ejected</Badge>;
-      case 'mutual_terminated':
+      case "mutual_terminated":
         return <Badge variant="outline">Terminated</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -255,12 +319,24 @@ export default function AdminBillingManagement() {
 
   const getArrangementBadge = (arrangement: string) => {
     switch (arrangement) {
-      case 'admin_direct':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700">Direct Billing</Badge>;
-      case 'agency_sponsored':
-        return <Badge variant="default" className="bg-green-50 text-green-700">Agency Sponsored</Badge>;
-      case 'agency_allocated':
-        return <Badge variant="secondary" className="bg-purple-50 text-purple-700">Credit Allocation</Badge>;
+      case "admin_direct":
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+            Direct Billing
+          </Badge>
+        );
+      case "agency_sponsored":
+        return (
+          <Badge variant="default" className="bg-green-50 text-green-700">
+            Agency Sponsored
+          </Badge>
+        );
+      case "agency_allocated":
+        return (
+          <Badge variant="secondary" className="bg-purple-50 text-purple-700">
+            Credit Allocation
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{arrangement}</Badge>;
     }
@@ -279,13 +355,18 @@ export default function AdminBillingManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Billing Management</h1>
-          <p className="text-muted-foreground">Manage your billing arrangements with agencies</p>
+          <p className="text-muted-foreground">
+            Manage your billing arrangements with agencies
+          </p>
         </div>
       </div>
 
       <Tabs defaultValue="relationships" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="relationships" className="flex items-center gap-2">
+          <TabsTrigger
+            value="relationships"
+            className="flex items-center gap-2"
+          >
             <Building2 className="h-4 w-4" />
             Agency Relationships
           </TabsTrigger>
@@ -311,7 +392,9 @@ export default function AdminBillingManagement() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No agency relationships found</p>
-                  <p className="text-sm">Agencies can invite you to join their billing plan</p>
+                  <p className="text-sm">
+                    Agencies can invite you to join their billing plan
+                  </p>
                 </div>
               ) : (
                 <Table>
@@ -339,19 +422,22 @@ export default function AdminBillingManagement() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {getArrangementBadge(relationship.billing_arrangement)}
+                          {getArrangementBadge(
+                            relationship.billing_arrangement,
+                          )}
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(relationship.status)}
                         </TableCell>
                         <TableCell>
-                          {relationship.monthly_credit_allocation > 0 
-                            ? `${relationship.monthly_credit_allocation} credits` 
-                            : 'N/A'
-                          }
+                          {relationship.monthly_credit_allocation > 0
+                            ? `${relationship.monthly_credit_allocation} credits`
+                            : "N/A"}
                         </TableCell>
                         <TableCell>
-                          {new Date(relationship.billing_start_date).toLocaleDateString()}
+                          {new Date(
+                            relationship.billing_start_date,
+                          ).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -379,7 +465,7 @@ export default function AdminBillingManagement() {
                             >
                               <Wallet className="h-4 w-4 text-green-500" />
                             </Button>
-                            {relationship.status === 'active' && (
+                            {relationship.status === "active" && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -430,7 +516,9 @@ export default function AdminBillingManagement() {
                         <Switch
                           checked={preferences.allow_agency_sponsorship}
                           onCheckedChange={(checked) =>
-                            updatePreferences({ allow_agency_sponsorship: checked })
+                            updatePreferences({
+                              allow_agency_sponsorship: checked,
+                            })
                           }
                         />
                       </div>
@@ -444,7 +532,9 @@ export default function AdminBillingManagement() {
                         <Switch
                           checked={preferences.auto_accept_agency_invites}
                           onCheckedChange={(checked) =>
-                            updatePreferences({ auto_accept_agency_invites: checked })
+                            updatePreferences({
+                              auto_accept_agency_invites: checked,
+                            })
                           }
                         />
                       </div>
@@ -452,13 +542,16 @@ export default function AdminBillingManagement() {
                         <div className="space-y-0.5">
                           <Label>Fallback to Direct Billing</Label>
                           <p className="text-sm text-muted-foreground">
-                            Automatically switch to direct billing if agency relationship ends
+                            Automatically switch to direct billing if agency
+                            relationship ends
                           </p>
                         </div>
                         <Switch
                           checked={preferences.fallback_to_direct_billing}
                           onCheckedChange={(checked) =>
-                            updatePreferences({ fallback_to_direct_billing: checked })
+                            updatePreferences({
+                              fallback_to_direct_billing: checked,
+                            })
                           }
                         />
                       </div>
@@ -473,7 +566,9 @@ export default function AdminBillingManagement() {
                         <Switch
                           checked={preferences.notify_billing_changes}
                           onCheckedChange={(checked) =>
-                            updatePreferences({ notify_billing_changes: checked })
+                            updatePreferences({
+                              notify_billing_changes: checked,
+                            })
                           }
                         />
                       </div>
@@ -482,7 +577,9 @@ export default function AdminBillingManagement() {
                         <Switch
                           checked={preferences.notify_relationship_changes}
                           onCheckedChange={(checked) =>
-                            updatePreferences({ notify_relationship_changes: checked })
+                            updatePreferences({
+                              notify_relationship_changes: checked,
+                            })
                           }
                         />
                       </div>
@@ -491,7 +588,9 @@ export default function AdminBillingManagement() {
                         <Switch
                           checked={preferences.notify_credit_allocations}
                           onCheckedChange={(checked) =>
-                            updatePreferences({ notify_credit_allocations: checked })
+                            updatePreferences({
+                              notify_credit_allocations: checked,
+                            })
                           }
                         />
                       </div>
@@ -506,14 +605,18 @@ export default function AdminBillingManagement() {
                         <Input
                           id="billing-email"
                           type="email"
-                          value={preferences.billing_email || ''}
+                          value={preferences.billing_email || ""}
                           onChange={(e) =>
-                            setPreferences(prev => prev ? 
-                              { ...prev, billing_email: e.target.value } : prev
+                            setPreferences((prev) =>
+                              prev
+                                ? { ...prev, billing_email: e.target.value }
+                                : prev,
                             )
                           }
                           onBlur={() =>
-                            updatePreferences({ billing_email: preferences.billing_email })
+                            updatePreferences({
+                              billing_email: preferences.billing_email,
+                            })
                           }
                           placeholder="billing@example.com"
                         />
@@ -523,14 +626,18 @@ export default function AdminBillingManagement() {
                         <Input
                           id="billing-phone"
                           type="tel"
-                          value={preferences.billing_phone || ''}
+                          value={preferences.billing_phone || ""}
                           onChange={(e) =>
-                            setPreferences(prev => prev ?
-                              { ...prev, billing_phone: e.target.value } : prev
+                            setPreferences((prev) =>
+                              prev
+                                ? { ...prev, billing_phone: e.target.value }
+                                : prev,
                             )
                           }
                           onBlur={() =>
-                            updatePreferences({ billing_phone: preferences.billing_phone })
+                            updatePreferences({
+                              billing_phone: preferences.billing_phone,
+                            })
                           }
                           placeholder="+1 (555) 123-4567"
                         />
@@ -551,7 +658,10 @@ export default function AdminBillingManagement() {
             <DialogTitle>Billing History</DialogTitle>
             <DialogDescription>
               {selectedRelationship && (
-                <>Billing history for relationship with {selectedRelationship.agency_profile.agency_name}</>
+                <>
+                  Billing history for relationship with{" "}
+                  {selectedRelationship.agency_profile.agency_name}
+                </>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -575,7 +685,7 @@ export default function AdminBillingManagement() {
                     <TableRow key={event.id}>
                       <TableCell>
                         <Badge variant="outline">
-                          {event.event_type.replace(/_/g, ' ')}
+                          {event.event_type.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -587,12 +697,14 @@ export default function AdminBillingManagement() {
                           )}
                           {event.amount_cents && (
                             <div className="text-sm">
-                              Amount: ${(event.amount_cents / 100).toFixed(2)} {event.currency}
+                              Amount: ${(event.amount_cents / 100).toFixed(2)}{" "}
+                              {event.currency}
                             </div>
                           )}
                           {event.new_arrangement && (
                             <div className="text-sm">
-                              Arrangement: {getArrangementBadge(event.new_arrangement)}
+                              Arrangement:{" "}
+                              {getArrangementBadge(event.new_arrangement)}
                             </div>
                           )}
                         </div>
@@ -610,7 +722,10 @@ export default function AdminBillingManagement() {
       </Dialog>
 
       {/* Allocation History Dialog */}
-      <Dialog open={showAllocationHistoryDialog} onOpenChange={setShowAllocationHistoryDialog}>
+      <Dialog
+        open={showAllocationHistoryDialog}
+        onOpenChange={setShowAllocationHistoryDialog}
+      >
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -619,7 +734,10 @@ export default function AdminBillingManagement() {
             </DialogTitle>
             <DialogDescription>
               {selectedRelationship && (
-                <>Credit allocations from {selectedRelationship.agency_profile.agency_name}</>
+                <>
+                  Credit allocations from{" "}
+                  {selectedRelationship.agency_profile.agency_name}
+                </>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -644,26 +762,44 @@ export default function AdminBillingManagement() {
                   {allocationHistory.map((allocation) => (
                     <TableRow key={allocation.id}>
                       <TableCell>
-                        <Badge variant={allocation.allocation_type === 'monthly_auto' ? 'default' : 'secondary'}>
-                          {allocation.allocation_type === 'monthly_auto' ? 'Monthly Auto' :
-                           allocation.allocation_type === 'manual' ? 'Manual' : 'Bonus'}
+                        <Badge
+                          variant={
+                            allocation.allocation_type === "monthly_auto"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {allocation.allocation_type === "monthly_auto"
+                            ? "Monthly Auto"
+                            : allocation.allocation_type === "manual"
+                              ? "Manual"
+                              : "Bonus"}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">
                         {allocation.credits_amount} credits
                       </TableCell>
                       <TableCell>
-                        <Badge variant={
-                          allocation.status === 'processed' ? 'default' :
-                          allocation.status === 'failed' ? 'destructive' :
-                          allocation.status === 'cancelled' ? 'secondary' : 'outline'
-                        }>
+                        <Badge
+                          variant={
+                            allocation.status === "processed"
+                              ? "default"
+                              : allocation.status === "failed"
+                                ? "destructive"
+                                : allocation.status === "cancelled"
+                                  ? "secondary"
+                                  : "outline"
+                          }
+                        >
                           {allocation.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-[200px] truncate" title={allocation.allocation_reason}>
-                          {allocation.allocation_reason || 'N/A'}
+                        <div
+                          className="max-w-[200px] truncate"
+                          title={allocation.allocation_reason}
+                        >
+                          {allocation.allocation_reason || "N/A"}
                         </div>
                         {allocation.failure_reason && (
                           <div className="text-sm text-red-600">
@@ -677,7 +813,10 @@ export default function AdminBillingManagement() {
                         </div>
                         {allocation.processed_at && (
                           <div className="text-sm text-muted-foreground">
-                            Processed: {new Date(allocation.processed_at).toLocaleDateString()}
+                            Processed:{" "}
+                            {new Date(
+                              allocation.processed_at,
+                            ).toLocaleDateString()}
                           </div>
                         )}
                       </TableCell>
@@ -699,13 +838,15 @@ export default function AdminBillingManagement() {
               Terminate Agency Relationship
             </DialogTitle>
             <DialogDescription>
-              This will end your billing relationship with the agency and switch you to direct billing.
-              This action cannot be undone.
+              This will end your billing relationship with the agency and switch
+              you to direct billing. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="termination-reason">Reason for termination (optional)</Label>
+              <Label htmlFor="termination-reason">
+                Reason for termination (optional)
+              </Label>
               <Textarea
                 id="termination-reason"
                 value={terminationReason}
@@ -715,7 +856,10 @@ export default function AdminBillingManagement() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowTerminateDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowTerminateDialog(false)}
+              >
                 Cancel
               </Button>
               <Button variant="destructive" onClick={terminateRelationship}>

@@ -1,17 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Switch } from '../components/ui/switch';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../hooks/useAuth";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Switch } from "../components/ui/switch";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { toast } from "sonner";
 import {
   CreditCard,
   Users,
@@ -28,17 +59,22 @@ import {
   Send,
   UserPlus,
   Wallet,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface BillingRelationship {
   id: string;
   admin_user_id: string;
   agency_user_id: string;
-  billing_arrangement: 'admin_direct' | 'agency_sponsored' | 'agency_allocated';
+  billing_arrangement: "admin_direct" | "agency_sponsored" | "agency_allocated";
   monthly_credit_allocation: number;
   billing_start_date: string;
   billing_end_date?: string;
-  status: 'active' | 'admin_ejected' | 'agency_ejected' | 'mutual_terminated' | 'expired';
+  status:
+    | "active"
+    | "admin_ejected"
+    | "agency_ejected"
+    | "mutual_terminated"
+    | "expired";
   created_at: string;
   terminated_at?: string;
   terminated_by?: string;
@@ -75,7 +111,7 @@ interface AgencyBillingSettings {
 
 interface NewRelationshipForm {
   adminUserId: string;
-  billingArrangement: 'agency_sponsored' | 'agency_allocated';
+  billingArrangement: "agency_sponsored" | "agency_allocated";
   monthlyCreditsAllocation: number;
   billingEndDate?: string;
 }
@@ -87,22 +123,24 @@ export default function AgencyBillingControl() {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [settings, setSettings] = useState<AgencyBillingSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedRelationship, setSelectedRelationship] = useState<BillingRelationship | null>(null);
+  const [selectedRelationship, setSelectedRelationship] =
+    useState<BillingRelationship | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
-  const [showAllocationSettingsDialog, setShowAllocationSettingsDialog] = useState(false);
-  const [terminationReason, setTerminationReason] = useState('');
-  const [transferAmount, setTransferAmount] = useState('');
+  const [showAllocationSettingsDialog, setShowAllocationSettingsDialog] =
+    useState(false);
+  const [terminationReason, setTerminationReason] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
   const [allocationSettings, setAllocationSettings] = useState({
     autoAllocateEnabled: true,
     monthlyCreditsAllocation: 100,
     allocationDayOfMonth: 1,
   });
   const [newRelationship, setNewRelationship] = useState<NewRelationshipForm>({
-    adminUserId: '',
-    billingArrangement: 'agency_sponsored',
+    adminUserId: "",
+    billingArrangement: "agency_sponsored",
     monthlyCreditsAllocation: 100,
   });
 
@@ -115,14 +153,17 @@ export default function AgencyBillingControl() {
 
     try {
       setLoading(true);
-      
+
       // Load relationships
-      const relationshipsResponse = await fetch('/api/billing/admin-agency/relationships', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const relationshipsResponse = await fetch(
+        "/api/billing/admin-agency/relationships",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (relationshipsResponse.ok) {
         const relationshipsData = await relationshipsResponse.json();
@@ -130,21 +171,23 @@ export default function AgencyBillingControl() {
       }
 
       // Load settings
-      const settingsResponse = await fetch('/api/billing/admin-agency/preferences', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const settingsResponse = await fetch(
+        "/api/billing/admin-agency/preferences",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (settingsResponse.ok) {
         const settingsData = await settingsResponse.json();
         setSettings(settingsData.settings);
       }
-
     } catch (error) {
-      console.error('Error loading billing data:', error);
-      toast.error('Failed to load billing data');
+      console.error("Error loading billing data:", error);
+      toast.error("Failed to load billing data");
     } finally {
       setLoading(false);
     }
@@ -154,48 +197,56 @@ export default function AgencyBillingControl() {
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/billing/admin-agency/history?relationshipId=${relationshipId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `/api/billing/admin-agency/history?relationshipId=${relationshipId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setBillingHistory(data.history || []);
       } else {
-        throw new Error('Failed to load history');
+        throw new Error("Failed to load history");
       }
     } catch (error) {
-      console.error('Error loading billing history:', error);
-      toast.error('Failed to load billing history');
+      console.error("Error loading billing history:", error);
+      toast.error("Failed to load billing history");
     }
   };
 
-  const updateSettings = async (newSettings: Partial<AgencyBillingSettings>) => {
+  const updateSettings = async (
+    newSettings: Partial<AgencyBillingSettings>,
+  ) => {
     if (!token) return;
 
     try {
-      const response = await fetch('/api/billing/admin-agency/update-preferences', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "/api/billing/admin-agency/update-preferences",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newSettings),
         },
-        body: JSON.stringify(newSettings),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setSettings(data.settings);
-        toast.success('Settings updated successfully');
+        toast.success("Settings updated successfully");
       } else {
-        throw new Error('Failed to update settings');
+        throw new Error("Failed to update settings");
       }
     } catch (error) {
-      console.error('Error updating settings:', error);
-      toast.error('Failed to update settings');
+      console.error("Error updating settings:", error);
+      toast.error("Failed to update settings");
     }
   };
 
@@ -203,37 +254,44 @@ export default function AgencyBillingControl() {
     if (!token || !newRelationship.adminUserId) return;
 
     try {
-      const response = await fetch('/api/billing/admin-agency/create-relationship', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "/api/billing/admin-agency/create-relationship",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            adminUserId: newRelationship.adminUserId,
+            agencyUserId: user?.id,
+            billingArrangement: newRelationship.billingArrangement,
+            monthlyCreditsAllocation: newRelationship.monthlyCreditsAllocation,
+            billingEndDate: newRelationship.billingEndDate || null,
+          }),
         },
-        body: JSON.stringify({
-          adminUserId: newRelationship.adminUserId,
-          agencyUserId: user?.id,
-          billingArrangement: newRelationship.billingArrangement,
-          monthlyCreditsAllocation: newRelationship.monthlyCreditsAllocation,
-          billingEndDate: newRelationship.billingEndDate || null,
-        }),
-      });
+      );
 
       if (response.ok) {
-        toast.success('Billing relationship created successfully');
+        toast.success("Billing relationship created successfully");
         setShowCreateDialog(false);
         setNewRelationship({
-          adminUserId: '',
-          billingArrangement: 'agency_sponsored',
+          adminUserId: "",
+          billingArrangement: "agency_sponsored",
           monthlyCreditsAllocation: 100,
         });
         loadData();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create relationship');
+        throw new Error(errorData.error || "Failed to create relationship");
       }
     } catch (error) {
-      console.error('Error creating relationship:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create relationship');
+      console.error("Error creating relationship:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create relationship",
+      );
     }
   };
 
@@ -241,31 +299,34 @@ export default function AgencyBillingControl() {
     if (!selectedRelationship || !token) return;
 
     try {
-      const response = await fetch('/api/billing/admin-agency/terminate-relationship', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "/api/billing/admin-agency/terminate-relationship",
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            relationshipId: selectedRelationship.id,
+            terminationReason,
+            newStatus: "agency_ejected",
+          }),
         },
-        body: JSON.stringify({
-          relationshipId: selectedRelationship.id,
-          terminationReason,
-          newStatus: 'agency_ejected',
-        }),
-      });
+      );
 
       if (response.ok) {
-        toast.success('Relationship terminated successfully');
+        toast.success("Relationship terminated successfully");
         setShowTerminateDialog(false);
         setSelectedRelationship(null);
-        setTerminationReason('');
+        setTerminationReason("");
         loadData();
       } else {
-        throw new Error('Failed to terminate relationship');
+        throw new Error("Failed to terminate relationship");
       }
     } catch (error) {
-      console.error('Error terminating relationship:', error);
-      toast.error('Failed to terminate relationship');
+      console.error("Error terminating relationship:", error);
+      toast.error("Failed to terminate relationship");
     }
   };
 
@@ -273,12 +334,15 @@ export default function AgencyBillingControl() {
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/credit-allocation/relationship-settings?relationshipId=${relationshipId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `/api/credit-allocation/relationship-settings?relationshipId=${relationshipId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -289,11 +353,11 @@ export default function AgencyBillingControl() {
           allocationDayOfMonth: relationship.allocation_day_of_month || 1,
         });
       } else {
-        throw new Error('Failed to load allocation settings');
+        throw new Error("Failed to load allocation settings");
       }
     } catch (error) {
-      console.error('Error loading allocation settings:', error);
-      toast.error('Failed to load allocation settings');
+      console.error("Error loading allocation settings:", error);
+      toast.error("Failed to load allocation settings");
     }
   };
 
@@ -301,32 +365,42 @@ export default function AgencyBillingControl() {
     if (!selectedRelationship || !token) return;
 
     try {
-      const response = await fetch('/api/credit-allocation/allocation-settings', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "/api/credit-allocation/allocation-settings",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            relationshipId: selectedRelationship.id,
+            autoAllocateEnabled: allocationSettings.autoAllocateEnabled,
+            monthlyCreditsAllocation:
+              allocationSettings.monthlyCreditsAllocation,
+            allocationDayOfMonth: allocationSettings.allocationDayOfMonth,
+          }),
         },
-        body: JSON.stringify({
-          relationshipId: selectedRelationship.id,
-          autoAllocateEnabled: allocationSettings.autoAllocateEnabled,
-          monthlyCreditsAllocation: allocationSettings.monthlyCreditsAllocation,
-          allocationDayOfMonth: allocationSettings.allocationDayOfMonth,
-        }),
-      });
+      );
 
       if (response.ok) {
-        toast.success('Allocation settings updated successfully');
+        toast.success("Allocation settings updated successfully");
         setShowAllocationSettingsDialog(false);
         setSelectedRelationship(null);
         loadData();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update allocation settings');
+        throw new Error(
+          errorData.error || "Failed to update allocation settings",
+        );
       }
     } catch (error) {
-      console.error('Error updating allocation settings:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update allocation settings');
+      console.error("Error updating allocation settings:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update allocation settings",
+      );
     }
   };
 
@@ -336,20 +410,20 @@ export default function AgencyBillingControl() {
     try {
       const creditsAmount = parseInt(transferAmount);
       if (isNaN(creditsAmount) || creditsAmount <= 0) {
-        toast.error('Please enter a valid credit amount');
+        toast.error("Please enter a valid credit amount");
         return;
       }
 
-      const response = await fetch('/api/credit-allocation/manual-allocation', {
-        method: 'POST',
+      const response = await fetch("/api/credit-allocation/manual-allocation", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           relationshipId: selectedRelationship.id,
           creditsAmount,
-          allocationReason: 'Manual credit transfer',
+          allocationReason: "Manual credit transfer",
         }),
       });
 
@@ -357,27 +431,37 @@ export default function AgencyBillingControl() {
         toast.success(`Successfully transferred ${creditsAmount} credits`);
         setShowTransferDialog(false);
         setSelectedRelationship(null);
-        setTransferAmount('');
+        setTransferAmount("");
         loadData();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to transfer credits');
+        throw new Error(errorData.error || "Failed to transfer credits");
       }
     } catch (error) {
-      console.error('Error transferring credits:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to transfer credits');
+      console.error("Error transferring credits:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to transfer credits",
+      );
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
-      case 'admin_ejected':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Admin Ejected</Badge>;
-      case 'agency_ejected':
+      case "active":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Active
+          </Badge>
+        );
+      case "admin_ejected":
+        return (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            Admin Ejected
+          </Badge>
+        );
+      case "agency_ejected":
         return <Badge variant="destructive">Agency Ejected</Badge>;
-      case 'mutual_terminated':
+      case "mutual_terminated":
         return <Badge variant="outline">Terminated</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -386,19 +470,33 @@ export default function AgencyBillingControl() {
 
   const getArrangementBadge = (arrangement: string) => {
     switch (arrangement) {
-      case 'admin_direct':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700">Direct Billing</Badge>;
-      case 'agency_sponsored':
-        return <Badge variant="default" className="bg-green-50 text-green-700">Agency Sponsored</Badge>;
-      case 'agency_allocated':
-        return <Badge variant="secondary" className="bg-purple-50 text-purple-700">Credit Allocation</Badge>;
+      case "admin_direct":
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+            Direct Billing
+          </Badge>
+        );
+      case "agency_sponsored":
+        return (
+          <Badge variant="default" className="bg-green-50 text-green-700">
+            Agency Sponsored
+          </Badge>
+        );
+      case "agency_allocated":
+        return (
+          <Badge variant="secondary" className="bg-purple-50 text-purple-700">
+            Credit Allocation
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{arrangement}</Badge>;
     }
   };
 
   const totalMonthlyBudget = relationships
-    .filter(r => r.status === 'active' && r.billing_arrangement !== 'admin_direct')
+    .filter(
+      (r) => r.status === "active" && r.billing_arrangement !== "admin_direct",
+    )
     .reduce((sum, r) => sum + r.monthly_credit_allocation, 0);
 
   if (loading) {
@@ -414,7 +512,9 @@ export default function AgencyBillingControl() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Agency Billing Control</h1>
-          <p className="text-muted-foreground">Manage billing relationships with your admin clients</p>
+          <p className="text-muted-foreground">
+            Manage billing relationships with your admin clients
+          </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
@@ -429,7 +529,9 @@ export default function AgencyBillingControl() {
             <div className="flex items-center">
               <Users className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Admins</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Admins
+                </p>
                 <p className="text-2xl font-bold">{relationships.length}</p>
               </div>
             </div>
@@ -440,9 +542,11 @@ export default function AgencyBillingControl() {
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Active
+                </p>
                 <p className="text-2xl font-bold">
-                  {relationships.filter(r => r.status === 'active').length}
+                  {relationships.filter((r) => r.status === "active").length}
                 </p>
               </div>
             </div>
@@ -453,7 +557,9 @@ export default function AgencyBillingControl() {
             <div className="flex items-center">
               <Wallet className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Monthly Credits</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Monthly Credits
+                </p>
                 <p className="text-2xl font-bold">{totalMonthlyBudget}</p>
               </div>
             </div>
@@ -464,9 +570,15 @@ export default function AgencyBillingControl() {
             <div className="flex items-center">
               <DollarSign className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Sponsored</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Sponsored
+                </p>
                 <p className="text-2xl font-bold">
-                  {relationships.filter(r => r.billing_arrangement === 'agency_sponsored').length}
+                  {
+                    relationships.filter(
+                      (r) => r.billing_arrangement === "agency_sponsored",
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -476,7 +588,10 @@ export default function AgencyBillingControl() {
 
       <Tabs defaultValue="relationships" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="relationships" className="flex items-center gap-2">
+          <TabsTrigger
+            value="relationships"
+            className="flex items-center gap-2"
+          >
             <Users className="h-4 w-4" />
             Admin Relationships
           </TabsTrigger>
@@ -502,7 +617,9 @@ export default function AgencyBillingControl() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No admin relationships found</p>
-                  <p className="text-sm">Create billing relationships with your admin clients</p>
+                  <p className="text-sm">
+                    Create billing relationships with your admin clients
+                  </p>
                 </div>
               ) : (
                 <Table>
@@ -530,19 +647,22 @@ export default function AgencyBillingControl() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {getArrangementBadge(relationship.billing_arrangement)}
+                          {getArrangementBadge(
+                            relationship.billing_arrangement,
+                          )}
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(relationship.status)}
                         </TableCell>
                         <TableCell>
-                          {relationship.monthly_credit_allocation > 0 
-                            ? `${relationship.monthly_credit_allocation} credits` 
-                            : 'N/A'
-                          }
+                          {relationship.monthly_credit_allocation > 0
+                            ? `${relationship.monthly_credit_allocation} credits`
+                            : "N/A"}
                         </TableCell>
                         <TableCell>
-                          {new Date(relationship.billing_start_date).toLocaleDateString()}
+                          {new Date(
+                            relationship.billing_start_date,
+                          ).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -557,7 +677,7 @@ export default function AgencyBillingControl() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {relationship.status === 'active' && (
+                            {relationship.status === "active" && (
                               <>
                                 <Button
                                   variant="outline"
@@ -639,36 +759,58 @@ export default function AgencyBillingControl() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="max-admins">Maximum Sponsored Admins</Label>
+                          <Label htmlFor="max-admins">
+                            Maximum Sponsored Admins
+                          </Label>
                           <Input
                             id="max-admins"
                             type="number"
                             value={settings.max_sponsored_admins}
                             onChange={(e) =>
-                              setSettings(prev => prev ? 
-                                { ...prev, max_sponsored_admins: parseInt(e.target.value) || 0 } : prev
+                              setSettings((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      max_sponsored_admins:
+                                        parseInt(e.target.value) || 0,
+                                    }
+                                  : prev,
                               )
                             }
                             onBlur={() =>
-                              updateSettings({ max_sponsored_admins: settings.max_sponsored_admins })
+                              updateSettings({
+                                max_sponsored_admins:
+                                  settings.max_sponsored_admins,
+                              })
                             }
                             min="1"
                             max="100"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="default-allocation">Default Monthly Credits</Label>
+                          <Label htmlFor="default-allocation">
+                            Default Monthly Credits
+                          </Label>
                           <Input
                             id="default-allocation"
                             type="number"
                             value={settings.default_monthly_allocation}
                             onChange={(e) =>
-                              setSettings(prev => prev ?
-                                { ...prev, default_monthly_allocation: parseInt(e.target.value) || 0 } : prev
+                              setSettings((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      default_monthly_allocation:
+                                        parseInt(e.target.value) || 0,
+                                    }
+                                  : prev,
                               )
                             }
                             onBlur={() =>
-                              updateSettings({ default_monthly_allocation: settings.default_monthly_allocation })
+                              updateSettings({
+                                default_monthly_allocation:
+                                  settings.default_monthly_allocation,
+                              })
                             }
                             min="0"
                           />
@@ -684,7 +826,8 @@ export default function AgencyBillingControl() {
                         <div className="space-y-0.5">
                           <Label>Auto-allocate Credits</Label>
                           <p className="text-sm text-muted-foreground">
-                            Automatically allocate credits to sponsored admins monthly
+                            Automatically allocate credits to sponsored admins
+                            monthly
                           </p>
                         </div>
                         <Switch
@@ -698,13 +841,16 @@ export default function AgencyBillingControl() {
                         <div className="space-y-0.5">
                           <Label>Auto-terminate on Budget Exceeded</Label>
                           <p className="text-sm text-muted-foreground">
-                            Automatically terminate sponsorships if monthly budget is exceeded
+                            Automatically terminate sponsorships if monthly
+                            budget is exceeded
                           </p>
                         </div>
                         <Switch
                           checked={settings.auto_terminate_on_budget_exceeded}
                           onCheckedChange={(checked) =>
-                            updateSettings({ auto_terminate_on_budget_exceeded: checked })
+                            updateSettings({
+                              auto_terminate_on_budget_exceeded: checked,
+                            })
                           }
                         />
                       </div>
@@ -714,19 +860,34 @@ export default function AgencyBillingControl() {
                   <div className="space-y-4">
                     <h4 className="font-medium">Budget Settings</h4>
                     <div className="space-y-2">
-                      <Label htmlFor="monthly-budget">Monthly Admin Budget (USD)</Label>
+                      <Label htmlFor="monthly-budget">
+                        Monthly Admin Budget (USD)
+                      </Label>
                       <Input
                         id="monthly-budget"
                         type="number"
-                        value={settings.monthly_admin_budget_cents ? (settings.monthly_admin_budget_cents / 100).toFixed(2) : ''}
+                        value={
+                          settings.monthly_admin_budget_cents
+                            ? (
+                                settings.monthly_admin_budget_cents / 100
+                              ).toFixed(2)
+                            : ""
+                        }
                         onChange={(e) => {
-                          const cents = Math.round(parseFloat(e.target.value || '0') * 100);
-                          setSettings(prev => prev ? 
-                            { ...prev, monthly_admin_budget_cents: cents } : prev
+                          const cents = Math.round(
+                            parseFloat(e.target.value || "0") * 100,
+                          );
+                          setSettings((prev) =>
+                            prev
+                              ? { ...prev, monthly_admin_budget_cents: cents }
+                              : prev,
                           );
                         }}
                         onBlur={() =>
-                          updateSettings({ monthly_admin_budget_cents: settings.monthly_admin_budget_cents })
+                          updateSettings({
+                            monthly_admin_budget_cents:
+                              settings.monthly_admin_budget_cents,
+                          })
                         }
                         placeholder="0.00"
                         step="0.01"
@@ -760,7 +921,10 @@ export default function AgencyBillingControl() {
                 id="admin-id"
                 value={newRelationship.adminUserId}
                 onChange={(e) =>
-                  setNewRelationship(prev => ({ ...prev, adminUserId: e.target.value }))
+                  setNewRelationship((prev) => ({
+                    ...prev,
+                    adminUserId: e.target.value,
+                  }))
                 }
                 placeholder="Enter admin's user ID"
               />
@@ -769,16 +933,25 @@ export default function AgencyBillingControl() {
               <Label htmlFor="arrangement">Billing Arrangement</Label>
               <Select
                 value={newRelationship.billingArrangement}
-                onValueChange={(value: 'agency_sponsored' | 'agency_allocated') =>
-                  setNewRelationship(prev => ({ ...prev, billingArrangement: value }))
+                onValueChange={(
+                  value: "agency_sponsored" | "agency_allocated",
+                ) =>
+                  setNewRelationship((prev) => ({
+                    ...prev,
+                    billingArrangement: value,
+                  }))
                 }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="agency_sponsored">Agency Sponsored</SelectItem>
-                  <SelectItem value="agency_allocated">Credit Allocation</SelectItem>
+                  <SelectItem value="agency_sponsored">
+                    Agency Sponsored
+                  </SelectItem>
+                  <SelectItem value="agency_allocated">
+                    Credit Allocation
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -789,9 +962,9 @@ export default function AgencyBillingControl() {
                 type="number"
                 value={newRelationship.monthlyCreditsAllocation}
                 onChange={(e) =>
-                  setNewRelationship(prev => ({
+                  setNewRelationship((prev) => ({
                     ...prev,
-                    monthlyCreditsAllocation: parseInt(e.target.value) || 0
+                    monthlyCreditsAllocation: parseInt(e.target.value) || 0,
                   }))
                 }
                 min="0"
@@ -802,19 +975,23 @@ export default function AgencyBillingControl() {
               <Input
                 id="end-date"
                 type="date"
-                value={newRelationship.billingEndDate || ''}
+                value={newRelationship.billingEndDate || ""}
                 onChange={(e) =>
-                  setNewRelationship(prev => ({ ...prev, billingEndDate: e.target.value }))
+                  setNewRelationship((prev) => ({
+                    ...prev,
+                    billingEndDate: e.target.value,
+                  }))
                 }
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={createRelationship}>
-                Create Relationship
-              </Button>
+              <Button onClick={createRelationship}>Create Relationship</Button>
             </div>
           </div>
         </DialogContent>
@@ -829,7 +1006,8 @@ export default function AgencyBillingControl() {
               Transfer Credits
             </DialogTitle>
             <DialogDescription>
-              Transfer credits to {selectedRelationship?.admin_profile.full_name}
+              Transfer credits to{" "}
+              {selectedRelationship?.admin_profile.full_name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -845,12 +1023,13 @@ export default function AgencyBillingControl() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowTransferDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowTransferDialog(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={transferCredits}>
-                Transfer Credits
-              </Button>
+              <Button onClick={transferCredits}>Transfer Credits</Button>
             </div>
           </div>
         </DialogContent>
@@ -863,7 +1042,10 @@ export default function AgencyBillingControl() {
             <DialogTitle>Billing History</DialogTitle>
             <DialogDescription>
               {selectedRelationship && (
-                <>Billing history for {selectedRelationship.admin_profile.full_name}</>
+                <>
+                  Billing history for{" "}
+                  {selectedRelationship.admin_profile.full_name}
+                </>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -887,7 +1069,7 @@ export default function AgencyBillingControl() {
                     <TableRow key={event.id}>
                       <TableCell>
                         <Badge variant="outline">
-                          {event.event_type.replace(/_/g, ' ')}
+                          {event.event_type.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -899,12 +1081,14 @@ export default function AgencyBillingControl() {
                           )}
                           {event.amount_cents && (
                             <div className="text-sm">
-                              Amount: ${(event.amount_cents / 100).toFixed(2)} {event.currency}
+                              Amount: ${(event.amount_cents / 100).toFixed(2)}{" "}
+                              {event.currency}
                             </div>
                           )}
                           {event.new_arrangement && (
                             <div className="text-sm">
-                              Arrangement: {getArrangementBadge(event.new_arrangement)}
+                              Arrangement:{" "}
+                              {getArrangementBadge(event.new_arrangement)}
                             </div>
                           )}
                         </div>
@@ -922,7 +1106,10 @@ export default function AgencyBillingControl() {
       </Dialog>
 
       {/* Allocation Settings Dialog */}
-      <Dialog open={showAllocationSettingsDialog} onOpenChange={setShowAllocationSettingsDialog}>
+      <Dialog
+        open={showAllocationSettingsDialog}
+        onOpenChange={setShowAllocationSettingsDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -930,7 +1117,8 @@ export default function AgencyBillingControl() {
               Monthly Allocation Settings
             </DialogTitle>
             <DialogDescription>
-              Configure automatic monthly credit allocations for {selectedRelationship?.admin_profile.full_name}
+              Configure automatic monthly credit allocations for{" "}
+              {selectedRelationship?.admin_profile.full_name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -944,7 +1132,10 @@ export default function AgencyBillingControl() {
               <Switch
                 checked={allocationSettings.autoAllocateEnabled}
                 onCheckedChange={(checked) =>
-                  setAllocationSettings(prev => ({ ...prev, autoAllocateEnabled: checked }))
+                  setAllocationSettings((prev) => ({
+                    ...prev,
+                    autoAllocateEnabled: checked,
+                  }))
                 }
               />
             </div>
@@ -952,15 +1143,17 @@ export default function AgencyBillingControl() {
             {allocationSettings.autoAllocateEnabled && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="monthly-credits">Monthly Credits Amount</Label>
+                  <Label htmlFor="monthly-credits">
+                    Monthly Credits Amount
+                  </Label>
                   <Input
                     id="monthly-credits"
                     type="number"
                     value={allocationSettings.monthlyCreditsAllocation}
                     onChange={(e) =>
-                      setAllocationSettings(prev => ({
+                      setAllocationSettings((prev) => ({
                         ...prev,
-                        monthlyCreditsAllocation: parseInt(e.target.value) || 0
+                        monthlyCreditsAllocation: parseInt(e.target.value) || 0,
                       }))
                     }
                     min="0"
@@ -968,13 +1161,15 @@ export default function AgencyBillingControl() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="allocation-day">Allocation Day of Month</Label>
+                  <Label htmlFor="allocation-day">
+                    Allocation Day of Month
+                  </Label>
                   <Select
                     value={allocationSettings.allocationDayOfMonth.toString()}
                     onValueChange={(value) =>
-                      setAllocationSettings(prev => ({
+                      setAllocationSettings((prev) => ({
                         ...prev,
-                        allocationDayOfMonth: parseInt(value)
+                        allocationDayOfMonth: parseInt(value),
                       }))
                     }
                   >
@@ -982,11 +1177,20 @@ export default function AgencyBillingControl() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                        <SelectItem key={day} value={day.toString()}>
-                          {day === 1 ? '1st' : day === 2 ? '2nd' : day === 3 ? '3rd' : `${day}th`} of each month
-                        </SelectItem>
-                      ))}
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map(
+                        (day) => (
+                          <SelectItem key={day} value={day.toString()}>
+                            {day === 1
+                              ? "1st"
+                              : day === 2
+                                ? "2nd"
+                                : day === 3
+                                  ? "3rd"
+                                  : `${day}th`}{" "}
+                            of each month
+                          </SelectItem>
+                        ),
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -994,12 +1198,13 @@ export default function AgencyBillingControl() {
             )}
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowAllocationSettingsDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowAllocationSettingsDialog(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={updateAllocationSettings}>
-                Save Settings
-              </Button>
+              <Button onClick={updateAllocationSettings}>Save Settings</Button>
             </div>
           </div>
         </DialogContent>
@@ -1014,13 +1219,15 @@ export default function AgencyBillingControl() {
               Terminate Admin Relationship
             </DialogTitle>
             <DialogDescription>
-              This will end your billing relationship with the admin. They will be switched to direct billing.
-              This action cannot be undone.
+              This will end your billing relationship with the admin. They will
+              be switched to direct billing. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="termination-reason">Reason for termination (optional)</Label>
+              <Label htmlFor="termination-reason">
+                Reason for termination (optional)
+              </Label>
               <Textarea
                 id="termination-reason"
                 value={terminationReason}
@@ -1030,7 +1237,10 @@ export default function AgencyBillingControl() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowTerminateDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowTerminateDialog(false)}
+              >
                 Cancel
               </Button>
               <Button variant="destructive" onClick={terminateRelationship}>
