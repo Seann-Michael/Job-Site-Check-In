@@ -1358,6 +1358,10 @@ const App = () => (
                   element={<Navigate to="/super-admin/performance" replace />}
                 />
                 <Route
+                  path="/SuperAdminQuality"
+                  element={<Navigate to="/super-admin/quality" replace />}
+                />
+                <Route
                   path="/SuperAdminSupport"
                   element={<Navigate to="/super-admin/support" replace />}
                 />
