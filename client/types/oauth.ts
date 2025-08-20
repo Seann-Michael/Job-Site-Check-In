@@ -100,6 +100,7 @@ export interface OAuthActivityLog {
 
 export interface CustomPlatformField {
   id: string;
+  name: string;
   type:
     | "text"
     | "textarea"
