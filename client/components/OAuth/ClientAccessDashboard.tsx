@@ -596,10 +596,10 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      pending: "secondary",
-      "in-progress": "default",
-      completed: "default",
-      expired: "destructive",
+      pending: "secondary" as const,
+      "in-progress": "default" as const,
+      completed: "default" as const,
+      expired: "destructive" as const,
     };
 
     const colors = {
@@ -609,9 +609,11 @@ export const ClientAccessDashboard: React.FC<ClientAccessDashboardProps> = ({
       expired: "",
     };
 
+    const variant = (variants as any)[status] || "secondary";
+
     return (
       <Badge
-        variant={variants[status as keyof typeof variants] || "secondary"}
+        variant={variant}
         className={colors[status as keyof typeof colors]}
       >
         {status.replace("-", " ")}
