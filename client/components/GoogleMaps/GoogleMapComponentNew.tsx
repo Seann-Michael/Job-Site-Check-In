@@ -443,14 +443,33 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     [waypointData, scanConfig, onWaypointsDragComplete],
   );
 
+  // Get ranking color based on position
+  const getRankingColor = useCallback((ranking: number | null): string => {
+    if (ranking === null) return "#6B7280"; // Gray for unranked
+    if (ranking >= 1 && ranking <= 3) return "#10B981"; // Green (1-3)
+    if (ranking >= 4 && ranking <= 9) return "#F59E0B"; // Yellow (4-9)
+    if (ranking >= 10 && ranking <= 15) return "#FB923C"; // Orange (10-15)
+    return "#EF4444"; // Red (16-20+)
+  }, []);
+
   // Create marker icon for waypoints - classic teardrop pin shape
   const createWaypointIcon = useCallback(
     (waypoint: WaypointType, rank?: number) => {
       const isCenter = waypoint.isCenter;
       const isEnabled = waypoint.enabled;
-      const color = isCenter ? "#9333ea" : isEnabled ? "#2563eb" : "#6b7280"; // Purple for center, blue for enabled, grey for disabled
+
+      // In report mode, use ranking colors; otherwise use default colors
+      const color = reportMode
+        ? (isCenter ? "#9333ea" : getRankingColor(waypoint.ranking || rank || null))
+        : (isCenter ? "#9333ea" : isEnabled ? "#2563eb" : "#6b7280"); // Purple for center, blue for enabled, grey for disabled
+
       const strokeWidth = isEnabled ? 4 : 3; // Thicker stroke
       const strokeOpacity = isEnabled ? 1.0 : 0.6;
+
+      // In report mode, show ranking number inside waypoints
+      const displayText = reportMode && !isCenter && (waypoint.ranking || rank)
+        ? (waypoint.ranking || rank).toString()
+        : "";
 
       if (isCenter) {
         // Purple center hollow teardrop pin
@@ -458,20 +477,22 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
             <path d="M16 2 C8.268 2 2 8.268 2 16 C2 23.732 16 40 16 40 C16 40 30 23.732 30 16 C30 8.268 23.732 2 16 2 Z"
-                  fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
+                  fill="${reportMode ? color : 'transparent'}" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
             <circle cx="16" cy="16" r="4" fill="transparent" stroke="${color}" stroke-width="2" stroke-opacity="${strokeOpacity}"/>
+            ${displayText ? `<text x="16" y="21" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">${displayText}</text>` : ''}
           </svg>
         `)}`,
           scaledSize: new google.maps.Size(32, 42),
           anchor: new google.maps.Point(16, 40),
         };
       } else {
-        // Hollow teardrop pin for waypoints
+        // Filled teardrop pin for waypoints in report mode, hollow for normal mode
         return {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
           <svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">
             <path d="M13 2 C6.925 2 2 6.925 2 13 C2 19.075 13 32 13 32 C13 32 24 19.075 24 13 C24 6.925 19.075 2 13 2 Z"
-                  fill="transparent" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
+                  fill="${reportMode ? color : 'transparent'}" stroke="${color}" stroke-width="${strokeWidth}" stroke-opacity="${strokeOpacity}" stroke-linejoin="round" stroke-linecap="round"/>
+            ${displayText ? `<text x="13" y="17" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">${displayText}</text>` : ''}
           </svg>
         `)}`,
           scaledSize: new google.maps.Size(26, 34),
@@ -479,7 +500,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         };
       }
     },
-    [],
+    [reportMode, getRankingColor],
   );
 
   // Create marker icon for regular markers
