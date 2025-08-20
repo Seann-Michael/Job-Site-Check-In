@@ -386,10 +386,9 @@ export const StaticLinkGenerator: React.FC<StaticLinkGeneratorProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Generate Static Client Onboarding Link
-            <Info
-              className="h-5 w-5 text-muted-foreground cursor-help"
-              title="Create a reusable link that can be shared with unlimited clients"
-            />
+            <div title="Create a reusable link that can be shared with unlimited clients">
+              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+            </div>
           </CardTitle>
           <CardDescription>
             Create a single, reusable link that can be shared with any number of
