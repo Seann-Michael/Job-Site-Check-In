@@ -493,6 +493,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/audits/geo-grid-report/:reportId"
+                  element={
+                    <ProtectedRoute>
+                      <GeoGridReport />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/audits/report/:id"
                   element={
                     <ProtectedRoute>
