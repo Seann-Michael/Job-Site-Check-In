@@ -197,7 +197,10 @@ const App = () => (
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
                 <Route path="/public/project/:id" element={<PublicProject />} />
-                <Route path="/public/audit-report/:shareToken" element={<PublicAuditReport />} />
+                <Route
+                  path="/public/audit-report/:shareToken"
+                  element={<PublicAuditReport />}
+                />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
                 <Route
@@ -1309,7 +1312,12 @@ const App = () => (
                 />
                 <Route
                   path="/admin/crm/clients/:clientId"
-                  element={<Navigate to="/agency/admin/crm/clients/:clientId" replace />}
+                  element={
+                    <Navigate
+                      to="/agency/admin/crm/clients/:clientId"
+                      replace
+                    />
+                  }
                 />
 
                 {/* Super Admin Compatibility Routes */}
