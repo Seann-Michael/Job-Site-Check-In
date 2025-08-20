@@ -384,10 +384,9 @@ export const OnboardingLinkGenerator: React.FC<
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Generate Client Onboarding Link
-            <Info
-              className="h-5 w-5 text-muted-foreground cursor-help"
-              title="Create a branded link for clients to connect their marketing platforms"
-            />
+            <div title="Create a branded link for clients to connect their marketing platforms">
+              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+            </div>
           </CardTitle>
           <CardDescription>
             Create a customized onboarding experience for your clients to
