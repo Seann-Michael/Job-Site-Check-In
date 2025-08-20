@@ -30,6 +30,7 @@ import AddProject from "./pages/AddProject";
 import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
+const GeoGridReport = lazy(() => import("./pages/GeoGridReport"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
 const GridMapDemo = lazy(() => import("./pages/GridMapDemo"));
 const ScanHistory = lazy(() => import("./pages/ScanHistory"));
