@@ -1112,6 +1112,14 @@ const App = () => (
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
                 <Route
+                  path="/GeoGridReport"
+                  element={<Navigate to="/admin/audits/scan-history" replace />}
+                />
+                <Route
+                  path="/GeoGridReport/:reportId"
+                  element={<Navigate to="/admin/audits/geo-grid-report/:reportId" replace />}
+                />
+                <Route
                   path="/AgencyClientAccess"
                   element={
                     <Navigate to="/agency/admin/client-access" replace />
