@@ -334,12 +334,22 @@ export const PLATFORM_DESCRIPTIONS: Record<SupportedPlatform, string> = {
 // OAuth scopes for each platform
 export const PLATFORM_SCOPES: Record<SupportedPlatform, string[]> = {
   google_ads: ["https://www.googleapis.com/auth/adwords"],
-  meta_ads: ["ads_management", "ads_read", "business_management"],
   google_analytics: ["https://www.googleapis.com/auth/analytics.readonly"],
+  google_merchant_center: ["https://www.googleapis.com/auth/content"],
   google_search_console: [
     "https://www.googleapis.com/auth/webmasters.readonly",
   ],
+  google_tag_manager: ["https://www.googleapis.com/auth/tagmanager.readonly"],
   google_my_business: ["https://www.googleapis.com/auth/business.manage"],
+  facebook_pages: ["pages_show_list", "pages_read_engagement"],
+  meta_ads: ["ads_management", "ads_read", "business_management"],
+  meta_product_catalog: ["catalog_management"],
+  meta_pixels: ["ads_management"],
+  instagram: ["instagram_basic", "instagram_content_publish"],
+  whatsapp_business: ["whatsapp_business_management"],
+  shopify: ["read_products", "read_orders"],
+  youtube_studio: ["https://www.googleapis.com/auth/youtube"],
+  wordpress: ["read", "write"],
   tiktok_ads: ["user.info.basic", "advertiser.read"],
 };
 
