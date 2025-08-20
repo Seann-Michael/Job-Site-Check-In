@@ -81,7 +81,8 @@ interface NewRelationshipForm {
 }
 
 export default function AgencyBillingControl() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const token = user?.token;
   const [relationships, setRelationships] = useState<BillingRelationship[]>([]);
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [settings, setSettings] = useState<AgencyBillingSettings | null>(null);
