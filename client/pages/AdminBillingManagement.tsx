@@ -72,7 +72,8 @@ interface BillingPreferences {
 }
 
 export default function AdminBillingManagement() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const token = user?.token;
   const [relationships, setRelationships] = useState<BillingRelationship[]>([]);
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [allocationHistory, setAllocationHistory] = useState<any[]>([]);
