@@ -1216,6 +1216,10 @@ const App = () => (
                   element={<Navigate to="/agency/admin/billing" replace />}
                 />
                 <Route
+                  path="/AgencyBillingControl"
+                  element={<Navigate to="/agency/admin/billing" replace />}
+                />
+                <Route
                   path="/AgencyAudits"
                   element={<Navigate to="/agency/admin/audits" replace />}
                 />
