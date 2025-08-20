@@ -85,6 +85,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   onWaypointDrag,
   onWaypointsDragComplete,
   scanConfig,
+  reportMode = false,
 }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(
