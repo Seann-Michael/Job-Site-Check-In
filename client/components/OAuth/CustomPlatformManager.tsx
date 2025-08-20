@@ -124,6 +124,7 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
 
     const field: CustomPlatformField = {
       id: `field_${Date.now()}`,
+      name: newField.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
       type: newField.type as CustomPlatformField["type"],
       label: newField.label,
       placeholder: newField.placeholder || "",
