@@ -60,6 +60,8 @@ interface GoogleMapComponentProps {
     unit: "miles" | "kilometers";
     distanceBetween: number;
   };
+  // Report mode - makes waypoints fixed (non-draggable, non-toggleable)
+  reportMode?: boolean;
 }
 
 export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
