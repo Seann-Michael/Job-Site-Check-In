@@ -22,6 +22,20 @@ export function Footer() {
           >
             Privacy
           </Link>
+          <span className="text-muted-foreground/50">•</span>
+          <Link
+            to="/superadmin"
+            className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
+          >
+            Super Admin
+          </Link>
+          <span className="text-muted-foreground/50">•</span>
+          <Link
+            to="/agencyadmin"
+            className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
+          >
+            Agency Admin
+          </Link>
         </div>
       </div>
     </footer>
