@@ -699,21 +699,32 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                 const position =
                   tempWaypointPositions[waypoint.id] || waypoint.coordinates;
 
+                // In report mode, show ranking info in title
+                const title = reportMode
+                  ? (waypoint.isCenter
+                      ? "Center Location"
+                      : `Waypoint ${waypoint.label || index} - ${waypoint.ranking ? `Rank ${waypoint.ranking}` : 'Not Found'}`
+                    )
+                  : (waypoint.isCenter ? "Center" : `Waypoint #${rank}`);
+
                 return (
                   <Marker
                     key={waypoint.id}
                     position={position}
-                    title={waypoint.isCenter ? "Center" : `Waypoint #${rank}`}
+                    title={title}
                     icon={createWaypointIcon(waypoint, rank)}
                     onClick={(e) => {
-                      handleWaypointClick(waypoint, e);
+                      // Disable clicking in report mode
+                      if (!reportMode) {
+                        handleWaypointClick(waypoint, e);
+                      }
                     }}
-                    draggable={true}
-                    onDragStart={(event) => handleDragStart(waypoint.id, event)}
-                    onDrag={(event) => handleDrag(waypoint.id, event)}
-                    onDragEnd={(event) => handleDragEnd(waypoint.id, event)}
+                    draggable={!reportMode} // Disable dragging in report mode
+                    onDragStart={!reportMode ? (event) => handleDragStart(waypoint.id, event) : undefined}
+                    onDrag={!reportMode ? (event) => handleDrag(waypoint.id, event) : undefined}
+                    onDragEnd={!reportMode ? (event) => handleDragEnd(waypoint.id, event) : undefined}
                     animation={
-                      selectedWaypoint === waypoint.id
+                      selectedWaypoint === waypoint.id && !reportMode
                         ? google.maps.Animation.BOUNCE
                         : undefined
                     }
