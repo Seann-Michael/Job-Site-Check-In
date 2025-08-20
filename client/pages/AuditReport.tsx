@@ -85,7 +85,8 @@ interface NewAuditForm {
 }
 
 export default function AuditReport() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const token = user?.token;
   const [reports, setReports] = useState<AuditReport[]>([]);
   const [selectedReport, setSelectedReport] = useState<AuditReport | null>(null);
   const [loading, setLoading] = useState(true);
