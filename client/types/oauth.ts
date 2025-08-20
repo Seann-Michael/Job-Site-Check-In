@@ -362,11 +362,11 @@ export const PLATFORM_OAUTH_URLS: Record<
     auth: "https://accounts.google.com/o/oauth2/v2/auth",
     token: "https://oauth2.googleapis.com/token",
   },
-  meta_ads: {
-    auth: "https://www.facebook.com/v18.0/dialog/oauth",
-    token: "https://graph.facebook.com/v18.0/oauth/access_token",
-  },
   google_analytics: {
+    auth: "https://accounts.google.com/o/oauth2/v2/auth",
+    token: "https://oauth2.googleapis.com/token",
+  },
+  google_merchant_center: {
     auth: "https://accounts.google.com/o/oauth2/v2/auth",
     token: "https://oauth2.googleapis.com/token",
   },
@@ -374,9 +374,49 @@ export const PLATFORM_OAUTH_URLS: Record<
     auth: "https://accounts.google.com/o/oauth2/v2/auth",
     token: "https://oauth2.googleapis.com/token",
   },
+  google_tag_manager: {
+    auth: "https://accounts.google.com/o/oauth2/v2/auth",
+    token: "https://oauth2.googleapis.com/token",
+  },
   google_my_business: {
     auth: "https://accounts.google.com/o/oauth2/v2/auth",
     token: "https://oauth2.googleapis.com/token",
+  },
+  facebook_pages: {
+    auth: "https://www.facebook.com/v18.0/dialog/oauth",
+    token: "https://graph.facebook.com/v18.0/oauth/access_token",
+  },
+  meta_ads: {
+    auth: "https://www.facebook.com/v18.0/dialog/oauth",
+    token: "https://graph.facebook.com/v18.0/oauth/access_token",
+  },
+  meta_product_catalog: {
+    auth: "https://www.facebook.com/v18.0/dialog/oauth",
+    token: "https://graph.facebook.com/v18.0/oauth/access_token",
+  },
+  meta_pixels: {
+    auth: "https://www.facebook.com/v18.0/dialog/oauth",
+    token: "https://graph.facebook.com/v18.0/oauth/access_token",
+  },
+  instagram: {
+    auth: "https://api.instagram.com/oauth/authorize",
+    token: "https://api.instagram.com/oauth/access_token",
+  },
+  whatsapp_business: {
+    auth: "https://www.facebook.com/v18.0/dialog/oauth",
+    token: "https://graph.facebook.com/v18.0/oauth/access_token",
+  },
+  shopify: {
+    auth: "https://{shop}.myshopify.com/admin/oauth/authorize",
+    token: "https://{shop}.myshopify.com/admin/oauth/access_token",
+  },
+  youtube_studio: {
+    auth: "https://accounts.google.com/o/oauth2/v2/auth",
+    token: "https://oauth2.googleapis.com/token",
+  },
+  wordpress: {
+    auth: "https://public-api.wordpress.com/oauth2/authorize",
+    token: "https://public-api.wordpress.com/oauth2/token",
   },
   tiktok_ads: {
     auth: "https://ads.tiktok.com/marketing_api/auth",
