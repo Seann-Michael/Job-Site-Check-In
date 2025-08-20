@@ -198,7 +198,7 @@ export default function GeoGridReport() {
 
     return scanResult.waypoints.map(waypoint => {
       let ranking = waypoint.ranking;
-      
+
       // If competitor is selected, use their ranking for this waypoint
       if (selectedCompetitor) {
         const competitor = scanResult.competitors.find(c => c.id === selectedCompetitor);
@@ -211,6 +211,7 @@ export default function GeoGridReport() {
 
       return {
         ...waypoint,
+        coordinates: waypoint.position, // Transform 'position' to 'coordinates' for GoogleMapComponent
         ranking,
         enabled: true, // All waypoints are always enabled in report view
       };
