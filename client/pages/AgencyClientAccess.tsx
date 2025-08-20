@@ -31,9 +31,9 @@ export default function AgencyClientAccess() {
     setCurrentView("dashboard");
   };
 
-  const handleLinkGenerated = (link: any, sessionId: string) => {
+  const handleLinkGenerated = (link: string, config: any) => {
     // Show success message and redirect back to dashboard
-    console.log("Link generated:", link, sessionId);
+    console.log("Link generated:", link, config);
     setCurrentView("dashboard");
   };
 
