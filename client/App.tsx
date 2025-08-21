@@ -90,7 +90,6 @@ import SupportTicketDetail from "./pages/SupportTicketDetail";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ReviewGate from "./pages/ReviewGate";
 import AdminReviews from "./pages/AdminReviews";
-import Ideas from "./pages/Ideas";
 import IdeaDetail from "./pages/IdeaDetail";
 import SuperAdminIdeas from "./pages/SuperAdminIdeas";
 import SuperAdminBroadcast from "./pages/SuperAdminBroadcast";
