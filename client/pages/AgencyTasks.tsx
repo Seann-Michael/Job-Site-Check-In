@@ -200,6 +200,9 @@ const DEFAULT_PIPELINES: TaskPipeline[] = [
 ];
 
 export default function AgencyTasks() {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin/');
+
   // Core state
   const [pipelines, setPipelines] = useState<TaskPipeline[]>(DEFAULT_PIPELINES);
   const [currentPipelineId, setCurrentPipelineId] =
