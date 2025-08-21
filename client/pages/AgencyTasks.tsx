@@ -2199,6 +2199,7 @@ export default function AgencyTasks() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
+                                        onClick={(e) => e.stopPropagation()}
                                         className="h-5 w-5 p-0"
                                       >
                                         <MoreHorizontal className="h-3 w-3" />
