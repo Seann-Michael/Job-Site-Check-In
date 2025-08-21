@@ -1756,6 +1756,7 @@ export default function AgencyTasks() {
                                                   <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    onClick={(e) => e.stopPropagation()}
                                                     className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                                   >
                                                     <MoreHorizontal className="h-4 w-4" />
