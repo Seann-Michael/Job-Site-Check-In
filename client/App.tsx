@@ -292,7 +292,15 @@ const App = () => (
                 />
                 <Route
                   path="/Tools"
-                  element={<Navigate to="/admin/tools" replace />}
+                  element={<Navigate to="/admin/marketplace" replace />}
+                />
+                <Route
+                  path="/MarketPlace"
+                  element={<Navigate to="/admin/marketplace" replace />}
+                />
+                <Route
+                  path="/Ideas"
+                  element={<Navigate to="/admin/ideas" replace />}
                 />
                 <Route
                   path="/AIAgent"
