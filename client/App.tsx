@@ -448,7 +448,7 @@ const App = () => (
                   path="/admin/tasks"
                   element={
                     <ProtectedRoute>
-                      <Tasks />
+                      <AgencyTasks />
                     </ProtectedRoute>
                   }
                 />
