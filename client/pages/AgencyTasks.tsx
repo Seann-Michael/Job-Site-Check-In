@@ -2101,7 +2101,8 @@ export default function AgencyTasks() {
                             {sortTasks(columnTasks).map((task) => (
                               <div
                                 key={task.id}
-                                className="grid grid-cols-12 gap-4 p-2 hover:bg-gray-50 border-b border-gray-50 last:border-b-0"
+                                onClick={() => handleViewTaskDetails(task.id)}
+                                className="grid grid-cols-12 gap-4 p-2 hover:bg-gray-50 border-b border-gray-50 last:border-b-0 cursor-pointer"
                               >
                                 {/* Name */}
                                 <div className="col-span-4 flex items-center gap-2">
