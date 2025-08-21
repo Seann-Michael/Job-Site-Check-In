@@ -206,38 +206,6 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
         </Select>
       </div>
 
-      {/* Company Info */}
-      {selectedCompanyData && (
-        <div className="flex items-center justify-between text-xs">
-          <div className="text-muted-foreground">
-            Plan: {selectedCompanyData.plan}
-          </div>
-          <div className={cn(
-            "flex items-center space-x-1",
-            selectedCompanyData.isActive ? "text-green-600" : "text-yellow-600"
-          )}>
-            <div className={cn(
-              "w-1.5 h-1.5 rounded-full",
-              selectedCompanyData.isActive ? "bg-green-500" : "bg-yellow-500"
-            )} />
-            <span>{selectedCompanyData.isActive ? "Active" : "Inactive"}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="flex space-x-1">
-        <Link to="/super-admin/businesses" className="flex-1">
-          <Button variant="outline" size="sm" className="w-full text-xs h-7">
-            Manage
-          </Button>
-        </Link>
-        <Link to="/admin/settings" className="flex-1">
-          <Button variant="outline" size="sm" className="w-full text-xs h-7">
-            Settings
-          </Button>
-        </Link>
-      </div>
     </div>
   );
 }
