@@ -602,9 +602,23 @@ const App = () => (
 
                 <Route
                   path="/admin/tools"
+                  element={<Navigate to="/admin/marketplace" replace />}
+                />
+
+                <Route
+                  path="/admin/marketplace"
                   element={
                     <ProtectedRoute>
-                      <Tools />
+                      <MarketPlace />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/ideas"
+                  element={
+                    <ProtectedRoute>
+                      <Ideas />
                     </ProtectedRoute>
                   }
                 />
