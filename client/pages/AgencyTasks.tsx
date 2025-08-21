@@ -1761,7 +1761,7 @@ export default function AgencyTasks() {
                                                   </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                  <DropdownMenuItem>
+                                                  <DropdownMenuItem onClick={() => handleViewTaskDetails(task.id)}>
                                                     <Eye className="h-4 w-4 mr-2" />
                                                     View Details
                                                   </DropdownMenuItem>
@@ -2202,7 +2202,7 @@ export default function AgencyTasks() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleViewTaskDetails(task.id)}>
                                         <Eye className="h-4 w-4 mr-2" />
                                         View Details
                                       </DropdownMenuItem>
