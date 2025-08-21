@@ -1724,6 +1724,7 @@ export default function AgencyTasks() {
                                             ref={provided.innerRef}
                                             {...provided.draggableProps}
                                             {...provided.dragHandleProps}
+                                            onClick={() => handleViewTaskDetails(task.id)}
                                             className={`bg-white rounded-lg border border-gray-200 p-4 transition-all hover:shadow-md cursor-pointer group ${
                                               snapshot.isDragging
                                                 ? "shadow-lg rotate-2 scale-105"
