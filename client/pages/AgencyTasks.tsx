@@ -201,6 +201,7 @@ const DEFAULT_PIPELINES: TaskPipeline[] = [
 
 export default function AgencyTasks() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith('/admin/');
 
   // Core state
