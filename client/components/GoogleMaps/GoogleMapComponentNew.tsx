@@ -30,6 +30,8 @@ interface Waypoint {
   id: string;
   position: { lat: number; lng: number };
   rank: number;
+  ranking?: number; // Optional ranking for report mode
+  label?: string; // Optional label for waypoints
 }
 
 interface GoogleMapComponentProps {
