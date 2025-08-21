@@ -49,6 +49,8 @@ import UserManagement from "./pages/UserManagement";
 import { CrashLogs } from "./pages/CrashLogs";
 import PublicOnboarding from "./pages/PublicOnboarding";
 import Tools from "./pages/Tools";
+const MarketPlace = lazy(() => import("./pages/MarketPlace"));
+const Ideas = lazy(() => import("./pages/Ideas"));
 import AIAgent from "./pages/AIAgent";
 import CRM from "./pages/CRM";
 import CRMClientDetail from "./pages/CRMClientDetail";
