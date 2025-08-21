@@ -230,6 +230,18 @@ export function AppLayout({
     }
   }, [location.pathname, expandedMenus]);
 
+  // Auto-expand Tools menu if we're on tools pages
+  React.useEffect(() => {
+    if (
+      (location.pathname.startsWith("/admin/tools") ||
+        location.pathname.startsWith("/admin/marketplace") ||
+        location.pathname.startsWith("/admin/leads")) &&
+      !expandedMenus.includes("tools")
+    ) {
+      setExpandedMenus((prev) => [...prev, "tools"]);
+    }
+  }, [location.pathname, expandedMenus]);
+
   // Navigation items with conditional visibility
   const sidebarItems = [
     {
