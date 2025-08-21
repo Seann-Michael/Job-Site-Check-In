@@ -670,6 +670,11 @@ export default function AgencyTasks() {
     toast.success("Task deleted successfully");
   };
 
+  const handleViewTaskDetails = (taskId: string) => {
+    const baseRoute = isAdminRoute ? '/admin/tasks' : '/agency/admin/tasks';
+    navigate(`${baseRoute}/${taskId}`);
+  };
+
   const handleCreateSprint = () => {
     if (!newSprint.name.trim() || !newSprint.goal.trim()) {
       toast.error("Sprint name and goal are required");
