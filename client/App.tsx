@@ -1080,6 +1080,10 @@ const App = () => (
                   element={<Navigate to="/admin/projects" replace />}
                 />
                 <Route
+                  path="/admin"
+                  element={<Navigate to="/admin/projects" replace />}
+                />
+                <Route
                   path="/admin/dashboard"
                   element={<Navigate to="/admin/projects" replace />}
                 />
