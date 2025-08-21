@@ -1363,6 +1363,10 @@ const App = () => (
                     />
                   }
                 />
+                <Route
+                  path="/CRMClientDetail"
+                  element={<Navigate to="/agency/admin/crm" replace />}
+                />
 
                 {/* Super Admin Compatibility Routes */}
                 <Route
