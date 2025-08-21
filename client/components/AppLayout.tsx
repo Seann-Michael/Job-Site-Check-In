@@ -309,22 +309,6 @@ export function AppLayout({
       comingSoon: false,
     },
     {
-      id: "leads",
-      label: "Get Leads",
-      href: "/admin/leads",
-      icon: Database,
-      active: location.pathname.startsWith("/admin/leads"),
-      comingSoon: false,
-    },
-    {
-      id: "billing",
-      label: "Billing",
-      href: "/admin/billing",
-      icon: CreditCard,
-      active: location.pathname.startsWith("/admin/billing"),
-      comingSoon: false,
-    },
-    {
       id: "reviews",
       label: "Reviews",
       href: "/admin/reviews",
@@ -357,10 +341,27 @@ export function AppLayout({
     {
       id: "tools",
       label: "Tools",
-      href: "/admin/tools",
+      href: "", // No direct href - dropdown placeholder
       icon: Wrench,
-      active: location.pathname === "/admin/tools",
+      active:
+        location.pathname.startsWith("/admin/tools") ||
+        location.pathname.startsWith("/admin/marketplace") ||
+        location.pathname.startsWith("/admin/leads"),
       comingSoon: false,
+      subItems: [
+        {
+          id: "marketplace",
+          label: "Market Place",
+          href: "/admin/marketplace",
+          active: location.pathname.startsWith("/admin/marketplace"),
+        },
+        {
+          id: "get-leads",
+          label: "Get Leads",
+          href: "/admin/leads",
+          active: location.pathname.startsWith("/admin/leads"),
+        },
+      ],
     },
     {
       id: "ai-agent",
