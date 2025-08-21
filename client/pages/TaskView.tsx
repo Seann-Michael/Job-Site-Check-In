@@ -338,6 +338,8 @@ const availableSprints = [
 export default function TaskView() {
   const { taskId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin/');
 
   const [task, setTask] = useState<ExtendedTask>(mockTask);
   const [notes, setNotes] = useState<TaskNote[]>(mockNotes);
