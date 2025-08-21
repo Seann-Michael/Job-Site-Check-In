@@ -126,6 +126,18 @@ export function AppLayout({
   const showSuperAdmin =
     currentUser?.role === "superadmin" && !currentUser?.isImpersonated;
 
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success("Signed out successfully");
+      navigate("/signin");
+    } catch (error) {
+      console.error("Sign out error:", error);
+      toast.error("Failed to sign out");
+    }
+  };
+
   // Load business name and zoom level on mount and listen for changes
   useEffect(() => {
     const loadBusinessName = () => {
