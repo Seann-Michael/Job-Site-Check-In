@@ -5,7 +5,7 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AgencyLayout } from "@/components/AgencyLayout";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
