@@ -950,12 +950,16 @@ export default function AgencyTasks() {
   };
 
   if (isLoading) {
-    return (
-      <AgencyLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        </div>
-      </AgencyLayout>
+    const loadingContent = (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    );
+
+    return isAdminRoute ? (
+      <AppLayout>{loadingContent}</AppLayout>
+    ) : (
+      <AgencyLayout>{loadingContent}</AgencyLayout>
     );
   }
 
