@@ -1335,7 +1335,7 @@ const App = () => (
                 />
                 <Route
                   path="/Ideas"
-                  element={<Navigate to="/ideas" replace />}
+                  element={<Navigate to="/admin/ideas" replace />}
                 />
                 <Route
                   path="/IdeaDetail"
