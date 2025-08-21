@@ -200,16 +200,6 @@ export function AppLayout({
     };
   }, [mobileSidebarOpen]);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate("/signin");
-    } catch (error) {
-      console.error("Sign out error:", error);
-      toast.error("Failed to sign out");
-    }
-  };
-
   const handleZoomChange = (newZoom: number) => {
     setZoomLevel(newZoom);
     document.body.style.zoom = `${newZoom}%`;
