@@ -605,9 +605,8 @@ export default function TaskView() {
   const progressPercentage =
     totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
-  return (
-    <AppLayout>
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+  const content = (
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
@@ -1446,6 +1445,11 @@ export default function TaskView() {
           </div>
         </div>
       </div>
-    </AppLayout>
+  );
+
+  return isAdminRoute ? (
+    <AppLayout>{content}</AppLayout>
+  ) : (
+    <AgencyLayout>{content}</AgencyLayout>
   );
 }
