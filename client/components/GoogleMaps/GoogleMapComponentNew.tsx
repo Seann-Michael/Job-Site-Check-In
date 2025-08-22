@@ -494,9 +494,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       const strokeWidth = isEnabled ? 4 : 3; // Thicker stroke
       const strokeOpacity = isEnabled ? 1.0 : 0.6;
 
-      // In report mode, show ranking number inside waypoints
-      const displayText = reportMode && !isCenter && (waypoint.ranking || rank)
-        ? (waypoint.ranking || rank).toString()
+      // In report mode, show waypoint number inside waypoints
+      const displayText = reportMode && !isCenter && (rank !== undefined)
+        ? (rank + 1).toString() // Show waypoint number (1, 2, 3...)
         : "";
 
       if (isCenter) {
