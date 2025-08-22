@@ -482,6 +482,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/chat"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <Chat />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/maps"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
