@@ -51,10 +51,10 @@ const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement
 const AgencyBillingControl = lazy(() => import("./pages/AgencyBillingControl"));
 const PublicAuditReport = lazy(() => import("./pages/PublicAuditReport"));
 
-import Profile from "./pages/Profile";
-import PublicProject from "./pages/PublicProject";
-import SignIn from "./pages/SignIn";
-import NotFound from "./pages/NotFound";
+const Profile = lazy(() => import("./pages/Profile"));
+const PublicProject = lazy(() => import("./pages/PublicProject"));
+const SignIn = lazy(() => import("./pages/SignIn"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 import AgencyAdmin from "./pages/AgencyAdmin";
 import AgencyClientManagement from "./pages/AgencyClientManagement";
 import AddAgencyClient from "./pages/AddAgencyClient";
