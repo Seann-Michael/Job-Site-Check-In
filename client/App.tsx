@@ -45,11 +45,11 @@ const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
 const Chat = lazy(() => import("./pages/Chat"));
-import CRM from "./pages/CRM";
-import CRMClientDetail from "./pages/CRMClientDetail";
-import AdminBillingManagement from "./pages/AdminBillingManagement";
-import AgencyBillingControl from "./pages/AgencyBillingControl";
-import PublicAuditReport from "./pages/PublicAuditReport";
+const CRM = lazy(() => import("./pages/CRM"));
+const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
+const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement"));
+const AgencyBillingControl = lazy(() => import("./pages/AgencyBillingControl"));
+const PublicAuditReport = lazy(() => import("./pages/PublicAuditReport"));
 
 import Profile from "./pages/Profile";
 import PublicProject from "./pages/PublicProject";
