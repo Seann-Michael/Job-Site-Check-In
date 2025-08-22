@@ -47,6 +47,7 @@ import {
   CheckCircle,
   Home,
   Building2,
+  MapPin,
   X,
   Menu,
   MessageSquare,
