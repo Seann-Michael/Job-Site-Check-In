@@ -429,9 +429,30 @@ export default function Chat() {
     }
   };
 
-  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewMessage(e.target.value);
+  // Handle mention detection in message input
+  const handleMessageInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+
+    setNewMessage(value);
     handleTyping();
+
+    // Check for mentions
+    const mentionData = detectMentionAtCursor(value, cursorPosition);
+
+    if (mentionData && channelUsers.length > 0) {
+      // Calculate position for mention autocomplete
+      const textarea = e.target;
+      const rect = textarea.getBoundingClientRect();
+      const position = {
+        top: rect.bottom + 5,
+        left: rect.left + 10
+      };
+
+      mention.openMention(mentionData.query, position, mentionData.startIndex);
+    } else {
+      mention.closeMention();
+    }
   };
 
   // Stop typing when user stops typing for a while
