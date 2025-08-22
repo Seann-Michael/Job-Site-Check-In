@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Maximize } from "lucide-react";
+import { MapPin, Navigation, Maximize, Settings } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 import {
   type Waypoint as WaypointType,
@@ -686,7 +686,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               onUnmount={onUnmount}
               options={mapOptions}
             >
-              {/* Compact Business Scan Information Overlay */}
+              {/* Collapsible Business Scan Information Overlay */}
               {showBusinessOverlay && businessName && (
                 <div
                   style={{
@@ -695,119 +695,127 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     right: "12px",
                     zIndex: 1000,
                     pointerEvents: "auto",
-                    minWidth: isOverlayCollapsed ? "200px" : "320px",
+                    minWidth: isOverlayCollapsed ? "200px" : "280px",
                   }}
                 >
-                  <div className="bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/50 rounded-2xl overflow-hidden">
-                    {/* Compact Header */}
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2">
+                  <div className="bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/50 rounded-xl overflow-hidden">
+                    {/* Header with Local SEO Ranker Branding */}
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-1.5">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
+                        <div className="w-5 h-5 bg-white/20 rounded flex items-center justify-center">
+                          <MapPin className="w-2.5 h-2.5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-white text-xs font-bold leading-tight truncate">{businessName}</div>
-                          {!isOverlayCollapsed && businessAddress && (
-                            <div className="text-blue-200 text-xs mt-0.5 opacity-90 truncate">{businessAddress}</div>
+                          <div className="text-blue-200 text-xs opacity-75">Local SEO Ranker</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!isOverlayCollapsed && (
+                            <button
+                              onClick={() => {/* TODO: Add settings modal */}}
+                              className="text-white/70 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
+                              title="Waypoint Color Settings"
+                            >
+                              <Settings className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={onToggleOverlay}
+                            className="text-white/80 hover:text-white p-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"
+                          >
+                            <svg
+                              className={`w-3 h-3 transition-transform ${isOverlayCollapsed ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {!isOverlayCollapsed && (
+                      <div className="p-2">
+                        {/* Top Row - Key Info (Reduced size) */}
+                        <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+                          {/* Keyword */}
+                          {keyword && (
+                            <div className="bg-emerald-50 rounded-md p-1.5 border border-emerald-200">
+                              <div className="text-xs text-emerald-700 font-medium mb-0.5">Keyword</div>
+                              <div className="text-xs font-bold text-emerald-900 truncate">{keyword}</div>
+                            </div>
+                          )}
+
+                          {/* Average Ranking */}
+                          {averageRanking !== undefined && (
+                            <div className="bg-amber-50 rounded-md p-1.5 border border-amber-200">
+                              <div className="text-xs text-amber-700 font-medium mb-0.5">Avg Rank</div>
+                              <div className="text-xs font-bold text-amber-900">#{averageRanking}</div>
+                            </div>
+                          )}
+
+                          {/* Scan Date & Time */}
+                          {scanDate && scanTime && (
+                            <div className="bg-indigo-50 rounded-md p-1.5 border border-indigo-200">
+                              <div className="text-xs text-indigo-700 font-medium mb-0.5">Scanned</div>
+                              <div className="text-xs font-bold text-indigo-900">
+                                {new Date(`${scanDate}T${scanTime}`).toLocaleDateString([], {
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </div>
+                              <div className="text-xs font-medium text-indigo-700">
+                                {new Date(`${scanDate}T${scanTime}`).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </div>
+                            </div>
                           )}
                         </div>
-                        <button
-                          onClick={onToggleOverlay}
-                          className="text-white/80 hover:text-white p-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"
-                        >
-                          <svg
-                            className={`w-3 h-3 transition-transform ${isOverlayCollapsed ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Compact Content */}
-                    <div className="p-3">
-                      {/* Top Row - Key Info */}
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        {/* Keyword */}
-                        {keyword && (
-                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-200">
-                            <div className="text-xs text-emerald-700 font-medium mb-1">Keyword</div>
-                            <div className="text-xs font-bold text-emerald-900 truncate">{keyword}</div>
-                          </div>
-                        )}
-
-                        {/* Average Ranking */}
-                        {averageRanking !== undefined && (
-                          <div className="bg-amber-50 rounded-lg p-2 border border-amber-200">
-                            <div className="text-xs text-amber-700 font-medium mb-1">Avg Rank</div>
-                            <div className="text-xs font-bold text-amber-900">#{averageRanking}</div>
-                          </div>
-                        )}
-
-                        {/* Scan Date & Time */}
-                        {scanDate && scanTime && (
-                          <div className="bg-indigo-50 rounded-lg p-2 border border-indigo-200">
-                            <div className="text-xs text-indigo-700 font-medium mb-1">Scanned</div>
-                            <div className="text-xs font-bold text-indigo-900">
-                              {new Date(`${scanDate}T${scanTime}`).toLocaleDateString([], {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                        {/* Bottom Row - Ranking Distribution (Reduced size) */}
+                        {rankingAnalytics && (
+                          <div className="grid grid-cols-4 gap-1">
+                            <div className="bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-lg p-1.5 text-center shadow border border-emerald-300/50">
+                              <div className="text-sm font-black text-white">{rankingAnalytics.green}</div>
+                              <div className="text-xs font-bold text-emerald-100">1-3</div>
+                              <div className="text-xs font-medium text-emerald-200">
+                                {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.green / rankingAnalytics.total) * 100) : 0}%
+                              </div>
                             </div>
-                            <div className="text-xs font-medium text-indigo-700 mt-0.5">
-                              {new Date(`${scanDate}T${scanTime}`).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                              })}
+
+                            <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg p-1.5 text-center shadow border border-yellow-300/50">
+                              <div className="text-sm font-black text-white">{rankingAnalytics.yellow}</div>
+                              <div className="text-xs font-bold text-yellow-100">4-9</div>
+                              <div className="text-xs font-medium text-yellow-200">
+                                {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.yellow / rankingAnalytics.total) * 100) : 0}%
+                              </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg p-1.5 text-center shadow border border-orange-300/50">
+                              <div className="text-sm font-black text-white">{rankingAnalytics.orange}</div>
+                              <div className="text-xs font-bold text-orange-100">10-15</div>
+                              <div className="text-xs font-medium text-orange-200">
+                                {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.orange / rankingAnalytics.total) * 100) : 0}%
+                              </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-red-400 to-red-500 rounded-lg p-1.5 text-center shadow border border-red-300/50">
+                              <div className="text-sm font-black text-white">{rankingAnalytics.red}</div>
+                              <div className="text-xs font-bold text-red-100">16+</div>
+                              <div className="text-xs font-medium text-red-200">
+                                {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.red / rankingAnalytics.total) * 100) : 0}%
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
-
-                      {/* Bottom Row - Ranking Distribution */}
-                      {rankingAnalytics && (
-                        <div className="grid grid-cols-4 gap-1">
-                          <div className="bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-xl p-3 text-center shadow-lg border border-emerald-300/50">
-                            <div className="text-lg font-black text-white">{rankingAnalytics.green}</div>
-                            <div className="text-xs font-bold text-emerald-100 mb-1">1-3</div>
-                            <div className="text-xs font-medium text-emerald-200">
-                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.green / rankingAnalytics.total) * 100) : 0}%
-                            </div>
-                          </div>
-
-                          <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl p-3 text-center shadow-lg border border-yellow-300/50">
-                            <div className="text-lg font-black text-white">{rankingAnalytics.yellow}</div>
-                            <div className="text-xs font-bold text-yellow-100 mb-1">4-9</div>
-                            <div className="text-xs font-medium text-yellow-200">
-                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.yellow / rankingAnalytics.total) * 100) : 0}%
-                            </div>
-                          </div>
-
-                          <div className="bg-gradient-to-br from-orange-400 to-orange-500 rounded-xl p-3 text-center shadow-lg border border-orange-300/50">
-                            <div className="text-lg font-black text-white">{rankingAnalytics.orange}</div>
-                            <div className="text-xs font-bold text-orange-100 mb-1">10-15</div>
-                            <div className="text-xs font-medium text-orange-200">
-                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.orange / rankingAnalytics.total) * 100) : 0}%
-                            </div>
-                          </div>
-
-                          <div className="bg-gradient-to-br from-red-400 to-red-500 rounded-xl p-3 text-center shadow-lg border border-red-300/50">
-                            <div className="text-lg font-black text-white">{rankingAnalytics.red}</div>
-                            <div className="text-xs font-bold text-red-100 mb-1">16+</div>
-                            <div className="text-xs font-medium text-red-200">
-                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.red / rankingAnalytics.total) * 100) : 0}%
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
