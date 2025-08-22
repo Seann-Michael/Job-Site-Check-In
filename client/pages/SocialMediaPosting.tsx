@@ -365,6 +365,13 @@ export default function SocialMediaPosting() {
         }),
       });
 
+      // Check if response is HTML (development mode)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        toast.error('AI content generation not available in development mode');
+        return;
+      }
+
       if (response.ok) {
         const generatedContent: GeneratedContent = await response.json();
         setFormData(prev => ({
@@ -379,7 +386,11 @@ export default function SocialMediaPosting() {
       }
     } catch (error) {
       console.error('Error generating content:', error);
-      toast.error('Error generating content');
+      if (error instanceof SyntaxError && error.message.includes('JSON')) {
+        toast.error('AI content generation not available in development mode');
+      } else {
+        toast.error('Error generating content');
+      }
     } finally {
       setAiGenerating(false);
     }
