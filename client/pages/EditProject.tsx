@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/GoogleMaps";
-import { dataService } from "@/lib/dataService";
+import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 
 interface Project {
   id: string;
