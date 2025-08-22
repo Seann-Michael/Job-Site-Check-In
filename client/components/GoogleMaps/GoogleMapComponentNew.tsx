@@ -64,6 +64,9 @@ interface GoogleMapComponentProps {
   };
   // Report mode - makes waypoints fixed (non-draggable, non-toggleable)
   reportMode?: boolean;
+  // Business name overlay
+  businessName?: string;
+  showBusinessOverlay?: boolean;
 }
 
 export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
@@ -88,6 +91,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   onWaypointsDragComplete,
   scanConfig,
   reportMode = false,
+  businessName,
+  showBusinessOverlay = false,
 }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(
@@ -656,6 +661,28 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               onUnmount={onUnmount}
               options={mapOptions}
             >
+              {/* Business Name Overlay */}
+              {showBusinessOverlay && businessName && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    zIndex: 1000,
+                    pointerEvents: "none",
+                  }}
+                >
+                  <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg px-4 py-3 shadow-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <div>
+                        <div className="text-xs text-gray-600 font-medium">Scan Target</div>
+                        <div className="text-sm font-semibold text-gray-900">{businessName}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Render regular markers */}
               {markers.map((marker) => (
                 <Marker
