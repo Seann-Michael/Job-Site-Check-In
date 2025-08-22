@@ -694,7 +694,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     minWidth: "460px",
                   }}
                 >
-                  <div className="bg-white shadow-xl border border-gray-100 rounded-xl overflow-hidden">
+                  <div className="bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/50 rounded-2xl overflow-hidden">
                     {/* Compact Header */}
                     <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2">
                       <div className="flex items-center gap-2">
