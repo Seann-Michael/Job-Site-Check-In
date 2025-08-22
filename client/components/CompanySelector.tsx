@@ -38,6 +38,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Load companies from localStorage/API
   useEffect(() => {
