@@ -370,8 +370,8 @@ export default function GeoGridReport() {
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {/* Analytics Panel */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* Full Width Map Container */}
+          <div>
             {/* Competitor Selection */}
             <Card>
               <CardHeader>
