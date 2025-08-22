@@ -468,6 +468,56 @@ export default function Chat() {
     }
   };
 
+  // Handle mention detection in thread reply
+  const handleThreadReplyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+
+    setThreadReply(value);
+
+    // Check for mentions
+    const mentionData = detectMentionAtCursor(value, cursorPosition);
+
+    if (mentionData && channelUsers.length > 0) {
+      // Calculate position for mention autocomplete
+      const textarea = e.target;
+      const rect = textarea.getBoundingClientRect();
+      const position = {
+        top: rect.top - 10,
+        left: rect.left + 10
+      };
+
+      threadMention.openMention(mentionData.query, position, mentionData.startIndex);
+    } else {
+      threadMention.closeMention();
+    }
+  };
+
+  // Handle mention selection for main input
+  const handleMentionSelect = (user: any) => {
+    const newText = replaceMentionText(
+      newMessage,
+      mention.mentionStart,
+      mention.mentionStart + mention.query.length + 1, // +1 for @
+      user
+    );
+    setNewMessage(newText);
+    mention.closeMention();
+    messageInputRef.current?.focus();
+  };
+
+  // Handle mention selection for thread reply
+  const handleThreadMentionSelect = (user: any) => {
+    const newText = replaceMentionText(
+      threadReply,
+      threadMention.mentionStart,
+      threadMention.mentionStart + threadMention.query.length + 1, // +1 for @
+      user
+    );
+    setThreadReply(newText);
+    threadMention.closeMention();
+  };
+
   // Stop typing when user stops typing for a while
   useEffect(() => {
     if (newMessage === '') {
