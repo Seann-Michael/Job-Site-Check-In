@@ -250,10 +250,7 @@ export default function Chat() {
     if (!newMessage.trim() || !selectedChannel || !user) return;
 
     // Clear typing indicator
-    setIsTyping(false);
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+    stopTyping();
 
     const tempMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
@@ -391,20 +388,6 @@ export default function Chat() {
     }
   };
 
-  // Handle typing indicators
-  const handleTyping = useCallback(() => {
-    if (!isTyping) {
-      setIsTyping(true);
-    }
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-    }, 3000);
-  }, [isTyping]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -419,6 +402,13 @@ export default function Chat() {
     setNewMessage(e.target.value);
     handleTyping();
   };
+
+  // Stop typing when user stops typing for a while
+  useEffect(() => {
+    if (newMessage === '') {
+      stopTyping();
+    }
+  }, [newMessage, stopTyping]);
 
   const filteredChannels = channels.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.toLowerCase())
