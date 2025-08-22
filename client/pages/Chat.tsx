@@ -1002,7 +1002,7 @@ export default function Chat() {
                                 "text-sm whitespace-pre-wrap break-words",
                                 message.deleted_at && "italic text-muted-foreground"
                               )}>
-                                {message.content}
+                                {highlightMentions(message.content)}
                               </div>
                             )}
 
