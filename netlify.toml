@@ -166,6 +166,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/chat/file-upload"
+  status = 200
+  to = "/.netlify/functions/chat-file-upload"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
