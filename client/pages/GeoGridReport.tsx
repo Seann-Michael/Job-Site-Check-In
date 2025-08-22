@@ -85,6 +85,8 @@ interface Competitor {
   total_rankings: number;
   average_position: number;
   waypoint_rankings: Record<string, number>;
+  google_reviews: number;
+  review_rating: number;
 }
 
 // Mock data for demonstration
@@ -119,6 +121,8 @@ const mockScanResult: GeoScanResult = {
       phone: "(707) 555-0123",
       total_rankings: 6,
       average_position: 7.2,
+      google_reviews: 245,
+      review_rating: 4.3,
       waypoint_rankings: {
         "center": 4,
         "1": 5,
@@ -129,12 +133,14 @@ const mockScanResult: GeoScanResult = {
       },
     },
     {
-      id: "comp_2", 
+      id: "comp_2",
       name: "Fairfield Pizza House",
       address: "456 Oak Ave, Fairfield, CA",
       phone: "(707) 555-0456",
       total_rankings: 5,
       average_position: 11.4,
+      google_reviews: 89,
+      review_rating: 3.9,
       waypoint_rankings: {
         "center": 8,
         "2": 15,
@@ -149,6 +155,8 @@ const mockScanResult: GeoScanResult = {
       address: "789 Pine St, Fairfield, CA",
       total_rankings: 4,
       average_position: 16.5,
+      google_reviews: 156,
+      review_rating: 4.7,
       waypoint_rankings: {
         "1": 18,
         "3": 20,
