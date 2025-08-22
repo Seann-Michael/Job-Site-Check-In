@@ -433,87 +433,99 @@ export default function GeoGridReport() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden">
-                <div className="space-y-3 max-h-[650px] overflow-y-auto pr-2">
-                  {/* Business (default selection) */}
-                  <div
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedCompetitor === null
-                        ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-300'
-                        : 'hover:bg-gray-50 border-gray-200'
-                    }`}
-                    onClick={() => setSelectedCompetitor(null)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Building2 className="h-4 w-4 text-blue-600" />
-                          <p className="font-medium text-sm">{scanResult.business_name}</p>
-                        </div>
-                        <p className="text-xs text-gray-600 mb-2">{scanResult.location.address}</p>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 text-yellow-500" />
-                            <span className="text-xs">Avg: {scanResult.average_ranking}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-blue-500" />
-                            <span className="text-xs">{analytics.ranked} ranked</span>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="default" className="text-xs bg-blue-600">
-                        Target
-                      </Badge>
-                    </div>
-                  </div>
+                <div className="space-y-2 max-h-[620px] overflow-y-auto pr-2">
+                  {/* Create combined list of all businesses sorted by ranking */}
+                  {(() => {
+                    // Create a combined list with target business and competitors
+                    const allBusinesses = [
+                      {
+                        id: 'target',
+                        name: scanResult.business_name,
+                        address: scanResult.location.address,
+                        average_position: scanResult.average_ranking,
+                        google_reviews: 342, // Mock data for target business
+                        review_rating: 4.5,
+                        isTarget: true,
+                      },
+                      ...scanResult.competitors.map((comp) => ({
+                        ...comp,
+                        isTarget: false,
+                      }))
+                    ];
 
-                  {/* Competitors */}
-                  {scanResult.competitors.map((competitor, index) => {
-                    const isAtSelectedWaypoint = selectedWaypoint && competitor.waypoint_rankings[selectedWaypoint] !== undefined;
-                    const waypointRank = selectedWaypoint ? competitor.waypoint_rankings[selectedWaypoint] : null;
+                    // Sort by average position (ranking) - lower is better
+                    const sortedBusinesses = allBusinesses.sort((a, b) => a.average_position - b.average_position);
 
-                    return (
-                      <div
-                        key={competitor.id}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                          selectedCompetitor === competitor.id
-                            ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-300'
-                            : isAtSelectedWaypoint
-                              ? 'bg-green-50 border-green-200 ring-1 ring-green-300'
-                              : 'hover:bg-gray-50 border-gray-200'
-                        }`}
-                        onClick={() => setSelectedCompetitor(competitor.id)}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <MapPin className="h-4 w-4 text-orange-600" />
-                              <p className="font-medium text-sm">{competitor.name}</p>
-                              {isAtSelectedWaypoint && (
-                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                  Rank #{waypointRank}
+                    return sortedBusinesses.map((business, sortedIndex) => {
+                      const isTarget = business.isTarget;
+                      const isSelected = isTarget ? selectedCompetitor === null : selectedCompetitor === business.id;
+                      const isAtSelectedWaypoint = !isTarget && selectedWaypoint && business.waypoint_rankings && business.waypoint_rankings[selectedWaypoint] !== undefined;
+                      const waypointRank = !isTarget && selectedWaypoint && business.waypoint_rankings ? business.waypoint_rankings[selectedWaypoint] : null;
+
+                      return (
+                        <div
+                          key={business.id}
+                          className={`p-2.5 rounded-lg border cursor-pointer transition-all duration-200 ${
+                            isSelected
+                              ? isTarget
+                                ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-300'
+                                : 'bg-orange-50 border-orange-200 ring-2 ring-orange-300'
+                              : isAtSelectedWaypoint
+                                ? 'bg-green-50 border-green-200 ring-1 ring-green-300'
+                                : 'hover:bg-gray-50 border-gray-200'
+                          }`}
+                          onClick={() => setSelectedCompetitor(isTarget ? null : business.id)}
+                        >
+                          <div className="space-y-2">
+                            {/* Header Row */}
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                {isTarget ? (
+                                  <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                ) : (
+                                  <MapPin className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                                )}
+                                <p className="font-medium text-sm truncate">{business.name}</p>
+                                {isAtSelectedWaypoint && (
+                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 flex-shrink-0">
+                                    Rank #{waypointRank}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                <Badge
+                                  variant={isTarget ? "default" : "outline"}
+                                  className={`text-xs ${isTarget ? 'bg-blue-600' : ''}`}
+                                >
+                                  {isTarget ? 'Target' : `#${sortedIndex + 1}`}
                                 </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-600 mb-2">{competitor.address}</p>
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-1">
-                                <Star className="h-3 w-3 text-yellow-500" />
-                                <span className="text-xs">Avg: {competitor.average_position}</span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3 text-orange-500" />
-                                <span className="text-xs">{competitor.total_rankings} locations</span>
+                            </div>
+
+                            {/* Address */}
+                            <p className="text-xs text-gray-600 truncate pl-6">{business.address}</p>
+
+                            {/* Stats Row */}
+                            <div className="flex items-center justify-between pl-6">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-3 w-3 text-yellow-500" />
+                                  <span className="text-xs font-medium">{business.review_rating}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Users className="h-3 w-3 text-gray-500" />
+                                  <span className="text-xs">{business.google_reviews}</span>
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Rank #{Math.round(business.average_position)}
                               </div>
                             </div>
                           </div>
-                          <Badge variant="outline" className="text-xs">
-                            #{index + 1}
-                          </Badge>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </CardContent>
             </Card>
