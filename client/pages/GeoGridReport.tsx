@@ -649,26 +649,67 @@ export default function GeoGridReport() {
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium mb-3">Waypoint Color Ranges</h4>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Rank 1-3 (Excellent)</span>
-                  <div className="w-6 h-6 bg-green-500 rounded border"></div>
+                  <input
+                    type="color"
+                    value={waypointColors.excellent}
+                    onChange={(e) => setWaypointColors(prev => ({ ...prev, excellent: e.target.value }))}
+                    className="w-8 h-6 rounded border cursor-pointer"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Rank 4-9 (Good)</span>
-                  <div className="w-6 h-6 bg-yellow-500 rounded border"></div>
+                  <input
+                    type="color"
+                    value={waypointColors.good}
+                    onChange={(e) => setWaypointColors(prev => ({ ...prev, good: e.target.value }))}
+                    className="w-8 h-6 rounded border cursor-pointer"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Rank 10-15 (Fair)</span>
-                  <div className="w-6 h-6 bg-orange-500 rounded border"></div>
+                  <input
+                    type="color"
+                    value={waypointColors.fair}
+                    onChange={(e) => setWaypointColors(prev => ({ ...prev, fair: e.target.value }))}
+                    className="w-8 h-6 rounded border cursor-pointer"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Rank 16+ (Poor)</span>
-                  <div className="w-6 h-6 bg-red-500 rounded border"></div>
+                  <input
+                    type="color"
+                    value={waypointColors.poor}
+                    onChange={(e) => setWaypointColors(prev => ({ ...prev, poor: e.target.value }))}
+                    className="w-8 h-6 rounded border cursor-pointer"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Not Found</span>
-                  <div className="w-6 h-6 bg-gray-400 rounded border"></div>
+                  <input
+                    type="color"
+                    value={waypointColors.notFound}
+                    onChange={(e) => setWaypointColors(prev => ({ ...prev, notFound: e.target.value }))}
+                    className="w-8 h-6 rounded border cursor-pointer"
+                  />
+                </div>
+                <div className="pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWaypointColors({
+                      excellent: '#10B981',
+                      good: '#F59E0B',
+                      fair: '#FB923C',
+                      poor: '#EF4444',
+                      notFound: '#6B7280',
+                    })}
+                    className="w-full"
+                  >
+                    Reset to Default Colors
+                  </Button>
                 </div>
               </div>
             </div>
