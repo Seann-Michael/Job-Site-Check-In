@@ -268,7 +268,7 @@ export default function Chat() {
       user: {
         id: user.id,
         email: user.email || '',
-        raw_user_meta_data: user.raw_user_meta_data
+        raw_user_meta_data: user.user_metadata
       }
     };
 
