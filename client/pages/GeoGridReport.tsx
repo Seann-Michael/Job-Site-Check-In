@@ -164,6 +164,9 @@ export default function GeoGridReport() {
   const [scanResult, setScanResult] = useState<GeoScanResult | null>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedWaypoint, setSelectedWaypoint] = useState<string | null>(null);
+  const [showCompetitorModal, setShowCompetitorModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Load scan result (mock data for now)
   useEffect(() => {
