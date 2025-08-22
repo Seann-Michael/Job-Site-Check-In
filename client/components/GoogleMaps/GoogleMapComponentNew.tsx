@@ -708,11 +708,24 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-bold leading-tight">{businessName}</div>
-                          {businessAddress && (
-                            <div className="text-blue-200 text-xs mt-1 opacity-90 truncate">{businessAddress}</div>
+                          <div className="text-white text-xs font-bold leading-tight truncate">{businessName}</div>
+                          {!isOverlayCollapsed && businessAddress && (
+                            <div className="text-blue-200 text-xs mt-0.5 opacity-90 truncate">{businessAddress}</div>
                           )}
                         </div>
+                        <button
+                          onClick={onToggleOverlay}
+                          className="text-white/80 hover:text-white p-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"
+                        >
+                          <svg
+                            className={`w-3 h-3 transition-transform ${isOverlayCollapsed ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
 
