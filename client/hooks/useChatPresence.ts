@@ -154,5 +154,3 @@ export function useChatPresence() {
     loadOnlineUsers
   };
 }
-
-export { useChatPresence };
