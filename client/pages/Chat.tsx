@@ -1183,10 +1183,15 @@ export default function Chat() {
                             ) : (
                               // Display mode
                               <div className={cn(
-                                "text-sm whitespace-pre-wrap break-words",
+                                "text-sm break-words",
                                 message.deleted_at && "italic text-muted-foreground"
                               )}>
-                                {highlightMentions(message.content)}
+                                <MarkdownRenderer
+                                  content={message.content}
+                                  enableMentions
+                                  searchHighlight={isSearching ? searchQuery : undefined}
+                                  className="prose-sm"
+                                />
                               </div>
                             )}
 
