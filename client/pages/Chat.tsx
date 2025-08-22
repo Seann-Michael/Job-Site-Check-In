@@ -29,6 +29,7 @@ import { useTypingIndicators } from '@/hooks/useTypingIndicators';
 import { chatChannelManager } from '@/lib/chatUtils';
 import { makeAuthenticatedChatRequest, withAuthRetry } from '@/lib/chatAuth';
 import { FileUploadButton } from '@/components/ui/file-upload';
+import { EmojiPicker, EmojiButton } from '@/components/ui/emoji-picker';
 import type {
   ChatChannel,
   ChatMessage,
@@ -599,6 +600,34 @@ export default function Chat() {
     }
   };
 
+  // Handle emoji selection for message input
+  const handleEmojiSelect = (emoji: string) => {
+    if (editingMessageId) {
+      setEditingContent(prev => prev + emoji);
+    } else {
+      setNewMessage(prev => prev + emoji);
+      messageInputRef.current?.focus();
+    }
+  };
+
+  // Handle message reactions
+  const handleReaction = async (messageId: string, emoji: string, emojiNative: string) => {
+    try {
+      await makeAuthenticatedChatRequest(`/api/chat/messages/${messageId}/react`, {
+        method: 'POST',
+        body: JSON.stringify({
+          emoji,
+          emoji_native: emojiNative
+        }),
+      });
+
+      // The reaction will be updated via real-time subscription
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+      toast.error('Failed to add reaction');
+    }
+  };
+
   const filteredChannels = channels.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -897,15 +926,35 @@ export default function Chat() {
                             {/* Reactions */}
                             {message.reactions && message.reactions.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {message.reactions.map((reaction) => (
-                                  <Button
-                                    key={reaction.id}
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-6 px-2 text-xs"
-                                  >
-                                    {reaction.emoji_native} 1
-                                  </Button>
+                                {/* Group reactions by emoji */}
+                                {Array.from(
+                                  message.reactions.reduce((acc, reaction) => {
+                                    const key = reaction.emoji;
+                                    if (!acc.has(key)) {
+                                      acc.set(key, {
+                                        emoji: reaction.emoji,
+                                        emoji_native: reaction.emoji_native,
+                                        count: 0,
+                                        users: [],
+                                        hasCurrentUser: false
+                                      });
+                                    }
+                                    const group = acc.get(key)!;
+                                    group.count++;
+                                    group.users.push(reaction.user_id);
+                                    if (reaction.user_id === user?.id) {
+                                      group.hasCurrentUser = true;
+                                    }
+                                    return acc;
+                                  }, new Map())
+                                ).map(([emoji, group]) => (
+                                  <EmojiButton
+                                    key={emoji}
+                                    emoji={group.emoji_native}
+                                    count={group.count}
+                                    active={group.hasCurrentUser}
+                                    onClick={() => handleReaction(message.id, group.emoji, group.emoji_native)}
+                                  />
                                 ))}
                               </div>
                             )}
@@ -921,9 +970,14 @@ export default function Chat() {
                           
                           {/* Message Actions */}
                           <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <Smile className="h-3 w-3" />
-                            </Button>
+                            <EmojiPicker
+                              onEmojiSelect={(emoji, name) => handleReaction(message.id, emoji, emoji)}
+                              trigger={
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <Smile className="h-3 w-3" />
+                                </Button>
+                              }
+                            />
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                               <Reply className="h-3 w-3" />
                             </Button>
@@ -1008,9 +1062,14 @@ export default function Chat() {
                   >
                     <Paperclip className="h-4 w-4" />
                   </FileUploadButton>
-                  <Button variant="ghost" size="sm">
-                    <Smile className="h-4 w-4" />
-                  </Button>
+                  <EmojiPicker
+                    onEmojiSelect={handleEmojiSelect}
+                    trigger={
+                      <Button variant="ghost" size="sm">
+                        <Smile className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
                   <Button variant="ghost" size="sm">
                     <AtSign className="h-4 w-4" />
                   </Button>
