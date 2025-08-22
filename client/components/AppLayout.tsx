@@ -546,10 +546,11 @@ export function AppLayout({
           </div>
 
           {/* Mobile Sidebar Footer */}
-          <div className="p-4 border-t">
+          <div className="p-4 border-t space-y-2">
             <div className="text-xs text-muted-foreground text-center">
-              Local SEO Ranker v2.0
+              Waypoint v2.0
             </div>
+            <CreditBalance collapsed={false} />
           </div>
         </div>
 
@@ -574,7 +575,7 @@ export function AppLayout({
                 {!sidebarCollapsed && (
                   <div className="flex items-center space-x-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
-                      <Building2 className="h-5 w-5 text-primary-foreground" />
+                      <MapPin className="h-5 w-5 text-primary-foreground" />
                     </div>
                     <div>
                       <span className="font-bold text-base text-foreground">
@@ -586,7 +587,7 @@ export function AppLayout({
                 )}
                 {sidebarCollapsed && (
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
-                    <Building2 className="h-5 w-5 text-primary-foreground" />
+                    <MapPin className="h-5 w-5 text-primary-foreground" />
                   </div>
                 )}
                 <Button
@@ -681,13 +682,14 @@ export function AppLayout({
                 ))}
               </div>
 
-              {/* Desktop Sidebar Footer - Exact copy from AgencyLayout */}
-              <div className="p-4 border-t">
+              {/* Desktop Sidebar Footer */}
+              <div className="p-4 border-t space-y-2">
                 {!sidebarCollapsed && (
                   <div className="text-xs text-muted-foreground text-center">
-                    Local SEO Ranker v2.0
+                    Waypoint v2.0
                   </div>
                 )}
+                <CreditBalance collapsed={sidebarCollapsed} />
               </div>
             </div>
           </div>
