@@ -64,53 +64,6 @@ import {
   WifiOff
 } from "lucide-react";
 
-interface ChatChannel {
-  id: string;
-  name: string;
-  description?: string;
-  channel_type: 'public' | 'private' | 'direct_message';
-  topic?: string;
-  message_count: number;
-  last_message_at?: string;
-  is_muted?: boolean;
-  is_pinned?: boolean;
-  unread_count?: number;
-}
-
-interface ChatMessage {
-  id: string;
-  content: string;
-  user_id: string;
-  created_at: string;
-  edited_at?: string;
-  user?: {
-    id: string;
-    email: string;
-    raw_user_meta_data?: any;
-  };
-  reactions?: ChatReaction[];
-  thread_count?: number;
-  parent_message_id?: string;
-}
-
-interface ChatReaction {
-  id: string;
-  emoji: string;
-  emoji_native: string;
-  user_id: string;
-  created_at: string;
-}
-
-interface UserPresence {
-  user_id: string;
-  status: 'online' | 'away' | 'busy' | 'offline';
-  last_seen_at: string;
-  user?: {
-    id: string;
-    email: string;
-    raw_user_meta_data?: any;
-  };
-}
 
 // Initialize Supabase client for real-time subscriptions
 const supabase = createClient(
@@ -124,7 +77,7 @@ export default function Chat() {
   const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<ChatUserPresence[]>([]);
   const [loading, setLoading] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
@@ -225,7 +178,7 @@ export default function Chat() {
   useEffect(() => {
     if (user) {
       loadChannels();
-      ensureDefaultChannel();
+      ensureDefaultChannels();
     }
   }, [user]);
 
@@ -259,36 +212,14 @@ export default function Chat() {
   };
 
 
-  // Ensure default channel exists
-  const ensureDefaultChannel = async () => {
+  // Ensure default channels exist and user is part of them
+  const ensureDefaultChannels = async () => {
     try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/channels', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const channels = data.channels || [];
-
-        // Check if general channel exists
-        const generalChannel = channels.find((ch: ChatChannel) => ch.name === 'general');
-
-        if (!generalChannel && channels.length === 0) {
-          // Create default general channel
-          await createChannel({
-            name: 'general',
-            description: 'General discussion for all team members',
-            channel_type: 'public',
-            allow_all_agency_members: true
-          });
-        }
-      }
+      await chatChannelManager.ensureDefaultChannels();
+      // Reload channels after ensuring defaults
+      await loadChannels();
     } catch (error) {
-      console.error('Error ensuring default channel:', error);
+      console.error('Error ensuring default channels:', error);
     }
   };
 
