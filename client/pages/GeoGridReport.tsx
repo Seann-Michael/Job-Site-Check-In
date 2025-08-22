@@ -167,6 +167,8 @@ export default function GeoGridReport() {
   const [loading, setLoading] = useState(true);
   const [selectedWaypoint, setSelectedWaypoint] = useState<string | null>(null);
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Load scan result (mock data for now)
   useEffect(() => {
