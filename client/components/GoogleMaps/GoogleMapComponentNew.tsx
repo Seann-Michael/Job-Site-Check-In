@@ -854,8 +854,13 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     title={title}
                     icon={createWaypointIcon(waypoint, rank)}
                     onClick={(e) => {
-                      // Disable clicking in report mode
-                      if (!reportMode) {
+                      // In report mode, show competitor details; in normal mode, toggle waypoint
+                      if (reportMode) {
+                        // Handle waypoint click to show competitors
+                        if (onWaypointClick) {
+                          onWaypointClick(waypoint.id);
+                        }
+                      } else {
                         handleWaypointClick(waypoint, e);
                       }
                     }}
