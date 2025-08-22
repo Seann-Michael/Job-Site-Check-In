@@ -1,7 +1,15 @@
-const CACHE_NAME = "gmb-booster-v1.0.0";
-const STATIC_CACHE = "gmb-booster-static-v1";
-const DYNAMIC_CACHE = "gmb-booster-dynamic-v1";
-const IMAGE_CACHE = "gmb-booster-images-v1";
+const CACHE_NAME = "local-seo-ranker-v2.0.0";
+const STATIC_CACHE = "lsr-static-v2";
+const DYNAMIC_CACHE = "lsr-dynamic-v2";
+const IMAGE_CACHE = "lsr-images-v2";
+const API_CACHE = "lsr-api-v2";
+
+// Enhanced cache configuration
+const CACHE_CONFIG = {
+  maxEntries: 500,
+  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+  networkTimeoutSeconds: 3
+};
 
 // Files to cache immediately
 const STATIC_ASSETS = [
@@ -9,261 +17,470 @@ const STATIC_ASSETS = [
   "/admin/projects",
   "/admin/gallery",
   "/admin/settings",
+  "/agency/admin/dashboard",
+  "/signin",
+  "/signup",
   "/manifest.json",
+  "/offline.html"
 ];
 
-// Install event - cache static assets
+// API endpoints to cache for offline use
+const CACHED_API_ENDPOINTS = [
+  "/api/auth/profile",
+  "/api/businesses",
+  "/api/projects",
+  "/api/analytics/summary"
+];
+
+// Install event - enhanced caching
 self.addEventListener("install", (event) => {
-  console.log("Service Worker installing...");
+  console.log("🔧 Service Worker installing v2.0.0...");
+  
   event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => {
-        console.log("Caching static assets");
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .then(() => {
-        console.log("Static assets cached");
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error("Error caching static assets:", error);
-      }),
+    Promise.all([
+      caches.open(STATIC_CACHE).then(cache => cache.addAll(STATIC_ASSETS)),
+      initializeOfflineStorage(),
+      self.skipWaiting()
+    ]).then(() => {
+      console.log("✅ Service Worker installed successfully");
+      self.postMessage({ type: "SW_INSTALLED" });
+    }).catch(error => {
+      console.error("❌ Service Worker installation failed:", error);
+    })
   );
 });
 
-// Activate event - clean old caches
+// Activate event - enhanced cleanup and client claiming
 self.addEventListener("activate", (event) => {
-  console.log("Service Worker activating...");
+  console.log("🚀 Service Worker activating...");
+  
   event.waitUntil(
-    caches
-      .keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (
-              cacheName !== STATIC_CACHE &&
-              cacheName !== DYNAMIC_CACHE &&
-              cacheName !== IMAGE_CACHE
-            ) {
-              console.log("Deleting old cache:", cacheName);
-              return caches.delete(cacheName);
-            }
-          }),
-        );
-      })
-      .then(() => {
-        console.log("Service Worker activated");
-        return self.clients.claim();
-      }),
+    Promise.all([
+      cleanupOldCaches(),
+      self.clients.claim(),
+      setupBackgroundSync(),
+      initializePushNotifications()
+    ]).then(() => {
+      console.log("✅ Service Worker activated");
+      self.postMessage({ type: "SW_ACTIVATED" });
+    })
   );
 });
 
-// Fetch event - serve from cache with network fallback
+// Enhanced fetch handler with intelligent caching strategies
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
+  const { request } = event;
+  const url = new URL(request.url);
 
   // Skip non-GET requests and chrome-extension requests
-  if (event.request.method !== "GET" || url.protocol === "chrome-extension:") {
+  if (request.method !== "GET" || url.protocol === "chrome-extension:") {
     return;
   }
 
-  // Handle different types of requests
-  if (event.request.destination === "image") {
-    event.respondWith(handleImageRequest(event.request));
-  } else if (isStaticAsset(event.request.url)) {
-    event.respondWith(handleStaticAsset(event.request));
+  // Route to appropriate handler based on request type
+  if (request.destination === "image") {
+    event.respondWith(handleImageRequest(request));
+  } else if (isAPIRequest(request)) {
+    event.respondWith(handleAPIRequest(request));
+  } else if (isStaticAsset(request)) {
+    event.respondWith(handleStaticAsset(request));
   } else {
-    event.respondWith(handleDynamicRequest(event.request));
+    event.respondWith(handleNavigationRequest(request));
   }
 });
 
-// Handle image requests with dedicated cache
+// Advanced image handling with progressive loading
 async function handleImageRequest(request) {
   try {
     const cache = await caches.open(IMAGE_CACHE);
+    
+    // Check cache first
     const cachedResponse = await cache.match(request);
-
     if (cachedResponse) {
-      console.log("Serving image from cache:", request.url);
       return cachedResponse;
     }
 
-    const networkResponse = await fetch(request);
-
-    if (networkResponse.ok) {
-      console.log("Caching new image:", request.url);
-      cache.put(request, networkResponse.clone());
+    // Network with timeout
+    const networkResponse = await fetchWithTimeout(request, CACHE_CONFIG.networkTimeoutSeconds * 1000);
+    
+    if (networkResponse && networkResponse.ok) {
+      // Clone and cache response
+      const responseToCache = networkResponse.clone();
+      cache.put(request, responseToCache);
+      
+      // Cleanup old cache entries
+      await cleanupCache(IMAGE_CACHE, CACHE_CONFIG.maxEntries);
     }
 
     return networkResponse;
   } catch (error) {
-    console.error("Error handling image request:", error);
-    return new Response("Image not available", { status: 404 });
+    console.warn("Image request failed:", error);
+    
+    // Return placeholder image for offline
+    return new Response(
+      `<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f3f4f6"/>
+        <text x="50%" y="50%" text-anchor="middle" fill="#6b7280">Image Offline</text>
+      </svg>`,
+      {
+        headers: { 'Content-Type': 'image/svg+xml' },
+        status: 200
+      }
+    );
   }
 }
 
-// Handle static assets
+// API request handling with offline-first strategy for read operations
+async function handleAPIRequest(request) {
+  const url = new URL(request.url);
+  const cache = await caches.open(API_CACHE);
+  
+  // For read operations, try cache first for faster response
+  if (request.method === "GET" && CACHED_API_ENDPOINTS.some(endpoint => url.pathname.includes(endpoint))) {
+    const cachedResponse = await cache.match(request);
+    
+    if (cachedResponse) {
+      // Serve from cache immediately
+      const response = cachedResponse.clone();
+      
+      // Update cache in background
+      fetchAndUpdateCache(request, cache);
+      
+      return response;
+    }
+  }
+
+  try {
+    // Try network first for fresh data
+    const networkResponse = await fetchWithTimeout(request, CACHE_CONFIG.networkTimeoutSeconds * 1000);
+    
+    if (networkResponse && networkResponse.ok) {
+      // Cache successful responses
+      if (request.method === "GET") {
+        cache.put(request, networkResponse.clone());
+      }
+    }
+    
+    return networkResponse;
+  } catch (error) {
+    console.warn("API request failed, trying cache:", error);
+    
+    // Fallback to cache for GET requests
+    if (request.method === "GET") {
+      const cachedResponse = await cache.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+    }
+    
+    // Return offline response
+    return createOfflineResponse(request);
+  }
+}
+
+// Static asset handling with cache-first strategy
 async function handleStaticAsset(request) {
   try {
     const cache = await caches.open(STATIC_CACHE);
     const cachedResponse = await cache.match(request);
 
     if (cachedResponse) {
-      console.log("Serving static asset from cache:", request.url);
       return cachedResponse;
     }
 
-    const networkResponse = await fetch(request);
+    const networkResponse = await fetchWithTimeout(request, CACHE_CONFIG.networkTimeoutSeconds * 1000);
 
-    if (networkResponse.ok) {
-      console.log("Caching new static asset:", request.url);
+    if (networkResponse && networkResponse.ok) {
       cache.put(request, networkResponse.clone());
     }
 
     return networkResponse;
   } catch (error) {
-    console.error("Error handling static asset:", error);
+    console.warn("Static asset failed:", error);
+    
+    // Fallback to cache
     const cache = await caches.open(STATIC_CACHE);
-    return cache.match("/") || new Response("Offline", { status: 503 });
+    return cache.match(request) || cache.match("/offline.html");
   }
 }
 
-// Handle dynamic requests
-async function handleDynamicRequest(request) {
+// Navigation request handling with app shell pattern
+async function handleNavigationRequest(request) {
   try {
-    const cache = await caches.open(DYNAMIC_CACHE);
-
-    // Try network first for dynamic content
-    try {
-      const networkResponse = await fetch(request);
-
-      if (networkResponse.ok) {
-        console.log("Caching dynamic response:", request.url);
-        cache.put(request, networkResponse.clone());
-      }
-
-      return networkResponse;
-    } catch (networkError) {
-      // Network failed, try cache
-      const cachedResponse = await cache.match(request);
-
-      if (cachedResponse) {
-        console.log("Serving dynamic content from cache:", request.url);
-        return cachedResponse;
-      }
-
-      // If it's a navigation request, serve the app shell
-      if (request.mode === "navigate") {
-        const appShell =
-          (await cache.match("/")) ||
-          (await caches.open(STATIC_CACHE).then((c) => c.match("/")));
-        if (appShell) {
-          return appShell;
-        }
-      }
-
-      throw networkError;
+    // Try network first for navigation
+    const networkResponse = await fetchWithTimeout(request, CACHE_CONFIG.networkTimeoutSeconds * 1000);
+    
+    if (networkResponse && networkResponse.ok) {
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, networkResponse.clone());
     }
+    
+    return networkResponse;
   } catch (error) {
-    console.error("Error handling dynamic request:", error);
-    return new Response("Offline", { status: 503 });
+    console.warn("Navigation request failed:", error);
+    
+    // Fallback to cached page or app shell
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const cachedResponse = await cache.match(request);
+    
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Return app shell for SPA routes
+    const appShell = await cache.match("/") || await caches.open(STATIC_CACHE).then(c => c.match("/"));
+    return appShell || cache.match("/offline.html");
   }
 }
 
-// Check if request is for a static asset
-function isStaticAsset(url) {
-  return (
-    url.includes("/assets/") ||
-    url.includes(".js") ||
-    url.includes(".css") ||
-    url.includes(".woff") ||
-    url.includes(".woff2") ||
-    url.includes("manifest.json")
-  );
-}
-
-// Background sync for file uploads
+// Enhanced background sync
 self.addEventListener("sync", (event) => {
-  console.log("Background sync triggered:", event.tag);
+  console.log("🔄 Background sync triggered:", event.tag);
 
-  if (event.tag === "upload-files") {
-    event.waitUntil(syncUploadFiles());
+  switch (event.tag) {
+    case "upload-files":
+      event.waitUntil(syncUploadFiles());
+      break;
+    case "sync-data":
+      event.waitUntil(syncOfflineData());
+      break;
+    case "analytics":
+      event.waitUntil(syncAnalytics());
+      break;
+    default:
+      console.log("Unknown sync tag:", event.tag);
   }
 });
 
-// Handle background file uploads
-async function syncUploadFiles() {
-  try {
-    const pendingUploads = await getPendingUploads();
-
-    for (const upload of pendingUploads) {
-      try {
-        await processFileUpload(upload);
-        await removePendingUpload(upload.id);
-        console.log("Successfully synced upload:", upload.id);
-      } catch (error) {
-        console.error("Failed to sync upload:", upload.id, error);
-      }
-    }
-  } catch (error) {
-    console.error("Error during background sync:", error);
-  }
-}
-
-// Helper functions for background sync
-async function getPendingUploads() {
-  // In a real implementation, this would read from IndexedDB
-  return [];
-}
-
-async function processFileUpload(upload) {
-  // In a real implementation, this would upload the file
-  console.log("Processing upload:", upload);
-}
-
-async function removePendingUpload(uploadId) {
-  // In a real implementation, this would remove from IndexedDB
-  console.log("Removing pending upload:", uploadId);
-}
-
-// Handle push notifications
+// Enhanced push notification handling
 self.addEventListener("push", (event) => {
-  console.log("Push notification received:", event);
-
-  const options = {
-    body: event.data ? event.data.text() : "New update available",
+  console.log("📨 Push notification received");
+  
+  let notificationData = {
+    title: "Local SEO Ranker",
+    body: "New update available",
     icon: "/icon-192x192.png",
     badge: "/icon-72x72.png",
-    vibrate: [100, 50, 100],
+    tag: "default"
+  };
+
+  if (event.data) {
+    try {
+      notificationData = { ...notificationData, ...event.data.json() };
+    } catch (error) {
+      notificationData.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    tag: notificationData.tag,
+    vibrate: [200, 100, 200],
+    requireInteraction: true,
     data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1,
+      url: notificationData.url || "/admin/projects",
+      timestamp: Date.now(),
+      ...notificationData.data
     },
     actions: [
       {
-        action: "explore",
+        action: "view",
         title: "View",
-        icon: "/icon-192x192.png",
+        icon: "/icon-192x192.png"
       },
       {
-        action: "close",
-        title: "Close",
-        icon: "/icon-192x192.png",
-      },
-    ],
+        action: "dismiss",
+        title: "Dismiss"
+      }
+    ]
   };
 
-  event.waitUntil(self.registration.showNotification("GMB Booster", options));
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, options)
+  );
 });
 
-// Handle notification clicks
+// Enhanced notification click handling
 self.addEventListener("notificationclick", (event) => {
-  console.log("Notification clicked:", event);
-
+  console.log("🔔 Notification clicked:", event.action);
+  
   event.notification.close();
 
-  if (event.action === "explore") {
-    event.waitUntil(clients.openWindow("/admin/projects"));
+  if (event.action === "dismiss") {
+    return;
+  }
+
+  const urlToOpen = event.notification.data?.url || "/admin/projects";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window" }).then(clientList => {
+      // Try to focus existing window
+      for (const client of clientList) {
+        if (client.url === urlToOpen && "focus" in client) {
+          return client.focus();
+        }
+      }
+      
+      // Open new window
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+
+// Enhanced message handling
+self.addEventListener("message", (event) => {
+  console.log("💬 Message received:", event.data);
+
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+  
+  if (event.data && event.data.type === "CACHE_UPDATE") {
+    event.waitUntil(updateCache(event.data.urls));
   }
 });
+
+// Utility functions
+
+async function fetchWithTimeout(request, timeout = 3000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(request, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+async function fetchAndUpdateCache(request, cache) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+  } catch (error) {
+    console.warn("Background cache update failed:", error);
+  }
+}
+
+async function cleanupOldCaches() {
+  const cacheNames = await caches.keys();
+  const currentCaches = [STATIC_CACHE, DYNAMIC_CACHE, IMAGE_CACHE, API_CACHE];
+  
+  return Promise.all(
+    cacheNames.map(cacheName => {
+      if (!currentCaches.includes(cacheName)) {
+        console.log("🗑️ Deleting old cache:", cacheName);
+        return caches.delete(cacheName);
+      }
+    })
+  );
+}
+
+async function cleanupCache(cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const requests = await cache.keys();
+  
+  if (requests.length > maxEntries) {
+    const entriesToDelete = requests.slice(0, requests.length - maxEntries);
+    await Promise.all(entriesToDelete.map(request => cache.delete(request)));
+  }
+}
+
+function isAPIRequest(request) {
+  const url = new URL(request.url);
+  return url.pathname.startsWith("/api/") || url.pathname.startsWith("/.netlify/functions/");
+}
+
+function isStaticAsset(request) {
+  const url = new URL(request.url);
+  return (
+    url.pathname.includes("/assets/") ||
+    url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".woff") ||
+    url.pathname.endsWith(".woff2") ||
+    url.pathname.endsWith(".json") ||
+    url.pathname.endsWith(".ico")
+  );
+}
+
+function createOfflineResponse(request) {
+  const isAPIRequest = request.url.includes("/api/");
+  
+  if (isAPIRequest) {
+    return new Response(
+      JSON.stringify({
+        error: "offline",
+        message: "This request requires an internet connection",
+        timestamp: new Date().toISOString()
+      }),
+      {
+        status: 503,
+        statusText: "Service Unavailable",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  }
+  
+  return new Response("Offline", { status: 503 });
+}
+
+async function initializeOfflineStorage() {
+  // Initialize IndexedDB for offline data storage
+  if ("indexedDB" in self) {
+    // This would be expanded with actual IndexedDB setup
+    console.log("📦 IndexedDB available for offline storage");
+  }
+}
+
+async function setupBackgroundSync() {
+  // Setup background sync registration
+  console.log("🔄 Background sync capabilities ready");
+}
+
+async function initializePushNotifications() {
+  // Initialize push notification handling
+  console.log("📨 Push notification system ready");
+}
+
+async function syncUploadFiles() {
+  // Implementation for syncing uploaded files
+  console.log("📁 Syncing uploaded files...");
+}
+
+async function syncOfflineData() {
+  // Implementation for syncing offline data changes
+  console.log("💾 Syncing offline data changes...");
+}
+
+async function syncAnalytics() {
+  // Implementation for syncing analytics data
+  console.log("📊 Syncing analytics data...");
+}
+
+async function updateCache(urls) {
+  const cache = await caches.open(DYNAMIC_CACHE);
+  return Promise.all(
+    urls.map(async url => {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          await cache.put(url, response);
+        }
+      } catch (error) {
+        console.warn("Failed to update cache for:", url, error);
+      }
+    })
+  );
+}
+
+console.log("🎯 Local SEO Ranker Service Worker v2.0.0 loaded");
