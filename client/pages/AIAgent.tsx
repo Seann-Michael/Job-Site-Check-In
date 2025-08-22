@@ -194,7 +194,7 @@ export default function AIAgent() {
 
   const loadUserCredits = async () => {
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) {
         console.warn("No auth token found");
         setUserCredits(null);
@@ -226,7 +226,7 @@ export default function AIAgent() {
 
   const loadChatSessions = async () => {
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) return;
 
       const response = await fetch("/api/ai/sessions", {
@@ -246,7 +246,7 @@ export default function AIAgent() {
 
   const loadChatMessages = async (sessionId: string) => {
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) return;
 
       const response = await fetch(`/api/ai/sessions/${sessionId}/messages`, {
@@ -276,7 +276,7 @@ export default function AIAgent() {
     if (!newChatTitle.trim()) return;
 
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) return;
 
       const response = await fetch("/api/ai/sessions", {
@@ -314,7 +314,7 @@ export default function AIAgent() {
     if (!confirm("Are you sure you want to delete this chat?")) return;
 
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) return;
 
       const response = await fetch(`/api/ai/sessions/${sessionId}`, {
@@ -340,7 +340,7 @@ export default function AIAgent() {
 
   const updateSessionTitle = async (sessionId: string, newTitle: string) => {
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) return;
 
       const response = await fetch(`/api/ai/sessions/${sessionId}`, {
@@ -403,7 +403,7 @@ export default function AIAgent() {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem("supabase_token");
+      const token = localStorage.getItem("auth_token");
       if (!token) {
         throw new Error("No authentication token found");
       }
