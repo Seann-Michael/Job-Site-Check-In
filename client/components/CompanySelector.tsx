@@ -212,9 +212,14 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
           Active Company
         </div>
         
-        <Select value={selectedCompany} onValueChange={handleCompanyChange} open={isOpen} onOpenChange={setIsOpen}>
-          <SelectTrigger className="w-full">
-            <SelectValue>
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={isOpen}
+              className="w-full justify-between h-auto p-3"
+            >
               <div className="flex items-center justify-between w-full">
                 <div className="flex-1 text-left">
                   <div className="font-medium text-sm truncate">
@@ -226,43 +231,54 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                     </div>
                   )}
                 </div>
-                {selectedCompanyData && (
-                  <div
-                    className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
-                    onClick={(e) => toggleFavorite(selectedCompany, e)}
-                  >
-                    <Star
-                      className={cn(
-                        "h-3 w-3",
-                        selectedCompanyData.isFavorite
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted-foreground hover:text-yellow-400"
-                      )}
-                    />
-                  </div>
-                )}
+                <div className="flex items-center space-x-2">
+                  {selectedCompanyData && (
+                    <div
+                      className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(selectedCompany, e);
+                      }}
+                    >
+                      <Star
+                        className={cn(
+                          "h-3 w-3",
+                          selectedCompanyData.isFavorite
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted-foreground hover:text-yellow-400"
+                        )}
+                      />
+                    </div>
+                  )}
+                  <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                </div>
               </div>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="w-full">
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-full p-0" align="start">
             {/* Search Input */}
             <div className="p-2 border-b">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
+                  ref={searchInputRef}
                   placeholder="Search companies..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-9"
-                  autoFocus
+                  onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>
             </div>
 
             {/* Filtered Companies */}
-            {getFilteredAndSortedCompanies().map((company) => (
-              <SelectItem key={company.id} value={company.id}>
-                <div className="flex items-center justify-between w-full">
+            <div className="max-h-[200px] overflow-y-auto">
+              {getFilteredAndSortedCompanies().map((company) => (
+                <div
+                  key={company.id}
+                  className="flex items-center justify-between w-full p-2 hover:bg-muted cursor-pointer"
+                  onClick={() => handleCompanyChange(company.id)}
+                >
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-sm">{company.name}</span>
@@ -286,7 +302,10 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                   </div>
                   <div
                     className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
-                    onClick={(e) => toggleFavorite(company.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(company.id, e);
+                    }}
                   >
                     <Star
                       className={cn(
@@ -298,27 +317,28 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                     />
                   </div>
                 </div>
-              </SelectItem>
-            ))}
+              ))}
 
-            {/* No Results Message */}
-            {getFilteredAndSortedCompanies().length === 0 && searchTerm && (
-              <div className="p-4 text-center text-muted-foreground text-sm">
-                No companies found matching "{searchTerm}"
-              </div>
-            )}
+              {/* No Results Message */}
+              {getFilteredAndSortedCompanies().length === 0 && searchTerm && (
+                <div className="p-4 text-center text-muted-foreground text-sm">
+                  No companies found matching "{searchTerm}"
+                </div>
+              )}
 
-            {/* Add New Company Option */}
-            <SelectItem value="add-new" className="border-t cursor-pointer">
-              <div className="flex items-center space-x-2 w-full">
+              {/* Add New Company Option */}
+              <div
+                className="flex items-center space-x-2 w-full p-2 hover:bg-muted cursor-pointer border-t"
+                onClick={() => handleCompanyChange("add-new")}
+              >
                 <div className="flex h-6 w-6 items-center justify-center rounded bg-muted">
                   <Plus className="h-3 w-3 text-muted-foreground" />
                 </div>
                 <span className="text-muted-foreground text-sm">Add New Company</span>
               </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
     </div>
