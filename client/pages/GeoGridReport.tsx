@@ -30,6 +30,8 @@ import {
   Eye,
   ArrowLeft,
   Settings,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
