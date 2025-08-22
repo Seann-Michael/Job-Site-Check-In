@@ -100,8 +100,8 @@ export function useTypingIndicators(channelId?: string) {
         event: 'typing_start',
         payload: {
           user_id: user.id,
-          user_name: user.user_metadata?.full_name ||
-                   user.user_metadata?.name ||
+          user_name: (user as any).user_metadata?.full_name ||
+                   (user as any).user_metadata?.name ||
                    user.email?.split('@')[0] ||
                    'Anonymous'
         }
