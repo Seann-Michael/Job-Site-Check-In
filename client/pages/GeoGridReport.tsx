@@ -718,9 +718,10 @@ export default function GeoGridReport() {
                 Cancel
               </Button>
               <Button onClick={() => {
-                // TODO: Save settings
+                // Save waypoint colors to localStorage or state
+                localStorage.setItem('waypointColors', JSON.stringify(waypointColors));
                 setShowSettingsModal(false);
-                toast.success("Settings saved successfully");
+                toast.success("Waypoint colors updated successfully");
               }}>
                 Save Changes
               </Button>
