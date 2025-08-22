@@ -206,47 +206,17 @@ export default function Chat() {
     };
   }, [selectedChannel, user]);
 
-  // Real-time presence subscription
+  // Update presence when channel changes
   useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('user_presence')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_user_presence'
-        },
-        () => {
-          // Reload online users when presence changes
-          loadOnlineUsers();
-        }
-      )
-      .subscribe();
-
-    // Update own presence
-    updatePresence('online');
-
-    // Set up presence heartbeat
-    const presenceInterval = setInterval(() => {
-      updatePresence('online');
-    }, 30000); // Update every 30 seconds
-
-    // Cleanup on unmount
-    return () => {
-      updatePresence('offline');
-      clearInterval(presenceInterval);
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+    if (selectedChannel && user) {
+      updatePresence(currentStatus, selectedChannel.id);
+    }
+  }, [selectedChannel, user, currentStatus, updatePresence]);
 
   // Load channels on component mount
   useEffect(() => {
     if (user) {
       loadChannels();
-      loadOnlineUsers();
       ensureDefaultChannel();
     }
   }, [user]);
@@ -280,25 +250,6 @@ export default function Chat() {
     }
   };
 
-  // Update user presence
-  const updatePresence = async (status: 'online' | 'away' | 'busy' | 'offline') => {
-    try {
-      const token = getAuthToken();
-      await fetch('/api/chat/preferences/presence', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status,
-          current_channel_id: selectedChannel?.id
-        }),
-      });
-    } catch (error) {
-      console.error('Error updating presence:', error);
-    }
-  };
 
   // Ensure default channel exists
   const ensureDefaultChannel = async () => {
@@ -531,6 +482,19 @@ export default function Chat() {
         return <Minus className="h-3 w-3 text-red-500" />;
       default:
         return <Circle className="h-3 w-3 fill-gray-400 text-gray-400" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online':
+        return 'bg-green-500';
+      case 'away':
+        return 'bg-yellow-500';
+      case 'busy':
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-400';
     }
   };
 
