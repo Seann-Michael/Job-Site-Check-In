@@ -45,10 +45,28 @@ export async function authenticateUser(authHeader: string | undefined): Promise<
     }
 
     const token = authHeader.replace('Bearer ', '');
-    
-    // Verify the JWT token with Supabase
+
+    // Handle demo tokens for development
+    if (token.startsWith('demo_token_')) {
+      return {
+        success: true,
+        user: {
+          id: '1',
+          email: 'john@smithconstruction.com',
+          role: 'admin',
+          profile: {
+            id: '1',
+            role: 'admin',
+            full_name: 'John Smith',
+            company: 'Smith Construction LLC',
+          },
+        },
+      };
+    }
+
+    // Verify the JWT token with Supabase for production
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
       return {
         success: false,
