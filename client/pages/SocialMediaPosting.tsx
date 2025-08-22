@@ -596,6 +596,120 @@ export default function SocialMediaPosting() {
     }
   };
 
+  const performKeywordResearch = async () => {
+    if (!seedKeywords.trim()) {
+      toast.error('Please enter seed keywords');
+      return;
+    }
+
+    setKeywordResearchLoading(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/keyword-research', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          seedKeywords: seedKeywords.split(',').map(k => k.trim()),
+          location: formData.target_location || 'United States',
+          maxResults: 100,
+          minSearchVolume: 50
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setKeywordClusters(data.clusters || []);
+        toast.success(`Found ${data.clusters?.length || 0} keyword clusters`);
+        if (data.source === 'mock') {
+          toast.info('Using demo data - connect DataForSEO for real keyword data');
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to perform keyword research');
+      }
+    } catch (error) {
+      console.error('Error performing keyword research:', error);
+      toast.error('Error performing keyword research');
+    } finally {
+      setKeywordResearchLoading(false);
+    }
+  };
+
+  const createBulkPosts = async () => {
+    if (!bulkConfig.campaignName || !bulkConfig.startDate || !bulkConfig.endDate) {
+      toast.error('Please fill in campaign name, start date, and end date');
+      return;
+    }
+
+    if (!aiSettings.businessName || !formData.target_keywords?.length) {
+      toast.error('Please provide business name and target keywords');
+      return;
+    }
+
+    setBulkGenerating(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/bulk-social-posting', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...bulkConfig,
+          businessName: aiSettings.businessName,
+          businessType: aiSettings.businessType,
+          targetKeywords: formData.target_keywords,
+          targetLocation: formData.target_location || 'United States',
+          timezone: 'America/New_York' // Could be made configurable
+        }),
+      });
+
+      if (response.ok) {
+        const results = await response.json();
+        setBulkResults(results);
+        toast.success(`Successfully created ${results.postsCreated} posts!`);
+
+        if (results.errors && results.errors.length > 0) {
+          toast.warning(`Some posts had issues: ${results.errors.length} errors`);
+        }
+
+        // Refresh posts list
+        loadPosts();
+        setSelectedTab("manage");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to create bulk posts');
+      }
+    } catch (error) {
+      console.error('Error creating bulk posts:', error);
+      toast.error('Error creating bulk posts');
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  const useKeywordCluster = (cluster: KeywordCluster) => {
+    const keywords = cluster.keywords.map(k => k.keyword).slice(0, 5); // Use top 5 keywords
+    setFormData(prev => ({
+      ...prev,
+      target_keywords: keywords
+    }));
+
+    // Auto-fill some AI settings based on the cluster
+    setAiSettings(prev => ({
+      ...prev,
+      contentType: cluster.search_intent === 'transactional' ? 'promotional' :
+                  cluster.search_intent === 'informational' ? 'educational' : 'engagement'
+    }));
+
+    toast.success(`Applied keywords from "${cluster.name}" cluster`);
+    setSelectedTab("create");
+  };
+
   const getCharacterCount = () => {
     const content = formData.content || '';
     const hashtags = (formData.hashtags || []).join(' ');
