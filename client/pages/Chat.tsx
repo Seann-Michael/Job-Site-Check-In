@@ -326,12 +326,16 @@ export default function Chat() {
     messageInputRef.current?.focus();
 
     try {
+      // Extract mentioned user IDs
+      const mentionedUserIds = extractMentionedUserIds(messageContent, channelUsers);
+
       const message = await makeAuthenticatedChatRequest('/api/chat/messages', {
         method: 'POST',
         body: JSON.stringify({
           channel_id: selectedChannel.id,
           content: messageContent,
-          message_type: 'text'
+          message_type: 'text',
+          mentioned_users: mentionedUserIds
         }),
       });
 
