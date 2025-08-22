@@ -222,6 +222,28 @@ export const handler: Handler = async (event, context) => {
         // Get posts (with optional filtering)
         if (postId && postId !== 'social-media-posts') {
           // Get specific post
+          if (isDemoMode) {
+            const post = mockPosts.find(p => p.id === postId);
+            if (!post) {
+              return {
+                statusCode: 404,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ error: 'Post not found' }),
+              };
+            }
+            return {
+              statusCode: 200,
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(post),
+            };
+          }
+
           const { data: post, error } = await supabase
             .from('social_media_posts')
             .select(`
@@ -261,9 +283,26 @@ export const handler: Handler = async (event, context) => {
           };
         } else {
           // Get all posts with filters
+          if (isDemoMode) {
+            return {
+              statusCode: 200,
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                posts: mockPosts,
+                total: mockPosts.length,
+                limit: 20,
+                offset: 0,
+                demo: true
+              }),
+            };
+          }
+
           const query: PostQuery = {};
           const urlParams = new URLSearchParams(event.queryStringParameters || {});
-          
+
           query.platform = urlParams.get('platform') || undefined;
           query.status = urlParams.get('status') || undefined;
           query.search = urlParams.get('search') || undefined;
