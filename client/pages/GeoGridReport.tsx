@@ -606,8 +606,12 @@ export default function GeoGridReport() {
                       unit: "miles",
                       distanceBetween: 1,
                     }}
-                    reportMode={true}
                     businessName={scanResult.business_name}
+                    keyword={scanResult.keyword}
+                    scanDate={scanResult.scan_date}
+                    scanTime={scanResult.scan_time}
+                    averageRanking={selectedCompetitor ? analytics.average : scanResult.average_ranking}
+                    rankingAnalytics={analytics}
                     showBusinessOverlay={true}
                   />
                 </div>
