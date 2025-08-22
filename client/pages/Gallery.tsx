@@ -24,7 +24,7 @@ import { MediaViewer } from "@/components/MediaViewer";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 import { PhotoActionMenu } from "@/components/PhotoActionMenu";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
-import { dataService } from "@/lib/dataService";
+import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 import {
   ArrowLeft,
   Images,
