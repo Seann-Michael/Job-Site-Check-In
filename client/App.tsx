@@ -102,19 +102,19 @@ const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunicat
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
 // Agency Project Management imports
-import AgencyProjects from "./pages/AgencyProjects";
-import AgencyProjectCreate from "./pages/AgencyProjectCreate";
-import AgencyProjectDetail from "./pages/AgencyProjectDetail";
-import AgencyProjectEdit from "./pages/AgencyProjectEdit";
+const AgencyProjects = lazy(() => import("./pages/AgencyProjects"));
+const AgencyProjectCreate = lazy(() => import("./pages/AgencyProjectCreate"));
+const AgencyProjectDetail = lazy(() => import("./pages/AgencyProjectDetail"));
+const AgencyProjectEdit = lazy(() => import("./pages/AgencyProjectEdit"));
 
 // Agency Task Management
-import AgencyTasks from "./pages/AgencyTasks";
-import TaskView from "./pages/TaskView";
+const AgencyTasks = lazy(() => import("./pages/AgencyTasks"));
+const TaskView = lazy(() => import("./pages/TaskView"));
 
 // Lead Management
-import SuperAdminLeads from "./pages/SuperAdminLeads";
-import AdminLeads from "./pages/AdminLeads";
-import AgencyLeads from "./pages/AgencyLeads";
+const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
+const AdminLeads = lazy(() => import("./pages/AdminLeads"));
+const AgencyLeads = lazy(() => import("./pages/AgencyLeads"));
 
 const queryClient = new QueryClient();
 
