@@ -272,19 +272,6 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                         <Check className="h-3 w-3 text-primary" />
                       )}
                     </div>
-                    <div className="flex items-center space-x-1 mt-0.5">
-                      <Badge
-                        variant={company.plan === "Pro" ? "default" : "secondary"}
-                        className="text-xs py-0 px-1"
-                      >
-                        {company.plan}
-                      </Badge>
-                      {!company.isActive && (
-                        <Badge variant="outline" className="text-xs py-0 px-1">
-                          Inactive
-                        </Badge>
-                      )}
-                    </div>
                   </div>
                   <div
                     className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
