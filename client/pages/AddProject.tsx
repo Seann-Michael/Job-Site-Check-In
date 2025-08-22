@@ -92,7 +92,8 @@ export default function AddProject() {
   useEffect(() => {
     const loadBusinesses = async () => {
       try {
-        const businessData = await dataService.getBusinesses();
+        const businessResponse = await dataService.getBusinesses(undefined, {});
+        const businessData = Array.isArray(businessResponse) ? businessResponse : businessResponse.data;
         setBusinesses(businessData);
         // Auto-select if only one business
         if (businessData.length === 1) {
