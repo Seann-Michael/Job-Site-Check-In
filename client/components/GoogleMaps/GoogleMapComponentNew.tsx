@@ -66,6 +66,7 @@ interface GoogleMapComponentProps {
   reportMode?: boolean;
   // Business name overlay
   businessName?: string;
+  businessAddress?: string;
   keyword?: string;
   scanDate?: string;
   scanTime?: string;
@@ -106,6 +107,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   scanConfig,
   reportMode = false,
   businessName,
+  businessAddress,
   keyword,
   scanDate,
   scanTime,
