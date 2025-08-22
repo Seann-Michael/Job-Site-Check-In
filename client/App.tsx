@@ -471,7 +471,7 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/social-media-posting"
+                  path="/admin/social-posting"
                   element={
                     <ProtectedRoute>
                       <Suspense fallback={<div>Loading...</div>}>
