@@ -1,0 +1,1359 @@
+import React, { useState, useEffect, useRef } from "react";
+import { AppLayout } from "@/components/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { toast } from "sonner";
+import {
+  Plus,
+  Wand2,
+  Upload,
+  Calendar,
+  Share2,
+  BarChart3,
+  Edit3,
+  Trash2,
+  Copy,
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Instagram,
+  Building2,
+  ImageIcon,
+  Hash,
+  AtSign,
+  MapPin,
+  Clock,
+  Send,
+  Eye,
+  Sparkles,
+  Target,
+  Palette,
+  FileText,
+  Settings
+} from "lucide-react";
+
+interface SocialMediaPost {
+  id?: string;
+  title: string;
+  platform: 'gmb' | 'facebook' | 'instagram' | 'twitter' | 'linkedin';
+  content: string;
+  hashtags?: string[];
+  mentions?: string[];
+  target_keywords?: string[];
+  target_location?: string;
+  scheduled_for?: string;
+  status?: 'draft' | 'scheduled' | 'published' | 'failed' | 'cancelled';
+  images?: any[];
+  primary_image_url?: string;
+  syndicated_to?: string[];
+  created_at?: string;
+  content_length?: number;
+  likes_count?: number;
+  comments_count?: number;
+  shares_count?: number;
+  engagement_rate?: number;
+}
+
+interface GeneratedContent {
+  content: string;
+  hashtags: string[];
+  characterCount: number;
+  suggestedImages: string[];
+  engagementTips: string[];
+}
+
+interface GeneratedImage {
+  imageUrl: string;
+  revisedPrompt: string;
+  dimensions: { width: number; height: number };
+  suggestedUsage: string[];
+  alternativePrompts: string[];
+}
+
+const PLATFORM_ICONS = {
+  gmb: Building2,
+  facebook: Facebook,
+  instagram: Instagram,
+  twitter: Twitter,
+  linkedin: Linkedin
+};
+
+const PLATFORM_NAMES = {
+  gmb: 'Google My Business',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  twitter: 'Twitter',
+  linkedin: 'LinkedIn'
+};
+
+const PLATFORM_LIMITS = {
+  gmb: 1500,
+  facebook: 63206,
+  instagram: 2200,
+  twitter: 280,
+  linkedin: 3000
+};
+
+const CONTENT_TYPES = [
+  { value: 'promotional', label: 'Promotional', description: 'Promote services and offers' },
+  { value: 'educational', label: 'Educational', description: 'Share tips and knowledge' },
+  { value: 'engagement', label: 'Engagement', description: 'Encourage interaction' },
+  { value: 'behind-scenes', label: 'Behind the Scenes', description: 'Show authentic moments' },
+  { value: 'announcement', label: 'Announcement', description: 'Share news and updates' }
+];
+
+const TONE_OPTIONS = [
+  { value: 'professional', label: 'Professional' },
+  { value: 'casual', label: 'Casual' },
+  { value: 'friendly', label: 'Friendly' },
+  { value: 'authoritative', label: 'Authoritative' },
+  { value: 'conversational', label: 'Conversational' }
+];
+
+const IMAGE_STYLES = [
+  { value: 'professional', label: 'Professional' },
+  { value: 'modern', label: 'Modern' },
+  { value: 'creative', label: 'Creative' },
+  { value: 'minimalist', label: 'Minimalist' },
+  { value: 'vibrant', label: 'Vibrant' },
+  { value: 'corporate', label: 'Corporate' }
+];
+
+const IMAGE_TYPES = [
+  { value: 'service_showcase', label: 'Service Showcase' },
+  { value: 'behind_scenes', label: 'Behind the Scenes' },
+  { value: 'team_photo', label: 'Team Photo' },
+  { value: 'product_display', label: 'Product Display' },
+  { value: 'location_shot', label: 'Location Shot' },
+  { value: 'promotional', label: 'Promotional' },
+  { value: 'educational', label: 'Educational' }
+];
+
+export default function SocialMediaPosting() {
+  const [posts, setPosts] = useState<SocialMediaPost[]>([]);
+  const [selectedTab, setSelectedTab] = useState("create");
+  const [loading, setLoading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [imageGenerating, setImageGenerating] = useState(false);
+  
+  // Form state
+  const [formData, setFormData] = useState<Partial<SocialMediaPost>>({
+    title: '',
+    platform: 'gmb',
+    content: '',
+    hashtags: [],
+    mentions: [],
+    target_keywords: [],
+    target_location: '',
+    status: 'draft'
+  });
+
+  // AI generation state
+  const [aiSettings, setAiSettings] = useState({
+    businessName: '',
+    businessType: '',
+    contentType: 'promotional',
+    tone: 'professional',
+    callToAction: '',
+    additionalContext: ''
+  });
+
+  // Image generation state
+  const [imageSettings, setImageSettings] = useState({
+    prompt: '',
+    style: 'professional',
+    imageType: 'service_showcase',
+    includeText: false,
+    size: '1024x1024'
+  });
+
+  // Syndication state
+  const [syndicationSettings, setSyndicationSettings] = useState({
+    targetPlatforms: [] as string[],
+    scheduleDelay: 0,
+    preserveScheduling: true
+  });
+
+  // UI state
+  const [expandedSections, setExpandedSections] = useState({
+    aiGeneration: false,
+    imageGeneration: false,
+    syndication: false,
+    scheduling: false
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const breadcrumbs = [
+    { label: "Social Media Posting" },
+  ];
+
+  // Load posts on component mount
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const loadPosts = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/social-media-posts', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts || []);
+      } else {
+        toast.error('Failed to load posts');
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      toast.error('Error loading posts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateAIContent = async () => {
+    if (!aiSettings.businessName || !formData.target_keywords?.length) {
+      toast.error('Please provide business name and target keywords');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/social-media-content-generator', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          platform: formData.platform,
+          targetKeywords: formData.target_keywords,
+          businessName: aiSettings.businessName,
+          businessType: aiSettings.businessType,
+          targetLocation: formData.target_location,
+          contentType: aiSettings.contentType,
+          tone: aiSettings.tone,
+          callToAction: aiSettings.callToAction,
+          additionalContext: aiSettings.additionalContext
+        }),
+      });
+
+      if (response.ok) {
+        const generatedContent: GeneratedContent = await response.json();
+        setFormData(prev => ({
+          ...prev,
+          content: generatedContent.content,
+          hashtags: generatedContent.hashtags
+        }));
+        toast.success('AI content generated successfully!');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate content');
+      }
+    } catch (error) {
+      console.error('Error generating content:', error);
+      toast.error('Error generating content');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const generateAIImage = async () => {
+    if (!imageSettings.prompt || !aiSettings.businessName) {
+      toast.error('Please provide image prompt and business name');
+      return;
+    }
+
+    setImageGenerating(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/social-media-image-generator', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: imageSettings.prompt,
+          businessName: aiSettings.businessName,
+          businessType: aiSettings.businessType,
+          platform: formData.platform,
+          style: imageSettings.style,
+          imageType: imageSettings.imageType,
+          includeText: imageSettings.includeText,
+          size: imageSettings.size
+        }),
+      });
+
+      if (response.ok) {
+        const generatedImage: GeneratedImage = await response.json();
+        setFormData(prev => ({
+          ...prev,
+          primary_image_url: generatedImage.imageUrl,
+          images: [{
+            url: generatedImage.imageUrl,
+            type: 'ai_generated',
+            prompt: imageSettings.prompt,
+            style: imageSettings.style
+          }]
+        }));
+        toast.success('AI image generated successfully!');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate image');
+      }
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast.error('Error generating image');
+    } finally {
+      setImageGenerating(false);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    try {
+      // In a real implementation, you would upload to Supabase storage
+      // For now, we'll create a temporary URL
+      const imageUrl = URL.createObjectURL(file);
+      setFormData(prev => ({
+        ...prev,
+        primary_image_url: imageUrl,
+        images: [{
+          url: imageUrl,
+          type: 'upload',
+          filename: file.name,
+          size: file.size
+        }]
+      }));
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Error uploading image');
+    }
+  };
+
+  const savePost = async () => {
+    if (!formData.title || !formData.content) {
+      toast.error('Please provide title and content');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/social-media-posts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const newPost = await response.json();
+        setPosts(prev => [newPost, ...prev]);
+        
+        // Reset form
+        setFormData({
+          title: '',
+          platform: 'gmb',
+          content: '',
+          hashtags: [],
+          mentions: [],
+          target_keywords: [],
+          target_location: '',
+          status: 'draft'
+        });
+        
+        setSelectedTab("manage");
+        toast.success('Post saved successfully!');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to save post');
+      }
+    } catch (error) {
+      console.error('Error saving post:', error);
+      toast.error('Error saving post');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const schedulePost = async () => {
+    if (!formData.scheduled_for) {
+      toast.error('Please select a schedule time');
+      return;
+    }
+
+    const postData = {
+      ...formData,
+      status: 'scheduled'
+    };
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/social-media-posts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData),
+      });
+
+      if (response.ok) {
+        const newPost = await response.json();
+        setPosts(prev => [newPost, ...prev]);
+        setSelectedTab("manage");
+        toast.success('Post scheduled successfully!');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to schedule post');
+      }
+    } catch (error) {
+      console.error('Error scheduling post:', error);
+      toast.error('Error scheduling post');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syndicatePost = async (postId: string) => {
+    if (!syndicationSettings.targetPlatforms.length) {
+      toast.error('Please select target platforms for syndication');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch('/api/social-media-syndication/syndicate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          postId,
+          targetPlatforms: syndicationSettings.targetPlatforms,
+          scheduleDelay: syndicationSettings.scheduleDelay,
+          preserveScheduling: syndicationSettings.preserveScheduling
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Successfully syndicated to ${result.totalCreated} platforms`);
+        loadPosts(); // Reload to show new syndicated posts
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to syndicate post');
+      }
+    } catch (error) {
+      console.error('Error syndicating post:', error);
+      toast.error('Error syndicating post');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const token = localStorage.getItem('supabase_auth_token');
+      const response = await fetch(`/api/social-media-posts/${postId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setPosts(prev => prev.filter(post => post.id !== postId));
+        toast.success('Post deleted successfully');
+      } else {
+        toast.error('Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Error deleting post');
+    }
+  };
+
+  const getCharacterCount = () => {
+    const content = formData.content || '';
+    const hashtags = (formData.hashtags || []).join(' ');
+    return content.length + (hashtags.length > 0 ? hashtags.length + 1 : 0);
+  };
+
+  const getCharacterLimit = () => {
+    return PLATFORM_LIMITS[formData.platform as keyof typeof PLATFORM_LIMITS] || 1000;
+  };
+
+  const isOverLimit = () => {
+    return getCharacterCount() > getCharacterLimit();
+  };
+
+  return (
+    <AppLayout breadcrumbs={breadcrumbs}>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Share2 className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                Social Media Posting
+              </h1>
+              <p className="text-muted-foreground">
+                Create and manage GMB updates and social media posts with AI assistance
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Tabs */}
+        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="create" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Create Post
+            </TabsTrigger>
+            <TabsTrigger value="manage" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Manage Posts
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Create Post Tab */}
+          <TabsContent value="create" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Form */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Edit3 className="h-5 w-5" />
+                      Post Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Title */}
+                    <div>
+                      <Label htmlFor="title">Post Title *</Label>
+                      <Input
+                        id="title"
+                        value={formData.title || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Enter post title..."
+                      />
+                    </div>
+
+                    {/* Platform Selection */}
+                    <div>
+                      <Label htmlFor="platform">Platform *</Label>
+                      <Select 
+                        value={formData.platform} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, platform: value as any }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select platform" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PLATFORM_NAMES).map(([key, name]) => {
+                            const Icon = PLATFORM_ICONS[key as keyof typeof PLATFORM_ICONS];
+                            return (
+                              <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                  <Icon className="h-4 w-4" />
+                                  {name}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Content */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label htmlFor="content">Content *</Label>
+                        <div className={`text-sm ${isOverLimit() ? 'text-red-500' : 'text-muted-foreground'}`}>
+                          {getCharacterCount()}/{getCharacterLimit()}
+                        </div>
+                      </div>
+                      <Textarea
+                        id="content"
+                        value={formData.content || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                        placeholder="Write your post content..."
+                        rows={6}
+                        className={isOverLimit() ? 'border-red-500' : ''}
+                      />
+                      {isOverLimit() && (
+                        <p className="text-sm text-red-500 mt-1">
+                          Content exceeds platform limit
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Keywords */}
+                    <div>
+                      <Label htmlFor="keywords">Target Keywords</Label>
+                      <Input
+                        id="keywords"
+                        value={(formData.target_keywords || []).join(', ')}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          target_keywords: e.target.value.split(',').map(k => k.trim()).filter(k => k)
+                        }))}
+                        placeholder="Enter keywords separated by commas..."
+                      />
+                    </div>
+
+                    {/* Location */}
+                    <div>
+                      <Label htmlFor="location">Target Location</Label>
+                      <Input
+                        id="location"
+                        value={formData.target_location || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, target_location: e.target.value }))}
+                        placeholder="e.g., New York, NY"
+                      />
+                    </div>
+
+                    {/* Hashtags */}
+                    <div>
+                      <Label htmlFor="hashtags">Hashtags</Label>
+                      <Input
+                        id="hashtags"
+                        value={(formData.hashtags || []).join(' ')}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          hashtags: e.target.value.split(' ').filter(h => h.startsWith('#'))
+                        }))}
+                        placeholder="#hashtag1 #hashtag2 #hashtag3"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* AI Content Generation */}
+                <Card>
+                  <Collapsible 
+                    open={expandedSections.aiGeneration} 
+                    onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, aiGeneration: open }))}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50">
+                        <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Wand2 className="h-5 w-5" />
+                            AI Content Generation
+                          </div>
+                          {expandedSections.aiGeneration ? 
+                            <ChevronDown className="h-4 w-4" /> : 
+                            <ChevronRight className="h-4 w-4" />
+                          }
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="businessName">Business Name *</Label>
+                            <Input
+                              id="businessName"
+                              value={aiSettings.businessName}
+                              onChange={(e) => setAiSettings(prev => ({ ...prev, businessName: e.target.value }))}
+                              placeholder="Your business name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="businessType">Business Type</Label>
+                            <Input
+                              id="businessType"
+                              value={aiSettings.businessType}
+                              onChange={(e) => setAiSettings(prev => ({ ...prev, businessType: e.target.value }))}
+                              placeholder="e.g., Restaurant, Law Firm, etc."
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contentType">Content Type</Label>
+                            <Select 
+                              value={aiSettings.contentType} 
+                              onValueChange={(value) => setAiSettings(prev => ({ ...prev, contentType: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CONTENT_TYPES.map(type => (
+                                  <SelectItem key={type.value} value={type.value}>
+                                    <div>
+                                      <div className="font-medium">{type.label}</div>
+                                      <div className="text-sm text-muted-foreground">{type.description}</div>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="tone">Tone</Label>
+                            <Select 
+                              value={aiSettings.tone} 
+                              onValueChange={(value) => setAiSettings(prev => ({ ...prev, tone: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TONE_OPTIONS.map(tone => (
+                                  <SelectItem key={tone.value} value={tone.value}>
+                                    {tone.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="callToAction">Call to Action</Label>
+                          <Input
+                            id="callToAction"
+                            value={aiSettings.callToAction}
+                            onChange={(e) => setAiSettings(prev => ({ ...prev, callToAction: e.target.value }))}
+                            placeholder="e.g., Call now for a free consultation"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="additionalContext">Additional Context</Label>
+                          <Textarea
+                            id="additionalContext"
+                            value={aiSettings.additionalContext}
+                            onChange={(e) => setAiSettings(prev => ({ ...prev, additionalContext: e.target.value }))}
+                            placeholder="Any additional context or specific instructions..."
+                            rows={3}
+                          />
+                        </div>
+
+                        <Button 
+                          onClick={generateAIContent} 
+                          disabled={aiGenerating || !aiSettings.businessName}
+                          className="w-full"
+                        >
+                          {aiGenerating ? (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                              Generating Content...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="h-4 w-4 mr-2" />
+                              Generate AI Content
+                            </>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+
+                {/* Image Generation/Upload */}
+                <Card>
+                  <Collapsible 
+                    open={expandedSections.imageGeneration} 
+                    onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, imageGeneration: open }))}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50">
+                        <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ImageIcon className="h-5 w-5" />
+                            Image & Media
+                          </div>
+                          {expandedSections.imageGeneration ? 
+                            <ChevronDown className="h-4 w-4" /> : 
+                            <ChevronRight className="h-4 w-4" />
+                          }
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4">
+                        {/* Current Image Preview */}
+                        {formData.primary_image_url && (
+                          <div className="relative">
+                            <img 
+                              src={formData.primary_image_url} 
+                              alt="Post image" 
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setFormData(prev => ({ ...prev, primary_image_url: '', images: [] }))}
+                              className="absolute top-2 right-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Upload Button */}
+                        <div>
+                          <Button
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Image
+                          </Button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </div>
+
+                        <Separator />
+
+                        {/* AI Image Generation */}
+                        <div className="space-y-4">
+                          <h4 className="font-medium flex items-center gap-2">
+                            <Palette className="h-4 w-4" />
+                            AI Image Generation
+                          </h4>
+                          
+                          <div>
+                            <Label htmlFor="imagePrompt">Image Description</Label>
+                            <Textarea
+                              id="imagePrompt"
+                              value={imageSettings.prompt}
+                              onChange={(e) => setImageSettings(prev => ({ ...prev, prompt: e.target.value }))}
+                              placeholder="Describe the image you want to generate..."
+                              rows={3}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="imageStyle">Style</Label>
+                              <Select 
+                                value={imageSettings.style} 
+                                onValueChange={(value) => setImageSettings(prev => ({ ...prev, style: value }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {IMAGE_STYLES.map(style => (
+                                    <SelectItem key={style.value} value={style.value}>
+                                      {style.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="imageType">Image Type</Label>
+                              <Select 
+                                value={imageSettings.imageType} 
+                                onValueChange={(value) => setImageSettings(prev => ({ ...prev, imageType: value }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {IMAGE_TYPES.map(type => (
+                                    <SelectItem key={type.value} value={type.value}>
+                                      {type.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <Button 
+                            onClick={generateAIImage} 
+                            disabled={imageGenerating || !imageSettings.prompt || !aiSettings.businessName}
+                            className="w-full"
+                          >
+                            {imageGenerating ? (
+                              <>
+                                <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                                Generating Image...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Generate AI Image
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              </div>
+
+              {/* Sidebar */}
+              <div className="space-y-6">
+                {/* Preview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        {formData.platform && (
+                          <>
+                            {React.createElement(PLATFORM_ICONS[formData.platform], { 
+                              className: "h-5 w-5" 
+                            })}
+                            <span className="font-medium">
+                              {PLATFORM_NAMES[formData.platform]}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {formData.primary_image_url && (
+                        <img 
+                          src={formData.primary_image_url} 
+                          alt="Preview" 
+                          className="w-full h-32 object-cover rounded"
+                        />
+                      )}
+                      
+                      <div className="text-sm">
+                        <div className="font-medium mb-1">{formData.title || 'Post Title'}</div>
+                        <div className="text-muted-foreground whitespace-pre-wrap">
+                          {formData.content || 'Your post content will appear here...'}
+                        </div>
+                        {formData.hashtags && formData.hashtags.length > 0 && (
+                          <div className="mt-2 text-blue-600">
+                            {formData.hashtags.join(' ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Scheduling */}
+                <Card>
+                  <Collapsible 
+                    open={expandedSections.scheduling} 
+                    onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, scheduling: open }))}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50">
+                        <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5" />
+                            Scheduling
+                          </div>
+                          {expandedSections.scheduling ? 
+                            <ChevronDown className="h-4 w-4" /> : 
+                            <ChevronRight className="h-4 w-4" />
+                          }
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <Label htmlFor="scheduledFor">Schedule For</Label>
+                          <Input
+                            id="scheduledFor"
+                            type="datetime-local"
+                            value={formData.scheduled_for || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, scheduled_for: e.target.value }))}
+                          />
+                        </div>
+                        <Button onClick={schedulePost} disabled={loading} className="w-full">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Schedule Post
+                        </Button>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+
+                {/* Syndication */}
+                <Card>
+                  <Collapsible 
+                    open={expandedSections.syndication} 
+                    onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, syndication: open }))}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50">
+                        <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Share2 className="h-5 w-5" />
+                            Syndication
+                          </div>
+                          {expandedSections.syndication ? 
+                            <ChevronDown className="h-4 w-4" /> : 
+                            <ChevronRight className="h-4 w-4" />
+                          }
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <Label>Target Platforms</Label>
+                          <div className="space-y-2 mt-2">
+                            {Object.entries(PLATFORM_NAMES)
+                              .filter(([key]) => key !== formData.platform)
+                              .map(([key, name]) => {
+                                const Icon = PLATFORM_ICONS[key as keyof typeof PLATFORM_ICONS];
+                                return (
+                                  <label key={key} className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={syndicationSettings.targetPlatforms.includes(key)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSyndicationSettings(prev => ({
+                                            ...prev,
+                                            targetPlatforms: [...prev.targetPlatforms, key]
+                                          }));
+                                        } else {
+                                          setSyndicationSettings(prev => ({
+                                            ...prev,
+                                            targetPlatforms: prev.targetPlatforms.filter(p => p !== key)
+                                          }));
+                                        }
+                                      }}
+                                    />
+                                    <Icon className="h-4 w-4" />
+                                    <span>{name}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="scheduleDelay">Schedule Delay (minutes)</Label>
+                          <Input
+                            id="scheduleDelay"
+                            type="number"
+                            value={syndicationSettings.scheduleDelay}
+                            onChange={(e) => setSyndicationSettings(prev => ({ 
+                              ...prev, 
+                              scheduleDelay: parseInt(e.target.value) || 0 
+                            }))}
+                            min="0"
+                          />
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+
+                {/* Actions */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <Button onClick={savePost} disabled={loading} className="w-full">
+                        <Send className="h-4 w-4 mr-2" />
+                        Save as Draft
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setFormData({
+                            title: '',
+                            platform: 'gmb',
+                            content: '',
+                            hashtags: [],
+                            mentions: [],
+                            target_keywords: [],
+                            target_location: '',
+                            status: 'draft'
+                          });
+                        }}
+                        className="w-full"
+                      >
+                        Clear Form
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Manage Posts Tab */}
+          <TabsContent value="manage" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Manage Posts
+                  </div>
+                  <Button onClick={loadPosts} size="sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                    <p className="mt-2 text-muted-foreground">Loading posts...</p>
+                  </div>
+                ) : posts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No posts yet</h3>
+                    <p className="text-muted-foreground mb-4">Create your first social media post to get started.</p>
+                    <Button onClick={() => setSelectedTab("create")}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Post
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {posts.map((post) => {
+                      const Icon = PLATFORM_ICONS[post.platform];
+                      return (
+                        <div key={post.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Icon className="h-4 w-4" />
+                                <span className="font-medium">{post.title}</span>
+                                <Badge variant={
+                                  post.status === 'published' ? 'default' :
+                                  post.status === 'scheduled' ? 'secondary' :
+                                  post.status === 'failed' ? 'destructive' :
+                                  'outline'
+                                }>
+                                  {post.status}
+                                </Badge>
+                              </div>
+                              
+                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                {post.content}
+                              </p>
+                              
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>{PLATFORM_NAMES[post.platform]}</span>
+                                <span>{post.content_length} characters</span>
+                                {post.scheduled_for && (
+                                  <span>
+                                    <Clock className="h-3 w-3 inline mr-1" />
+                                    {new Date(post.scheduled_for).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {post.syndicated_to && post.syndicated_to.length > 0 && (
+                                  <span>
+                                    <Share2 className="h-3 w-3 inline mr-1" />
+                                    Syndicated to {post.syndicated_to.length} platforms
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Engagement metrics */}
+                              {post.status === 'published' && (
+                                <div className="flex items-center gap-4 mt-2 text-xs">
+                                  <span>{post.likes_count || 0} likes</span>
+                                  <span>{post.comments_count || 0} comments</span>
+                                  <span>{post.shares_count || 0} shares</span>
+                                  {post.engagement_rate && (
+                                    <span>{post.engagement_rate}% engagement</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {post.status === 'draft' && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline">
+                                      <Share2 className="h-4 w-4" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Syndicate Post</DialogTitle>
+                                      <DialogDescription>
+                                        Select platforms to syndicate this post to
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div>
+                                        <Label>Target Platforms</Label>
+                                        <div className="space-y-2 mt-2">
+                                          {Object.entries(PLATFORM_NAMES)
+                                            .filter(([key]) => key !== post.platform)
+                                            .filter(([key]) => !post.syndicated_to?.includes(key))
+                                            .map(([key, name]) => {
+                                              const Icon = PLATFORM_ICONS[key as keyof typeof PLATFORM_ICONS];
+                                              return (
+                                                <label key={key} className="flex items-center space-x-2 cursor-pointer">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={syndicationSettings.targetPlatforms.includes(key)}
+                                                    onChange={(e) => {
+                                                      if (e.target.checked) {
+                                                        setSyndicationSettings(prev => ({
+                                                          ...prev,
+                                                          targetPlatforms: [...prev.targetPlatforms, key]
+                                                        }));
+                                                      } else {
+                                                        setSyndicationSettings(prev => ({
+                                                          ...prev,
+                                                          targetPlatforms: prev.targetPlatforms.filter(p => p !== key)
+                                                        }));
+                                                      }
+                                                    }}
+                                                  />
+                                                  <Icon className="h-4 w-4" />
+                                                  <span>{name}</span>
+                                                </label>
+                                              );
+                                            })}
+                                        </div>
+                                      </div>
+                                      <Button 
+                                        onClick={() => post.id && syndicatePost(post.id)}
+                                        disabled={syndicationSettings.targetPlatforms.length === 0}
+                                        className="w-full"
+                                      >
+                                        Syndicate Post
+                                      </Button>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                              
+                              <Button size="sm" variant="outline">
+                                <Edit3 className="h-4 w-4" />
+                              </Button>
+                              
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => post.id && deletePost(post.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Post Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Analytics Coming Soon</h3>
+                  <p className="text-muted-foreground">
+                    Detailed analytics and insights for your social media posts will be available here.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppLayout>
+  );
+}
