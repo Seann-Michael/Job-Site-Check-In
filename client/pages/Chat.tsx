@@ -1672,8 +1672,12 @@ export default function Chat() {
                                 </div>
                               )}
 
-                              <div className="text-sm whitespace-pre-wrap break-words">
-                                {message.content}
+                              <div className="text-sm break-words">
+                                <MarkdownRenderer
+                                  content={message.content}
+                                  enableMentions
+                                  className="prose-sm"
+                                />
                               </div>
                             </div>
                           </div>
