@@ -95,7 +95,7 @@ function buildPlatformPrompt(request: ContentGenerationRequest): { prompt: strin
 Business: ${businessName}
 Type: ${businessType}
 Location: ${targetLocation}
-Target Keywords: ${keywords.join(', ')}
+Target Keywords: ${targetKeywords.join(', ')}
 Content Type: ${contentType}
 Tone: ${tone}
 Call to Action: ${callToAction}
