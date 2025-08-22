@@ -415,7 +415,7 @@ export default function GeoGridReport() {
           {!isSidebarCollapsed && (
             <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Competitors List */}
-            <Card className="h-fit max-h-[800px] flex flex-col">
+            <Card className="h-[700px] flex flex-col">
               <CardHeader className="flex-shrink-0">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
