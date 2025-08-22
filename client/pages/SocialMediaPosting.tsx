@@ -104,6 +104,44 @@ interface GeneratedImage {
   alternativePrompts: string[];
 }
 
+interface KeywordCluster {
+  id: string;
+  name: string;
+  primary_keyword: string;
+  keywords: KeywordData[];
+  total_search_volume: number;
+  avg_difficulty: number;
+  avg_cpc: number;
+  search_intent: string;
+  content_opportunities: string[];
+}
+
+interface KeywordData {
+  keyword: string;
+  search_volume: number;
+  competition: number;
+  competition_level: 'low' | 'medium' | 'high';
+  cpc: number;
+  difficulty: number;
+  search_intent: 'informational' | 'commercial' | 'transactional' | 'navigational';
+}
+
+interface BulkPostingConfig {
+  campaignName: string;
+  totalPosts: number;
+  startDate: string;
+  endDate: string;
+  postsPerDay: number;
+  preferredTimes: string[];
+  skipWeekends: boolean;
+  platforms: string[];
+  contentTypes: string[];
+  tones: string[];
+  includeImages: boolean;
+  diversityLevel: 'low' | 'medium' | 'high';
+  keywordRotation: boolean;
+}
+
 const PLATFORM_ICONS = {
   gmb: Building2,
   facebook: Facebook,
@@ -215,6 +253,31 @@ export default function SocialMediaPosting() {
     syndication: false,
     scheduling: false
   });
+
+  // Keyword research state
+  const [keywordClusters, setKeywordClusters] = useState<KeywordCluster[]>([]);
+  const [keywordResearchLoading, setKeywordResearchLoading] = useState(false);
+  const [seedKeywords, setSeedKeywords] = useState<string>('');
+  const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
+
+  // Bulk posting state
+  const [bulkConfig, setBulkConfig] = useState<BulkPostingConfig>({
+    campaignName: '',
+    totalPosts: 30,
+    startDate: '',
+    endDate: '',
+    postsPerDay: 1,
+    preferredTimes: ['09:00', '14:00', '18:00'],
+    skipWeekends: false,
+    platforms: ['gmb'],
+    contentTypes: ['promotional', 'educational'],
+    tones: ['professional', 'friendly'],
+    includeImages: false,
+    diversityLevel: 'medium',
+    keywordRotation: true
+  });
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkResults, setBulkResults] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
