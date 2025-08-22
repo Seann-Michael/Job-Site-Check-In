@@ -236,11 +236,21 @@ export default function AIAgent() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setSessions(data.sessions || []);
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          setSessions(data.sessions || []);
+        } else {
+          console.warn("API returned non-JSON response for sessions");
+          setSessions([]);
+        }
+      } else {
+        console.warn(`Failed to load sessions: ${response.status} ${response.statusText}`);
+        setSessions([]);
       }
     } catch (error) {
       console.error("Error loading chat sessions:", error);
+      setSessions([]);
     }
   };
 
@@ -256,19 +266,29 @@ export default function AIAgent() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const formattedMessages = data.messages.map((msg: any) => ({
-          id: msg.id,
-          type: msg.message_type,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          cost: msg.cost,
-          credits: msg.credits_used,
-        }));
-        setMessages(formattedMessages);
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          const formattedMessages = data.messages.map((msg: any) => ({
+            id: msg.id,
+            type: msg.message_type,
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+            cost: msg.cost,
+            credits: msg.credits_used,
+          }));
+          setMessages(formattedMessages);
+        } else {
+          console.warn("API returned non-JSON response for messages");
+          setMessages([]);
+        }
+      } else {
+        console.warn(`Failed to load messages: ${response.status} ${response.statusText}`);
+        setMessages([]);
       }
     } catch (error) {
       console.error("Error loading chat messages:", error);
+      setMessages([]);
     }
   };
 
@@ -291,13 +311,22 @@ export default function AIAgent() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setCurrentSessionId(data.session.id);
-        setMessages([]);
-        setNewChatTitle("");
-        setShowNewChatDialog(false);
-        await loadChatSessions();
-        toast.success("New chat created!");
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          setCurrentSessionId(data.session.id);
+          setMessages([]);
+          setNewChatTitle("");
+          setShowNewChatDialog(false);
+          await loadChatSessions();
+          toast.success("New chat created!");
+        } else {
+          console.warn("API returned non-JSON response for session creation");
+          toast.error("Failed to create new chat - invalid response");
+        }
+      } else {
+        console.warn(`Failed to create session: ${response.status} ${response.statusText}`);
+        toast.error("Failed to create new chat");
       }
     } catch (error) {
       console.error("Error creating new chat:", error);
