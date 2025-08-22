@@ -53,6 +53,7 @@ const MarketPlace = lazy(() => import("./pages/MarketPlace"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
+const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
 import CRM from "./pages/CRM";
 import CRMClientDetail from "./pages/CRMClientDetail";
 import AdminBillingManagement from "./pages/AdminBillingManagement";
