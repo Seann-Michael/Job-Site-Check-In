@@ -127,6 +127,10 @@ export default function Chat() {
   const [channelUsers, setChannelUsers] = useState<any[]>([]);
   const [isCreatingDM, setIsCreatingDM] = useState(false);
   const [dmSearchQuery, setDmSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Mention autocomplete for main message input
   const mention = useMentionAutocomplete();
