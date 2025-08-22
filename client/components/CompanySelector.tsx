@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Building2,
+  MapPin,
   ChevronDown,
   Plus,
   Check,
@@ -51,12 +52,12 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
           const mockCompanies: Company[] = [
             {
               id: "1",
-              name: "Joe's Pizza & More",
+              name: "Waypoint",
               plan: "Pro",
               isActive: true,
             },
             {
-              id: "2", 
+              id: "2",
               name: "Fairfield Auto Repair",
               plan: "Basic",
               isActive: true,
@@ -81,7 +82,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
         // Fallback to default
         const defaultCompany: Company = {
           id: "default",
-          name: "Local SEO Ranker",
+          name: "Waypoint",
           plan: "Pro",
           isActive: true,
         };
@@ -132,7 +133,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
     return (
       <div className={cn("p-4 border-b flex justify-center", className)}>
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
-          <Building2 className="h-5 w-5 text-primary-foreground" />
+          <MapPin className="h-5 w-5 text-primary-foreground" />
         </div>
       </div>
     );
@@ -151,7 +152,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
             <SelectValue>
               <div className="flex items-center space-x-2">
                 <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
-                  <Building2 className="h-3 w-3 text-primary" />
+                  <MapPin className="h-3 w-3 text-primary" />
                 </div>
                 <div className="flex-1 text-left">
                   <div className="font-medium text-sm truncate">
@@ -166,7 +167,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
               <SelectItem key={company.id} value={company.id}>
                 <div className="flex items-center space-x-2 w-full">
                   <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
-                    <Building2 className="h-3 w-3 text-primary" />
+                    <MapPin className="h-3 w-3 text-primary" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
