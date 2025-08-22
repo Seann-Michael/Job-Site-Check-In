@@ -212,6 +212,18 @@ export default function GeoGridReport() {
     loadScanResult();
   }, [reportId]);
 
+  // Load saved waypoint colors on mount
+  useEffect(() => {
+    const savedColors = localStorage.getItem('waypointColors');
+    if (savedColors) {
+      try {
+        setWaypointColors(JSON.parse(savedColors));
+      } catch (error) {
+        console.error('Failed to load saved waypoint colors:', error);
+      }
+    }
+  }, []);
+
   // Get ranking color based on position
   const getRankingColor = (ranking: number | null): string => {
     if (ranking === null) return "#6B7280"; // Gray for unranked
