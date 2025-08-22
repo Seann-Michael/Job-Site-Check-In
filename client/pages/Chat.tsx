@@ -301,6 +301,9 @@ export default function Chat() {
     // Clear typing indicator
     stopTyping();
 
+    // Close mention autocomplete
+    mention.closeMention();
+
     const tempMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
       content: newMessage,
