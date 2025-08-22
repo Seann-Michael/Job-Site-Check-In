@@ -395,7 +395,7 @@ export default function GeoGridReport() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className={`grid gap-6 transition-all duration-300 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-4'}`}>
           {/* Competitor Sidebar */}
           <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Competitors List */}
