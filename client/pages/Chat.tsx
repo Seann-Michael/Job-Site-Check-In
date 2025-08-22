@@ -76,6 +76,12 @@ const supabase = createClient(
 export default function Chat() {
   const { user } = useAuth();
   const { onlineUsers, currentStatus, isConnected, updatePresence } = useChatPresence();
+
+  // State declarations first
+  const [channels, setChannels] = useState<ChatChannel[]>([]);
+  const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
+
+  // Hooks that depend on state
   const {
     typingUsers,
     isTyping,
@@ -84,8 +90,6 @@ export default function Chat() {
     getTypingText,
     hasTypingUsers
   } = useTypingIndicators(selectedChannel?.id);
-  const [channels, setChannels] = useState<ChatChannel[]>([]);
-  const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
