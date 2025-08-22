@@ -72,20 +72,20 @@ export default function Index() {
         setIsLoading(true);
 
         // Load businesses first
-        const businessResponse = await dataService.getBusinesses();
-        const businessData = businessResponse.data;
+        const businessResponse = await dataService.getBusinesses(undefined, {});
+        const businessData = Array.isArray(businessResponse) ? businessResponse : businessResponse.data;
         setBusinesses(businessData);
         console.log("Loaded businesses:", businessData.length);
 
         // Load users
-        const userResponse = await dataService.getUsers();
-        const userData = userResponse.data;
+        const userResponse = await dataService.getUsers({});
+        const userData = Array.isArray(userResponse) ? userResponse : userResponse.data;
         setUsers(userData);
         console.log("Loaded users:", userData.length);
 
         // Load all projects
-        const projectResponse = await dataService.getProjects();
-        const allProjects = projectResponse.data;
+        const projectResponse = await dataService.getProjects(undefined, {});
+        const allProjects = Array.isArray(projectResponse) ? projectResponse : projectResponse.data;
 
         setProjects(allProjects);
         setFilteredProjects(allProjects);
