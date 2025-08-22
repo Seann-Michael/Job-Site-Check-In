@@ -521,7 +521,7 @@ export default function GeoGridReport() {
           )}
 
           {/* Map Container */}
-          <div className="lg:col-span-3 order-1 lg:order-2">
+          <div className={`${isSidebarCollapsed ? 'col-span-1' : 'lg:col-span-3'} order-1 lg:order-2`}>
             {/* Full Width Map */}
             <Card>
               <CardHeader>
