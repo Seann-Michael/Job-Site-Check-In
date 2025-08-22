@@ -116,6 +116,12 @@
 
 [[redirects]]
   force = true
+  from = "/api/keyword-research"
+  status = 200
+  to = "/.netlify/functions/keyword-research"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
