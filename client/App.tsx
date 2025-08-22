@@ -51,7 +51,6 @@ import PublicOnboarding from "./pages/PublicOnboarding";
 import Tools from "./pages/Tools";
 const MarketPlace = lazy(() => import("./pages/MarketPlace"));
 const Ideas = lazy(() => import("./pages/Ideas"));
-import AIAgent from "./pages/AIAgent";
 import CRM from "./pages/CRM";
 import CRMClientDetail from "./pages/CRMClientDetail";
 import AdminBillingManagement from "./pages/AdminBillingManagement";
@@ -300,10 +299,6 @@ const App = () => (
                 <Route
                   path="/Ideas"
                   element={<Navigate to="/admin/ideas" replace />}
-                />
-                <Route
-                  path="/AIAgent"
-                  element={<Navigate to="/admin/ai-agent" replace />}
                 />
                 <Route
                   path="/onboard/:token"
@@ -630,14 +625,6 @@ const App = () => (
                   }
                 />
 
-                <Route
-                  path="/admin/ai-agent"
-                  element={
-                    <ProtectedRoute>
-                      <AIAgent />
-                    </ProtectedRoute>
-                  }
-                />
 
                 <Route
                   path="/admin/billing"

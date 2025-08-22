@@ -50,17 +50,6 @@
   status = 200
   to = "/.netlify/functions/client-onboard"
 
-[[redirects]]
-  force = true
-  from = "/api/ai/chat"
-  status = 200
-  to = "/.netlify/functions/ai-chat"
-
-[[redirects]]
-  force = true
-  from = "/api/ai/sessions*"
-  status = 200
-  to = "/.netlify/functions/ai-sessions/:splat"
 
 [[redirects]]
   force = true
