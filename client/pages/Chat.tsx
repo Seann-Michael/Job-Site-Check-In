@@ -24,6 +24,14 @@ import {
 import { toast } from "sonner";
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
+import { useChatPresence } from '@/hooks/useChatPresence';
+import { chatChannelManager } from '@/lib/chatUtils';
+import type {
+  ChatChannel,
+  ChatMessage,
+  ChatReaction,
+  ChatUserPresence
+} from '@/types/chat';
 import {
   Hash,
   Plus,
