@@ -3,6 +3,13 @@
   functions = "netlify/functions"
   publish = "dist"
 
+[dev]
+  command = "npm run dev:vite"
+  targetPort = 5173
+  port = 8888
+  publish = "dist"
+  autoLaunch = false
+
 [build.environment]
   # Supabase Configuration (Set these in Netlify dashboard)
   SUPABASE_URL = ""
