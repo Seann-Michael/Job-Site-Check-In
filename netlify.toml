@@ -25,6 +25,9 @@
   # DataForSEO API Configuration (Set in Netlify dashboard)
   DATAFORSEO_API_KEY = ""
 
+  # OpenAI API Configuration (Set in Netlify dashboard)
+  OPENAI_API_KEY = ""
+
   # Disable secrets scanning for client-side Google Maps API key
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
