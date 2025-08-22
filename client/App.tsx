@@ -471,6 +471,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/social-media-posting"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <SocialMediaPosting />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/maps"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
