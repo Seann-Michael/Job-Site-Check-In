@@ -667,15 +667,11 @@ export default function Chat() {
                       value={newMessage}
                       onChange={handleMessageChange}
                       onKeyPress={handleKeyPress}
+                      onBlur={stopTyping}
                       placeholder={`Message #${selectedChannel.name}`}
                       className="min-h-[40px] max-h-32 resize-none"
                       rows={1}
                     />
-                    {isTyping && (
-                      <div className="absolute -top-6 left-0 text-xs text-muted-foreground">
-                        Typing...
-                      </div>
-                    )}
                   </div>
                 </div>
                 
