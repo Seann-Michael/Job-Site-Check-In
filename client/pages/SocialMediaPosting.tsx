@@ -496,10 +496,17 @@ export default function SocialMediaPosting() {
         body: JSON.stringify(formData),
       });
 
+      // Check if response is HTML (development mode)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        toast.error('Post saving not available in development mode');
+        return;
+      }
+
       if (response.ok) {
         const newPost = await response.json();
         setPosts(prev => [newPost, ...prev]);
-        
+
         // Reset form
         setFormData({
           title: '',
@@ -511,7 +518,7 @@ export default function SocialMediaPosting() {
           target_location: '',
           status: 'draft'
         });
-        
+
         setSelectedTab("manage");
         toast.success('Post saved successfully!');
       } else {
@@ -520,7 +527,11 @@ export default function SocialMediaPosting() {
       }
     } catch (error) {
       console.error('Error saving post:', error);
-      toast.error('Error saving post');
+      if (error instanceof SyntaxError && error.message.includes('JSON')) {
+        toast.error('Post saving not available in development mode');
+      } else {
+        toast.error('Error saving post');
+      }
     } finally {
       setLoading(false);
     }
