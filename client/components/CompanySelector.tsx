@@ -39,44 +39,45 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
   useEffect(() => {
     const loadCompanies = () => {
       try {
-        // Try to load from localStorage first
-        const savedCompanies = localStorage.getItem("user_companies");
-        const currentCompanyId = localStorage.getItem("selected_company_id");
-        
-        if (savedCompanies) {
-          const parsedCompanies = JSON.parse(savedCompanies);
-          setCompanies(parsedCompanies);
-          setSelectedCompany(currentCompanyId || parsedCompanies[0]?.id || "");
-        } else {
-          // Mock data for demonstration - replace with actual API call
-          const mockCompanies: Company[] = [
-            {
-              id: "1",
-              name: "Waypoint",
-              plan: "Pro",
-              isActive: true,
-            },
-            {
-              id: "2",
-              name: "Fairfield Auto Repair",
-              plan: "Basic",
-              isActive: true,
-            },
-            {
-              id: "3",
-              name: "Sunshine Dental",
-              plan: "Pro",
-              isActive: false,
-            },
-          ];
-          
-          setCompanies(mockCompanies);
-          setSelectedCompany(mockCompanies[0].id);
-          
-          // Save to localStorage
-          localStorage.setItem("user_companies", JSON.stringify(mockCompanies));
-          localStorage.setItem("selected_company_id", mockCompanies[0].id);
-        }
+        // Force clear old branding data and reset to Waypoint
+        localStorage.removeItem("user_companies");
+        localStorage.removeItem("selected_company_id");
+        localStorage.setItem("business_name", "Waypoint");
+
+        // Mock data for demonstration - replace with actual API call
+        const mockCompanies: Company[] = [
+          {
+            id: "1",
+            name: "Waypoint",
+            plan: "Pro",
+            isActive: true,
+          },
+          {
+            id: "2",
+            name: "Fairfield Auto Repair",
+            plan: "Basic",
+            isActive: true,
+          },
+          {
+            id: "3",
+            name: "Sunshine Dental",
+            plan: "Pro",
+            isActive: false,
+          },
+        ];
+
+        setCompanies(mockCompanies);
+        setSelectedCompany(mockCompanies[0].id);
+
+        // Save to localStorage with Waypoint as default
+        localStorage.setItem("user_companies", JSON.stringify(mockCompanies));
+        localStorage.setItem("selected_company_id", mockCompanies[0].id);
+        localStorage.setItem("business_name", mockCompanies[0].name);
+
+        // Dispatch event to update business name in layout immediately
+        window.dispatchEvent(new CustomEvent("businessNameChanged", {
+          detail: mockCompanies[0].name
+        }));
       } catch (error) {
         console.error("Error loading companies:", error);
         // Fallback to default
