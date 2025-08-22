@@ -1228,7 +1228,7 @@ export default function Chat() {
                     <Textarea
                       ref={messageInputRef}
                       value={newMessage}
-                      onChange={handleMessageChange}
+                      onChange={handleMessageInputChange}
                       onKeyPress={handleKeyPress}
                       onBlur={stopTyping}
                       placeholder={`Message #${selectedChannel.name}`}
