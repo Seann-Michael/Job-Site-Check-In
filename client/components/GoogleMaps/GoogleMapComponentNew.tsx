@@ -732,12 +732,23 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                           </div>
                         )}
 
-                        {/* Scan Date */}
+                        {/* Scan Date & Time */}
                         {scanDate && scanTime && (
                           <div className="bg-indigo-50 rounded-lg p-2 border border-indigo-200">
-                            <div className="text-xs text-indigo-700 font-medium mb-1">Scan Date</div>
+                            <div className="text-xs text-indigo-700 font-medium mb-1">Scanned</div>
                             <div className="text-xs font-bold text-indigo-900">
-                              {new Date(`${scanDate}T${scanTime}`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              {new Date(`${scanDate}T${scanTime}`).toLocaleDateString([], {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </div>
+                            <div className="text-xs font-medium text-indigo-700 mt-0.5">
+                              {new Date(`${scanDate}T${scanTime}`).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
                             </div>
                           </div>
                         )}
