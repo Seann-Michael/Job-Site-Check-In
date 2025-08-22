@@ -5,7 +5,7 @@
 
 [dev]
   command = "npm run dev:vite"
-  targetPort = 8082
+  targetPort = 5173
   port = 8888
   publish = "dist"
   autoLaunch = false
