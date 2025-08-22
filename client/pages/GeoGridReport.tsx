@@ -174,6 +174,7 @@ export default function GeoGridReport() {
   const [selectedWaypoint, setSelectedWaypoint] = useState<string | null>(null);
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(false);
 
   // Waypoint color settings
   const [waypointColors, setWaypointColors] = useState({
