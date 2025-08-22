@@ -116,6 +116,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   averageRanking,
   rankingAnalytics,
   showBusinessOverlay = false,
+  isOverlayCollapsed = false,
+  onToggleOverlay,
 }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(
