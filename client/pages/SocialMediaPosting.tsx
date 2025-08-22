@@ -64,7 +64,9 @@ import {
   Palette,
   FileText,
   Settings,
-  HelpCircle
+  HelpCircle,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 
 interface SocialMediaPost {
