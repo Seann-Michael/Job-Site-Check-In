@@ -40,6 +40,39 @@ const handler: Handler = async (event, context) => {
     if (httpMethod === 'GET') {
       // GET /api/ai/sessions - List all sessions for user
       if (pathParts.length === 3 && pathParts[2] === 'sessions') {
+        // Handle demo users with mock data
+        if (user.id === '1') {
+          const mockSessions = [
+            {
+              id: 'demo-session-1',
+              title: 'SEO Strategy Discussion',
+              total_messages: 8,
+              total_credits_used: 45,
+              total_cost: 0.15,
+              last_message_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+              created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+            },
+            {
+              id: 'demo-session-2',
+              title: 'Local Business Optimization',
+              total_messages: 12,
+              total_credits_used: 67,
+              total_cost: 0.22,
+              last_message_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
+              created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+            },
+          ];
+
+          return {
+            statusCode: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({ sessions: mockSessions }),
+          };
+        }
+
         const { data: sessions, error } = await supabase
           .from('ai_chat_sessions')
           .select('*')
@@ -72,6 +105,41 @@ const handler: Handler = async (event, context) => {
       // GET /api/ai/sessions/{id}/messages - Get messages for session
       if (pathParts.length === 5 && pathParts[4] === 'messages') {
         const sessionId = pathParts[3];
+
+        // Handle demo users with mock data
+        if (user.id === '1' && sessionId.startsWith('demo-session-')) {
+          const mockMessages = [
+            {
+              id: '1',
+              session_id: sessionId,
+              user_id: user.id,
+              message_type: 'user',
+              content: 'Can you help me improve my website\'s SEO?',
+              created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 min ago
+              credits_used: null,
+              cost: null,
+            },
+            {
+              id: '2',
+              session_id: sessionId,
+              user_id: user.id,
+              message_type: 'ai',
+              content: 'I\'d be happy to help you improve your website\'s SEO! Here are some key areas to focus on:\n\n• **Keyword Research**: Identify relevant keywords your target audience searches for\n• **On-Page Optimization**: Optimize title tags, meta descriptions, and headers\n• **Content Quality**: Create valuable, engaging content that answers user questions\n• **Technical SEO**: Ensure fast loading times and mobile responsiveness\n• **Local SEO**: Optimize for local search if you serve specific geographic areas\n\nWhat specific aspect of SEO would you like to dive deeper into?',
+              created_at: new Date(Date.now() - 29 * 60 * 1000).toISOString(), // 29 min ago
+              credits_used: 15,
+              cost: 0.05,
+            },
+          ];
+
+          return {
+            statusCode: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({ messages: mockMessages }),
+          };
+        }
 
         // Verify session belongs to user
         const { data: session } = await supabase
@@ -134,6 +202,29 @@ const handler: Handler = async (event, context) => {
               'Access-Control-Allow-Origin': '*',
             },
             body: JSON.stringify({ error: 'Title is required' }),
+          };
+        }
+
+        // Handle demo users with mock data
+        if (user.id === '1') {
+          const mockSession = {
+            id: `demo-session-${Date.now()}`,
+            user_id: user.id,
+            title: title.trim(),
+            total_messages: 0,
+            total_credits_used: 0,
+            total_cost: 0,
+            created_at: new Date().toISOString(),
+            last_message_at: null,
+          };
+
+          return {
+            statusCode: 201,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({ session: mockSession }),
           };
         }
 
