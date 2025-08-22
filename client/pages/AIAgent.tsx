@@ -538,7 +538,7 @@ export default function AIAgent() {
         {/* Mobile Sidebar Overlay */}
         {isMobileSidebarOpen && (
           <div
-            className="md:hidden fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            className="md:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
             onClick={() => setIsMobileSidebarOpen(false)}
           />
         )}
