@@ -569,10 +569,18 @@ export default function SocialMediaPosting() {
 
         {/* Main Content Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Create Post
+            </TabsTrigger>
+            <TabsTrigger value="bulk" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Bulk Create
+            </TabsTrigger>
+            <TabsTrigger value="keywords" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Keywords
             </TabsTrigger>
             <TabsTrigger value="manage" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
