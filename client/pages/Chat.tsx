@@ -30,6 +30,14 @@ import { chatChannelManager } from '@/lib/chatUtils';
 import { makeAuthenticatedChatRequest, withAuthRetry } from '@/lib/chatAuth';
 import { FileUploadButton } from '@/components/ui/file-upload';
 import { EmojiPicker, EmojiButton } from '@/components/ui/emoji-picker';
+import {
+  MentionAutocomplete,
+  useMentionAutocomplete,
+  detectMentionAtCursor,
+  replaceMentionText,
+  extractMentionedUserIds,
+  highlightMentions
+} from '@/components/ui/mention-autocomplete';
 import type {
   ChatChannel,
   ChatMessage,
