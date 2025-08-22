@@ -353,7 +353,23 @@ export default function GeoGridReport() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Export & Settings Actions */}
+        <div className="flex justify-end items-center gap-2 mb-6">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
+          </Button>
+          <Button variant="outline" size="sm">
+            <Printer className="h-4 w-4 mr-2" />
+            Print Report
+          </Button>
+          <Button variant="outline" size="sm">
+            <Share2 className="h-4 w-4 mr-2" />
+            Share Link
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
           {/* Analytics Panel */}
           <div className="lg:col-span-1 space-y-6">
             {/* Competitor Selection */}
