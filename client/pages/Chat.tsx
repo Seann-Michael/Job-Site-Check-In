@@ -284,6 +284,88 @@ export default function Chat() {
     }
   }, [onlineUsers]);
 
+  // Create direct message channel
+  const createDirectMessage = async (targetUser: any) => {
+    if (!user || targetUser.id === user.id) return;
+
+    try {
+      // Check if DM channel already exists
+      const data = await makeAuthenticatedChatRequest('/api/chat/channels?type=direct_message');
+      const existingDM = data.channels?.find((channel: ChatChannel) => {
+        // For DM channels, check if both users are participants
+        return channel.channel_type === 'direct_message' &&
+               channel.name.includes(targetUser.id) &&
+               channel.name.includes(user.id);
+      });
+
+      if (existingDM) {
+        setSelectedChannel(existingDM);
+        setIsCreatingDM(false);
+        return;
+      }
+
+      // Create new DM channel
+      const dmChannel = await makeAuthenticatedChatRequest('/api/chat/channels', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: `dm_${[user.id, targetUser.id].sort().join('_')}`,
+          description: `Direct message between ${getUserDisplayName({ raw_user_meta_data: (user as any).user_metadata, email: user.email })} and ${getUserDisplayName(targetUser)}`,
+          channel_type: 'direct_message',
+          allow_all_agency_members: false,
+          require_approval_to_join: false
+        }),
+      });
+
+      if (dmChannel) {
+        // Add target user to the channel
+        await makeAuthenticatedChatRequest(`/api/chat/channels/${dmChannel.id}/join`, {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: targetUser.id,
+            notification_level: 'all'
+          }),
+        });
+
+        setChannels(prev => [...prev, dmChannel]);
+        setSelectedChannel(dmChannel);
+        setIsCreatingDM(false);
+        toast.success(`Started conversation with ${getUserDisplayName(targetUser)}`);
+      }
+    } catch (error) {
+      console.error('Error creating direct message:', error);
+      toast.error('Failed to start conversation');
+    }
+  };
+
+  // Get DM display name
+  const getDMDisplayName = (channel: ChatChannel) => {
+    if (channel.channel_type !== 'direct_message') return channel.name;
+
+    // Extract other user's ID from the channel name format: dm_userId1_userId2
+    const userIds = channel.name.replace('dm_', '').split('_');
+    const otherUserId = userIds.find(id => id !== user?.id);
+
+    if (!otherUserId) return 'Direct Message';
+
+    // Find the other user in channel users or online users
+    const otherUser = channelUsers.find(u => u.id === otherUserId) ||
+                     onlineUsers.find(u => u.user_id === otherUserId)?.user;
+
+    return otherUser ? getUserDisplayName(otherUser) : 'Direct Message';
+  };
+
+  // Get filtered online users for DM creation (excluding current user)
+  const availableUsers = onlineUsers
+    .filter(presence => presence.user_id !== user?.id)
+    .map(presence => presence.user)
+    .filter(Boolean)
+    .filter(dmUser => {
+      if (!dmSearchQuery.trim()) return true;
+      const query = dmSearchQuery.toLowerCase();
+      return getUserDisplayName(dmUser).toLowerCase().includes(query) ||
+             dmUser.email?.toLowerCase().includes(query);
+    });
+
   // Load message with user data
   const loadMessageWithUserData = async (messageId: string) => {
     try {
