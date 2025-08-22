@@ -399,10 +399,94 @@ export default function GeoGridReport() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* Full Width Map Container */}
-          <div>
-            {/* Competitor Selection */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Competitor Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Competitors List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Competitors & Rankings
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {/* Business (default selection) */}
+                  <div
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedCompetitor === null
+                        ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-300'
+                        : 'hover:bg-gray-50 border-gray-200'
+                    }`}
+                    onClick={() => setSelectedCompetitor(null)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Building2 className="h-4 w-4 text-blue-600" />
+                          <p className="font-medium text-sm">{scanResult.business_name}</p>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">{scanResult.location.address}</p>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 text-yellow-500" />
+                            <span className="text-xs">Avg: {scanResult.average_ranking}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-blue-500" />
+                            <span className="text-xs">{analytics.ranked} ranked</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="default" className="text-xs bg-blue-600">
+                        Target
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Competitors */}
+                  {scanResult.competitors.map((competitor, index) => (
+                    <div
+                      key={competitor.id}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedCompetitor === competitor.id
+                          ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-300'
+                          : 'hover:bg-gray-50 border-gray-200'
+                      }`}
+                      onClick={() => setSelectedCompetitor(competitor.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <MapPin className="h-4 w-4 text-orange-600" />
+                            <p className="font-medium text-sm">{competitor.name}</p>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">{competitor.address}</p>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3 w-3 text-yellow-500" />
+                              <span className="text-xs">Avg: {competitor.average_position}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-orange-500" />
+                              <span className="text-xs">{competitor.total_rankings} locations</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          #{index + 1}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Map Container */}
+          <div className="lg:col-span-3">
             {/* Full Width Map */}
             <Card>
               <CardHeader>
