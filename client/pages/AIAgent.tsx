@@ -776,7 +776,10 @@ export default function AIAgent() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Start a new chat to begin asking questions about SEO, marketing, and business strategy
                 </p>
-                <Button onClick={() => setShowNewChatDialog(true)}>
+                <Button onClick={() => {
+                  setIsMobileSidebarOpen(false);
+                  setShowNewChatDialog(true);
+                }}>
                   <Plus className="h-4 w-4 mr-2" />
                   Start New Chat
                 </Button>
