@@ -1726,17 +1726,37 @@ export default function Chat() {
               <div className="border-t p-4">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
-                    <Textarea
-                      value={threadReply}
-                      onChange={(e) => setThreadReply(e.target.value)}
-                      onKeyPress={handleThreadKeyPress}
-                      placeholder={`Reply to thread...`}
-                      className="min-h-[40px] max-h-32 resize-none"
-                      rows={1}
-                    />
+                    {threadMarkdownPreview && threadReply.trim() ? (
+                      <div className="min-h-[40px] max-h-32 overflow-y-auto border rounded-md p-3 bg-muted/20">
+                        <MarkdownPreview
+                          content={threadReply}
+                          isPreview={true}
+                          enableMentions
+                          className="prose-sm"
+                        />
+                      </div>
+                    ) : (
+                      <Textarea
+                        value={threadReply}
+                        onChange={handleThreadReplyChange}
+                        onKeyPress={handleThreadKeyPress}
+                        placeholder={`Reply to thread... (Markdown supported)`}
+                        className="min-h-[40px] max-h-32 resize-none"
+                        rows={1}
+                      />
+                    )}
                   </div>
 
                   <div className="flex gap-1">
+                    <Button
+                      variant={threadMarkdownPreview ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setThreadMarkdownPreview(!threadMarkdownPreview)}
+                      disabled={!threadReply.trim()}
+                      title={threadMarkdownPreview ? "Edit mode" : "Preview markdown"}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <EmojiPicker
                       onEmojiSelect={(emoji) => setThreadReply(prev => prev + emoji)}
                       trigger={
