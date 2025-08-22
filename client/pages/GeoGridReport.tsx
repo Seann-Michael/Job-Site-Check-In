@@ -380,9 +380,9 @@ export default function GeoGridReport() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Competitor Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Competitors List */}
-            <Card>
+            <Card className="h-fit">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
@@ -477,7 +477,7 @@ export default function GeoGridReport() {
           </div>
 
           {/* Map Container */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 order-1 lg:order-2">
             {/* Full Width Map */}
             <Card>
               <CardHeader>
