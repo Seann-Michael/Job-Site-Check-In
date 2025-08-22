@@ -1453,6 +1453,23 @@ export default function Chat() {
                   >
                     <Paperclip className="h-4 w-4" />
                   </FileUploadButton>
+                  <Button
+                    variant={showMarkdownPreview ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowMarkdownPreview(!showMarkdownPreview)}
+                    disabled={!newMessage.trim()}
+                    title={showMarkdownPreview ? "Edit mode" : "Preview markdown"}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={showMarkdownHelp ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowMarkdownHelp(!showMarkdownHelp)}
+                    title="Markdown help"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
                   <EmojiPicker
                     onEmojiSelect={handleEmojiSelect}
                     trigger={
