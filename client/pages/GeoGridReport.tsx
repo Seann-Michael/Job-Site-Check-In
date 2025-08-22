@@ -488,6 +488,124 @@ export default function GeoGridReport() {
             </Card>
           </div>
         </div>
+
+        {/* Settings Modal for Waypoint Colors */}
+        <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Waypoint Color Settings</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Rank 1-3</label>
+                <input
+                  type="color"
+                  value={waypointColors.rank1to3}
+                  onChange={(e) => setWaypointColors(prev => ({ ...prev, rank1to3: e.target.value }))}
+                  className="w-12 h-8 border rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Rank 4-9</label>
+                <input
+                  type="color"
+                  value={waypointColors.rank4to9}
+                  onChange={(e) => setWaypointColors(prev => ({ ...prev, rank4to9: e.target.value }))}
+                  className="w-12 h-8 border rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Rank 10-15</label>
+                <input
+                  type="color"
+                  value={waypointColors.rank10to15}
+                  onChange={(e) => setWaypointColors(prev => ({ ...prev, rank10to15: e.target.value }))}
+                  className="w-12 h-8 border rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Rank 16+</label>
+                <input
+                  type="color"
+                  value={waypointColors.rank16plus}
+                  onChange={(e) => setWaypointColors(prev => ({ ...prev, rank16plus: e.target.value }))}
+                  className="w-12 h-8 border rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Unranked</label>
+                <input
+                  type="color"
+                  value={waypointColors.unranked}
+                  onChange={(e) => setWaypointColors(prev => ({ ...prev, unranked: e.target.value }))}
+                  className="w-12 h-8 border rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowSettingsModal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => setShowSettingsModal(false)}>
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Competitor Modal */}
+        <Dialog open={showCompetitorModal} onOpenChange={setShowCompetitorModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                Waypoint {selectedWaypoint ? displayWaypoints.find(w => w.id === selectedWaypoint)?.label || selectedWaypoint : ''} - Competitors
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedWaypoint && (
+                <div className="space-y-3">
+                  {scanResult?.competitors
+                    .filter(competitor => competitor.waypoint_rankings[selectedWaypoint] !== undefined)
+                    .sort((a, b) =>
+                      (a.waypoint_rankings[selectedWaypoint] || 999) - (b.waypoint_rankings[selectedWaypoint] || 999)
+                    )
+                    .map((competitor) => (
+                      <div key={competitor.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold">{competitor.name}</h3>
+                              <Badge variant="outline">
+                                Rank #{competitor.waypoint_rankings[selectedWaypoint]}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{competitor.address}</p>
+                            <div className="flex items-center gap-4">
+                              {competitor.phone && (
+                                <span className="text-sm text-gray-500">{competitor.phone}</span>
+                              )}
+                              <span className="text-sm text-gray-500">★ 4.2 (127 reviews)</span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`https://www.google.com/maps/search/${encodeURIComponent(competitor.name + ' ' + competitor.address)}`, '_blank')}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Profile
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  {(!scanResult?.competitors.filter(c => c.waypoint_rankings[selectedWaypoint] !== undefined).length) && (
+                    <p className="text-center text-gray-500 py-8">No competitors found at this waypoint</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
