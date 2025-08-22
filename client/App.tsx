@@ -460,6 +460,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/gmb-optimization"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <GMBOptimization />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/maps"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
