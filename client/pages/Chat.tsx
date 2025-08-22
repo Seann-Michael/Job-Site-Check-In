@@ -821,9 +821,64 @@ export default function Chat() {
       {showMemberList && selectedChannel && (
         <div className="w-64 bg-muted/30 border-l">
           <div className="p-4">
-            <h3 className="font-medium mb-4">Online Members</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium">Members</h3>
+              <Badge variant="secondary" className="text-xs">
+                {onlineUsers.filter(u => u.status === 'online').length} online
+              </Badge>
+            </div>
+
+            {/* Current User Status */}
+            {user && (
+              <div className="mb-4 p-2 bg-background rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarFallback className="text-xs">
+                        {getUserInitials({ raw_user_meta_data: user.user_metadata, email: user.email })}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(currentStatus)}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      You
+                    </div>
+                    <div className="text-xs text-muted-foreground capitalize">
+                      {currentStatus}
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => updatePresence('online')}>
+                        <Circle className="h-3 w-3 fill-green-500 text-green-500 mr-2" />
+                        Online
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updatePresence('away')}>
+                        <Circle className="h-3 w-3 fill-yellow-500 text-yellow-500 mr-2" />
+                        Away
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updatePresence('busy')}>
+                        <Minus className="h-3 w-3 text-red-500 mr-2" />
+                        Busy
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            )}
+
+            {/* Online Members */}
             <div className="space-y-2">
-              {onlineUsers.map((presence) => (
+              {onlineUsers
+                .filter(presence => presence.user_id !== user?.id)
+                .map((presence) => (
                 <div key={presence.user_id} className="flex items-center gap-2">
                   <div className="relative">
                     <Avatar className="h-8 w-8">
@@ -832,9 +887,7 @@ export default function Chat() {
                         {getUserInitials(presence.user)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute -bottom-1 -right-1">
-                      {getStatusIcon(presence.status)}
-                    </div>
+                    <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(presence.status)}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">
@@ -846,6 +899,12 @@ export default function Chat() {
                   </div>
                 </div>
               ))}
+
+              {onlineUsers.filter(u => u.user_id !== user?.id).length === 0 && (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  No other members online
+                </div>
+              )}
             </div>
           </div>
         </div>
