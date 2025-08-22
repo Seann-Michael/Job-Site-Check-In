@@ -195,5 +195,3 @@ export function useTypingIndicators(channelId?: string) {
     hasTypingUsers: typingUsers.length > 0
   };
 }
-
-export { useTypingIndicators };
