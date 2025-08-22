@@ -228,10 +228,8 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                   )}
                 </div>
                 {selectedCompanyData && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 hover:bg-transparent"
+                  <div
+                    className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
                     onClick={(e) => toggleFavorite(selectedCompany, e)}
                   >
                     <Star
@@ -242,7 +240,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                           : "text-muted-foreground hover:text-yellow-400"
                       )}
                     />
-                  </Button>
+                  </div>
                 )}
               </div>
             </SelectValue>
