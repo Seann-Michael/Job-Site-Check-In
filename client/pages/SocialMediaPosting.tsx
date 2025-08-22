@@ -219,7 +219,7 @@ export default function SocialMediaPosting() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const breadcrumbs = [
-    { label: "Social Media Posting" },
+    { label: "Social Posting" },
   ];
 
   // Load posts on component mount
@@ -558,11 +558,11 @@ export default function SocialMediaPosting() {
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                Social Media Posting
-              </h1>
-              <p className="text-muted-foreground">
-                Create and manage GMB updates and social media posts with AI assistance
-              </p>
+              Social Posting
+            </h1>
+            <p className="text-muted-foreground">
+              Create and manage GMB updates and social media posts with AI assistance and bulk scheduling
+            </p>
             </div>
           </div>
         </div>
