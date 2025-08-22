@@ -175,6 +175,15 @@ export default function GeoGridReport() {
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Waypoint color settings
+  const [waypointColors, setWaypointColors] = useState({
+    rank1to3: "#10b981", // Green
+    rank4to9: "#f59e0b", // Yellow
+    rank10to15: "#fb923c", // Orange
+    rank16plus: "#ef4444", // Red
+    unranked: "#6b7280", // Gray
+  });
+
   // Load scan result (mock data for now)
   useEffect(() => {
     const loadScanResult = async () => {
