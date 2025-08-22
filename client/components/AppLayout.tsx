@@ -142,7 +142,7 @@ export function AppLayout({
   // Load business name and zoom level on mount and listen for changes
   useEffect(() => {
     const loadBusinessName = () => {
-      const name = localStorage.getItem("business_name") || "Local SEO Ranker";
+      const name = localStorage.getItem("business_name") || "Waypoint";
       console.log("Loading business name:", name);
       setBusinessName(name);
     };
