@@ -74,7 +74,7 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
-import { dataService } from "@/lib/dataService";
+import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
