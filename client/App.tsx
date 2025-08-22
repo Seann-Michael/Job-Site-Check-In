@@ -9,26 +9,16 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { analytics } from "@/lib/analytics";
 
 // Lazy load pages for better performance
-// const Index = lazy(() => import("./pages/Index"));
-// const AddProject = lazy(() => import("./pages/AddProject"));
-// const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
-// const EditProject = lazy(() => import("./pages/EditProject"));
-// const Gallery = lazy(() => import("./pages/Gallery"));
+const Index = lazy(() => import("./pages/Index"));
+const AddProject = lazy(() => import("./pages/AddProject"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+const EditProject = lazy(() => import("./pages/EditProject"));
+const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
-// const Reports = lazy(() => import("./pages/Reports"));
-// const Audits = lazy(() => import("./pages/Audits"));
-// const Maps = lazy(() => import("./pages/Maps"));
-
-// Import components directly to fix lazy loading issues
-import Settings from "./pages/Settings";
-import Reports from "./pages/Reports";
-import Audits from "./pages/Audits";
-import Tasks from "./pages/Tasks";
-import Gallery from "./pages/Gallery";
-import Index from "./pages/Index";
-import AddProject from "./pages/AddProject";
-import ProjectDetail from "./pages/ProjectDetail";
-import EditProject from "./pages/EditProject";
+const Reports = lazy(() => import("./pages/Reports"));
+const Audits = lazy(() => import("./pages/Audits"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Tasks = lazy(() => import("./pages/Tasks"));
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
 const GeoGridReport = lazy(() => import("./pages/GeoGridReport"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
