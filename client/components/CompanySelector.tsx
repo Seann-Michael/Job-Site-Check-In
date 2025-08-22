@@ -234,31 +234,8 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                   <div className="font-medium text-sm truncate">
                     {selectedCompanyData?.name || "Select Company"}
                   </div>
-                  {selectedCompanyData && (
-                    <div className="text-xs text-muted-foreground">
-                      {selectedCompanyData.plan} Plan
-                    </div>
-                  )}
                 </div>
-                <div className="flex items-center space-x-2">
-                  {selectedCompanyData && (
-                    <div
-                      className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(selectedCompany, e);
-                      }}
-                    >
-                      <Star
-                        className={cn(
-                          "h-3 w-3",
-                          selectedCompanyData.isFavorite
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground hover:text-yellow-400"
-                        )}
-                      />
-                    </div>
-                  )}
+                <div className="flex items-center">
                   <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
                 </div>
               </div>
