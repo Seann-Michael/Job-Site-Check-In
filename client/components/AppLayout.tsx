@@ -447,6 +447,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "chat",
+      label: "Team Chat",
+      href: "/admin/chat",
+      icon: MessageSquare,
+      active: location.pathname === "/admin/chat",
+      comingSoon: false,
+    },
+    {
       id: "reports",
       label: "Reports",
       href: "/admin/reports",
