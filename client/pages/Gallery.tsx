@@ -117,8 +117,7 @@ export default function Gallery() {
     const loadGalleryData = async () => {
       try {
         setLoading(true);
-        const projectResponse = await dataService.getProjects(undefined, {});
-        const projectsData = Array.isArray(projectResponse) ? projectResponse : projectResponse.data;
+        const projectsData = await dataService.getProjects();
         const allPhotos: PhotoWithMetadata[] = [];
         const projectOptions: Array<{ id: string; name: string }> = [];
         const userSet = new Set<string>();
