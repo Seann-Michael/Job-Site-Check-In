@@ -223,7 +223,8 @@ export default function EditProject() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const projects = await dataService.getProjects();
+      const projectResponse = await dataService.getProjects(undefined, {});
+      const projects = Array.isArray(projectResponse) ? projectResponse : projectResponse.data;
       const existingProject = projects.find((p) => p.id === id!);
       if (existingProject) {
         const updatedProject = {
