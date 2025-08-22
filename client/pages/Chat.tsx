@@ -352,15 +352,12 @@ export default function Chat() {
         if (data.channels && data.channels.length > 0 && !selectedChannel) {
           setSelectedChannel(data.channels[0]);
         }
-        setIsConnected(true);
       } else {
         toast.error('Failed to load channels');
-        setIsConnected(false);
       }
     } catch (error) {
       console.error('Error loading channels:', error);
       toast.error('Error loading channels');
-      setIsConnected(false);
     } finally {
       setLoading(false);
     }
@@ -380,38 +377,17 @@ export default function Chat() {
       if (response.ok) {
         const data = await response.json();
         setMessages((data.messages || []).reverse()); // Reverse to show oldest first
-        setIsConnected(true);
       } else {
         toast.error('Failed to load messages');
-        setIsConnected(false);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
       toast.error('Error loading messages');
-      setIsConnected(false);
     } finally {
       setMessageLoading(false);
     }
   };
 
-  const loadOnlineUsers = async () => {
-    try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/preferences/online-users', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOnlineUsers(data.users || []);
-      }
-    } catch (error) {
-      console.error('Error loading online users:', error);
-    }
-  };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChannel || !user) return;
