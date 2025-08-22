@@ -40,6 +40,15 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
   const [isOpen, setIsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Focus search input when popover opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+
   // Load companies from localStorage/API
   useEffect(() => {
     const loadCompanies = () => {
