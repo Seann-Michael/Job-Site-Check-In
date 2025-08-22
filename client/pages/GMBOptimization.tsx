@@ -81,7 +81,7 @@ interface ServiceMenuItem {
   name: string;
   description: string;
   price: string;
-  image?: string;
+  image: string;
   category: string;
 }
 
