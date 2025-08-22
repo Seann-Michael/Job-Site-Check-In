@@ -212,8 +212,7 @@ export default function ProjectDetail() {
   useEffect(() => {
     const loadProject = async () => {
       try {
-        const projectResponse = await dataService.getProjects(undefined, {});
-        const projects = Array.isArray(projectResponse) ? projectResponse : projectResponse.data;
+        const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id);
         if (foundProject) {
           // Ensure all required arrays exist
