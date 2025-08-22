@@ -38,6 +38,7 @@ import {
   extractMentionedUserIds,
   highlightMentions
 } from '@/components/ui/mention-autocomplete';
+import { MarkdownRenderer, MarkdownPreview, hasMarkdownSyntax, getMarkdownHelp } from '@/components/ui/markdown-renderer';
 import type {
   ChatChannel,
   ChatMessage,
