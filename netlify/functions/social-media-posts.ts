@@ -335,7 +335,7 @@ export const handler: Handler = async (event, context) => {
       case 'POST':
         // Create new post
         const newPostData: SocialMediaPost = JSON.parse(event.body || '{}');
-        
+
         // Validate the post
         const validation = validatePost(newPostData);
         if (!validation.valid) {
@@ -345,14 +345,45 @@ export const handler: Handler = async (event, context) => {
               'Access-Control-Allow-Origin': '*',
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               error: 'Validation failed',
-              details: validation.errors 
+              details: validation.errors
             }),
           };
         }
 
-        // Add user_id and set defaults
+        // Handle demo mode
+        if (isDemoMode) {
+          const mockPost = {
+            ...newPostData,
+            id: `demo-${Date.now()}`,
+            user_id: user.id,
+            status: newPostData.status || 'draft',
+            hashtags: newPostData.hashtags || [],
+            mentions: newPostData.mentions || [],
+            target_keywords: newPostData.target_keywords || [],
+            images: newPostData.images || [],
+            videos: newPostData.videos || [],
+            syndicated_to: newPostData.syndicated_to || [],
+            likes_count: 0,
+            comments_count: 0,
+            shares_count: 0,
+            reach_count: 0,
+            created_at: new Date().toISOString(),
+            demo: true
+          };
+
+          return {
+            statusCode: 201,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(mockPost),
+          };
+        }
+
+        // Add user_id and set defaults for real database
         const postToCreate = {
           ...newPostData,
           user_id: user.id,
