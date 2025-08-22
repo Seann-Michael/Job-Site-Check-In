@@ -694,7 +694,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     top: "12px",
                     right: "12px",
                     zIndex: 1000,
-                    pointerEvents: "none",
+                    pointerEvents: "auto",
                     minWidth: isOverlayCollapsed ? "200px" : "320px",
                   }}
                 >
