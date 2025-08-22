@@ -609,6 +609,57 @@ export default function GeoGridReport() {
         </div>
 
       </div>
+
+      {/* Settings Modal */}
+      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Customize waypoint colors and report settings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium mb-3">Waypoint Color Ranges</h4>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Rank 1-3 (Excellent)</span>
+                  <div className="w-6 h-6 bg-green-500 rounded border"></div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Rank 4-9 (Good)</span>
+                  <div className="w-6 h-6 bg-yellow-500 rounded border"></div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Rank 10-15 (Fair)</span>
+                  <div className="w-6 h-6 bg-orange-500 rounded border"></div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Rank 16+ (Poor)</span>
+                  <div className="w-6 h-6 bg-red-500 rounded border"></div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Not Found</span>
+                  <div className="w-6 h-6 bg-gray-400 rounded border"></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowSettingsModal(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                // TODO: Save settings
+                setShowSettingsModal(false);
+                toast.success("Settings saved successfully");
+              }}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
