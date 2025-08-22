@@ -221,6 +221,17 @@ export default function GeoGridReport() {
     });
   }, [scanResult, selectedCompetitor]);
 
+  // Handle waypoint click to show competitors
+  const handleWaypointClick = (waypointId: string) => {
+    setSelectedWaypoint(waypointId);
+    setShowCompetitorModal(true);
+  };
+
+  // Handle settings click
+  const handleSettingsClick = () => {
+    setShowSettingsModal(true);
+  };
+
   // Calculate analytics based on current display (business or competitor)
   const analytics = useMemo(() => {
     const waypoints = displayWaypoints.filter(w => w.ranking !== null);
