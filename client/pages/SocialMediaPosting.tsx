@@ -1347,6 +1347,589 @@ export default function SocialMediaPosting() {
             </div>
           </TabsContent>
 
+          {/* Bulk Create Tab */}
+          <TabsContent value="bulk" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Bulk Configuration */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Bulk Campaign Configuration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="campaignName">Campaign Name *</Label>
+                      <Input
+                        id="campaignName"
+                        value={bulkConfig.campaignName}
+                        onChange={(e) => setBulkConfig(prev => ({ ...prev, campaignName: e.target.value }))}
+                        placeholder="e.g., Holiday Marketing Campaign"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="totalPosts">Total Posts</Label>
+                        <Input
+                          id="totalPosts"
+                          type="number"
+                          value={bulkConfig.totalPosts}
+                          onChange={(e) => setBulkConfig(prev => ({ ...prev, totalPosts: parseInt(e.target.value) || 1 }))}
+                          min="1"
+                          max="100"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="startDate">Start Date *</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={bulkConfig.startDate}
+                          onChange={(e) => setBulkConfig(prev => ({ ...prev, startDate: e.target.value }))}
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="endDate">End Date *</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={bulkConfig.endDate}
+                          onChange={(e) => setBulkConfig(prev => ({ ...prev, endDate: e.target.value }))}
+                          min={bulkConfig.startDate}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="postsPerDay">Posts Per Day</Label>
+                        <Input
+                          id="postsPerDay"
+                          type="number"
+                          value={bulkConfig.postsPerDay}
+                          onChange={(e) => setBulkConfig(prev => ({ ...prev, postsPerDay: parseInt(e.target.value) || 1 }))}
+                          min="1"
+                          max="10"
+                        />
+                      </div>
+                      <div>
+                        <Label>Platforms</Label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {Object.entries(PLATFORM_NAMES).map(([key, name]) => {
+                            const Icon = PLATFORM_ICONS[key as keyof typeof PLATFORM_ICONS];
+                            return (
+                              <label key={key} className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={bulkConfig.platforms.includes(key)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setBulkConfig(prev => ({
+                                        ...prev,
+                                        platforms: [...prev.platforms, key]
+                                      }));
+                                    } else {
+                                      setBulkConfig(prev => ({
+                                        ...prev,
+                                        platforms: prev.platforms.filter(p => p !== key)
+                                      }));
+                                    }
+                                  }}
+                                />
+                                <Icon className="h-4 w-4" />
+                                <span className="text-sm">{name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Preferred Posting Times</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {['09:00', '12:00', '14:00', '16:00', '18:00', '20:00'].map(time => (
+                          <label key={time} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={bulkConfig.preferredTimes.includes(time)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBulkConfig(prev => ({
+                                    ...prev,
+                                    preferredTimes: [...prev.preferredTimes, time]
+                                  }));
+                                } else {
+                                  setBulkConfig(prev => ({
+                                    ...prev,
+                                    preferredTimes: prev.preferredTimes.filter(t => t !== time)
+                                  }));
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{time}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="skipWeekends"
+                        checked={bulkConfig.skipWeekends}
+                        onChange={(e) => setBulkConfig(prev => ({ ...prev, skipWeekends: e.target.checked }))}
+                      />
+                      <Label htmlFor="skipWeekends">Skip weekends</Label>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Content Variation Settings
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Content Types</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {CONTENT_TYPES.map(type => (
+                          <label key={type.value} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={bulkConfig.contentTypes.includes(type.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBulkConfig(prev => ({
+                                    ...prev,
+                                    contentTypes: [...prev.contentTypes, type.value]
+                                  }));
+                                } else {
+                                  setBulkConfig(prev => ({
+                                    ...prev,
+                                    contentTypes: prev.contentTypes.filter(t => t !== type.value)
+                                  }));
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{type.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Tones</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {TONE_OPTIONS.map(tone => (
+                          <label key={tone.value} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={bulkConfig.tones.includes(tone.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBulkConfig(prev => ({
+                                    ...prev,
+                                    tones: [...prev.tones, tone.value]
+                                  }));
+                                } else {
+                                  setBulkConfig(prev => ({
+                                    ...prev,
+                                    tones: prev.tones.filter(t => t !== tone.value)
+                                  }));
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{tone.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="diversityLevel">Content Diversity</Label>
+                      <Select
+                        value={bulkConfig.diversityLevel}
+                        onValueChange={(value) => setBulkConfig(prev => ({ ...prev, diversityLevel: value as any }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low - Similar content structure</SelectItem>
+                          <SelectItem value="medium">Medium - Moderate variation</SelectItem>
+                          <SelectItem value="high">High - Maximum content variety</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="keywordRotation"
+                        checked={bulkConfig.keywordRotation}
+                        onChange={(e) => setBulkConfig(prev => ({ ...prev, keywordRotation: e.target.checked }))}
+                      />
+                      <Label htmlFor="keywordRotation">Rotate keywords across posts</Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="includeImages"
+                        checked={bulkConfig.includeImages}
+                        onChange={(e) => setBulkConfig(prev => ({ ...prev, includeImages: e.target.checked }))}
+                      />
+                      <Label htmlFor="includeImages">Generate AI images for posts</Label>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Bulk Preview and Actions */}
+              <div className="space-y-6">
+                {/* Prerequisites Check */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5" />
+                      Prerequisites
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      {aiSettings.businessName ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-sm">Business name set</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {formData.target_keywords && formData.target_keywords.length > 0 ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-sm">Target keywords set</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {bulkConfig.campaignName ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-sm">Campaign name set</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {bulkConfig.startDate && bulkConfig.endDate ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-sm">Date range set</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Campaign Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Campaign Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="text-sm">
+                      <strong>Campaign:</strong> {bulkConfig.campaignName || 'Not set'}
+                    </div>
+                    <div className="text-sm">
+                      <strong>Duration:</strong> {bulkConfig.startDate && bulkConfig.endDate ?
+                        `${bulkConfig.startDate} to ${bulkConfig.endDate}` : 'Not set'}
+                    </div>
+                    <div className="text-sm">
+                      <strong>Total Posts:</strong> {bulkConfig.totalPosts}
+                    </div>
+                    <div className="text-sm">
+                      <strong>Posts/Day:</strong> {bulkConfig.postsPerDay}
+                    </div>
+                    <div className="text-sm">
+                      <strong>Platforms:</strong> {bulkConfig.platforms.length}
+                    </div>
+                    <div className="text-sm">
+                      <strong>Keywords:</strong> {formData.target_keywords?.length || 0}
+                    </div>
+                    {bulkConfig.includeImages && (
+                      <div className="text-sm text-blue-600">
+                        + AI image generation included
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Create Button */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <Button
+                      onClick={createBulkPosts}
+                      disabled={bulkGenerating || !aiSettings.businessName || !formData.target_keywords?.length || !bulkConfig.campaignName || !bulkConfig.startDate || !bulkConfig.endDate}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {bulkGenerating ? (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                          Creating {bulkConfig.totalPosts} Posts...
+                        </>
+                      ) : (
+                        <>
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Create Bulk Campaign
+                        </>
+                      )}
+                    </Button>
+
+                    {bulkConfig.includeImages && (
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Estimated time: {Math.ceil(bulkConfig.totalPosts * 0.5)} minutes
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Results */}
+                {bulkResults && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5" />
+                        Campaign Results
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="text-sm">
+                        <strong>Campaign ID:</strong> {bulkResults.campaignId}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Posts Created:</strong> {bulkResults.postsCreated}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Posts Scheduled:</strong> {bulkResults.postsScheduled}
+                      </div>
+                      {bulkResults.errors && bulkResults.errors.length > 0 && (
+                        <div className="text-sm text-red-600">
+                          <strong>Errors:</strong> {bulkResults.errors.length}
+                        </div>
+                      )}
+                      <Button
+                        onClick={() => setSelectedTab("manage")}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        View Created Posts
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Keywords Tab */}
+          <TabsContent value="keywords" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Keyword Research */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5" />
+                      Keyword Research & Clustering
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="seedKeywords">Seed Keywords *</Label>
+                      <Textarea
+                        id="seedKeywords"
+                        value={seedKeywords}
+                        onChange={(e) => setSeedKeywords(e.target.value)}
+                        placeholder="Enter keywords separated by commas (e.g., plumber, emergency plumbing, water heater repair)"
+                        rows={3}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Enter 1-5 seed keywords related to your business
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={performKeywordResearch}
+                      disabled={keywordResearchLoading || !seedKeywords.trim()}
+                      className="w-full"
+                    >
+                      {keywordResearchLoading ? (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                          Researching Keywords...
+                        </>
+                      ) : (
+                        <>
+                          <Target className="h-4 w-4 mr-2" />
+                          Research Keywords
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Keyword Clusters Results */}
+                {keywordClusters.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Keyword Clusters ({keywordClusters.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {keywordClusters.map((cluster) => (
+                          <div key={cluster.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold text-lg">{cluster.name}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  Primary: {cluster.primary_keyword}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => useKeywordCluster(cluster)}
+                              >
+                                Use Keywords
+                              </Button>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                              <div className="text-center">
+                                <div className="text-lg font-bold">{cluster.total_search_volume.toLocaleString()}</div>
+                                <div className="text-xs text-muted-foreground">Total Volume</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold">{cluster.avg_difficulty}/100</div>
+                                <div className="text-xs text-muted-foreground">Avg Difficulty</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold">${cluster.avg_cpc}</div>
+                                <div className="text-xs text-muted-foreground">Avg CPC</div>
+                              </div>
+                              <div className="text-center">
+                                <Badge variant={
+                                  cluster.search_intent === 'transactional' ? 'default' :
+                                  cluster.search_intent === 'commercial' ? 'secondary' :
+                                  'outline'
+                                }>
+                                  {cluster.search_intent}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <div className="mb-3">
+                              <h4 className="font-medium text-sm mb-2">Keywords ({cluster.keywords.length})</h4>
+                              <div className="flex flex-wrap gap-1">
+                                {cluster.keywords.slice(0, 8).map((keyword) => (
+                                  <Badge key={keyword.keyword} variant="outline" className="text-xs">
+                                    {keyword.keyword} ({keyword.search_volume})
+                                  </Badge>
+                                ))}
+                                {cluster.keywords.length > 8 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{cluster.keywords.length - 8} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 className="font-medium text-sm mb-2">Content Opportunities</h4>
+                              <ul className="text-sm text-muted-foreground space-y-1">
+                                {cluster.content_opportunities.slice(0, 3).map((opportunity, index) => (
+                                  <li key={index} className="flex items-center gap-2">
+                                    <div className="w-1 h-1 bg-current rounded-full"></div>
+                                    {opportunity}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Keyword Research Guide */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <HelpCircle className="h-5 w-5" />
+                      How It Works
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="text-sm">
+                      <strong>1. Enter Seed Keywords</strong>
+                      <p className="text-muted-foreground">Start with 1-5 keywords related to your business</p>
+                    </div>
+                    <div className="text-sm">
+                      <strong>2. Get Clusters</strong>
+                      <p className="text-muted-foreground">We group related keywords with search data</p>
+                    </div>
+                    <div className="text-sm">
+                      <strong>3. Apply to Posts</strong>
+                      <p className="text-muted-foreground">Use keyword clusters for targeted content</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Understanding Metrics
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="text-sm">
+                      <strong>Search Volume:</strong> Monthly searches
+                    </div>
+                    <div className="text-sm">
+                      <strong>Difficulty:</strong> How hard to rank (0-100)
+                    </div>
+                    <div className="text-sm">
+                      <strong>CPC:</strong> Cost per click in ads
+                    </div>
+                    <div className="text-sm">
+                      <strong>Intent:</strong> What users want
+                      <ul className="mt-1 ml-4 text-xs text-muted-foreground">
+                        <li>• Informational: Learning</li>
+                        <li>• Commercial: Comparing</li>
+                        <li>• Transactional: Buying</li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
           {/* Manage Posts Tab */}
           <TabsContent value="manage" className="mt-6">
             <Card>
