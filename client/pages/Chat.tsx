@@ -28,6 +28,7 @@ import { useChatPresence } from '@/hooks/useChatPresence';
 import { useTypingIndicators } from '@/hooks/useTypingIndicators';
 import { chatChannelManager } from '@/lib/chatUtils';
 import { makeAuthenticatedChatRequest, withAuthRetry } from '@/lib/chatAuth';
+import { FileUploadButton } from '@/components/ui/file-upload';
 import type {
   ChatChannel,
   ChatMessage,
@@ -63,7 +64,14 @@ import {
   Circle,
   Minus,
   Wifi,
-  WifiOff
+  WifiOff,
+  Download,
+  Eye,
+  Image,
+  File,
+  Video,
+  Music,
+  FileText
 } from "lucide-react";
 
 
@@ -100,6 +108,7 @@ export default function Chat() {
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [newChannelType, setNewChannelType] = useState<'public' | 'private'>('public');
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -410,6 +419,105 @@ export default function Chat() {
     }
   }, [newMessage, stopTyping]);
 
+  // Handle file uploads
+  const handleFileUpload = async (files: File[]) => {
+    if (!selectedChannel || !user || files.length === 0) return;
+
+    for (const file of files) {
+      const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
+      setUploadingFiles(prev => new Set([...prev, tempMessageId]));
+
+      try {
+        // Create a message first
+        const message = await makeAuthenticatedChatRequest('/api/chat/messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            channel_id: selectedChannel.id,
+            content: `📎 ${file.name}`,
+            message_type: file.type.startsWith('image/') ? 'image' : 'file'
+          }),
+        });
+
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64Data = (reader.result as string).split(',')[1];
+
+            // Upload the file
+            const uploadResult = await makeAuthenticatedChatRequest('/api/chat/file-upload', {
+              method: 'POST',
+              body: JSON.stringify({
+                fileName: file.name,
+                fileType: file.type,
+                fileData: base64Data,
+                messageId: message.id,
+                channelId: selectedChannel.id
+              }),
+            });
+
+            toast.success(`File "${file.name}" uploaded successfully`);
+
+            // Reload messages to show the updated message with attachment
+            loadMessages(selectedChannel.id);
+          } catch (error) {
+            console.error('Error uploading file:', error);
+            toast.error(`Failed to upload "${file.name}"`);
+          } finally {
+            setUploadingFiles(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(tempMessageId);
+              return newSet;
+            });
+          }
+        };
+
+        reader.onerror = () => {
+          toast.error(`Failed to read file "${file.name}"`);
+          setUploadingFiles(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(tempMessageId);
+            return newSet;
+          });
+        };
+
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error creating message for file:', error);
+        toast.error(`Failed to upload "${file.name}"`);
+        setUploadingFiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(tempMessageId);
+          return newSet;
+        });
+      }
+    }
+  };
+
+  // Get file icon based on mime type
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) {
+      return <Image className="h-4 w-4" />;
+    } else if (mimeType.startsWith('video/')) {
+      return <Video className="h-4 w-4" />;
+    } else if (mimeType.startsWith('audio/')) {
+      return <Music className="h-4 w-4" />;
+    } else if (mimeType === 'application/pdf' || mimeType.includes('document') || mimeType.includes('text')) {
+      return <FileText className="h-4 w-4" />;
+    } else {
+      return <File className="h-4 w-4" />;
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const filteredChannels = channels.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -576,6 +684,97 @@ export default function Chat() {
                             <div className="text-sm whitespace-pre-wrap break-words">
                               {message.content}
                             </div>
+
+                            {/* Attachments */}
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {message.attachments.map((attachment) => (
+                                  <div key={attachment.id} className="border rounded-lg p-3 max-w-md">
+                                    {attachment.mime_type?.startsWith('image/') ? (
+                                      // Image attachment
+                                      <div className="space-y-2">
+                                        <img
+                                          src={attachment.public_url}
+                                          alt={attachment.filename}
+                                          className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                          onClick={() => window.open(attachment.public_url, '_blank')}
+                                          style={{ maxHeight: '300px' }}
+                                        />
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                          <span>{attachment.filename}</span>
+                                          <div className="flex items-center gap-2">
+                                            {attachment.file_size && (
+                                              <span>{formatFileSize(attachment.file_size)}</span>
+                                            )}
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={() => window.open(attachment.public_url, '_blank')}
+                                            >
+                                              <Eye className="h-3 w-3" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={() => {
+                                                const a = document.createElement('a');
+                                                a.href = attachment.public_url;
+                                                a.download = attachment.filename;
+                                                a.click();
+                                              }}
+                                            >
+                                              <Download className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      // File attachment
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex-shrink-0 p-2 bg-muted rounded">
+                                          {getFileIcon(attachment.mime_type || 'application/octet-stream')}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">
+                                            {attachment.filename}
+                                          </p>
+                                          {attachment.file_size && (
+                                            <p className="text-xs text-muted-foreground">
+                                              {formatFileSize(attachment.file_size)}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <div className="flex gap-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => window.open(attachment.public_url, '_blank')}
+                                          >
+                                            <Eye className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => {
+                                              const a = document.createElement('a');
+                                              a.href = attachment.public_url;
+                                              a.download = attachment.filename;
+                                              a.click();
+                                            }}
+                                          >
+                                            <Download className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             
                             {/* Reactions */}
                             {message.reactions && message.reactions.length > 0 && (
@@ -676,16 +875,21 @@ export default function Chat() {
                 </div>
                 
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm">
+                  <FileUploadButton
+                    onFileSelect={handleFileUpload}
+                    accept="*/*"
+                    multiple
+                    disabled={!selectedChannel || uploadingFiles.size > 0}
+                  >
                     <Paperclip className="h-4 w-4" />
-                  </Button>
+                  </FileUploadButton>
                   <Button variant="ghost" size="sm">
                     <Smile className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="sm">
                     <AtSign className="h-4 w-4" />
                   </Button>
-                  <Button onClick={sendMessage} disabled={!newMessage.trim()}>
+                  <Button onClick={sendMessage} disabled={!newMessage.trim() || uploadingFiles.size > 0}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
