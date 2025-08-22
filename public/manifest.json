@@ -1,15 +1,22 @@
 {
-  "name": "Local SEO Ranker - Project Management",
+  "name": "Local SEO Ranker - Advanced SEO Management Platform",
   "short_name": "Local SEO Ranker",
-  "description": "Professional project management system for Google My Business optimization with enhanced media processing and metadata management.",
+  "description": "Professional SEO management system with advanced analytics, agency tools, real-time chat, offline support, and automated backup features.",
   "start_url": "/admin/projects",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "scope": "/",
-  "lang": "en",
-  "categories": ["business", "productivity", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities",
+    "marketing",
+    "analytics"
+  ],
   "icons": [
     {
       "src": "/icon-72x72.png",
@@ -62,26 +69,83 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1280x720",
+      "src": "/screenshot-desktop-dashboard.png",
+      "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Desktop view of project dashboard"
+      "label": "Dashboard with project analytics and performance metrics"
     },
     {
-      "src": "/screenshot-mobile.png",
-      "sizes": "375x667",
+      "src": "/screenshot-desktop-projects.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Project management interface with task tracking"
+    },
+    {
+      "src": "/screenshot-desktop-chat.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Real-time team chat and communication"
+    },
+    {
+      "src": "/screenshot-mobile-projects.png",
+      "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Mobile view of project list"
+      "label": "Mobile project list view"
+    },
+    {
+      "src": "/screenshot-mobile-dashboard.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile dashboard and analytics"
     }
   ],
   "shortcuts": [
     {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View analytics dashboard",
+      "url": "/admin/dashboard",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
       "name": "Add Project",
       "short_name": "Add",
-      "description": "Create a new project",
+      "description": "Create a new SEO project",
       "url": "/admin/add-project",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Team communication",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "short_name": "Reports",
+      "description": "View SEO reports and analytics",
+      "url": "/admin/reports",
       "icons": [
         {
           "src": "/icon-192x192.png",
@@ -92,20 +156,8 @@
     {
       "name": "Gallery",
       "short_name": "Gallery",
-      "description": "View project gallery",
+      "description": "Project media gallery",
       "url": "/admin/gallery",
-      "icons": [
-        {
-          "src": "/icon-192x192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Settings",
-      "short_name": "Settings",
-      "description": "App settings",
-      "url": "/admin/settings",
       "icons": [
         {
           "src": "/icon-192x192.png",
@@ -114,12 +166,70 @@
       ]
     }
   ],
-  "related_applications": [],
-  "prefer_related_applications": false,
-  "edge_side_panel": {
-    "preferred_width": 400
+  "file_handlers": [
+    {
+      "action": "/admin/import",
+      "accept": {
+        "text/csv": [".csv"],
+        "application/vnd.ms-excel": [".xls"],
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"]
+      }
+    },
+    {
+      "action": "/admin/gallery",
+      "accept": {
+        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
+        "video/*": [".mp4", ".webm", ".mov"]
+      }
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+localseoranker",
+      "url": "/handle?url=%s"
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": ["image/*", "video/*", ".pdf", ".doc", ".docx"]
+        }
+      ]
+    }
   },
   "launch_handler": {
     "client_mode": "navigate-existing"
-  }
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "handle_links": "preferred",
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "iarc_rating_id": "",
+  "features": [
+    "offline-support",
+    "background-sync",
+    "push-notifications",
+    "file-handling",
+    "share-target",
+    "real-time-chat",
+    "analytics-dashboard",
+    "automated-backup"
+  ],
+  "gcm_sender_id": "103953800507"
 }
