@@ -407,9 +407,7 @@ export default function GeoGridReport() {
                     showDirectionsButton={false}
                     className="h-full border-0 rounded-lg"
                     waypointData={displayWaypoints}
-                    onWaypointToggle={() => {}} // Disabled in report view
-                    onWaypointDrag={() => {}} // Disabled in report view
-                    onWaypointsDragComplete={() => {}} // Disabled in report view
+                    reportMode={true}
                     scanConfig={{
                       unit: "miles",
                       distanceBetween: 1,
@@ -419,7 +417,7 @@ export default function GeoGridReport() {
                     keyword={scanResult.keyword}
                     scanDate={scanResult.scan_date}
                     scanTime={scanResult.scan_time}
-                    averageRanking={selectedCompetitor ? analytics.average : scanResult.average_ranking}
+                    averageRanking={analytics.average}
                     rankingAnalytics={analytics}
                     showBusinessOverlay={true}
                   />
