@@ -186,6 +186,13 @@ export default function GeoGridReport() {
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [waypointColors, setWaypointColors] = useState({
+    excellent: '#10B981', // Green (1-3)
+    good: '#F59E0B',      // Yellow (4-9)
+    fair: '#FB923C',      // Orange (10-15)
+    poor: '#EF4444',      // Red (16+)
+    notFound: '#6B7280',  // Gray
+  });
 
   // Load scan result (mock data for now)
   useEffect(() => {
@@ -632,7 +639,7 @@ export default function GeoGridReport() {
 
       {/* Settings Modal */}
       <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md z-[100]">
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription>
