@@ -1609,8 +1609,12 @@ export default function Chat() {
                         {formatTime(activeThread.created_at)}
                       </span>
                     </div>
-                    <div className="text-sm whitespace-pre-wrap break-words">
-                      {activeThread.content}
+                    <div className="text-sm break-words">
+                      <MarkdownRenderer
+                        content={activeThread.content}
+                        enableMentions
+                        className="prose-sm"
+                      />
                     </div>
                   </div>
                 </div>
