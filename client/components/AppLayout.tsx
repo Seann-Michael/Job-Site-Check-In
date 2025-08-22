@@ -430,6 +430,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "gmb-optimization",
+      label: "GMB Optimization",
+      href: "/admin/gmb-optimization",
+      icon: Building2,
+      active: location.pathname === "/admin/gmb-optimization",
+      comingSoon: false,
+    },
+    {
       id: "reports",
       label: "Reports",
       href: "/admin/reports",
