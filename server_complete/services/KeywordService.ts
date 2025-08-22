@@ -6,9 +6,22 @@ import { supabase } from "../supabaseClient";
  * ranking tracking. Each method returns the Supabase response.
  */
 export class KeywordService {
-  /** List all keywords for a business */
-  static async listKeywords(businessId: string) {
-    return supabase.from("keywords").select("*").eq("business_id", businessId);
+  /** List all keywords for a business with pagination */
+  static async listKeywords(businessId: string, filters: Record<string, any> = {}) {
+    const page = parseInt(filters.page || '1');
+    const limit = parseInt(filters.limit || '20');
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from("keywords")
+      .select("*", { count: 'exact' })
+      .eq("business_id", businessId);
+
+    query = query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    return query;
   }
   /** Get a single keyword by id */
   static async getKeyword(id: string) {
