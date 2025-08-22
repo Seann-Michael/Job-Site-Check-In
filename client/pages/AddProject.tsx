@@ -35,7 +35,8 @@ import { DROPDOWN_FIELDS } from "@/hooks/useDropdownState";
 import { generateProjectId } from "@/lib/idGenerator";
 import { AddressAutocomplete } from "@/components/GoogleMaps";
 import { USStatesSelect } from "@/components/ui/us-states-select";
-import { dataService, Business } from "@/lib/dataService";
+import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
+import { Business } from "@/lib/dataService";
 import {
   getGoogleMapsApiKey,
   validateGoogleMapsApiKey,
