@@ -83,6 +83,36 @@
 
 [[redirects]]
   force = true
+  from = "/api/social-media-posts"
+  status = 200
+  to = "/.netlify/functions/social-media-posts"
+
+[[redirects]]
+  force = true
+  from = "/api/social-media-posts/*"
+  status = 200
+  to = "/.netlify/functions/social-media-posts/:splat"
+
+[[redirects]]
+  force = true
+  from = "/api/social-media-content-generator"
+  status = 200
+  to = "/.netlify/functions/social-media-content-generator"
+
+[[redirects]]
+  force = true
+  from = "/api/social-media-image-generator"
+  status = 200
+  to = "/.netlify/functions/social-media-image-generator"
+
+[[redirects]]
+  force = true
+  from = "/api/social-media-syndication/*"
+  status = 200
+  to = "/.netlify/functions/social-media-syndication/:splat"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
