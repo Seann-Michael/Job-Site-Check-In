@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { createClient } from '@supabase/supabase-js';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Hash,
   Plus,
@@ -49,7 +51,9 @@ import {
   Check,
   CheckCheck,
   Circle,
-  Minus
+  Minus,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 
 interface ChatChannel {
@@ -100,7 +104,14 @@ interface UserPresence {
   };
 }
 
+// Initialize Supabase client for real-time subscriptions
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL!,
+  import.meta.env.VITE_SUPABASE_ANON_KEY!
+);
+
 export default function Chat() {
+  const { user } = useAuth();
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -114,9 +125,13 @@ export default function Chat() {
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [newChannelType, setNewChannelType] = useState<'public' | 'private'>('public');
+  const [isConnected, setIsConnected] = useState(true);
+  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
+  const [isTyping, setIsTyping] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -127,11 +142,114 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // Get auth token helper
+  const getAuthToken = useCallback(() => {
+    return localStorage.getItem('supabase_auth_token') || user?.access_token || '';
+  }, [user]);
+
+  // Real-time message subscription
+  useEffect(() => {
+    if (!selectedChannel || !user) return;
+
+    const channel = supabase
+      .channel(`messages:${selectedChannel.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${selectedChannel.id}`
+        },
+        (payload) => {
+          const newMessage = payload.new as ChatMessage;
+          // Only add if it's not from current user (to avoid duplicates)
+          if (newMessage.user_id !== user.id) {
+            setMessages(prev => [...prev, newMessage]);
+            // Load full message data with user info
+            loadMessageWithUserData(newMessage.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${selectedChannel.id}`
+        },
+        (payload) => {
+          const updatedMessage = payload.new as ChatMessage;
+          setMessages(prev => prev.map(msg =>
+            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+          ));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${selectedChannel.id}`
+        },
+        (payload) => {
+          const deletedMessage = payload.old as ChatMessage;
+          setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedChannel, user]);
+
+  // Real-time presence subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('user_presence')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_user_presence'
+        },
+        () => {
+          // Reload online users when presence changes
+          loadOnlineUsers();
+        }
+      )
+      .subscribe();
+
+    // Update own presence
+    updatePresence('online');
+
+    // Set up presence heartbeat
+    const presenceInterval = setInterval(() => {
+      updatePresence('online');
+    }, 30000); // Update every 30 seconds
+
+    // Cleanup on unmount
+    return () => {
+      updatePresence('offline');
+      clearInterval(presenceInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   // Load channels on component mount
   useEffect(() => {
-    loadChannels();
-    loadOnlineUsers();
-  }, []);
+    if (user) {
+      loadChannels();
+      loadOnlineUsers();
+      ensureDefaultChannel();
+    }
+  }, [user]);
 
   // Load messages when channel changes
   useEffect(() => {
@@ -140,10 +258,85 @@ export default function Chat() {
     }
   }, [selectedChannel]);
 
+  // Load message with user data
+  const loadMessageWithUserData = async (messageId: string) => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`/api/chat/messages/${messageId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const messageData = await response.json();
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId ? messageData : msg
+        ));
+      }
+    } catch (error) {
+      console.error('Error loading message data:', error);
+    }
+  };
+
+  // Update user presence
+  const updatePresence = async (status: 'online' | 'away' | 'busy' | 'offline') => {
+    try {
+      const token = getAuthToken();
+      await fetch('/api/chat/preferences/presence', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status,
+          current_channel_id: selectedChannel?.id
+        }),
+      });
+    } catch (error) {
+      console.error('Error updating presence:', error);
+    }
+  };
+
+  // Ensure default channel exists
+  const ensureDefaultChannel = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch('/api/chat/channels', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const channels = data.channels || [];
+
+        // Check if general channel exists
+        const generalChannel = channels.find((ch: ChatChannel) => ch.name === 'general');
+
+        if (!generalChannel && channels.length === 0) {
+          // Create default general channel
+          await createChannel({
+            name: 'general',
+            description: 'General discussion for all team members',
+            channel_type: 'public',
+            allow_all_agency_members: true
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring default channel:', error);
+    }
+  };
+
   const loadChannels = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('supabase_auth_token');
+      const token = getAuthToken();
       const response = await fetch('/api/chat/channels', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -154,17 +347,20 @@ export default function Chat() {
       if (response.ok) {
         const data = await response.json();
         setChannels(data.channels || []);
-        
+
         // Select first channel by default
         if (data.channels && data.channels.length > 0 && !selectedChannel) {
           setSelectedChannel(data.channels[0]);
         }
+        setIsConnected(true);
       } else {
         toast.error('Failed to load channels');
+        setIsConnected(false);
       }
     } catch (error) {
       console.error('Error loading channels:', error);
       toast.error('Error loading channels');
+      setIsConnected(false);
     } finally {
       setLoading(false);
     }
@@ -173,7 +369,7 @@ export default function Chat() {
   const loadMessages = async (channelId: string) => {
     setMessageLoading(true);
     try {
-      const token = localStorage.getItem('supabase_auth_token');
+      const token = getAuthToken();
       const response = await fetch(`/api/chat/messages?channel_id=${channelId}&limit=50`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -184,12 +380,15 @@ export default function Chat() {
       if (response.ok) {
         const data = await response.json();
         setMessages((data.messages || []).reverse()); // Reverse to show oldest first
+        setIsConnected(true);
       } else {
         toast.error('Failed to load messages');
+        setIsConnected(false);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
       toast.error('Error loading messages');
+      setIsConnected(false);
     } finally {
       setMessageLoading(false);
     }
@@ -197,7 +396,7 @@ export default function Chat() {
 
   const loadOnlineUsers = async () => {
     try {
-      const token = localStorage.getItem('supabase_auth_token');
+      const token = getAuthToken();
       const response = await fetch('/api/chat/preferences/online-users', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -215,10 +414,35 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedChannel) return;
+    if (!newMessage.trim() || !selectedChannel || !user) return;
+
+    // Clear typing indicator
+    setIsTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    const tempMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      content: newMessage,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      channel_id: selectedChannel.id,
+      user: {
+        id: user.id,
+        email: user.email || '',
+        raw_user_meta_data: user.user_metadata
+      }
+    };
+
+    // Optimistically add message to UI
+    setMessages(prev => [...prev, tempMessage]);
+    const messageContent = newMessage;
+    setNewMessage('');
+    messageInputRef.current?.focus();
 
     try {
-      const token = localStorage.getItem('supabase_auth_token');
+      const token = getAuthToken();
       const response = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: {
@@ -227,55 +451,67 @@ export default function Chat() {
         },
         body: JSON.stringify({
           channel_id: selectedChannel.id,
-          content: newMessage,
+          content: messageContent,
           message_type: 'text'
         }),
       });
 
       if (response.ok) {
         const message = await response.json();
-        setMessages(prev => [...prev, message]);
-        setNewMessage('');
-        messageInputRef.current?.focus();
+        // Replace temp message with real message
+        setMessages(prev => prev.map(msg =>
+          msg.id === tempMessage.id ? message : msg
+        ));
       } else {
+        // Remove temp message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
         toast.error('Failed to send message');
+        setNewMessage(messageContent); // Restore message content
       }
     } catch (error) {
+      // Remove temp message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
       console.error('Error sending message:', error);
       toast.error('Error sending message');
+      setNewMessage(messageContent); // Restore message content
     }
   };
 
-  const createChannel = async () => {
-    if (!newChannelName.trim()) {
+  const createChannel = async (channelData?: any) => {
+    const data = channelData || {
+      name: newChannelName,
+      description: newChannelDescription,
+      channel_type: newChannelType,
+      allow_all_agency_members: newChannelType === 'public'
+    };
+
+    if (!data.name.trim()) {
       toast.error('Channel name is required');
       return;
     }
 
     try {
-      const token = localStorage.getItem('supabase_auth_token');
+      const token = getAuthToken();
       const response = await fetch('/api/chat/channels', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: newChannelName,
-          description: newChannelDescription,
-          channel_type: newChannelType,
-          allow_all_agency_members: newChannelType === 'public'
-        }),
+        body: JSON.stringify(data),
       });
 
       if (response.ok) {
         const channel = await response.json();
         setChannels(prev => [...prev, channel]);
         setSelectedChannel(channel);
-        setIsCreatingChannel(false);
-        setNewChannelName('');
-        setNewChannelDescription('');
-        toast.success('Channel created successfully');
+        if (!channelData) {
+          setIsCreatingChannel(false);
+          setNewChannelName('');
+          setNewChannelDescription('');
+          toast.success('Channel created successfully');
+        }
+        return channel;
       } else {
         toast.error('Failed to create channel');
       }
@@ -322,11 +558,33 @@ export default function Chat() {
     }
   };
 
+  // Handle typing indicators
+  const handleTyping = useCallback(() => {
+    if (!isTyping) {
+      setIsTyping(true);
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 3000);
+  }, [isTyping]);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    } else {
+      handleTyping();
     }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNewMessage(e.target.value);
+    handleTyping();
   };
 
   const filteredChannels = channels.filter(channel =>
@@ -406,13 +664,20 @@ export default function Chat() {
                 <div className="flex items-center gap-2">
                   <Hash className="h-5 w-5" />
                   <div>
-                    <h3 className="font-semibold">{selectedChannel.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{selectedChannel.name}</h3>
+                      {isConnected ? (
+                        <Wifi className="h-4 w-4 text-green-500" title="Connected" />
+                      ) : (
+                        <WifiOff className="h-4 w-4 text-red-500" title="Disconnected" />
+                      )}
+                    </div>
                     {selectedChannel.topic && (
                       <p className="text-sm text-muted-foreground">{selectedChannel.topic}</p>
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm">
                     <Bell className="h-4 w-4" />
@@ -422,6 +687,7 @@ export default function Chat() {
                   </Button>
                   <Button variant="ghost" size="sm">
                     <Users className="h-4 w-4" />
+                    <span className="ml-1 text-xs">{onlineUsers.length}</span>
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setShowMemberList(!showMemberList)}>
                     <MoreVertical className="h-4 w-4" />
@@ -565,15 +831,22 @@ export default function Chat() {
             <div className="p-4 border-t bg-background">
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <Textarea
-                    ref={messageInputRef}
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder={`Message #${selectedChannel.name}`}
-                    className="min-h-[40px] max-h-32 resize-none"
-                    rows={1}
-                  />
+                  <div className="relative">
+                    <Textarea
+                      ref={messageInputRef}
+                      value={newMessage}
+                      onChange={handleMessageChange}
+                      onKeyPress={handleKeyPress}
+                      placeholder={`Message #${selectedChannel.name}`}
+                      className="min-h-[40px] max-h-32 resize-none"
+                      rows={1}
+                    />
+                    {isTyping && (
+                      <div className="absolute -top-6 left-0 text-xs text-muted-foreground">
+                        Typing...
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex gap-1">
