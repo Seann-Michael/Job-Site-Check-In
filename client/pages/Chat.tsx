@@ -1411,19 +1411,36 @@ export default function Chat() {
 
             {/* Message Input */}
             <div className="p-4 border-t bg-background">
+              {showMarkdownHelp && (
+                <div className="mb-3 p-3 bg-muted/50 rounded-lg border">
+                  {getMarkdownHelp()}
+                </div>
+              )}
+
               <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <div className="relative">
-                    <Textarea
-                      ref={messageInputRef}
-                      value={newMessage}
-                      onChange={handleMessageInputChange}
-                      onKeyPress={handleKeyPress}
-                      onBlur={stopTyping}
-                      placeholder={`Message #${selectedChannel.name}`}
-                      className="min-h-[40px] max-h-32 resize-none"
-                      rows={1}
-                    />
+                    {showMarkdownPreview && newMessage.trim() ? (
+                      <div className="min-h-[40px] max-h-32 overflow-y-auto border rounded-md p-3 bg-muted/20">
+                        <MarkdownPreview
+                          content={newMessage}
+                          isPreview={true}
+                          enableMentions
+                          className="prose-sm"
+                        />
+                      </div>
+                    ) : (
+                      <Textarea
+                        ref={messageInputRef}
+                        value={newMessage}
+                        onChange={handleMessageInputChange}
+                        onKeyPress={handleKeyPress}
+                        onBlur={stopTyping}
+                        placeholder={`Message #${selectedChannel?.name || 'channel'} (Markdown supported)`}
+                        className="min-h-[40px] max-h-32 resize-none"
+                        rows={1}
+                      />
+                    )}
                   </div>
                 </div>
                 
