@@ -315,26 +315,19 @@ export default function Chat() {
     }
 
     try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/channels', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      const channel = await chatChannelManager.createChannel(data);
 
-      if (response.ok) {
-        const channel = await response.json();
+      if (channel) {
         setChannels(prev => [...prev, channel]);
         setSelectedChannel(channel);
+
         if (!channelData) {
           setIsCreatingChannel(false);
           setNewChannelName('');
           setNewChannelDescription('');
           toast.success('Channel created successfully');
         }
+
         return channel;
       } else {
         toast.error('Failed to create channel');
