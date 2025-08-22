@@ -363,19 +363,27 @@ export default function GeoGridReport() {
         </div>
 
         {/* Export & Settings Actions */}
-        <div className="flex justify-end items-center gap-2 mb-6">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Download PDF
-          </Button>
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4 mr-2" />
-            Print Report
-          </Button>
-          <Button variant="outline" size="sm">
-            <Share2 className="h-4 w-4 mr-2" />
-            Share Link
-          </Button>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <Settings className="h-4 w-4 mr-2" />
+              Waypoint Colors
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
+            </Button>
+            <Button variant="outline" size="sm">
+              <Printer className="h-4 w-4 mr-2" />
+              Print Report
+            </Button>
+            <Button variant="outline" size="sm">
+              <Share2 className="h-4 w-4 mr-2" />
+              Share Link
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
