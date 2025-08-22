@@ -109,6 +109,8 @@ export default function Chat() {
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [newChannelType, setNewChannelType] = useState<'public' | 'private'>('public');
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -518,6 +520,85 @@ export default function Chat() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // Start editing a message
+  const startEditMessage = (message: ChatMessage) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+  };
+
+  // Cancel editing
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  // Save edited message
+  const saveEditedMessage = async (messageId: string) => {
+    if (!editingContent.trim()) {
+      toast.error('Message content cannot be empty');
+      return;
+    }
+
+    try {
+      await makeAuthenticatedChatRequest(`/api/chat/messages/${messageId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          content: editingContent.trim()
+        }),
+      });
+
+      // Update the message in local state
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? { ...msg, content: editingContent.trim(), edited_at: new Date().toISOString() }
+          : msg
+      ));
+
+      setEditingMessageId(null);
+      setEditingContent('');
+      toast.success('Message updated');
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast.error('Failed to update message');
+    }
+  };
+
+  // Delete a message
+  const deleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) {
+      return;
+    }
+
+    try {
+      await makeAuthenticatedChatRequest(`/api/chat/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+
+      // Update the message in local state (soft delete)
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? { ...msg, content: '[deleted]', deleted_at: new Date().toISOString() }
+          : msg
+      ));
+
+      toast.success('Message deleted');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message');
+    }
+  };
+
+  // Handle key press in edit mode
+  const handleEditKeyPress = (e: React.KeyboardEvent, messageId: string) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveEditedMessage(messageId);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
+  };
+
   const filteredChannels = channels.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -681,9 +762,46 @@ export default function Chat() {
                               </div>
                             )}
                             
-                            <div className="text-sm whitespace-pre-wrap break-words">
-                              {message.content}
-                            </div>
+                            {editingMessageId === message.id ? (
+                              // Edit mode
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editingContent}
+                                  onChange={(e) => setEditingContent(e.target.value)}
+                                  onKeyDown={(e) => handleEditKeyPress(e, message.id)}
+                                  className="min-h-[60px] text-sm"
+                                  placeholder="Edit your message..."
+                                  autoFocus
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => saveEditedMessage(message.id)}
+                                    disabled={!editingContent.trim()}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={cancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  Press Enter to save • Escape to cancel
+                                </p>
+                              </div>
+                            ) : (
+                              // Display mode
+                              <div className={cn(
+                                "text-sm whitespace-pre-wrap break-words",
+                                message.deleted_at && "italic text-muted-foreground"
+                              )}>
+                                {message.content}
+                              </div>
+                            )}
 
                             {/* Attachments */}
                             {message.attachments && message.attachments.length > 0 && (
@@ -829,14 +947,21 @@ export default function Chat() {
                                   Save message
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit message
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive">
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete message
-                                </DropdownMenuItem>
+                                {message.user_id === user?.id && !message.deleted_at && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => startEditMessage(message)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit message
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onClick={() => deleteMessage(message.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete message
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
