@@ -407,7 +407,7 @@ export function getMarkdownHelp(): React.ReactNode {
     <div className="text-xs text-muted-foreground space-y-1">
       <div className="font-medium">Markdown supported:</div>
       <div>**bold** *italic* `code` ~~strikethrough~~</div>
-      <div>```code blocks``` > quotes # headers</div>
+      <div>```code blocks``` {'>'} quotes # headers</div>
       <div>[links](url) - lists 1. numbered lists</div>
     </div>
   );
