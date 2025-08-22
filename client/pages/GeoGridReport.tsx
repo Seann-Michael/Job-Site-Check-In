@@ -401,7 +401,7 @@ export default function GeoGridReport() {
             <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Competitors List */}
             <Card className="h-fit max-h-[800px] flex flex-col">
-              <CardHeader>
+              <CardHeader className="flex-shrink-0">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
@@ -417,8 +417,8 @@ export default function GeoGridReport() {
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="flex-1 overflow-hidden">
+                <div className="space-y-3 max-h-[650px] overflow-y-auto pr-2">
                   {/* Business (default selection) */}
                   <div
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
