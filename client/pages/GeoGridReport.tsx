@@ -607,6 +607,7 @@ export default function GeoGridReport() {
                       distanceBetween: 1,
                     }}
                     businessName={scanResult.business_name}
+                    businessAddress={scanResult.location.address}
                     keyword={scanResult.keyword}
                     scanDate={scanResult.scan_date}
                     scanTime={scanResult.scan_time}
