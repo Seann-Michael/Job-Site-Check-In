@@ -51,7 +51,7 @@
     />
     <meta property="twitter:image" content="/icon-512x512.png" />
 
-    <!-- PWA Meta Tags -->
+    <!-- Enhanced PWA Meta Tags -->
     <meta name="application-name" content="Local SEO Ranker" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -62,6 +62,19 @@
     <meta name="msapplication-TileColor" content="#2563eb" />
     <meta name="msapplication-tap-highlight" content="no" />
     <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#2563eb" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1e40af" />
+
+    <!-- Advanced PWA Features -->
+    <meta name="apple-mobile-web-app-orientation" content="portrait" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="mobile-web-app-title" content="Local SEO Ranker" />
+    <meta name="msapplication-navbutton-color" content="#2563eb" />
+    <meta name="msapplication-starturl" content="/admin/projects" />
+    <meta name="msapplication-window" content="width=1024;height=768" />
+
+    <!-- Permissions Policy -->
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(self), notifications=(self)" />
 
     <!-- Manifest -->
     <link rel="manifest" href="/manifest.json" />
