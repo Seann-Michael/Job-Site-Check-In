@@ -132,6 +132,9 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+  const [threadMarkdownPreview, setThreadMarkdownPreview] = useState(false);
+  const [showMarkdownHelp, setShowMarkdownHelp] = useState(false);
 
   // Mention autocomplete for main message input
   const mention = useMentionAutocomplete();
