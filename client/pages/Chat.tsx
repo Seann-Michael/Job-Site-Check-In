@@ -648,6 +648,13 @@ export default function Chat() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Typing Indicators */}
+              {hasTypingUsers && (
+                <div className="px-4 py-2 text-sm text-muted-foreground italic">
+                  {getTypingText()}
+                </div>
+              )}
             </ScrollArea>
 
             {/* Message Input */}
