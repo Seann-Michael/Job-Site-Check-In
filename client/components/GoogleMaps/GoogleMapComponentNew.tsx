@@ -707,7 +707,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-white text-xs font-bold leading-tight truncate">{businessName}</div>
-                          <div className="text-blue-200 text-xs opacity-75">Local SEO Ranker</div>
                         </div>
                         <div className="flex items-center gap-1">
                           {!isOverlayCollapsed && (
@@ -814,6 +813,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                             </div>
                           </div>
                         )}
+
+                        {/* Local SEO Ranker Branding - Bottom Center */}
+                        <div className="text-center mt-2 pt-2 border-t border-white/10">
+                          <div className="text-white/70 text-xs font-medium">Local SEO Ranker</div>
+                        </div>
                       </div>
                     )}
                   </div>
