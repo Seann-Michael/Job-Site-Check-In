@@ -82,6 +82,8 @@ interface GoogleMapComponentProps {
     unranked: number;
   };
   showBusinessOverlay?: boolean;
+  isOverlayCollapsed?: boolean;
+  onToggleOverlay?: () => void;
 }
 
 export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
