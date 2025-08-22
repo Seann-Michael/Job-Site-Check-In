@@ -129,7 +129,7 @@ export default function Chat() {
   const [isCreatingDM, setIsCreatingDM] = useState(false);
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
