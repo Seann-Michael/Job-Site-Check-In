@@ -23,7 +23,8 @@
   FROM_EMAIL = "noreply@localcontractorleads.com"
 
   # DataForSEO API Configuration (Set in Netlify dashboard)
-  DATAFORSEO_API_KEY = ""
+  DATAFORSEO_API_LOGIN = ""
+  DATAFORSEO_API_PASSWORD = ""
 
   # OpenAI API Configuration (Set in Netlify dashboard)
   OPENAI_API_KEY = ""
@@ -119,6 +120,12 @@
   from = "/api/keyword-research"
   status = 200
   to = "/.netlify/functions/keyword-research"
+
+[[redirects]]
+  force = true
+  from = "/api/bulk-social-posting"
+  status = 200
+  to = "/.netlify/functions/bulk-social-posting"
 
 [[redirects]]
   force = true
