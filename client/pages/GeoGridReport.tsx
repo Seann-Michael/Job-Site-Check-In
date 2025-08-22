@@ -29,6 +29,7 @@ import {
   Printer,
   Eye,
   ArrowLeft,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 
