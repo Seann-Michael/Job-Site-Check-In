@@ -289,6 +289,22 @@ export default function SocialMediaPosting() {
     { label: "Social Posting" },
   ];
 
+  // Helper function to check if response is HTML (development mode)
+  const isDevModeResponse = (response: Response): boolean => {
+    const contentType = response.headers.get('content-type');
+    return contentType ? contentType.includes('text/html') : false;
+  };
+
+  // Helper function to handle API errors consistently
+  const handleApiError = (error: any, fallbackMessage: string, devModeMessage: string): void => {
+    console.error('API Error:', error);
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      toast.error(devModeMessage);
+    } else {
+      toast.error(fallbackMessage);
+    }
+  };
+
   // Load posts on component mount
   useEffect(() => {
     loadPosts();
