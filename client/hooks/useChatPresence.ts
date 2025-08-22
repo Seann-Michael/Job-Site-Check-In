@@ -55,6 +55,20 @@ export function useChatPresence() {
     });
   }, [user]);
 
+  // Load online users
+  const loadOnlineUsers = useCallback(async () => {
+    return withAuthRetry(async () => {
+      try {
+        const data = await makeAuthenticatedChatRequest('/api/chat/preferences/online-users');
+        setOnlineUsers(data.users || []);
+        setIsConnected(true);
+      } catch (error) {
+        console.error('Error loading online users:', error);
+        setIsConnected(false);
+        throw error;
+      }
+    });
+  }, []);
 
   // Set up real-time presence subscription
   useEffect(() => {
