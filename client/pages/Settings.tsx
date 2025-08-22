@@ -4531,6 +4531,187 @@ export default function Settings() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Credit Purchase Cards */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-orange-500" />
+                      Purchase Credits
+                    </CardTitle>
+                    <CardDescription>
+                      Buy additional credits for AI features and services
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      {/* Starter Pack */}
+                      <div className="relative p-4 border rounded-lg hover:border-primary transition-colors">
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold">Starter Pack</h3>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold">$20</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">100 Credits</p>
+                          </div>
+                          <ul className="space-y-1 text-sm">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Perfect for small businesses
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              AI content generation
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Basic analytics
+                            </li>
+                          </ul>
+                          <Button className="w-full" size="sm">
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Buy Now
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Professional Pack */}
+                      <div className="relative p-4 border rounded-lg hover:border-primary transition-colors">
+                        <Badge className="absolute -top-2 right-4 bg-blue-500">
+                          Popular
+                        </Badge>
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold">Professional Pack</h3>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold">$80</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">500 + 50 Bonus Credits</p>
+                          </div>
+                          <ul className="space-y-1 text-sm">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Great for growing agencies
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Advanced AI features
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Priority support
+                            </li>
+                          </ul>
+                          <Button className="w-full" size="sm">
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Buy Now
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Enterprise Pack */}
+                      <div className="relative p-4 border rounded-lg hover:border-primary transition-colors">
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold">Enterprise Pack</h3>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold">$250</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">2000 + 300 Bonus Credits</p>
+                          </div>
+                          <ul className="space-y-1 text-sm">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Ideal for large organizations
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Bulk processing
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Custom integrations
+                            </li>
+                          </ul>
+                          <Button className="w-full" size="sm">
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Buy Now
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Monthly Unlimited */}
+                      <div className="relative p-4 border rounded-lg hover:border-primary transition-colors">
+                        <Badge className="absolute -top-2 right-4 bg-purple-500">
+                          Best Value
+                        </Badge>
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold">Monthly Unlimited</h3>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold">$500</span>
+                              <span className="text-sm text-muted-foreground">/month</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">10,000 Credits</p>
+                          </div>
+                          <ul className="space-y-1 text-sm">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Unlimited monthly credits
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              All premium features
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Dedicated support
+                            </li>
+                          </ul>
+                          <Button className="w-full" size="sm">
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Subscribe
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Current Credits Display */}
+                    <div className="mt-6 p-4 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">Current Balance</h4>
+                          <p className="text-sm text-muted-foreground">Your available credits</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold">1,247</div>
+                          <p className="text-sm text-muted-foreground">Credits remaining</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Credit Usage Info */}
+                    <div className="mt-4 p-4 border rounded-lg bg-blue-50 border-blue-200">
+                      <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-blue-900">How Credits Work</h4>
+                          <p className="text-sm text-blue-700 mt-1">
+                            Credits are used for AI-powered features like content generation,
+                            analysis, and automated tasks. All credits are securely tracked
+                            in our backend to prevent manipulation.
+                          </p>
+                          <ul className="text-xs text-blue-600 mt-2 space-y-1">
+                            <li>• AI Content Generation: 1-5 credits per request</li>
+                            <li>• SEO Analysis: 10-20 credits per scan</li>
+                            <li>• Automated Reports: 5-15 credits per report</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </div>
