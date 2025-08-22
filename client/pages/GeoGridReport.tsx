@@ -446,40 +446,52 @@ export default function GeoGridReport() {
                   </div>
 
                   {/* Competitors */}
-                  {scanResult.competitors.map((competitor, index) => (
-                    <div
-                      key={competitor.id}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedCompetitor === competitor.id
-                          ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-300'
-                          : 'hover:bg-gray-50 border-gray-200'
-                      }`}
-                      onClick={() => setSelectedCompetitor(competitor.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <MapPin className="h-4 w-4 text-orange-600" />
-                            <p className="font-medium text-sm">{competitor.name}</p>
-                          </div>
-                          <p className="text-xs text-gray-600 mb-2">{competitor.address}</p>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 text-yellow-500" />
-                              <span className="text-xs">Avg: {competitor.average_position}</span>
+                  {scanResult.competitors.map((competitor, index) => {
+                    const isAtSelectedWaypoint = selectedWaypoint && competitor.waypoint_rankings[selectedWaypoint] !== undefined;
+                    const waypointRank = selectedWaypoint ? competitor.waypoint_rankings[selectedWaypoint] : null;
+
+                    return (
+                      <div
+                        key={competitor.id}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                          selectedCompetitor === competitor.id
+                            ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-300'
+                            : isAtSelectedWaypoint
+                              ? 'bg-green-50 border-green-200 ring-1 ring-green-300'
+                              : 'hover:bg-gray-50 border-gray-200'
+                        }`}
+                        onClick={() => setSelectedCompetitor(competitor.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <MapPin className="h-4 w-4 text-orange-600" />
+                              <p className="font-medium text-sm">{competitor.name}</p>
+                              {isAtSelectedWaypoint && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                  Rank #{waypointRank}
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-orange-500" />
-                              <span className="text-xs">{competitor.total_rankings} locations</span>
+                            <p className="text-xs text-gray-600 mb-2">{competitor.address}</p>
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 text-yellow-500" />
+                                <span className="text-xs">Avg: {competitor.average_position}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-orange-500" />
+                                <span className="text-xs">{competitor.total_rankings} locations</span>
+                              </div>
                             </div>
                           </div>
+                          <Badge variant="outline" className="text-xs">
+                            #{index + 1}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          #{index + 1}
-                        </Badge>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
