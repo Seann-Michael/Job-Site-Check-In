@@ -83,17 +83,54 @@ class CompatibleDataService {
     return await dataService.signOut();
   }
 
-  // Expose mock data methods
+  // Mock data methods - implemented locally since original methods are private
   getMockProjects() {
-    return dataService.getMockProjects();
+    return [
+      {
+        id: "1",
+        business_id: "1",
+        name: "SEO Optimization for Local Restaurant",
+        description: "Comprehensive SEO strategy to improve local search visibility",
+        type: "local_optimization",
+        status: "active",
+        priority: "high",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    ];
   }
 
   getMockBusinesses() {
-    return dataService.getMockBusinesses();
+    return [
+      {
+        id: "1",
+        owner_id: "1",
+        name: "Sample Restaurant",
+        phone: "(555) 123-4567",
+        email: "info@samplerestaurant.com",
+        category: "Restaurant",
+        address: {},
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    ];
   }
 
   getMockUsers() {
-    return dataService.getMockUsers();
+    return [
+      {
+        id: "1",
+        email: "user@example.com",
+        name: "Sample User",
+        role: "business_owner",
+        is_2fa_enabled: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email_verified: true,
+        phone_verified: false,
+      }
+    ];
   }
 }
 
