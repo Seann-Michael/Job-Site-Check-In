@@ -9,14 +9,23 @@ export class BusinessService {
   /**
    * Fetch all businesses owned by the given user. Agency admins or
    * super admins may want to retrieve all businesses; this implementation
-   * filters by owner_id by default.
+   * filters by owner_id by default. Supports pagination.
    */
-  static async listBusinesses(ownerId: string) {
-    return supabase
+  static async listBusinesses(ownerId: string, filters: Record<string, any> = {}) {
+    const page = parseInt(filters.page || '1');
+    const limit = parseInt(filters.limit || '20');
+    const offset = (page - 1) * limit;
+
+    let query = supabase
       .from("businesses")
-      .select("*")
-      .eq("owner_id", ownerId)
-      .order("created_at", { ascending: false });
+      .select("*", { count: 'exact' })
+      .eq("owner_id", ownerId);
+
+    query = query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    return query;
   }
 
   /**
