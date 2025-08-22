@@ -438,6 +438,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "social-media-posting",
+      label: "Social Media Posting",
+      href: "/admin/social-media-posting",
+      icon: Share2,
+      active: location.pathname === "/admin/social-media-posting",
+      comingSoon: false,
+    },
+    {
       id: "reports",
       label: "Reports",
       href: "/admin/reports",
