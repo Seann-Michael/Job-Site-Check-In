@@ -237,10 +237,10 @@ export default function GeoGridReport() {
     });
   }, [scanResult, selectedCompetitor]);
 
-  // Handle waypoint click to show competitors
+  // Handle waypoint click to highlight competitors in sidebar
   const handleWaypointClick = (waypointId: string) => {
     setSelectedWaypoint(waypointId);
-    setShowCompetitorModal(true);
+    // Don't show modal anymore, just highlight in sidebar
   };
 
   // Handle settings click
