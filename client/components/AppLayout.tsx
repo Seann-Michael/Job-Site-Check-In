@@ -476,7 +476,7 @@ export function AppLayout({
                 </div>
                 <div>
                   <span className="font-bold text-base text-foreground">
-                    {businessName}
+                    Local SEO Ranker
                   </span>
                   <p className="text-xs text-muted-foreground">Pro Plan</p>
                 </div>
