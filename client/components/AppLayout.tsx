@@ -437,22 +437,6 @@ export function AppLayout({
       active: location.pathname === "/admin/ai-agent",
       comingSoon: false,
     },
-    {
-      id: "help",
-      label: "Help",
-      href: "/admin/help",
-      icon: HelpCircle,
-      active: location.pathname.startsWith("/admin/help"),
-      comingSoon: false,
-    },
-    {
-      id: "settings",
-      label: "Settings",
-      href: "/admin/settings",
-      icon: Settings,
-      active: location.pathname === "/admin/settings",
-      comingSoon: false,
-    },
   ];
 
   const maxWidthClass = {
@@ -602,7 +586,7 @@ export function AppLayout({
           {/* Mobile Sidebar Footer */}
           <div className="p-4 border-t space-y-2">
             <div className="text-xs text-muted-foreground text-center">
-              Waypoint v2.0
+              Local SEO Ranker v2.0
             </div>
             <CreditBalance collapsed={false} />
           </div>
@@ -633,7 +617,7 @@ export function AppLayout({
                     </div>
                     <div>
                       <span className="font-bold text-base text-foreground">
-                        {businessName}
+                        Local SEO Ranker
                       </span>
                       <p className="text-xs text-muted-foreground">Pro Plan</p>
                     </div>
@@ -740,7 +724,7 @@ export function AppLayout({
               <div className="p-4 border-t space-y-2">
                 {!sidebarCollapsed && (
                   <div className="text-xs text-muted-foreground text-center">
-                    Waypoint v2.0
+                    Local SEO Ranker v2.0
                   </div>
                 )}
                 <CreditBalance collapsed={sidebarCollapsed} />
