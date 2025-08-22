@@ -117,7 +117,6 @@ const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
 const AdminLeads = lazy(() => import("./pages/AdminLeads"));
 const AgencyLeads = lazy(() => import("./pages/AgencyLeads"));
 
-const queryClient = new QueryClient();
 
 // PWA Service Worker Registration
 if ("serviceWorker" in navigator) {
