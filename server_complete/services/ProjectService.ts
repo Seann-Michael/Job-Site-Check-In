@@ -8,17 +8,30 @@ import { supabase } from "../supabaseClient";
 export class ProjectService {
   /**
    * List all projects belonging to a specific business. Optionally
-   * filter by status or assigned user.
+   * filter by status or assigned user. Supports pagination.
    */
   static async listProjects(businessId: string, filters: Record<string, any> = {}) {
-    let query = supabase.from("projects").select("*").eq("business_id", businessId);
+    const page = parseInt(filters.page || '1');
+    const limit = parseInt(filters.limit || '20');
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from("projects")
+      .select("*", { count: 'exact' })
+      .eq("business_id", businessId);
+
     if (filters.status) {
       query = query.eq("status", filters.status);
     }
     if (filters.assigned_to) {
       query = query.eq("assigned_to", filters.assigned_to);
     }
-    return query.order("created_at", { ascending: false });
+
+    query = query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    return query;
   }
 
   /** Fetch a single project by its UUID. */
