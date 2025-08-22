@@ -11,6 +11,8 @@ export interface Waypoint {
   isCenter?: boolean;
   distance?: number; // Distance from center in selected unit
   bearing?: number; // Bearing from center in degrees
+  ranking?: number; // Optional ranking for report mode
+  label?: string; // Optional label for waypoints
 }
 
 export interface WaypointGenerationOptions {
