@@ -1592,6 +1592,28 @@ export default function Chat() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Mention Autocomplete for main input */}
+      {mention.isOpen && (
+        <MentionAutocomplete
+          users={channelUsers}
+          onMentionSelect={handleMentionSelect}
+          onClose={mention.closeMention}
+          query={mention.query}
+          position={mention.position}
+        />
+      )}
+
+      {/* Mention Autocomplete for thread replies */}
+      {threadMention.isOpen && (
+        <MentionAutocomplete
+          users={channelUsers}
+          onMentionSelect={handleThreadMentionSelect}
+          onClose={threadMention.closeMention}
+          query={threadMention.query}
+          position={threadMention.position}
+        />
+      )}
     </div>
   );
 }
