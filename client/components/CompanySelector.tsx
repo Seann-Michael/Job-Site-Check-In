@@ -98,17 +98,24 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
   }, []);
 
   const handleCompanyChange = (companyId: string) => {
+    // Handle add new company option
+    if (companyId === "add-new") {
+      // TODO: Implement add new company functionality
+      console.log("Add new company clicked");
+      return;
+    }
+
     setSelectedCompany(companyId);
     localStorage.setItem("selected_company_id", companyId);
-    
+
     // Update business name for the layout
     const selectedCompanyData = companies.find(c => c.id === companyId);
     if (selectedCompanyData) {
       localStorage.setItem("business_name", selectedCompanyData.name);
-      
+
       // Dispatch event to update business name in layout
-      window.dispatchEvent(new CustomEvent("businessNameChanged", { 
-        detail: selectedCompanyData.name 
+      window.dispatchEvent(new CustomEvent("businessNameChanged", {
+        detail: selectedCompanyData.name
       }));
     }
   };
@@ -159,6 +166,11 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                   <div className="font-medium text-sm truncate">
                     {selectedCompanyData?.name || "Select Company"}
                   </div>
+                  {selectedCompanyData && (
+                    <div className="text-xs text-muted-foreground">
+                      {selectedCompanyData.plan} Plan
+                    </div>
+                  )}
                 </div>
               </div>
             </SelectValue>
@@ -196,7 +208,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
             ))}
             
             {/* Add New Company Option */}
-            <SelectItem value="add-new" className="border-t">
+            <SelectItem value="add-new" className="border-t cursor-pointer">
               <div className="flex items-center space-x-2 w-full">
                 <div className="flex h-6 w-6 items-center justify-center rounded bg-muted">
                   <Plus className="h-3 w-3 text-muted-foreground" />

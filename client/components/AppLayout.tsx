@@ -564,7 +564,7 @@ export function AppLayout({
 
                 {/* Sub Menu Items */}
                 {item.subItems && isMenuExpanded(item.id) && (
-                  <div className="ml-8 mt-2 space-y-1">
+                  <div className="ml-6 pl-6 mt-2 space-y-1 border-l-2 border-muted">
                     {item.subItems.map((subItem) => (
                       <Link
                         key={subItem.id}
@@ -738,7 +738,7 @@ export function AppLayout({
                     {item.subItems &&
                       !sidebarCollapsed &&
                       isMenuExpanded(item.id) && (
-                        <div className="ml-8 mt-2 space-y-1">
+                        <div className="ml-6 pl-6 mt-2 space-y-1 border-l-2 border-muted">
                           {item.subItems.map((subItem) => (
                             <Link
                               key={subItem.id}
