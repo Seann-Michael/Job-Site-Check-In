@@ -70,6 +70,7 @@ import {
   Bot,
   UserCheck,
   Lightbulb,
+  Share2,
 } from "lucide-react";
 import React, { useState, useEffect, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
