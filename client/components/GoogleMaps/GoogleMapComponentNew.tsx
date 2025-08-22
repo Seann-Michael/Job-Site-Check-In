@@ -691,7 +691,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     right: "12px",
                     zIndex: 1000,
                     pointerEvents: "none",
-                    minWidth: "400px",
+                    minWidth: "460px",
                   }}
                 >
                   <div className="bg-white shadow-xl border border-gray-100 rounded-xl overflow-hidden">
