@@ -124,6 +124,13 @@ export default function Chat() {
   const [threadMessages, setThreadMessages] = useState<ChatMessage[]>([]);
   const [threadReply, setThreadReply] = useState('');
   const [loadingThread, setLoadingThread] = useState(false);
+  const [channelUsers, setChannelUsers] = useState<any[]>([]);
+
+  // Mention autocomplete for main message input
+  const mention = useMentionAutocomplete();
+
+  // Mention autocomplete for thread replies
+  const threadMention = useMentionAutocomplete();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
