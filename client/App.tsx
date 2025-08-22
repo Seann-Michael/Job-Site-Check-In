@@ -36,7 +36,7 @@ const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
 const BusinessManagement = lazy(() => import("./pages/BusinessManagement"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
-const CrashLogs = lazy(() => import("./pages/CrashLogs"));
+const CrashLogs = lazy(() => import("./pages/CrashLogs").then(module => ({ default: module.CrashLogs })));
 const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const Tools = lazy(() => import("./pages/Tools"));
 const MarketPlace = lazy(() => import("./pages/MarketPlace"));
