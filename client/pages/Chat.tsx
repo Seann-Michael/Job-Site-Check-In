@@ -266,8 +266,21 @@ export default function Chat() {
   useEffect(() => {
     if (selectedChannel) {
       loadMessages(selectedChannel.id);
+      loadChannelUsers(selectedChannel.id);
     }
   }, [selectedChannel, loadMessages]);
+
+  // Load users in the channel for mentions
+  const loadChannelUsers = useCallback(async (channelId: string) => {
+    try {
+      const data = await makeAuthenticatedChatRequest(`/api/chat/channels/${channelId}/participants`);
+      setChannelUsers(data.participants?.map((p: any) => p.user).filter(Boolean) || []);
+    } catch (error) {
+      console.error('Error loading channel users:', error);
+      // Fallback to online users
+      setChannelUsers(onlineUsers.map(u => u.user).filter(Boolean));
+    }
+  }, [onlineUsers]);
 
   // Load message with user data
   const loadMessageWithUserData = async (messageId: string) => {
