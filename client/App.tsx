@@ -99,7 +99,7 @@ const SuperAdminSupport = lazy(() => import("./pages/SuperAdminSupport"));
 const SuperAdminFinancial = lazy(() => import("./pages/SuperAdminFinancial"));
 const SuperAdminUsers = lazy(() => import("./pages/SuperAdminUsers"));
 const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunications"));
-const ComingSoon = lazy(() => import("./pages/ComingSoon"));
+const ComingSoon = lazy(() => import("./pages/ComingSoon").then(module => ({ default: module.ComingSoon })));
 
 // Agency Project Management imports
 const AgencyProjects = lazy(() => import("./pages/AgencyProjects"));
