@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from './useAuth';
+import { makeAuthenticatedChatRequest, withAuthRetry } from '@/lib/chatAuth';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL!,
@@ -25,9 +26,6 @@ export function useChatPresence() {
   const [currentStatus, setCurrentStatus] = useState<'online' | 'away' | 'busy' | 'offline'>('offline');
   const [isConnected, setIsConnected] = useState(false);
 
-  const getAuthToken = useCallback(() => {
-    return localStorage.getItem('supabase_auth_token') || user?.access_token || '';
-  }, [user]);
 
   // Update user presence
   const updatePresence = useCallback(async (
@@ -36,56 +34,27 @@ export function useChatPresence() {
   ) => {
     if (!user) return;
 
-    try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/preferences/presence', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status,
-          current_channel_id: channelId,
-          session_id: `${user.id}-${Date.now()}`,
-        }),
-      });
+    return withAuthRetry(async () => {
+      try {
+        await makeAuthenticatedChatRequest('/api/chat/preferences/presence', {
+          method: 'POST',
+          body: JSON.stringify({
+            status,
+            current_channel_id: channelId,
+            session_id: `${user.id}-${Date.now()}`,
+          }),
+        });
 
-      if (response.ok) {
         setCurrentStatus(status);
         setIsConnected(true);
-      } else {
+      } catch (error) {
+        console.error('Error updating presence:', error);
         setIsConnected(false);
+        throw error;
       }
-    } catch (error) {
-      console.error('Error updating presence:', error);
-      setIsConnected(false);
-    }
-  }, [user, getAuthToken]);
+    });
+  }, [user]);
 
-  // Load online users
-  const loadOnlineUsers = useCallback(async () => {
-    try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/preferences/online-users', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOnlineUsers(data.users || []);
-        setIsConnected(true);
-      } else {
-        setIsConnected(false);
-      }
-    } catch (error) {
-      console.error('Error loading online users:', error);
-      setIsConnected(false);
-    }
-  }, [getAuthToken]);
 
   // Set up real-time presence subscription
   useEffect(() => {
