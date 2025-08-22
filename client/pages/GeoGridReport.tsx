@@ -583,20 +583,29 @@ export default function GeoGridReport() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[600px] rounded-lg overflow-hidden">
+                <div
+                  className="w-full"
+                  style={{
+                    height: "700px",
+                    minHeight: "700px",
+                    overflowAnchor: "auto",
+                  }}
+                >
                   <GoogleMapComponent
                     center={scanResult.location}
-                    zoom={13}
+                    zoom={12}
                     height="100%"
-                    showControls={false}
+                    showControls={true}
                     showDirectionsButton={false}
-                    className="h-full border-0"
+                    className="h-full border-0 rounded-lg"
                     waypointData={displayWaypoints}
                     onWaypointToggle={() => {}} // Disabled in report view
                     onWaypointDrag={() => {}} // Disabled in report view
                     onWaypointsDragComplete={() => {}} // Disabled in report view
-                    scanConfig={{ unit: "miles", distanceBetween: 1 }}
-                    reportMode={true} // New prop to indicate this is report view
+                    scanConfig={{
+                      unit: "miles",
+                      distanceBetween: 1,
+                    }}
                   />
                 </div>
                 
