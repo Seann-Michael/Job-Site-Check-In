@@ -421,6 +421,7 @@ export default function GeoGridReport() {
                     showDirectionsButton={false}
                     className="h-full border-0 rounded-lg"
                     waypointData={displayWaypoints}
+                    onWaypointClick={handleWaypointClick}
                     reportMode={true}
                     scanConfig={{
                       unit: "miles",
