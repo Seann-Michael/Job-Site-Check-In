@@ -305,15 +305,33 @@ export default function SocialMediaPosting() {
         },
       });
 
+      // Check if response is HTML (development mode without Netlify functions)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        // Development mode - API endpoints not available
+        console.warn('API endpoints not available in development mode');
+        setPosts([]); // Set empty posts array
+        toast.info('Running in development mode - API features limited');
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         setPosts(data.posts || []);
       } else {
+        console.error('API response error:', response.status, response.statusText);
         toast.error('Failed to load posts');
       }
     } catch (error) {
       console.error('Error loading posts:', error);
-      toast.error('Error loading posts');
+      // Check if it's a JSON parsing error from HTML response
+      if (error instanceof SyntaxError && error.message.includes('JSON')) {
+        console.warn('API endpoint returned HTML instead of JSON - likely development mode');
+        setPosts([]);
+        toast.info('Running in development mode - API features limited');
+      } else {
+        toast.error('Error loading posts');
+      }
     } finally {
       setLoading(false);
     }
