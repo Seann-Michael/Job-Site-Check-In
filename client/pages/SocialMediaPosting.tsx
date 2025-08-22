@@ -66,7 +66,8 @@ import {
   Settings,
   HelpCircle,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from "lucide-react";
 
 interface SocialMediaPost {
