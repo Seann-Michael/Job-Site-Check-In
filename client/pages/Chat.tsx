@@ -370,6 +370,98 @@ export default function Chat() {
              dmUser.email?.toLowerCase().includes(query);
     });
 
+  // Search messages
+  const searchMessages = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const data = await makeAuthenticatedChatRequest(
+        `/api/chat/messages?search=${encodeURIComponent(query)}&limit=50`
+      );
+      setSearchResults(data.messages || []);
+    } catch (error) {
+      console.error('Error searching messages:', error);
+      toast.error('Failed to search messages');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Handle search input change with debouncing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isSearching && searchQuery.trim()) {
+        searchMessages(searchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, isSearching]);
+
+  // Toggle search mode
+  const toggleSearch = () => {
+    setIsSearching(!isSearching);
+    if (isSearching) {
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  };
+
+  // Highlight search terms in text
+  const highlightSearchTerms = (text: string, searchTerm: string): React.ReactNode[] => {
+    if (!searchTerm.trim()) return [text];
+
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) => {
+      if (regex.test(part)) {
+        return (
+          <span key={index} className="bg-yellow-200 dark:bg-yellow-800 font-medium">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  // Jump to message in conversation
+  const jumpToMessage = (message: ChatMessage) => {
+    // First, find the channel for this message
+    const channel = channels.find(ch => ch.id === message.channel_id);
+    if (channel) {
+      setSelectedChannel(channel);
+      setIsSearching(false);
+      setSearchQuery('');
+      setSearchResults([]);
+
+      // Load messages for this channel if not already loaded
+      if (selectedChannel?.id !== channel.id) {
+        loadMessages(channel.id);
+      }
+
+      // Scroll to the message after a short delay
+      setTimeout(() => {
+        const messageElement = document.getElementById(`message-${message.id}`);
+        if (messageElement) {
+          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight the message briefly
+          messageElement.classList.add('bg-yellow-100', 'dark:bg-yellow-900');
+          setTimeout(() => {
+            messageElement.classList.remove('bg-yellow-100', 'dark:bg-yellow-900');
+          }, 2000);
+        }
+      }, 500);
+    }
+  };
+
   // Load message with user data
   const loadMessageWithUserData = async (messageId: string) => {
     try {
