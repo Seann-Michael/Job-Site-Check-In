@@ -746,24 +746,36 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                       {/* Bottom Row - Ranking Distribution */}
                       {rankingAnalytics && (
                         <div className="grid grid-cols-4 gap-1">
-                          <div className="bg-emerald-50 rounded-md p-2 border border-emerald-200 text-center">
-                            <div className="text-xs font-bold text-emerald-900">{rankingAnalytics.green}</div>
-                            <div className="text-xs text-emerald-700">1-3</div>
+                          <div className="bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-xl p-3 text-center shadow-lg border border-emerald-300/50">
+                            <div className="text-lg font-black text-white">{rankingAnalytics.green}</div>
+                            <div className="text-xs font-bold text-emerald-100 mb-1">1-3</div>
+                            <div className="text-xs font-medium text-emerald-200">
+                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.green / rankingAnalytics.total) * 100) : 0}%
+                            </div>
                           </div>
 
-                          <div className="bg-yellow-50 rounded-md p-2 border border-yellow-200 text-center">
-                            <div className="text-xs font-bold text-yellow-900">{rankingAnalytics.yellow}</div>
-                            <div className="text-xs text-yellow-700">4-9</div>
+                          <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl p-3 text-center shadow-lg border border-yellow-300/50">
+                            <div className="text-lg font-black text-white">{rankingAnalytics.yellow}</div>
+                            <div className="text-xs font-bold text-yellow-100 mb-1">4-9</div>
+                            <div className="text-xs font-medium text-yellow-200">
+                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.yellow / rankingAnalytics.total) * 100) : 0}%
+                            </div>
                           </div>
 
-                          <div className="bg-orange-50 rounded-md p-2 border border-orange-200 text-center">
-                            <div className="text-xs font-bold text-orange-900">{rankingAnalytics.orange}</div>
-                            <div className="text-xs text-orange-700">10-15</div>
+                          <div className="bg-gradient-to-br from-orange-400 to-orange-500 rounded-xl p-3 text-center shadow-lg border border-orange-300/50">
+                            <div className="text-lg font-black text-white">{rankingAnalytics.orange}</div>
+                            <div className="text-xs font-bold text-orange-100 mb-1">10-15</div>
+                            <div className="text-xs font-medium text-orange-200">
+                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.orange / rankingAnalytics.total) * 100) : 0}%
+                            </div>
                           </div>
 
-                          <div className="bg-red-50 rounded-md p-2 border border-red-200 text-center">
-                            <div className="text-xs font-bold text-red-900">{rankingAnalytics.red}</div>
-                            <div className="text-xs text-red-700">16+</div>
+                          <div className="bg-gradient-to-br from-red-400 to-red-500 rounded-xl p-3 text-center shadow-lg border border-red-300/50">
+                            <div className="text-lg font-black text-white">{rankingAnalytics.red}</div>
+                            <div className="text-xs font-bold text-red-100 mb-1">16+</div>
+                            <div className="text-xs font-medium text-red-200">
+                              {rankingAnalytics.total > 0 ? Math.round((rankingAnalytics.red / rankingAnalytics.total) * 100) : 0}%
+                            </div>
                           </div>
                         </div>
                       )}
