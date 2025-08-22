@@ -26,6 +26,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatPresence } from '@/hooks/useChatPresence';
 import { chatChannelManager } from '@/lib/chatUtils';
+import { makeAuthenticatedChatRequest, withAuthRetry } from '@/lib/chatAuth';
 import type {
   ChatChannel,
   ChatMessage,
@@ -103,10 +104,6 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
-  // Get auth token helper
-  const getAuthToken = useCallback(() => {
-    return localStorage.getItem('supabase_auth_token') || user?.access_token || '';
-  }, [user]);
 
   // Real-time message subscription
   useEffect(() => {
@@ -192,20 +189,10 @@ export default function Chat() {
   // Load message with user data
   const loadMessageWithUserData = async (messageId: string) => {
     try {
-      const token = getAuthToken();
-      const response = await fetch(`/api/chat/messages/${messageId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const messageData = await response.json();
-        setMessages(prev => prev.map(msg =>
-          msg.id === messageId ? messageData : msg
-        ));
-      }
+      const messageData = await makeAuthenticatedChatRequest(`/api/chat/messages/${messageId}`);
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId ? messageData : msg
+      ));
     } catch (error) {
       console.error('Error loading message data:', error);
     }
@@ -226,24 +213,12 @@ export default function Chat() {
   const loadChannels = async () => {
     setLoading(true);
     try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/channels', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const data = await makeAuthenticatedChatRequest('/api/chat/channels');
+      setChannels(data.channels || []);
 
-      if (response.ok) {
-        const data = await response.json();
-        setChannels(data.channels || []);
-
-        // Select first channel by default
-        if (data.channels && data.channels.length > 0 && !selectedChannel) {
-          setSelectedChannel(data.channels[0]);
-        }
-      } else {
-        toast.error('Failed to load channels');
+      // Select first channel by default
+      if (data.channels && data.channels.length > 0 && !selectedChannel) {
+        setSelectedChannel(data.channels[0]);
       }
     } catch (error) {
       console.error('Error loading channels:', error);
@@ -256,20 +231,8 @@ export default function Chat() {
   const loadMessages = async (channelId: string) => {
     setMessageLoading(true);
     try {
-      const token = getAuthToken();
-      const response = await fetch(`/api/chat/messages?channel_id=${channelId}&limit=50`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMessages((data.messages || []).reverse()); // Reverse to show oldest first
-      } else {
-        toast.error('Failed to load messages');
-      }
+      const data = await makeAuthenticatedChatRequest(`/api/chat/messages?channel_id=${channelId}&limit=50`);
+      setMessages((data.messages || []).reverse()); // Reverse to show oldest first
     } catch (error) {
       console.error('Error loading messages:', error);
       toast.error('Error loading messages');
