@@ -6,6 +6,48 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Check if we're in demo mode (using demo keys)
+const isDemoMode = process.env.SUPABASE_SERVICE_ROLE_KEY?.includes('demo_service_role_key');
+
+// Mock data for development/demo mode
+const mockPosts: SocialMediaPost[] = [
+  {
+    id: 'mock-1',
+    title: 'Welcome to Social Posting!',
+    platform: 'gmb',
+    content: 'Welcome to our new social media posting system! We help local businesses create amazing content that drives engagement and grows their customer base.',
+    hashtags: ['#localbusiness', '#socialmedia', '#marketing'],
+    target_keywords: ['local business', 'social media marketing'],
+    target_location: 'Your City, State',
+    status: 'published',
+    created_at: new Date().toISOString(),
+    likes_count: 15,
+    comments_count: 3,
+    shares_count: 7
+  },
+  {
+    id: 'mock-2',
+    title: 'Educational Post Example',
+    platform: 'facebook',
+    content: 'Did you know that consistent social media posting can increase your local business visibility by up to 80%? Here are 3 tips to get started: 1) Post regularly, 2) Use local hashtags, 3) Engage with your community. What\'s your favorite social media tip?',
+    hashtags: ['#socialmediatips', '#localbusiness', '#marketing', '#tips'],
+    target_keywords: ['social media tips', 'local marketing'],
+    status: 'scheduled',
+    scheduled_for: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+    created_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+  },
+  {
+    id: 'mock-3',
+    title: 'Behind the Scenes',
+    platform: 'instagram',
+    content: 'Behind the scenes at our office today! Our team is working hard to create amazing social media content for local businesses. We love what we do! 📸✨',
+    hashtags: ['#behindthescenes', '#team', '#socialmedia', '#work'],
+    target_keywords: ['behind the scenes', 'team'],
+    status: 'draft',
+    created_at: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+  }
+];
+
 interface SocialMediaPost {
   id?: string;
   title: string;
