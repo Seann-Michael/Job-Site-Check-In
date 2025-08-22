@@ -679,6 +679,11 @@ export default function SocialMediaPosting() {
         }),
       });
 
+      if (isDevModeResponse(response)) {
+        toast.error('Keyword research not available in development mode');
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         setKeywordClusters(data.clusters || []);
@@ -691,8 +696,7 @@ export default function SocialMediaPosting() {
         toast.error(error.error || 'Failed to perform keyword research');
       }
     } catch (error) {
-      console.error('Error performing keyword research:', error);
-      toast.error('Error performing keyword research');
+      handleApiError(error, 'Error performing keyword research', 'Keyword research not available in development mode');
     } finally {
       setKeywordResearchLoading(false);
     }
