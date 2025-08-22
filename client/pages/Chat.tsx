@@ -109,6 +109,49 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Function definitions (need to be before useEffect hooks that use them)
+  const loadChannels = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await makeAuthenticatedChatRequest('/api/chat/channels');
+      setChannels(data.channels || []);
+
+      // Select first channel by default
+      if (data.channels && data.channels.length > 0 && !selectedChannel) {
+        setSelectedChannel(data.channels[0]);
+      }
+    } catch (error) {
+      console.error('Error loading channels:', error);
+      toast.error('Error loading channels');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedChannel]);
+
+  // Ensure default channels exist and user is part of them
+  const ensureDefaultChannels = useCallback(async () => {
+    try {
+      await chatChannelManager.ensureDefaultChannels();
+      // Reload channels after ensuring defaults
+      await loadChannels();
+    } catch (error) {
+      console.error('Error ensuring default channels:', error);
+    }
+  }, [loadChannels]);
+
+  const loadMessages = useCallback(async (channelId: string) => {
+    setMessageLoading(true);
+    try {
+      const data = await makeAuthenticatedChatRequest(`/api/chat/messages?channel_id=${channelId}&limit=50`);
+      setMessages((data.messages || []).reverse()); // Reverse to show oldest first
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast.error('Error loading messages');
+    } finally {
+      setMessageLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
