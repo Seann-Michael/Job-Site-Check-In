@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { HandlerEvent } from '@netlify/functions';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
@@ -33,6 +34,45 @@ export interface AuthorizationOptions {
 }
 
 /**
+ * Main auth middleware function that handles HTTP events
+ */
+export async function authMiddleware(event: HandlerEvent) {
+  try {
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const authResult = await authenticateUser(authHeader);
+    
+    if (!authResult.success || !authResult.user) {
+      return {
+        statusCode: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({ error: authResult.error || 'Authentication failed' }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ user: authResult.user }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ error: 'Internal server error' }),
+    };
+  }
+}
+
+/**
  * Authenticate user from Authorization header
  */
 export async function authenticateUser(authHeader: string | undefined): Promise<AuthResult> {
@@ -45,7 +85,7 @@ export async function authenticateUser(authHeader: string | undefined): Promise<
     }
 
     const token = authHeader.replace('Bearer ', '');
-
+    
     // Handle demo tokens for development
     if (token.startsWith('demo_token_')) {
       return {
@@ -63,10 +103,10 @@ export async function authenticateUser(authHeader: string | undefined): Promise<
         },
       };
     }
-
+    
     // Verify the JWT token with Supabase for production
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
+    
     if (authError || !user) {
       return {
         success: false,
@@ -473,10 +513,13 @@ export function validatePassword(password: string): { valid: boolean; errors: st
   };
 }
 
+// Default export for the main middleware function
+export default authMiddleware;
+
 /**
- * Export commonly used middleware combinations
+ * Named exports for specific middleware combinations
  */
-export const authMiddleware = {
+export const middleware = {
   requireAuth: requireAuth(),
   requireSuperAdmin: requireSuperAdmin(),
   requireAdmin: requireAdmin(),
