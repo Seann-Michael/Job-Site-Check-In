@@ -555,44 +555,68 @@ export class DataService {
   async getProjects(
     businessId?: string,
     filters: any = {},
-  ): Promise<Project[]> {
+  ): Promise<{ data: Project[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
       // Check if Supabase is configured
       if (!supabaseUrl || !supabaseAnonKey) {
         console.warn("Supabase not configured, returning mock projects");
-        return this.getMockProjects();
+        return { data: this.getMockProjects() };
       }
 
       this.checkSupabaseConfig();
 
-      let query = supabase.from("projects").select("*");
+      const page = parseInt(filters.page || '1');
+      const limit = parseInt(filters.limit || '20');
+      const offset = (page - 1) * limit;
+
+      let query = supabase.from("projects").select("*", { count: 'exact' });
 
       if (businessId) {
         query = query.eq("business_id", businessId);
       }
 
-      // Apply filters
+      // Apply filters (excluding pagination params)
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (key !== 'page' && key !== 'limit' && value !== undefined && value !== null) {
           query = query.eq(key, value);
         }
       });
 
-      const { data, error } = await query.order("created_at", {
-        ascending: false,
-      });
+      // Add pagination if specified
+      if (filters.page || filters.limit) {
+        query = query.range(offset, offset + limit - 1);
+      }
+
+      query = query.order("created_at", { ascending: false });
+
+      const { data, error, count } = await query;
 
       if (error) {
         console.warn(
           "Database table might not exist, falling back to mock data:",
           error,
         );
-        return this.getMockProjects();
+        return { data: this.getMockProjects() };
       }
-      return (data as unknown as Project[]) || [];
+
+      const result: { data: Project[]; pagination?: any } = {
+        data: (data as unknown as Project[]) || []
+      };
+
+      // Add pagination info if paginated query was made
+      if (filters.page || filters.limit) {
+        result.pagination = {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit),
+        };
+      }
+
+      return result;
     } catch (error) {
       console.error("Error fetching projects:", error);
-      return this.getMockProjects();
+      return { data: this.getMockProjects() };
     }
   }
 
