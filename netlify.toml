@@ -129,6 +129,36 @@
 
 [[redirects]]
   force = true
+  from = "/api/chat/channels"
+  status = 200
+  to = "/.netlify/functions/chat-channels"
+
+[[redirects]]
+  force = true
+  from = "/api/chat/channels/*"
+  status = 200
+  to = "/.netlify/functions/chat-channels/:splat"
+
+[[redirects]]
+  force = true
+  from = "/api/chat/messages"
+  status = 200
+  to = "/.netlify/functions/chat-messages"
+
+[[redirects]]
+  force = true
+  from = "/api/chat/messages/*"
+  status = 200
+  to = "/.netlify/functions/chat-messages/:splat"
+
+[[redirects]]
+  force = true
+  from = "/api/chat/preferences/*"
+  status = 200
+  to = "/.netlify/functions/chat-preferences/:splat"
+
+[[redirects]]
+  force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
