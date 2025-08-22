@@ -4,16 +4,34 @@ import { SEOService } from "../services/SEOService";
 
 const router = Router();
 
-// GET /keywords?businessId=... - list all keywords for a business
+// GET /keywords?businessId=... - list all keywords for a business with pagination
 router.get("/", async (req, res) => {
   try {
     const businessId = req.query.businessId as string;
     if (!businessId) {
       return res.status(400).json({ success: false, error: "businessId query parameter is required" });
     }
-    const { data, error } = await KeywordService.listKeywords(businessId);
+
+    const filters: any = {};
+    if (req.query.page) filters.page = req.query.page;
+    if (req.query.limit) filters.limit = req.query.limit;
+
+    const { data, error, count } = await KeywordService.listKeywords(businessId, filters);
     if (error) throw error;
-    res.json({ success: true, keywords: data });
+
+    const page = parseInt(filters.page || '1');
+    const limit = parseInt(filters.limit || '20');
+
+    res.json({
+      success: true,
+      data: data,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil((count || 0) / limit),
+      }
+    });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
   }
