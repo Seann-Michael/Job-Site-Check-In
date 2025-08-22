@@ -449,6 +449,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/ai-agent"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <AIAgent />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/maps"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
                 />
