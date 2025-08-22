@@ -548,6 +548,8 @@ export default function GeoGridReport() {
                     averageRanking={analytics.average}
                     rankingAnalytics={analytics}
                     showBusinessOverlay={true}
+                    isOverlayCollapsed={isOverlayCollapsed}
+                    onToggleOverlay={() => setIsOverlayCollapsed(!isOverlayCollapsed)}
                   />
                 </div>
                 
