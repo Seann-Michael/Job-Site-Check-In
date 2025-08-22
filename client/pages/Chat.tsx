@@ -720,9 +720,9 @@ export default function Chat() {
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarImage src={(user as any).user_metadata?.avatar_url} />
                       <AvatarFallback className="text-xs">
-                        {getUserInitials({ raw_user_meta_data: user.user_metadata, email: user.email })}
+                        {getUserInitials({ raw_user_meta_data: (user as any).user_metadata, email: user.email })}
                       </AvatarFallback>
                     </Avatar>
                     <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(currentStatus)}`} />
