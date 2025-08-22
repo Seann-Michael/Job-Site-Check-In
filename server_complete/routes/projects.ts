@@ -3,7 +3,7 @@ import { ProjectService } from "../services/ProjectService";
 
 const router = Router();
 
-// GET /api/projects?businessId=... - list projects for a business
+// GET /api/projects?businessId=... - list projects for a business with pagination
 router.get("/", async (req, res) => {
   try {
     const businessId = req.query.businessId as string;
@@ -13,9 +13,25 @@ router.get("/", async (req, res) => {
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
     if (req.query.assigned_to) filters.assigned_to = req.query.assigned_to;
-    const { data, error } = await ProjectService.listProjects(businessId, filters);
+    if (req.query.page) filters.page = req.query.page;
+    if (req.query.limit) filters.limit = req.query.limit;
+
+    const { data, error, count } = await ProjectService.listProjects(businessId, filters);
     if (error) throw error;
-    res.json({ success: true, projects: data });
+
+    const page = parseInt(filters.page || '1');
+    const limit = parseInt(filters.limit || '20');
+
+    res.json({
+      success: true,
+      data: data,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil((count || 0) / limit),
+      }
+    });
   } catch (error: any) {
     console.error("Error fetching projects", error);
     res.status(500).json({ success: false, error: error.message });
