@@ -8,12 +8,15 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Building2,
   MapPin,
   ChevronDown,
   Plus,
   Check,
+  Star,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -23,6 +26,7 @@ interface Company {
   name: string;
   plan: string;
   isActive: boolean;
+  isFavorite?: boolean;
 }
 
 interface CompanySelectorProps {
@@ -34,6 +38,8 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [isOpen, setIsOpen] = useState(false);
 
   // Load companies from localStorage/API
   useEffect(() => {
@@ -51,18 +57,35 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
             name: "Waypoint",
             plan: "Pro",
             isActive: true,
+            isFavorite: false,
           },
           {
             id: "2",
             name: "Fairfield Auto Repair",
             plan: "Basic",
             isActive: true,
+            isFavorite: true,
           },
           {
             id: "3",
             name: "Sunshine Dental",
             plan: "Pro",
             isActive: false,
+            isFavorite: false,
+          },
+          {
+            id: "4",
+            name: "Mike's Pizza Palace",
+            plan: "Pro",
+            isActive: true,
+            isFavorite: true,
+          },
+          {
+            id: "5",
+            name: "Green Thumb Landscaping",
+            plan: "Basic",
+            isActive: true,
+            isFavorite: false,
           },
         ];
 
@@ -107,6 +130,8 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
 
     setSelectedCompany(companyId);
     localStorage.setItem("selected_company_id", companyId);
+    setIsOpen(false);
+    setSearchTerm(""); // Clear search when selecting
 
     // Update business name for the layout
     const selectedCompanyData = companies.find(c => c.id === companyId);
@@ -118,6 +143,39 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
         detail: selectedCompanyData.name
       }));
     }
+  };
+
+  const toggleFavorite = (companyId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCompanies(prev =>
+      prev.map(company =>
+        company.id === companyId
+          ? { ...company, isFavorite: !company.isFavorite }
+          : company
+      )
+    );
+
+    // Save favorites to localStorage
+    const updatedCompanies = companies.map(company =>
+      company.id === companyId
+        ? { ...company, isFavorite: !company.isFavorite }
+        : company
+    );
+    localStorage.setItem("user_companies", JSON.stringify(updatedCompanies));
+  };
+
+  // Filter and sort companies
+  const getFilteredAndSortedCompanies = () => {
+    let filtered = companies.filter(company =>
+      company.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Sort favorites first, then by name
+    return filtered.sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return a.name.localeCompare(b.name);
+    });
   };
 
   const getSelectedCompany = () => {
@@ -155,13 +213,10 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
           Active Company
         </div>
         
-        <Select value={selectedCompany} onValueChange={handleCompanyChange}>
+        <Select value={selectedCompany} onValueChange={handleCompanyChange} open={isOpen} onOpenChange={setIsOpen}>
           <SelectTrigger className="w-full">
             <SelectValue>
-              <div className="flex items-center space-x-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
-                  <MapPin className="h-3 w-3 text-primary" />
-                </div>
+              <div className="flex items-center justify-between w-full">
                 <div className="flex-1 text-left">
                   <div className="font-medium text-sm truncate">
                     {selectedCompanyData?.name || "Select Company"}
@@ -172,26 +227,55 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                     </div>
                   )}
                 </div>
+                {selectedCompanyData && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-transparent"
+                    onClick={(e) => toggleFavorite(selectedCompany, e)}
+                  >
+                    <Star
+                      className={cn(
+                        "h-3 w-3",
+                        selectedCompanyData.isFavorite
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-muted-foreground hover:text-yellow-400"
+                      )}
+                    />
+                  </Button>
+                )}
               </div>
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
-            {companies.map((company) => (
+          <SelectContent className="w-full">
+            {/* Search Input */}
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search companies..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-9"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Filtered Companies */}
+            {getFilteredAndSortedCompanies().map((company) => (
               <SelectItem key={company.id} value={company.id}>
-                <div className="flex items-center space-x-2 w-full">
-                  <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
-                    <MapPin className="h-3 w-3 text-primary" />
-                  </div>
+                <div className="flex items-center justify-between w-full">
                   <div className="flex-1">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
                       <span className="font-medium text-sm">{company.name}</span>
                       {company.id === selectedCompany && (
                         <Check className="h-3 w-3 text-primary" />
                       )}
                     </div>
                     <div className="flex items-center space-x-1 mt-0.5">
-                      <Badge 
-                        variant={company.plan === "Pro" ? "default" : "secondary"} 
+                      <Badge
+                        variant={company.plan === "Pro" ? "default" : "secondary"}
                         className="text-xs py-0 px-1"
                       >
                         {company.plan}
@@ -203,10 +287,32 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
                       )}
                     </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-transparent"
+                    onClick={(e) => toggleFavorite(company.id, e)}
+                  >
+                    <Star
+                      className={cn(
+                        "h-3 w-3",
+                        company.isFavorite
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-muted-foreground hover:text-yellow-400"
+                      )}
+                    />
+                  </Button>
                 </div>
               </SelectItem>
             ))}
-            
+
+            {/* No Results Message */}
+            {getFilteredAndSortedCompanies().length === 0 && searchTerm && (
+              <div className="p-4 text-center text-muted-foreground text-sm">
+                No companies found matching "{searchTerm}"
+              </div>
+            )}
+
             {/* Add New Company Option */}
             <SelectItem value="add-new" className="border-t cursor-pointer">
               <div className="flex items-center space-x-2 w-full">
