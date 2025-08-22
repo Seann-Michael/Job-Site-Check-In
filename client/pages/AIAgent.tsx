@@ -609,7 +609,13 @@ export default function AIAgent() {
           <div className="md:hidden">
             <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
               <DialogTrigger asChild>
-                <Button className="w-full">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setIsMobileSidebarOpen(false);
+                    setShowNewChatDialog(true);
+                  }}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   New Chat
                 </Button>
