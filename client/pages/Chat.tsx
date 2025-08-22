@@ -186,14 +186,14 @@ export default function Chat() {
       loadChannels();
       ensureDefaultChannels();
     }
-  }, [user]);
+  }, [user, loadChannels, ensureDefaultChannels]);
 
   // Load messages when channel changes
   useEffect(() => {
     if (selectedChannel) {
       loadMessages(selectedChannel.id);
     }
-  }, [selectedChannel]);
+  }, [selectedChannel, loadMessages]);
 
   // Load message with user data
   const loadMessageWithUserData = async (messageId: string) => {
