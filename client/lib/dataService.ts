@@ -443,12 +443,12 @@ export class DataService {
   }
 
   // Business methods
-  async getBusinesses(ownerId?: string): Promise<Business[]> {
+  async getBusinesses(ownerId?: string, filters: any = {}): Promise<{ data: Business[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
       // Check if Supabase is configured
       if (!supabaseUrl || !supabaseAnonKey) {
         console.warn("Supabase not configured, returning mock businesses");
-        return this.getMockBusinesses();
+        return { data: this.getMockBusinesses() };
       }
 
       this.checkSupabaseConfig();
@@ -456,10 +456,14 @@ export class DataService {
       const user = await this.getCurrentUser();
       if (!user) {
         console.warn("User not authenticated, returning mock businesses");
-        return this.getMockBusinesses();
+        return { data: this.getMockBusinesses() };
       }
 
-      let query = supabase.from("businesses").select("*");
+      const page = parseInt(filters.page || '1');
+      const limit = parseInt(filters.limit || '20');
+      const offset = (page - 1) * limit;
+
+      let query = supabase.from("businesses").select("*", { count: 'exact' });
 
       if (ownerId) {
         query = query.eq("owner_id", ownerId);
@@ -467,21 +471,41 @@ export class DataService {
         query = query.eq("owner_id", user.id);
       }
 
-      const { data, error } = await query.order("created_at", {
-        ascending: false,
-      });
+      // Add pagination if specified
+      if (filters.page || filters.limit) {
+        query = query.range(offset, offset + limit - 1);
+      }
+
+      query = query.order("created_at", { ascending: false });
+
+      const { data, error, count } = await query;
 
       if (error) {
         console.warn(
           "Database table might not exist, falling back to mock data:",
           error,
         );
-        return this.getMockBusinesses();
+        return { data: this.getMockBusinesses() };
       }
-      return (data as unknown as Business[]) || [];
+
+      const result: { data: Business[]; pagination?: any } = {
+        data: (data as unknown as Business[]) || []
+      };
+
+      // Add pagination info if paginated query was made
+      if (filters.page || filters.limit) {
+        result.pagination = {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit),
+        };
+      }
+
+      return result;
     } catch (error) {
       console.error("Error fetching businesses:", error);
-      return this.getMockBusinesses();
+      return { data: this.getMockBusinesses() };
     }
   }
 
