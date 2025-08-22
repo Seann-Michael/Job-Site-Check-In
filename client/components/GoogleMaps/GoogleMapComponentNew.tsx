@@ -66,6 +66,20 @@ interface GoogleMapComponentProps {
   reportMode?: boolean;
   // Business name overlay
   businessName?: string;
+  keyword?: string;
+  scanDate?: string;
+  scanTime?: string;
+  averageRanking?: number;
+  rankingAnalytics?: {
+    total: number;
+    ranked: number;
+    average: number;
+    green: number;
+    yellow: number;
+    orange: number;
+    red: number;
+    unranked: number;
+  };
   showBusinessOverlay?: boolean;
 }
 
@@ -92,6 +106,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   scanConfig,
   reportMode = false,
   businessName,
+  keyword,
+  scanDate,
+  scanTime,
+  averageRanking,
+  rankingAnalytics,
   showBusinessOverlay = false,
 }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -661,7 +680,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               onUnmount={onUnmount}
               options={mapOptions}
             >
-              {/* Business Name Overlay */}
+              {/* Business Scan Information Overlay */}
               {showBusinessOverlay && businessName && (
                 <div
                   style={{
@@ -670,15 +689,82 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                     right: "10px",
                     zIndex: 1000,
                     pointerEvents: "none",
+                    maxWidth: "300px",
                   }}
                 >
-                  <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg px-4 py-3 shadow-lg">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <div className="text-xs text-gray-600 font-medium">Scan Target</div>
-                        <div className="text-sm font-semibold text-gray-900">{businessName}</div>
+                  <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-lg">
+                    <div className="space-y-3">
+                      {/* Business Name */}
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-600 font-medium">Scan Target</div>
+                          <div className="text-sm font-semibold text-gray-900 leading-tight">{businessName}</div>
+                        </div>
                       </div>
+
+                      {/* Keyword */}
+                      {keyword && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-600 font-medium">Keyword</div>
+                            <div className="text-sm font-semibold text-gray-900">{keyword}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Scan Date & Time */}
+                      {scanDate && scanTime && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-600 font-medium">Scan Date & Time</div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              {new Date(`${scanDate}T${scanTime}`).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Average Ranking */}
+                      {averageRanking !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-600 font-medium">Average Ranking</div>
+                            <div className="text-sm font-semibold text-gray-900">{averageRanking}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ranking Analytics */}
+                      {rankingAnalytics && (
+                        <div className="border-t border-gray-200 pt-3">
+                          <div className="text-xs text-gray-600 font-medium mb-2">Ranking Analytics</div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-gray-700">1-3: {rankingAnalytics.green}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span className="text-gray-700">4-9: {rankingAnalytics.yellow}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                              <span className="text-gray-700">10-15: {rankingAnalytics.orange}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <span className="text-gray-700">16+: {rankingAnalytics.red}</span>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-700">
+                            <span className="font-medium">{rankingAnalytics.ranked}</span> of <span className="font-medium">{rankingAnalytics.total}</span> waypoints ranked
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
