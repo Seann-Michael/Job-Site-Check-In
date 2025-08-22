@@ -271,13 +271,8 @@ export default function Chat() {
     messageInputRef.current?.focus();
 
     try {
-      const token = getAuthToken();
-      const response = await fetch('/api/chat/messages', {
+      const message = await makeAuthenticatedChatRequest('/api/chat/messages', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           channel_id: selectedChannel.id,
           content: messageContent,
@@ -285,18 +280,10 @@ export default function Chat() {
         }),
       });
 
-      if (response.ok) {
-        const message = await response.json();
-        // Replace temp message with real message
-        setMessages(prev => prev.map(msg =>
-          msg.id === tempMessage.id ? message : msg
-        ));
-      } else {
-        // Remove temp message on error
-        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-        toast.error('Failed to send message');
-        setNewMessage(messageContent); // Restore message content
-      }
+      // Replace temp message with real message
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessage.id ? message : msg
+      ));
     } catch (error) {
       // Remove temp message on error
       setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
