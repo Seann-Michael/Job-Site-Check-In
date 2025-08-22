@@ -262,11 +262,13 @@ export default function Chat() {
       content: newMessage,
       user_id: user.id,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       channel_id: selectedChannel.id,
+      message_type: 'text',
       user: {
         id: user.id,
         email: user.email || '',
-        raw_user_meta_data: user.user_metadata
+        raw_user_meta_data: user.raw_user_meta_data
       }
     };
 
