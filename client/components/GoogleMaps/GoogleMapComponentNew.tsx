@@ -680,88 +680,139 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
               onUnmount={onUnmount}
               options={mapOptions}
             >
-              {/* Business Scan Information Overlay */}
+              {/* Professional Business Scan Information Overlay */}
               {showBusinessOverlay && businessName && (
                 <div
                   style={{
                     position: "absolute",
-                    top: "10px",
-                    right: "10px",
+                    top: "12px",
+                    right: "12px",
                     zIndex: 1000,
                     pointerEvents: "none",
-                    maxWidth: "300px",
+                    maxWidth: "340px",
                   }}
                 >
-                  <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-lg">
-                    <div className="space-y-3">
-                      {/* Business Name */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <div className="bg-white shadow-2xl border border-gray-100 rounded-2xl overflow-hidden">
+                    {/* Header with gradient */}
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
                         <div className="flex-1">
-                          <div className="text-xs text-gray-600 font-medium">Scan Target</div>
-                          <div className="text-sm font-semibold text-gray-900 leading-tight">{businessName}</div>
+                          <div className="text-blue-100 text-xs font-medium uppercase tracking-wide">Geo-Grid Analysis</div>
+                          <div className="text-white text-lg font-bold leading-tight">{businessName}</div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Keyword */}
-                      {keyword && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="text-xs text-gray-600 font-medium">Keyword</div>
-                            <div className="text-sm font-semibold text-gray-900">{keyword}</div>
+                    {/* Content */}
+                    <div className="p-5 space-y-4">
+                      {/* Key Metrics Row */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Keyword */}
+                        {keyword && (
+                          <div className="bg-gray-50 rounded-xl p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                              <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Keyword</div>
+                            </div>
+                            <div className="text-sm font-bold text-gray-900">{keyword}</div>
                           </div>
-                        </div>
-                      )}
+                        )}
+
+                        {/* Average Ranking */}
+                        {averageRanking !== undefined && (
+                          <div className="bg-gray-50 rounded-xl p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                              <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Avg Rank</div>
+                            </div>
+                            <div className="text-sm font-bold text-gray-900">#{averageRanking}</div>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Scan Date & Time */}
                       {scanDate && scanTime && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="text-xs text-gray-600 font-medium">Scan Date & Time</div>
-                            <div className="text-sm font-semibold text-gray-900">
-                              {new Date(`${scanDate}T${scanTime}`).toLocaleString()}
-                            </div>
+                        <div className="bg-gray-50 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg className="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Scan Time</div>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Average Ranking */}
-                      {averageRanking !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="text-xs text-gray-600 font-medium">Average Ranking</div>
-                            <div className="text-sm font-semibold text-gray-900">{averageRanking}</div>
+                          <div className="text-sm font-bold text-gray-900">
+                            {new Date(`${scanDate}T${scanTime}`).toLocaleDateString()} at {new Date(`${scanDate}T${scanTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       )}
 
                       {/* Ranking Analytics */}
                       {rankingAnalytics && (
-                        <div className="border-t border-gray-200 pt-3">
-                          <div className="text-xs text-gray-600 font-medium mb-2">Ranking Analytics</div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-gray-700">1-3: {rankingAnalytics.green}</span>
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <div className="text-xs font-bold text-gray-700 uppercase tracking-wide">Ranking Distribution</div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-lg p-3 border border-emerald-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                                  <span className="text-xs font-bold text-emerald-800">1-3</span>
+                                </div>
+                                <span className="text-sm font-bold text-emerald-900">{rankingAnalytics.green}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                              <span className="text-gray-700">4-9: {rankingAnalytics.yellow}</span>
+
+                            <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                  <span className="text-xs font-bold text-yellow-800">4-9</span>
+                                </div>
+                                <span className="text-sm font-bold text-yellow-900">{rankingAnalytics.yellow}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                              <span className="text-gray-700">10-15: {rankingAnalytics.orange}</span>
+
+                            <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                  <span className="text-xs font-bold text-orange-800">10-15</span>
+                                </div>
+                                <span className="text-sm font-bold text-orange-900">{rankingAnalytics.orange}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                              <span className="text-gray-700">16+: {rankingAnalytics.red}</span>
+
+                            <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                  <span className="text-xs font-bold text-red-800">16+</span>
+                                </div>
+                                <span className="text-sm font-bold text-red-900">{rankingAnalytics.red}</span>
+                              </div>
                             </div>
                           </div>
-                          <div className="mt-2 text-xs text-gray-700">
-                            <span className="font-medium">{rankingAnalytics.ranked}</span> of <span className="font-medium">{rankingAnalytics.total}</span> waypoints ranked
+
+                          {/* Summary */}
+                          <div className="mt-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Coverage</span>
+                              <div className="text-sm font-bold text-gray-900">
+                                <span className="text-blue-600">{rankingAnalytics.ranked}</span>
+                                <span className="text-gray-500 mx-1">/</span>
+                                <span className="text-gray-700">{rankingAnalytics.total}</span>
+                                <span className="text-xs text-gray-500 ml-1">waypoints</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
