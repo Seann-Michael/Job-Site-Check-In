@@ -233,10 +233,6 @@ export default function GeoGridReport() {
     // Don't show modal anymore, just highlight in sidebar
   };
 
-  // Handle settings click
-  const handleSettingsClick = () => {
-    setShowSettingsModal(true);
-  };
 
   // Calculate analytics based on current display (business or competitor)
   const analytics = useMemo(() => {
