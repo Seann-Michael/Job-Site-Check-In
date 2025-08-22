@@ -606,6 +606,9 @@ export default function GeoGridReport() {
                       unit: "miles",
                       distanceBetween: 1,
                     }}
+                    reportMode={true}
+                    businessName={scanResult.business_name}
+                    showBusinessOverlay={true}
                   />
                 </div>
                 
