@@ -112,6 +112,10 @@ export default function Chat() {
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [activeThread, setActiveThread] = useState<ChatMessage | null>(null);
+  const [threadMessages, setThreadMessages] = useState<ChatMessage[]>([]);
+  const [threadReply, setThreadReply] = useState('');
+  const [loadingThread, setLoadingThread] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -628,6 +632,70 @@ export default function Chat() {
     }
   };
 
+  // Open thread for a message
+  const openThread = async (message: ChatMessage) => {
+    setActiveThread(message);
+    setLoadingThread(true);
+
+    try {
+      const data = await makeAuthenticatedChatRequest(`/api/chat/messages/${message.id}/thread`);
+      setThreadMessages(data.messages || []);
+    } catch (error) {
+      console.error('Error loading thread:', error);
+      toast.error('Failed to load thread');
+    } finally {
+      setLoadingThread(false);
+    }
+  };
+
+  // Close thread
+  const closeThread = () => {
+    setActiveThread(null);
+    setThreadMessages([]);
+    setThreadReply('');
+  };
+
+  // Send thread reply
+  const sendThreadReply = async () => {
+    if (!threadReply.trim() || !activeThread || !user) return;
+
+    try {
+      const message = await makeAuthenticatedChatRequest('/api/chat/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          channel_id: activeThread.channel_id,
+          content: threadReply.trim(),
+          message_type: 'text',
+          parent_message_id: activeThread.id
+        }),
+      });
+
+      // Add to thread messages
+      setThreadMessages(prev => [...prev, message]);
+
+      // Update the parent message thread count in main messages
+      setMessages(prev => prev.map(msg =>
+        msg.id === activeThread.id
+          ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
+          : msg
+      ));
+
+      setThreadReply('');
+      toast.success('Reply sent');
+    } catch (error) {
+      console.error('Error sending thread reply:', error);
+      toast.error('Failed to send reply');
+    }
+  };
+
+  // Handle thread reply key press
+  const handleThreadKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendThreadReply();
+    }
+  };
+
   const filteredChannels = channels.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -961,7 +1029,12 @@ export default function Chat() {
                             
                             {/* Thread indicator */}
                             {message.thread_count && message.thread_count > 0 && (
-                              <Button variant="ghost" size="sm" className="mt-1 h-auto p-1 text-xs text-primary">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-1 h-auto p-1 text-xs text-primary hover:bg-primary/10"
+                                onClick={() => openThread(message)}
+                              >
                                 <MessageSquare className="h-3 w-3 mr-1" />
                                 {message.thread_count} {message.thread_count === 1 ? 'reply' : 'replies'}
                               </Button>
@@ -978,7 +1051,13 @@ export default function Chat() {
                                 </Button>
                               }
                             />
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => openThread(message)}
+                              title="Reply in thread"
+                            >
                               <Reply className="h-3 w-3" />
                             </Button>
                             <DropdownMenu>
@@ -1183,6 +1262,152 @@ export default function Chat() {
           </div>
         </div>
       )}
+
+      {/* Thread Dialog */}
+      <Dialog open={!!activeThread} onOpenChange={(open) => !open && closeThread()}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Thread
+            </DialogTitle>
+            <DialogDescription>
+              {activeThread && (
+                <span>
+                  Reply to message from {getUserDisplayName(activeThread.user)}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeThread && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Original Message */}
+              <div className="border-b p-4 bg-muted/30">
+                <div className="flex gap-3">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src={activeThread.user?.raw_user_meta_data?.avatar_url} />
+                    <AvatarFallback className="text-xs">
+                      {getUserInitials(activeThread.user)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="font-medium text-sm">
+                        {getUserDisplayName(activeThread.user)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatTime(activeThread.created_at)}
+                      </span>
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap break-words">
+                      {activeThread.content}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thread Messages */}
+              <ScrollArea className="flex-1 p-4">
+                {loadingThread ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                    <p className="mt-2 text-muted-foreground">Loading thread...</p>
+                  </div>
+                ) : threadMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No replies yet</p>
+                    <p className="text-sm">Be the first to reply!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {threadMessages.map((message, index) => {
+                      const prevMessage = index > 0 ? threadMessages[index - 1] : null;
+                      const isNewSender = !prevMessage || prevMessage.user_id !== message.user_id;
+
+                      return (
+                        <div key={message.id} className={`group ${isNewSender ? 'mt-4' : 'mt-1'}`}>
+                          <div className="flex gap-3">
+                            {isNewSender ? (
+                              <Avatar className="h-8 w-8 flex-shrink-0">
+                                <AvatarImage src={message.user?.raw_user_meta_data?.avatar_url} />
+                                <AvatarFallback className="text-xs">
+                                  {getUserInitials(message.user)}
+                                </AvatarFallback>
+                              </Avatar>
+                            ) : (
+                              <div className="w-8 flex-shrink-0 flex justify-center">
+                                <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100">
+                                  {formatTime(message.created_at)}
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="flex-1 min-w-0">
+                              {isNewSender && (
+                                <div className="flex items-baseline gap-2 mb-1">
+                                  <span className="font-medium text-sm">
+                                    {getUserDisplayName(message.user)}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatTime(message.created_at)}
+                                  </span>
+                                  {message.edited_at && (
+                                    <span className="text-xs text-muted-foreground">(edited)</span>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="text-sm whitespace-pre-wrap break-words">
+                                {message.content}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* Thread Reply Input */}
+              <div className="border-t p-4">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Textarea
+                      value={threadReply}
+                      onChange={(e) => setThreadReply(e.target.value)}
+                      onKeyPress={handleThreadKeyPress}
+                      placeholder={`Reply to thread...`}
+                      className="min-h-[40px] max-h-32 resize-none"
+                      rows={1}
+                    />
+                  </div>
+
+                  <div className="flex gap-1">
+                    <EmojiPicker
+                      onEmojiSelect={(emoji) => setThreadReply(prev => prev + emoji)}
+                      trigger={
+                        <Button variant="ghost" size="sm">
+                          <Smile className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
+                    <Button
+                      onClick={sendThreadReply}
+                      disabled={!threadReply.trim()}
+                      size="sm"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Channel Dialog */}
       <Dialog open={isCreatingChannel} onOpenChange={setIsCreatingChannel}>
