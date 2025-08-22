@@ -1,4 +1,5 @@
 import { ChatChannel } from '@/types/chat';
+import { makeAuthenticatedChatRequest, withAuthRetry } from './chatAuth';
 
 interface CreateChannelOptions {
   name: string;
@@ -11,9 +12,6 @@ interface CreateChannelOptions {
 }
 
 export class ChatChannelManager {
-  private getAuthToken(): string {
-    return localStorage.getItem('supabase_auth_token') || '';
-  }
 
   async ensureDefaultChannels(): Promise<void> {
     try {
@@ -84,106 +82,72 @@ export class ChatChannelManager {
   }
 
   async getUserChannels(): Promise<ChatChannel[]> {
-    try {
-      const token = this.getAuthToken();
-      const response = await fetch('/api/chat/channels', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+    return withAuthRetry(async () => {
+      try {
+        const data = await makeAuthenticatedChatRequest('/api/chat/channels');
         return data.channels || [];
+      } catch (error) {
+        console.error('Error loading user channels:', error);
+        return [];
       }
-      return [];
-    } catch (error) {
-      console.error('Error loading user channels:', error);
-      return [];
-    }
+    });
   }
 
   async getAllPublicChannels(): Promise<ChatChannel[]> {
-    try {
-      const token = this.getAuthToken();
-      const response = await fetch('/api/chat/channels?type=public', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+    return withAuthRetry(async () => {
+      try {
+        const data = await makeAuthenticatedChatRequest('/api/chat/channels?type=public');
         return data.channels || [];
+      } catch (error) {
+        console.error('Error loading public channels:', error);
+        return [];
       }
-      return [];
-    } catch (error) {
-      console.error('Error loading public channels:', error);
-      return [];
-    }
+    });
   }
 
   async createChannel(options: CreateChannelOptions): Promise<ChatChannel | null> {
-    try {
-      const token = this.getAuthToken();
-      const response = await fetch('/api/chat/channels', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(options),
-      });
-
-      if (response.ok) {
-        return await response.json();
+    return withAuthRetry(async () => {
+      try {
+        return await makeAuthenticatedChatRequest('/api/chat/channels', {
+          method: 'POST',
+          body: JSON.stringify(options),
+        });
+      } catch (error) {
+        console.error('Error creating channel:', error);
+        return null;
       }
-      return null;
-    } catch (error) {
-      console.error('Error creating channel:', error);
-      return null;
-    }
+    });
   }
 
   async joinChannel(channelId: string): Promise<boolean> {
-    try {
-      const token = this.getAuthToken();
-      const response = await fetch(`/api/chat/channels/${channelId}/join`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          notification_level: 'all'
-        }),
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('Error joining channel:', error);
-      return false;
-    }
+    return withAuthRetry(async () => {
+      try {
+        await makeAuthenticatedChatRequest(`/api/chat/channels/${channelId}/join`, {
+          method: 'POST',
+          body: JSON.stringify({
+            notification_level: 'all'
+          }),
+        });
+        return true;
+      } catch (error) {
+        console.error('Error joining channel:', error);
+        return false;
+      }
+    });
   }
 
   async leaveChannel(channelId: string): Promise<boolean> {
-    try {
-      const token = this.getAuthToken();
-      const response = await fetch(`/api/chat/channels/${channelId}/leave`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('Error leaving channel:', error);
-      return false;
-    }
+    return withAuthRetry(async () => {
+      try {
+        await makeAuthenticatedChatRequest(`/api/chat/channels/${channelId}/leave`, {
+          method: 'PUT',
+        });
+        return true;
+      } catch (error) {
+        console.error('Error leaving channel:', error);
+        return false;
+      }
+    });
   }
 
   async updateChannelPreferences(channelId: string, preferences: {
@@ -191,22 +155,18 @@ export class ChatChannelManager {
     is_muted?: boolean;
     is_pinned?: boolean;
   }): Promise<boolean> {
-    try {
-      const token = this.getAuthToken();
-      const response = await fetch(`/api/chat/channels/${channelId}/preferences`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(preferences),
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('Error updating channel preferences:', error);
-      return false;
-    }
+    return withAuthRetry(async () => {
+      try {
+        await makeAuthenticatedChatRequest(`/api/chat/channels/${channelId}/preferences`, {
+          method: 'PUT',
+          body: JSON.stringify(preferences),
+        });
+        return true;
+      } catch (error) {
+        console.error('Error updating channel preferences:', error);
+        return false;
+      }
+    });
   }
 }
 
