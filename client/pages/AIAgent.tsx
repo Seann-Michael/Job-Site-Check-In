@@ -546,7 +546,7 @@ export default function AIAgent() {
         {/* Sidebar */}
         <div className={`
           ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0 fixed md:relative inset-y-0 left-0 z-45 md:z-auto
+          md:translate-x-0 fixed md:relative inset-y-0 left-0 z-40 md:z-auto
           w-80 md:w-80 flex flex-col space-y-4 bg-background md:bg-transparent
           border-r md:border-none shadow-lg md:shadow-none
           transition-transform duration-300 ease-in-out
