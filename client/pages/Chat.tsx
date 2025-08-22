@@ -74,11 +74,19 @@ const supabase = createClient(
 
 export default function Chat() {
   const { user } = useAuth();
+  const { onlineUsers, currentStatus, isConnected, updatePresence } = useChatPresence();
+  const {
+    typingUsers,
+    isTyping,
+    handleTyping,
+    stopTyping,
+    getTypingText,
+    hasTypingUsers
+  } = useTypingIndicators(selectedChannel?.id);
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [onlineUsers, setOnlineUsers] = useState<ChatUserPresence[]>([]);
   const [loading, setLoading] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
@@ -87,13 +95,9 @@ export default function Chat() {
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [newChannelType, setNewChannelType] = useState<'public' | 'private'>('public');
-  const [isConnected, setIsConnected] = useState(true);
-  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
-  const [isTyping, setIsTyping] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
