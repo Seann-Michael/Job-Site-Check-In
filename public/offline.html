@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Local SEO Ranker</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32x32.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        .icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .status {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .connecting {
+            color: #fbbf24;
+        }
+        
+        .online {
+            color: #10b981;
+        }
+        
+        .offline {
+            color: #ef4444;
+        }
+        
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            p {
+                font-size: 1rem;
+            }
+            
+            .actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                max-width: 250px;
+            }
+        }
+        
+        .feature-list {
+            margin-top: 3rem;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .feature-list h3 {
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .feature-list ul {
+            list-style: none;
+        }
+        
+        .feature-list li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li::before {
+            content: "✓";
+            margin-right: 0.5rem;
+            color: #10b981;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            📱
+        </div>
+        
+        <h1>You're Offline</h1>
+        <p>Don't worry! Local SEO Ranker works offline too. You can still access your cached projects and data.</p>
+        
+        <div class="actions">
+            <button onclick="tryReconnect()">Try Again</button>
+            <button onclick="goToCachedProjects()">View Cached Projects</button>
+        </div>
+        
+        <div class="status">
+            <div id="connection-status" class="offline">
+                ⚠️ No internet connection detected
+            </div>
+        </div>
+        
+        <div class="feature-list">
+            <h3>Available Offline Features</h3>
+            <ul>
+                <li>View cached projects and data</li>
+                <li>Browse previously loaded images</li>
+                <li>Access project documents</li>
+                <li>Use offline calculator tools</li>
+                <li>Create new project drafts</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connection-status');
+            
+            if (navigator.onLine) {
+                statusElement.textContent = '✅ Connected! Redirecting...';
+                statusElement.className = 'online';
+                setTimeout(() => {
+                    window.location.href = '/admin/projects';
+                }, 1000);
+            } else {
+                statusElement.textContent = '⚠️ No internet connection detected';
+                statusElement.className = 'offline';
+            }
+        }
+        
+        function tryReconnect() {
+            const statusElement = document.getElementById('connection-status');
+            
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                statusElement.textContent = '❌ Unable to reconnect. Please check your internet connection.';
+                statusElement.className = 'offline';
+                return;
+            }
+            
+            reconnectAttempts++;
+            statusElement.textContent = `🔄 Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`;
+            statusElement.className = 'connecting';
+            
+            // Simulate reconnection attempt
+            setTimeout(() => {
+                fetch('/api/ping', { 
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                })
+                .then(() => {
+                    statusElement.textContent = '✅ Connected! Redirecting...';
+                    statusElement.className = 'online';
+                    setTimeout(() => {
+                        window.location.href = '/admin/projects';
+                    }, 1000);
+                })
+                .catch(() => {
+                    updateConnectionStatus();
+                });
+            }, 2000);
+        }
+        
+        function goToCachedProjects() {
+            // Try to navigate to cached projects
+            if ('serviceWorker' in navigator) {
+                window.location.href = '/admin/projects';
+            } else {
+                alert('Cached projects are not available. Service worker is not supported.');
+            }
+        }
+        
+        // Listen for online/offline events
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Initial status check
+        updateConnectionStatus();
+        
+        // Auto-retry connection every 30 seconds
+        setInterval(() => {
+            if (!navigator.onLine && reconnectAttempts < maxReconnectAttempts) {
+                fetch('/api/ping', { 
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                })
+                .then(() => {
+                    updateConnectionStatus();
+                })
+                .catch(() => {
+                    // Still offline
+                });
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
