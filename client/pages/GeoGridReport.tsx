@@ -456,6 +456,14 @@ export default function GeoGridReport() {
                   {/* Create combined list of all businesses sorted by ranking */}
                   {(() => {
                     // Create a combined list with target business and competitors
+                    // Create waypoint rankings for target business from scan results
+                    const targetWaypointRankings: Record<string, number> = {};
+                    scanResult.waypoints.forEach((waypoint) => {
+                      if (waypoint.ranking) {
+                        targetWaypointRankings[waypoint.id] = waypoint.ranking;
+                      }
+                    });
+
                     const allBusinesses = [
                       {
                         id: 'target',
@@ -464,6 +472,7 @@ export default function GeoGridReport() {
                         average_position: scanResult.average_ranking,
                         google_reviews: 342, // Mock data for target business
                         review_rating: 4.5,
+                        waypoint_rankings: targetWaypointRankings,
                         isTarget: true,
                       },
                       ...scanResult.competitors.map((comp) => ({
