@@ -3,16 +3,34 @@ import { BusinessService } from "../services/BusinessService";
 
 const router = Router();
 
-// GET /api/businesses?ownerId=... - list businesses for a given owner
+// GET /api/businesses?ownerId=... - list businesses for a given owner with pagination
 router.get("/", async (req, res) => {
   try {
     const ownerId = req.query.ownerId as string;
     if (!ownerId) {
       return res.status(400).json({ success: false, error: "ownerId query parameter is required" });
     }
-    const { data, error } = await BusinessService.listBusinesses(ownerId);
+
+    const filters: any = {};
+    if (req.query.page) filters.page = req.query.page;
+    if (req.query.limit) filters.limit = req.query.limit;
+
+    const { data, error, count } = await BusinessService.listBusinesses(ownerId, filters);
     if (error) throw error;
-    res.json({ success: true, businesses: data });
+
+    const page = parseInt(filters.page || '1');
+    const limit = parseInt(filters.limit || '20');
+
+    res.json({
+      success: true,
+      data: data,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil((count || 0) / limit),
+      }
+    });
   } catch (error: any) {
     console.error("Error fetching businesses", error);
     res.status(500).json({ success: false, error: error.message });
