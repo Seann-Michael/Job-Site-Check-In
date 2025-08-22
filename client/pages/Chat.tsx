@@ -1255,7 +1255,21 @@ export default function Chat() {
                       </Button>
                     }
                   />
-                  <Button variant="ghost" size="sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const cursorPos = messageInputRef.current?.selectionStart || 0;
+                      const newText = newMessage.slice(0, cursorPos) + '@' + newMessage.slice(cursorPos);
+                      setNewMessage(newText);
+                      // Focus and set cursor position
+                      setTimeout(() => {
+                        messageInputRef.current?.focus();
+                        messageInputRef.current?.setSelectionRange(cursorPos + 1, cursorPos + 1);
+                      }, 0);
+                    }}
+                    title="Insert mention"
+                  >
                     <AtSign className="h-4 w-4" />
                   </Button>
                   <Button onClick={sendMessage} disabled={!newMessage.trim() || uploadingFiles.size > 0}>
