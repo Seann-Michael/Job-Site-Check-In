@@ -396,8 +396,9 @@ export default function GeoGridReport() {
         </div>
 
         <div className={`grid gap-6 transition-all duration-300 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-4'}`}>
-          {/* Competitor Sidebar */}
-          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
+          {/* Collapsible Competitor Sidebar */}
+          {!isSidebarCollapsed && (
+            <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Competitors List */}
             <Card className="h-fit">
               <CardHeader>
@@ -501,7 +502,23 @@ export default function GeoGridReport() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+            </div>
+          )}
+
+          {/* Collapse Button when sidebar is hidden */}
+          {isSidebarCollapsed && (
+            <div className="fixed left-4 top-1/2 -translate-y-1/2 z-10">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="shadow-lg"
+              >
+                <ChevronRight className="h-4 w-4 mr-1" />
+                Competitors
+              </Button>
+            </div>
+          )}
 
           {/* Map Container */}
           <div className="lg:col-span-3 order-1 lg:order-2">
