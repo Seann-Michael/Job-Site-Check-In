@@ -70,69 +70,24 @@ export function useChatRealtime({
     }
 
     // Create new subscription for messages in this channel
-    const subscription = supabaseClient
-      .channel(`messages:${channelId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`
-        },
-        async (payload: any) => {
-          // Don't show our own messages (they're added optimistically)
-          if (payload.new.user_id === currentUser.id) {
-            return;
-          }
+    try {
+      const subscription = supabaseClient
+        .channel(`messages:${channelId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `channel_id=eq.${channelId}`
+          },
+          async (payload: any) => {
+            // Don't show our own messages (they're added optimistically)
+            if (payload.new.user_id === currentUser.id) {
+              return;
+            }
 
-          // Fetch user profile for the message
-          try {
-            const { data: userProfile } = await supabaseClient
-              .from('user_profiles')
-              .select('id, full_name, role')
-              .eq('id', payload.new.user_id)
-              .single();
-
-            const messageWithUser = {
-              ...payload.new,
-              user: {
-                id: payload.new.user_id,
-                full_name: userProfile?.full_name || 'Unknown User',
-                role: userProfile?.role || 'User'
-              }
-            };
-
-            onNewMessage(messageWithUser);
-          } catch (error) {
-            console.error('Error fetching user profile for new message:', error);
-            // Still show the message even if we can't get user profile
-            onNewMessage({
-              ...payload.new,
-              user: {
-                id: payload.new.user_id,
-                full_name: 'Unknown User',
-                role: 'User'
-              }
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`
-        },
-        async (payload: any) => {
-          // Handle message updates (edits)
-          if (payload.new.deleted_at) {
-            // Message was soft deleted
-            onMessageDelete(payload.new.id);
-          } else {
-            // Message was edited
+            // Fetch user profile for the message
             try {
               const { data: userProfile } = await supabaseClient
                 .from('user_profiles')
@@ -149,16 +104,72 @@ export function useChatRealtime({
                 }
               };
 
-              onMessageUpdate(messageWithUser);
+              onNewMessage(messageWithUser);
             } catch (error) {
-              console.error('Error fetching user profile for updated message:', error);
+              console.error('Error fetching user profile for new message:', error);
+              // Still show the message even if we can't get user profile
+              onNewMessage({
+                ...payload.new,
+                user: {
+                  id: payload.new.user_id,
+                  full_name: 'Unknown User',
+                  role: 'User'
+                }
+              });
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `channel_id=eq.${channelId}`
+          },
+          async (payload: any) => {
+            // Handle message updates (edits)
+            if (payload.new.deleted_at) {
+              // Message was soft deleted
+              onMessageDelete(payload.new.id);
+            } else {
+              // Message was edited
+              try {
+                const { data: userProfile } = await supabaseClient
+                  .from('user_profiles')
+                  .select('id, full_name, role')
+                  .eq('id', payload.new.user_id)
+                  .single();
 
-    subscriptionRef.current = subscription;
+                const messageWithUser = {
+                  ...payload.new,
+                  user: {
+                    id: payload.new.user_id,
+                    full_name: userProfile?.full_name || 'Unknown User',
+                    role: userProfile?.role || 'User'
+                  }
+                };
+
+                onMessageUpdate(messageWithUser);
+              } catch (error) {
+                console.error('Error fetching user profile for updated message:', error);
+              }
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`✅ Subscribed to messages in channel: ${channelId}`);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(`❌ Failed to subscribe to channel: ${channelId}`);
+          }
+        });
+
+      subscriptionRef.current = subscription;
+    } catch (error) {
+      console.error('❌ Error creating Supabase subscription:', error);
+      return;
+    }
 
     // Update user presence to online
     updateUserPresence('online');
