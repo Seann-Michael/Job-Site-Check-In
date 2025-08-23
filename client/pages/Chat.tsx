@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { chatService, Message as ChatMessage } from "@/lib/chatService";
 import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
+import { useChatRealtime, useTypingIndicator } from "@/hooks/useChatRealtime";
 
 interface User {
   id: string;
@@ -67,7 +68,55 @@ export default function Chat() {
     new Set(["Company", "Work", "Clients", "Direct Messages"])
   );
   const [showMembersList, setShowMembersList] = useState(true);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Real-time message handlers
+  const handleNewMessage = (newMessage: ChatMessage) => {
+    const formattedMessage: Message = {
+      id: newMessage.id,
+      user: {
+        id: newMessage.user?.id || newMessage.user_id,
+        name: newMessage.user?.full_name || 'Unknown User',
+        full_name: newMessage.user?.full_name || 'Unknown User',
+        status: 'online',
+        role: newMessage.user?.role || 'User',
+      },
+      content: newMessage.content,
+      timestamp: new Date(newMessage.created_at),
+      edited: newMessage.edited || false,
+    };
+
+    setMessages(prev => [...prev, formattedMessage]);
+    toast.success(`New message from ${formattedMessage.user.name}`);
+  };
+
+  const handleMessageUpdate = (updatedMessage: ChatMessage) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === updatedMessage.id
+        ? {
+            ...msg,
+            content: updatedMessage.content,
+            edited: true,
+          }
+        : msg
+    ));
+  };
+
+  const handleMessageDelete = (messageId: string) => {
+    setMessages(prev => prev.filter(msg => msg.id !== messageId));
+  };
+
+  // Set up real-time subscriptions
+  useChatRealtime({
+    channelId: selectedChannel.id,
+    onNewMessage: handleNewMessage,
+    onMessageUpdate: handleMessageUpdate,
+    onMessageDelete: handleMessageDelete,
+  });
+
+  // Set up typing indicators
+  const { startTyping, stopTyping } = useTypingIndicator(selectedChannel.id);
 
   // Load messages when channel changes
   useEffect(() => {
@@ -133,7 +182,8 @@ export default function Chat() {
 
         setMessages(prev => [...prev, newMessage]);
         setMessage("");
-        toast.success('Message sent');
+        stopTyping();
+        // Don't show toast for own messages to avoid spam
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -146,7 +196,22 @@ export default function Chat() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      stopTyping();
       sendMessage();
+    }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+
+    // Start typing indicator when user starts typing
+    if (e.target.value.length === 1) {
+      startTyping();
+    }
+
+    // Stop typing indicator when input is cleared
+    if (e.target.value.length === 0) {
+      stopTyping();
     }
   };
 
@@ -375,6 +440,14 @@ export default function Chat() {
                   </div>
                 );
               })}
+              {typingUsers.length > 0 && (
+                <div className="px-4 py-2 text-sm text-muted-foreground italic">
+                  {typingUsers.length === 1
+                    ? `${typingUsers[0]} is typing...`
+                    : `${typingUsers.join(', ')} are typing...`
+                  }
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
@@ -385,8 +458,9 @@ export default function Chat() {
               <div className="relative">
                 <Input
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={handleMessageChange}
                   onKeyPress={handleKeyPress}
+                  onBlur={stopTyping}
                   placeholder={`Message ${selectedChannel.type === "dm" ? selectedChannel.name : "#" + selectedChannel.name}`}
                   className="pr-20 min-h-[44px] py-3"
                 />
