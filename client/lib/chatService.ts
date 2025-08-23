@@ -58,8 +58,40 @@ class ChatService {
       return await response.json();
     } catch (error) {
       console.error('Chat API error:', error);
+
+      // If this is a network error, provide fallback mock data for development
+      if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+        console.warn('⚠️ Using mock data due to API unavailability');
+        return this.getMockResponse<T>(endpoint);
+      }
+
       return { error: error.message };
     }
+  }
+
+  private getMockResponse<T>(endpoint: string): ApiResponse<T> {
+    // Provide mock data when API is not available
+    if (endpoint.includes('chat-messages')) {
+      const mockMessages = [
+        {
+          id: '1',
+          channel_id: 'general',
+          user_id: 'user1',
+          content: 'Welcome to the team chat! 👋 (Mock data - configure Supabase for full functionality)',
+          message_type: 'text',
+          created_at: new Date(Date.now() - 3600000).toISOString(),
+          edited: false,
+          user: {
+            id: 'user1',
+            full_name: 'Demo User',
+            role: 'Admin'
+          }
+        }
+      ];
+      return { messages: mockMessages as any } as ApiResponse<T>;
+    }
+
+    return { data: null as any };
   }
 
   // Get messages for a channel

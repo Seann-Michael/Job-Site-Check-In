@@ -71,6 +71,19 @@ export default function Chat() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Check if Supabase is configured
+  const supabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+  // Show configuration help message
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      toast.info('💡 Configure Supabase for full chat functionality', {
+        duration: 5000,
+        description: 'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables'
+      });
+    }
+  }, [supabaseConfigured]);
+
   // Real-time message handlers
   const handleNewMessage = (newMessage: ChatMessage) => {
     const formattedMessage: Message = {
