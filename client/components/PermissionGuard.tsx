@@ -68,7 +68,7 @@ export function PermissionGuard({
       // Role-based check
       if (role) {
         const allowedRoles = Array.isArray(role) ? role : [role];
-        if (!allowedRoles.includes(user.role)) {
+        if (!allowedRoles.includes(user.role as UserRole)) {
           setHasAccess(false);
           setIsLoading(false);
           return;
@@ -90,20 +90,20 @@ export function PermissionGuard({
         let hasPermission = false;
 
         if (permission) {
-          const result = await permissionService.hasPermission(user, permission, context);
+          const result = await permissionService.hasPermission(user as any, permission, context);
           hasPermission = result.granted;
           if (!result.granted && result.reason) {
             setError(result.reason);
           }
         } else if (permissions) {
           if (requireAll) {
-            hasPermission = await permissionService.hasAllPermissions(user, permissions, context);
+            hasPermission = await permissionService.hasAllPermissions(user as any, permissions, context);
           } else {
-            hasPermission = await permissionService.hasAnyPermission(user, permissions, context);
+            hasPermission = await permissionService.hasAnyPermission(user as any, permissions, context);
           }
         } else if (resource && action) {
           const permissionString = `${resource}:${action}`;
-          const result = await permissionService.hasPermission(user, permissionString, context);
+          const result = await permissionService.hasPermission(user as any, permissionString, context);
           hasPermission = result.granted;
           if (!result.granted && result.reason) {
             setError(result.reason);
