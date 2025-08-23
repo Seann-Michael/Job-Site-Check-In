@@ -196,8 +196,8 @@ export function usePWA(): PWAState & PWAActions {
   const retrySync = useCallback(async (): Promise<void> => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(registration => {
-        if (registration.sync) {
-          registration.sync.register('sync-data');
+        if ('sync' in registration) {
+          (registration as any).sync.register('sync-data');
         }
       });
     }
