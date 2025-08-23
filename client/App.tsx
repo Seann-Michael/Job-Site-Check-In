@@ -454,11 +454,7 @@ const App = () => (
                 />
                 <Route
                   path="/admin/chat"
-                  element={
-                    <ProtectedRoute>
-                      <Chat />
-                    </ProtectedRoute>
-                  }
+                  element={<Chat />}
                 />
                 <Route
                   path="/admin/maps"
