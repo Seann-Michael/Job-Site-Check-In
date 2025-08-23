@@ -6,9 +6,23 @@ import { makeAuthenticatedChatRequest } from '@/lib/chatAuth';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Check for placeholder values
+const isPlaceholderValue = (value: string | undefined): boolean => {
+  if (!value) return true;
+  const placeholderPatterns = [
+    'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
+    'YOUR_ACTUAL_SUPABASE_ANON_KEY',
+    'placeholder',
+    'demo',
+    'example',
+    'change-me'
+  ];
+  return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
+};
+
 const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder-key"
+  (!supabaseUrl || isPlaceholderValue(supabaseUrl)) ? "https://placeholder.supabase.co" : supabaseUrl,
+  (!supabaseAnonKey || isPlaceholderValue(supabaseAnonKey)) ? "placeholder-key" : supabaseAnonKey
 );
 
 interface TypingUser {
