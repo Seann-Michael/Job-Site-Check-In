@@ -218,8 +218,8 @@ export const cleanupQueries = () => {
   });
 };
 
-// Setup periodic cleanup
-if (typeof window !== 'undefined') {
-  // Cleanup unused queries every 30 minutes
-  setInterval(cleanupQueries, 30 * 60 * 1000);
-}
+// Setup periodic cleanup (disabled temporarily to prevent load issues)
+// if (typeof window !== 'undefined') {
+//   // Cleanup unused queries every 30 minutes
+//   setInterval(cleanupQueries, 30 * 60 * 1000);
+// }
