@@ -390,19 +390,28 @@ export default function Chat() {
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
               {!supabaseConfigured && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-                  <div className="flex items-center space-x-2 text-blue-700 dark:text-blue-300">
-                    <Hash className="w-4 h-4" />
-                    <span className="text-sm font-medium">Development Mode</span>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-300">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium">Offline Mode</span>
                   </div>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-                    Chat is running with mock data. To enable full functionality:
+                  <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                    Chat is running with mock data only. Messages won't sync between users.
                   </p>
-                  <ol className="text-xs text-blue-600 dark:text-blue-400 mt-2 ml-4 list-decimal">
-                    <li>Set up Supabase project</li>
-                    <li>Run the SQL schema from scripts/chat-schema.sql</li>
-                    <li>Configure environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)</li>
-                  </ol>
+                  <details className="mt-2">
+                    <summary className="text-xs text-amber-600 dark:text-amber-400 cursor-pointer hover:text-amber-700 dark:hover:text-amber-300">
+                      How to enable real-time chat ↓
+                    </summary>
+                    <ol className="text-xs text-amber-600 dark:text-amber-400 mt-2 ml-4 list-decimal">
+                      <li>Set up a Supabase project</li>
+                      <li>Run the SQL schema from <code>scripts/chat-schema.sql</code></li>
+                      <li>Configure environment variables:</li>
+                      <ul className="ml-4 list-disc">
+                        <li><code>VITE_SUPABASE_URL</code></li>
+                        <li><code>VITE_SUPABASE_ANON_KEY</code></li>
+                      </ul>
+                    </ol>
+                  </details>
                 </div>
               )}
               {messages.map((msg, index) => {
