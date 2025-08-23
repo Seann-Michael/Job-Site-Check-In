@@ -194,6 +194,7 @@ export const PERMISSIONS = {
   TEAM_UPDATE: 'team:update',
   TEAM_DELETE: 'team:delete',
   TEAM_ASSIGN: 'team:assign',
+  TEAM_MANAGE: 'team:manage',
   
   // Billing & Finance
   BILLING_READ: 'billing:read',
