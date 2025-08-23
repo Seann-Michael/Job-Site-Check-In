@@ -27,17 +27,44 @@ interface ApiResponse<T> {
 
 class ChatService {
   private baseUrl = '/.netlify/functions';
+  private offlineMode = false;
+
+  constructor() {
+    // Check if we're in development and should use offline mode
+    this.checkApiAvailability();
+  }
+
+  private async checkApiAvailability() {
+    try {
+      // Try a simple ping to check if the API is available
+      const response = await fetch(`${this.baseUrl}/ping`, {
+        method: 'HEAD',
+        timeout: 1000
+      } as any);
+      this.offlineMode = !response.ok;
+    } catch {
+      // If any error occurs, assume we're offline
+      this.offlineMode = true;
+      console.warn('🔌 API not available - chat running in offline mode with mock data');
+    }
+  }
 
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    try {
-      const user = getCurrentUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+    const user = getCurrentUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
 
+    // If we're in offline mode, immediately return mock data
+    if (this.offlineMode) {
+      console.log('📱 Using offline mode for:', endpoint);
+      return this.getMockResponse<T>(endpoint, options);
+    }
+
+    try {
       // For now, we'll use a demo token. In real implementation, this would come from Supabase auth
       const token = user.id ? `demo-token-${user.id}` : 'demo-token';
 
@@ -92,29 +119,69 @@ class ChatService {
     }
   }
 
-  private getMockResponse<T>(endpoint: string): ApiResponse<T> {
-    // Provide mock data when API is not available
+  private getMockResponse<T>(endpoint: string, options: RequestInit = {}): ApiResponse<T> {
+    const method = options.method || 'GET';
+    const user = getCurrentUser();
+
+    console.log(`🤖 Mock response for ${method} ${endpoint}`);
+
+    // Handle chat-messages endpoint
     if (endpoint.includes('chat-messages')) {
-      const mockMessages = [
-        {
-          id: '1',
-          channel_id: 'general',
-          user_id: 'user1',
-          content: 'Welcome to the team chat! 👋 (Mock data - configure Supabase for full functionality)',
+      if (method === 'GET') {
+        const mockMessages = [
+          {
+            id: '1',
+            channel_id: 'general',
+            user_id: 'demo-user-1',
+            content: 'Welcome to the team chat! 👋 (This is mock data - real-time features available when Supabase is configured)',
+            message_type: 'text',
+            created_at: new Date(Date.now() - 3600000).toISOString(),
+            edited: false,
+            user: {
+              id: 'demo-user-1',
+              full_name: 'Demo Admin',
+              role: 'Admin'
+            }
+          },
+          {
+            id: '2',
+            channel_id: 'general',
+            user_id: 'demo-user-2',
+            content: 'Thanks for setting up the chat system! Looking forward to collaborating here.',
+            message_type: 'text',
+            created_at: new Date(Date.now() - 1800000).toISOString(),
+            edited: false,
+            user: {
+              id: 'demo-user-2',
+              full_name: 'Demo Manager',
+              role: 'Manager'
+            }
+          }
+        ];
+        return { messages: mockMessages as any } as ApiResponse<T>;
+      } else if (method === 'POST') {
+        // Mock successful message creation
+        const body = JSON.parse(options.body as string || '{}');
+        const newMessage = {
+          id: Date.now().toString(),
+          channel_id: body.channel_id || 'general',
+          user_id: user?.id || 'current-user',
+          content: body.content || 'Test message',
           message_type: 'text',
-          created_at: new Date(Date.now() - 3600000).toISOString(),
+          created_at: new Date().toISOString(),
           edited: false,
           user: {
-            id: 'user1',
-            full_name: 'Demo User',
-            role: 'Admin'
+            id: user?.id || 'current-user',
+            full_name: user?.name || 'Current User',
+            role: user?.role || 'User'
           }
-        }
-      ];
-      return { messages: mockMessages as any } as ApiResponse<T>;
+        };
+        return { data: newMessage as any } as ApiResponse<T>;
+      }
     }
 
-    return { data: null as any };
+    // Default success response for other endpoints
+    return { data: { success: true } as any } as ApiResponse<T>;
   }
 
   // Get messages for a channel

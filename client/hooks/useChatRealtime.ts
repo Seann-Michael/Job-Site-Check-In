@@ -88,8 +88,10 @@ export function useChatRealtime({
       subscriptionRef.current.unsubscribe();
     }
 
-    // Create new subscription for messages in this channel
+    // Create new subscription for messages in this channel with comprehensive error handling
     try {
+      console.log(`🔄 Setting up real-time subscription for channel: ${channelId}`);
+
       const subscription = supabaseClient
         .channel(`messages:${channelId}`)
         .on(
@@ -176,11 +178,16 @@ export function useChatRealtime({
             }
           }
         )
-        .subscribe((status: string) => {
+        .subscribe((status: string, err?: any) => {
           if (status === 'SUBSCRIBED') {
             console.log(`✅ Subscribed to messages in channel: ${channelId}`);
           } else if (status === 'CHANNEL_ERROR') {
-            console.error(`❌ Failed to subscribe to channel: ${channelId}`);
+            console.error(`❌ Failed to subscribe to channel: ${channelId}`, err);
+            // Don't attempt to retry, just fail silently
+          } else if (status === 'TIMED_OUT') {
+            console.warn(`⏰ Subscription timed out for channel: ${channelId}`);
+          } else if (status === 'CLOSED') {
+            console.log(`🔌 Subscription closed for channel: ${channelId}`);
           }
         });
 
