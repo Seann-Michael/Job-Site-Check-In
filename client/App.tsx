@@ -37,7 +37,7 @@ const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
 const BusinessManagement = lazy(() => import("./pages/BusinessManagement"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
-const CrashLogs = lazy(() => import("./pages/CrashLogs").then(module => ({ default: module.CrashLogs })));
+const CrashLogs = lazy(() => import("./pages/CrashLogs"));
 const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const Tools = lazy(() => import("./pages/Tools"));
 const MarketPlace = lazy(() => import("./pages/MarketPlace"));
@@ -100,7 +100,7 @@ const SuperAdminSupport = lazy(() => import("./pages/SuperAdminSupport"));
 const SuperAdminFinancial = lazy(() => import("./pages/SuperAdminFinancial"));
 const SuperAdminUsers = lazy(() => import("./pages/SuperAdminUsers"));
 const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunications"));
-const ComingSoon = lazy(() => import("./pages/ComingSoon").then(module => ({ default: module.ComingSoon })));
+const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
 // Agency Project Management imports
 const AgencyProjects = lazy(() => import("./pages/AgencyProjects"));
