@@ -77,21 +77,20 @@ class ChatService {
         },
       });
 
+      // Read response body once as text, then parse as needed
+      const responseText = await response.text();
+
       if (!response.ok) {
-        // Try to parse error response as JSON, fallback to text if that fails
+        // Try to parse error response as JSON first
         let errorMessage = `HTTP ${response.status}`;
         try {
-          const errorData = await response.json();
+          const errorData = JSON.parse(responseText);
           errorMessage = errorData.error || errorMessage;
         } catch {
-          // If JSON parsing fails, try to get text content
-          try {
-            const errorText = await response.text();
-            if (errorText && errorText.length < 200) {
-              errorMessage = errorText;
-            }
-          } catch {
-            // Use the HTTP status as fallback
+          // If JSON parsing fails, use the text content
+          if (responseText && responseText.length < 200) {
+            errorMessage = responseText;
+          } else {
             errorMessage = `HTTP ${response.status} - ${response.statusText}`;
           }
         }
@@ -100,11 +99,11 @@ class ChatService {
 
       // Try to parse successful response as JSON
       try {
-        return await response.json();
+        return JSON.parse(responseText);
       } catch (jsonError) {
-        console.warn('Response is not valid JSON, trying as text:', jsonError);
-        const textContent = await response.text();
-        throw new Error(`Invalid JSON response: ${textContent.substring(0, 100)}...`);
+        console.warn('Response is not valid JSON:', jsonError);
+        console.warn('Response text:', responseText.substring(0, 200));
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
       }
     } catch (error) {
       console.error('Chat API error:', error);
