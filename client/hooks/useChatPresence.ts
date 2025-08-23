@@ -3,9 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { useAuth } from './useAuth';
 import { makeAuthenticatedChatRequest, withAuthRetry } from '@/lib/chatAuth';
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "placeholder-key"
 );
 
 interface UserPresence {
