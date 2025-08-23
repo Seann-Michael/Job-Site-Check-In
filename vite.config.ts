@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: "dist",
   },
-  plugins: [react()], // expressPlugin() temporarily disabled to debug load issues
+  plugins: [react(), expressPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),
