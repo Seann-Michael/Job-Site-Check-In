@@ -123,18 +123,6 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  private isCriticalError(error: Error): boolean {
-    // Define what constitutes a critical error
-    const criticalErrors = [
-      "ChunkLoadError",
-      "TypeError: Cannot read property",
-      "ReferenceError",
-    ];
-
-    return criticalErrors.some((criticalError) =>
-      error.message.includes(criticalError),
-    );
-  }
 
   private reportErrorToService(error: Error, errorInfo: ErrorInfo) {
     // In production, report to Sentry, LogRocket, etc.
