@@ -118,27 +118,7 @@ const AdminLeads = lazy(() => import("./pages/AdminLeads"));
 const AgencyLeads = lazy(() => import("./pages/AgencyLeads"));
 
 
-// PWA Service Worker Registration
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker
-    .register("/sw.js")
-    .then((registration) => {
-      console.log("Service Worker registered:", registration);
-      try {
-        analytics.track("service_worker_registered");
-      } catch (error) {
-        console.error("Analytics tracking failed:", error);
-      }
-    })
-    .catch((error) => {
-      console.error("Service Worker registration failed:", error);
-      try {
-        analytics.trackError(error);
-      } catch (analyticsError) {
-        console.error("Analytics error tracking failed:", analyticsError);
-      }
-    });
-}
+// Service Worker registration is handled in index.html to avoid duplicates
 
 const App = () => (
   <ErrorBoundary>
