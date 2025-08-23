@@ -294,7 +294,7 @@ export function useRole(allowedRoles: UserRole | UserRole[]) {
   const hasRole = React.useMemo(() => {
     if (!user) return false;
     const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-    return roles.includes(user.role);
+    return roles.includes(user.role as UserRole);
   }, [user, allowedRoles]);
 
   return hasRole;
