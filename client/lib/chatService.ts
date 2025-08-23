@@ -51,11 +51,34 @@ class ChatService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        // Try to parse error response as JSON, fallback to text if that fails
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If JSON parsing fails, try to get text content
+          try {
+            const errorText = await response.text();
+            if (errorText && errorText.length < 200) {
+              errorMessage = errorText;
+            }
+          } catch {
+            // Use the HTTP status as fallback
+            errorMessage = `HTTP ${response.status} - ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      return await response.json();
+      // Try to parse successful response as JSON
+      try {
+        return await response.json();
+      } catch (jsonError) {
+        console.warn('Response is not valid JSON, trying as text:', jsonError);
+        const textContent = await response.text();
+        throw new Error(`Invalid JSON response: ${textContent.substring(0, 100)}...`);
+      }
     } catch (error) {
       console.error('Chat API error:', error);
 
