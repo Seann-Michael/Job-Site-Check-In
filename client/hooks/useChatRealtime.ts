@@ -2,27 +2,42 @@ import { useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentUser } from '@/lib/auth';
 
-// Initialize Supabase client with proper error handling
+// Initialize Supabase client with strict validation
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseClient: any = null;
 let supabaseConfigured = false;
 
-try {
-  if (supabaseUrl && supabaseAnonKey) {
+// Strict validation of environment variables
+function isValidSupabaseUrl(url: string): boolean {
+  return url && url.length > 0 && url.includes('supabase') && url.startsWith('https://');
+}
+
+function isValidSupabaseKey(key: string): boolean {
+  return key && key.length > 20; // Supabase keys are much longer than 20 chars
+}
+
+// Only create client if we have valid configuration
+if (isValidSupabaseUrl(supabaseUrl) && isValidSupabaseKey(supabaseAnonKey)) {
+  try {
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
     supabaseConfigured = true;
     console.log('✅ Supabase client initialized successfully');
-  } else {
-    console.warn('⚠️ Supabase not configured - real-time features disabled');
-    console.warn('Missing environment variables:');
-    if (!supabaseUrl) console.warn('- VITE_SUPABASE_URL');
-    if (!supabaseAnonKey) console.warn('- VITE_SUPABASE_ANON_KEY');
+  } catch (error) {
+    console.error('❌ Failed to initialize Supabase client:', error);
+    supabaseClient = null;
+    supabaseConfigured = false;
   }
-} catch (error) {
-  console.error('❌ Failed to initialize Supabase client:', error);
-  supabaseConfigured = false;
+} else {
+  console.warn('⚠️ Supabase not configured - chat running in offline mode');
+  if (!supabaseUrl || !isValidSupabaseUrl(supabaseUrl)) {
+    console.warn('- VITE_SUPABASE_URL is missing or invalid');
+  }
+  if (!supabaseAnonKey || !isValidSupabaseKey(supabaseAnonKey)) {
+    console.warn('- VITE_SUPABASE_ANON_KEY is missing or invalid');
+  }
+  console.warn('💡 To enable real-time features, configure Supabase environment variables');
 }
 
 interface Message {
@@ -56,11 +71,15 @@ export function useChatRealtime({
   const currentUser = getCurrentUser();
 
   useEffect(() => {
-    // Early return if Supabase is not configured
+    // Strict early return if Supabase is not properly configured
     if (!supabaseConfigured || !supabaseClient || !channelId || !currentUser) {
-      if (!supabaseConfigured) {
-        console.log('ℹ️ Real-time messaging disabled - Supabase not configured');
-      }
+      // Don't log repeatedly, just exit silently when not configured
+      return;
+    }
+
+    // Double-check that we have a valid client before proceeding
+    if (typeof supabaseClient.channel !== 'function') {
+      console.error('❌ Invalid Supabase client - real-time features disabled');
       return;
     }
 
