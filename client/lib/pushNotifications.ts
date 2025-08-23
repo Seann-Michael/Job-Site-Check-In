@@ -206,8 +206,7 @@ class PushNotificationService {
       tag: options.tag,
       data: options.data,
       requireInteraction: options.requireInteraction,
-      silent: options.silent,
-      vibrate: options.vibrate || [200, 100, 200]
+      silent: options.silent
     });
 
     // Handle notification click
