@@ -340,7 +340,7 @@ export function useNotifications() {
       if (Notification.permission === 'granted') {
         const template = NotificationTemplates[type];
         if (template) {
-          await pushNotificationService.showLocalNotification(template(...args));
+          await pushNotificationService.showLocalNotification(template.apply(null, args as any));
         }
       }
     } catch (error) {
