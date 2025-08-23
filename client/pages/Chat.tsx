@@ -389,6 +389,22 @@ export default function Chat() {
           {/* Messages Area */}
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
+              {!supabaseConfigured && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-center space-x-2 text-blue-700 dark:text-blue-300">
+                    <Hash className="w-4 h-4" />
+                    <span className="text-sm font-medium">Development Mode</span>
+                  </div>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                    Chat is running with mock data. To enable full functionality:
+                  </p>
+                  <ol className="text-xs text-blue-600 dark:text-blue-400 mt-2 ml-4 list-decimal">
+                    <li>Set up Supabase project</li>
+                    <li>Run the SQL schema from scripts/chat-schema.sql</li>
+                    <li>Configure environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)</li>
+                  </ol>
+                </div>
+              )}
               {messages.map((msg, index) => {
                 const showAvatar = index === 0 || messages[index - 1].user.id !== msg.user.id;
                 const isFirstInGroup = showAvatar;
