@@ -48,7 +48,49 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  private isCriticalError(error: Error): boolean {
+    // List of non-critical error patterns that shouldn't trigger error boundary
+    const nonCriticalPatterns = [
+      /ResizeObserver.*delivered/i,
+      /Non-passive event listener/i,
+      /Warning:/i,
+      /validateDOMNesting/i,
+      /Cannot update a component/i,
+      /render method/i,
+      /unstable_/i,
+    ];
+
+    const errorMessage = error.message || "";
+    const errorStack = error.stack || "";
+
+    // If error matches any non-critical pattern, it's not critical
+    for (const pattern of nonCriticalPatterns) {
+      if (pattern.test(errorMessage) || pattern.test(errorStack)) {
+        return false;
+      }
+    }
+
+    // If error is a simple reference error and contains common safe keywords, not critical
+    if (error.name === "ReferenceError" &&
+        (errorMessage.includes("window") || errorMessage.includes("document"))) {
+      return false;
+    }
+
+    // Default to treating as critical
+    return true;
+  }
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Check if this is a critical error or just a warning/minor issue
+    const isCriticalError = this.isCriticalError(error);
+
+    if (!isCriticalError) {
+      // For non-critical errors, just log and don't show error boundary
+      console.warn("Non-critical error caught (not displaying error boundary):", error);
+      this.setState({ hasError: false, error: null, errorInfo: null });
+      return;
+    }
+
     this.setState({ errorInfo });
 
     // Enhanced error logging for debugging
@@ -63,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
       timestamp: new Date().toISOString()
     });
 
-    // Also log to toast for immediate visibility
+    // Only show toast for critical errors
     toast.error(`ERROR: ${error.message.substring(0, 100)}...`, {
       duration: 10000,
       description: `Check console for full details. Page: ${window.location.pathname}`
