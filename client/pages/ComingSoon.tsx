@@ -14,7 +14,7 @@ import {
   Code2,
 } from "lucide-react";
 
-export function ComingSoon() {
+function ComingSoon() {
   const navigate = useNavigate();
 
   const funnyMessages = [
@@ -133,3 +133,5 @@ export function ComingSoon() {
     </AppLayout>
   );
 }
+
+export default ComingSoon;

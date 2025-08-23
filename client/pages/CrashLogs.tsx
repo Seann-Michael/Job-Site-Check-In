@@ -132,7 +132,7 @@ const mockErrorLogs: ErrorLog[] = [
   },
 ];
 
-export function CrashLogs() {
+function CrashLogs() {
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [componentFilter, setComponentFilter] = useState<string>("all");
