@@ -349,11 +349,7 @@ const App = () => (
                 />
                 <Route
                   path="/admin/gallery"
-                  element={
-                    <ProtectedRoute>
-                      <Gallery />
-                    </ProtectedRoute>
-                  }
+                  element={<Gallery />}
                 />
                 <Route
                   path="/admin/reviews"
