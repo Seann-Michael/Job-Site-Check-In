@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => ({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
+  optimizeDeps: {
+    entries: ["index.html"],
+    exclude: ["test-google-maps.html", "public/offline.html"],
+  },
 }));
 
 function expressPlugin(): Plugin {
