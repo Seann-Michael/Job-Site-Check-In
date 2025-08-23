@@ -567,3 +567,5 @@ ${log.stack ? `Stack Trace:\n${log.stack}` : ""}
     </AppLayout>
   );
 }
+
+export default CrashLogs;
