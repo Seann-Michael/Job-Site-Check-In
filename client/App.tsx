@@ -456,9 +456,7 @@ const App = () => (
                   path="/admin/chat"
                   element={
                     <ProtectedRoute>
-                      <Suspense fallback={<div>Loading...</div>}>
-                        <Chat />
-                      </Suspense>
+                      <Chat />
                     </ProtectedRoute>
                   }
                 />
