@@ -72,19 +72,24 @@ export function useAuth() {
   const checkSession = useCallback(() => {
     const sessionResult = SecureSession.validateSession();
 
-    setAuthState((prev) => ({
-      ...prev,
-      user: sessionResult.user || null,
-      isAuthenticated: sessionResult.valid,
-      isLoading: false,
-      sessionWarning: !!sessionResult.warningTime,
-      timeUntilExpiry: sessionResult.warningTime || 0,
-    }));
+    setAuthState((prev) => {
+      const newState = {
+        ...prev,
+        user: sessionResult.user || null,
+        isAuthenticated: sessionResult.valid,
+        isLoading: false,
+        sessionWarning: !!sessionResult.warningTime,
+        timeUntilExpiry: sessionResult.warningTime || 0,
+      };
 
-    if (!sessionResult.valid && authState.isAuthenticated) {
-      toast.error("Your session has expired. Please sign in again.");
-      AuditLogger.log("SESSION_EXPIRED", "auth", {}, authState.user?.id);
-    }
+      // Check for session expiration using previous state to avoid stale closure
+      if (!sessionResult.valid && prev.isAuthenticated) {
+        toast.error("Your session has expired. Please sign in again.");
+        AuditLogger.log("SESSION_EXPIRED", "auth", {}, prev.user?.id);
+      }
+
+      return newState;
+    });
   }, []);
 
   const login = useCallback(
