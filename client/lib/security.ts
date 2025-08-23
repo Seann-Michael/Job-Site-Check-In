@@ -129,6 +129,41 @@ export class SecureAPI {
 // Minimal Secure Session Management (simplified to avoid errors)
 export class SecureSession {
   private static SESSION_KEY = "secure_session";
+
+  static updateActivity(): void {
+    try {
+      // Simple activity tracking without complex session management
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem("last_activity", Date.now().toString());
+      }
+    } catch (error) {
+      console.error("Failed to update activity:", error);
+    }
+  }
+
+  static getLastActivity(): number {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const activity = localStorage.getItem("last_activity");
+        return activity ? parseInt(activity, 10) : Date.now();
+      }
+      return Date.now();
+    } catch (error) {
+      console.error("Failed to get last activity:", error);
+      return Date.now();
+    }
+  }
+
+  static isExpired(): boolean {
+    try {
+      const lastActivity = this.getLastActivity();
+      const expiredTime = 24 * 60 * 60 * 1000; // 24 hours
+      return Date.now() - lastActivity > expiredTime;
+    } catch (error) {
+      console.error("Failed to check session expiry:", error);
+      return false;
+    }
+  }
   private static ACTIVITY_KEY = "last_activity";
 
   static createSession(userData: any, rememberMe: boolean = false): string {
