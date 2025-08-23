@@ -8,13 +8,14 @@ import { Suspense, lazy, useEffect } from "react";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { analytics } from "@/lib/analytics";
 import { queryClient } from "@/lib/queryClient";
+import TestPage from "./pages/TestPage";
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
 const AddProject = lazy(() => import("./pages/AddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
-const Gallery = lazy(() => import("./pages/TestPage"));
+const Gallery = TestPage;
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Audits = lazy(() => import("./pages/Audits"));
