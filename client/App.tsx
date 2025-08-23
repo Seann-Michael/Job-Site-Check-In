@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { analytics } from "@/lib/analytics";
 import { queryClient } from "@/lib/queryClient";
 import TestPage from "./pages/TestPage";
+import ChatMinimal from "./pages/ChatMinimal";
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
