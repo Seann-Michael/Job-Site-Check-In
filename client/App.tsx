@@ -9,7 +9,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { analytics } from "@/lib/analytics";
 import { queryClient } from "@/lib/queryClient";
 import TestPage from "./pages/TestPage";
-import ChatMinimal from "./pages/ChatMinimal";
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -47,7 +46,6 @@ const Ideas = lazy(() => import("./pages/Ideas"));
 const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
-const Chat = ChatMinimal;
 const CRM = lazy(() => import("./pages/CRM"));
 const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
 const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement"));
@@ -452,10 +450,6 @@ const App = () => (
                       </Suspense>
                     </ProtectedRoute>
                   }
-                />
-                <Route
-                  path="/admin/chat"
-                  element={<Chat />}
                 />
                 <Route
                   path="/admin/maps"
@@ -1344,10 +1338,6 @@ const App = () => (
                 <Route
                   path="/Support"
                   element={<Navigate to="/support" replace />}
-                />
-                <Route
-                  path="/Chat"
-                  element={<Navigate to="/admin/chat" replace />}
                 />
 
                 {/* CRM Redirect Routes (moved from admin to agency) */}
