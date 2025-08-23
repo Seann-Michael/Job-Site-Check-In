@@ -242,7 +242,7 @@ export function usePermission(permission: string, context?: any) {
       return;
     }
 
-    permissionService.hasPermission(user, permission, context)
+    permissionService.hasPermission(user as any, permission, context)
       .then(result => {
         setHasAccess(result.granted);
         setIsLoading(false);
@@ -269,9 +269,9 @@ export function usePermissions(permissions: string[], requireAll = false, contex
       return;
     }
 
-    const checkPermissions = requireAll 
-      ? permissionService.hasAllPermissions(user, permissions, context)
-      : permissionService.hasAnyPermission(user, permissions, context);
+    const checkPermissions = requireAll
+      ? permissionService.hasAllPermissions(user as any, permissions, context)
+      : permissionService.hasAnyPermission(user as any, permissions, context);
 
     checkPermissions
       .then(result => {
