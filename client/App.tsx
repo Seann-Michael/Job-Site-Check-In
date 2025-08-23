@@ -14,7 +14,7 @@ const Index = lazy(() => import("./pages/Index"));
 const AddProject = lazy(() => import("./pages/AddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
-const Gallery = lazy(() => import("./pages/GallerySimple"));
+const Gallery = lazy(() => import("./pages/TestPage"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Audits = lazy(() => import("./pages/Audits"));
