@@ -265,7 +265,7 @@ export const useToggleProjectStatus = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "in_progress" | "completed" | "paused" | "cancelled" | "draft" }) => {
       return await dataService.updateProject(id, { status });
     },
     // Optimistic update
