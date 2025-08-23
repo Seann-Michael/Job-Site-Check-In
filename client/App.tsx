@@ -46,7 +46,7 @@ const Ideas = lazy(() => import("./pages/Ideas"));
 const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
-const Chat = lazy(() => import("./pages/ChatSimple"));
+const Chat = lazy(() => import("./pages/ChatMinimal"));
 const CRM = lazy(() => import("./pages/CRM"));
 const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
 const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement"));
