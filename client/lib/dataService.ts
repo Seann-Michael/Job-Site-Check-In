@@ -15,15 +15,28 @@ console.log("🔧 Supabase Config Debug:", {
     : "undefined",
 });
 
-// Create a placeholder client if environment variables are missing
+// Create a placeholder client if environment variables are missing or are placeholder values
 let supabase: ReturnType<typeof createClient>;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+const isPlaceholderValue = (value: string | undefined): boolean => {
+  if (!value) return true;
+  const placeholderPatterns = [
+    'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
+    'YOUR_ACTUAL_SUPABASE_ANON_KEY',
+    'placeholder',
+    'demo',
+    'example',
+    'change-me'
+  ];
+  return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
+};
+
+if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
   console.warn(
-    "⚠️ Supabase environment variables are not set. Using fallback mode.",
+    "⚠️ Supabase environment variables are not set or contain placeholder values. Using fallback mode.",
   );
   console.warn(
-    "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.",
+    "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file with real values.",
   );
 
   // Create a dummy client that will throw meaningful errors for operations
@@ -240,9 +253,22 @@ export class DataService {
   }
 
   private checkSupabaseConfig(): void {
+    const isPlaceholderValue = (value: string | undefined): boolean => {
+      if (!value) return true;
+      const placeholderPatterns = [
+        'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
+        'YOUR_ACTUAL_SUPABASE_ANON_KEY',
+        'placeholder',
+        'demo',
+        'example',
+        'change-me'
+      ];
+      return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
+    };
+
     // In development, allow graceful fallback to mock data
     if (import.meta.env.DEV) {
-      if (!supabaseUrl || !supabaseAnonKey) {
+      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
         console.warn(
           "⚠️ Supabase not configured in development mode, using mock data fallback",
         );
@@ -250,9 +276,9 @@ export class DataService {
       }
     } else {
       // In production, require proper configuration
-      if (!supabaseUrl || !supabaseAnonKey) {
+      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
         throw new Error(
-          "Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.",
+          "Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables with real values.",
         );
       }
     }
@@ -416,7 +442,20 @@ export class DataService {
   async getUsers(filters: any = {}): Promise<{ data: User[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
       // Check if Supabase is configured
-      if (!supabaseUrl || !supabaseAnonKey) {
+      const isPlaceholderValue = (value: string | undefined): boolean => {
+        if (!value) return true;
+        const placeholderPatterns = [
+          'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
+          'YOUR_ACTUAL_SUPABASE_ANON_KEY',
+          'placeholder',
+          'demo',
+          'example',
+          'change-me'
+        ];
+        return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
+      };
+
+      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
         console.warn("Supabase not configured, returning mock users");
         return { data: this.getMockUsers() };
       }
@@ -473,7 +512,20 @@ export class DataService {
   async getBusinesses(ownerId?: string, filters: any = {}): Promise<{ data: Business[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
       // Check if Supabase is configured
-      if (!supabaseUrl || !supabaseAnonKey) {
+      const isPlaceholderValue = (value: string | undefined): boolean => {
+        if (!value) return true;
+        const placeholderPatterns = [
+          'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
+          'YOUR_ACTUAL_SUPABASE_ANON_KEY',
+          'placeholder',
+          'demo',
+          'example',
+          'change-me'
+        ];
+        return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
+      };
+
+      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
         console.warn("Supabase not configured, returning mock businesses");
         return { data: this.getMockBusinesses() };
       }
@@ -609,7 +661,20 @@ export class DataService {
   ): Promise<{ data: Project[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
       // Check if Supabase is configured
-      if (!supabaseUrl || !supabaseAnonKey) {
+      const isPlaceholderValue = (value: string | undefined): boolean => {
+        if (!value) return true;
+        const placeholderPatterns = [
+          'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
+          'YOUR_ACTUAL_SUPABASE_ANON_KEY',
+          'placeholder',
+          'demo',
+          'example',
+          'change-me'
+        ];
+        return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
+      };
+
+      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
         console.warn("Supabase not configured, returning mock projects");
         return { data: this.getMockProjects() };
       }
