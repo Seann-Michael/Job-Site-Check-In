@@ -144,49 +144,84 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
 // Get messages for a channel
 async function getMessages(channelId: string, userId: string, params: any = {}) {
   try {
-    // TODO: Add channel access verification
-    
+    // Verify user has access to channel
+    const { data: participation, error: participationError } = await supabase
+      .from('chat_channel_participants')
+      .select('*')
+      .eq('channel_id', channelId)
+      .eq('user_id', userId)
+      .single();
+
+    if (participationError || !participation) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: 'Access denied to this channel' }),
+      };
+    }
+
     const limit = parseInt(params.limit) || 50;
     const offset = parseInt(params.offset) || 0;
 
-    // For now, return mock data since we don't have tables yet
-    const mockMessages = [
-      {
-        id: '1',
-        channel_id: channelId,
-        user_id: 'user1',
-        content: 'Welcome to the team chat! 👋',
-        message_type: 'text',
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        edited: false,
-        user: {
-          id: 'user1',
-          full_name: 'John Smith',
-          role: 'Admin'
-        }
-      },
-      {
-        id: '2',
-        channel_id: channelId,
-        user_id: 'user2',
-        content: 'Thanks! Looking forward to working together.',
-        message_type: 'text',
-        created_at: new Date(Date.now() - 3500000).toISOString(),
-        edited: false,
-        user: {
-          id: 'user2',
-          full_name: 'Sarah Johnson',
-          role: 'Manager'
-        }
+    // Get messages with user profiles
+    const { data: messages, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select(`
+        id,
+        channel_id,
+        user_id,
+        content,
+        message_type,
+        created_at,
+        updated_at,
+        edited_at,
+        deleted_at,
+        metadata,
+        user_profiles!inner(
+          id,
+          full_name,
+          role
+        )
+      `)
+      .eq('channel_id', channelId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (messagesError) {
+      throw new Error(`Database error: ${messagesError.message}`);
+    }
+
+    // Format messages for response
+    const formattedMessages = messages.map(msg => ({
+      id: msg.id,
+      channel_id: msg.channel_id,
+      user_id: msg.user_id,
+      content: msg.content,
+      message_type: msg.message_type,
+      created_at: msg.created_at,
+      updated_at: msg.updated_at,
+      edited: !!msg.edited_at,
+      user: {
+        id: msg.user_id,
+        full_name: msg.user_profiles?.full_name || 'Unknown User',
+        role: msg.user_profiles?.role || 'User'
       }
-    ];
+    }));
+
+    // Update last_read_at for the user
+    await supabase
+      .from('chat_channel_participants')
+      .update({ last_read_at: new Date().toISOString() })
+      .eq('channel_id', channelId)
+      .eq('user_id', userId);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        messages: mockMessages,
-        total: mockMessages.length,
+        messages: formattedMessages,
+        total: formattedMessages.length,
         limit,
         offset
       }),
@@ -199,27 +234,65 @@ async function getMessages(channelId: string, userId: string, params: any = {}) 
 // Get specific message
 async function getMessage(messageId: string, userId: string) {
   try {
-    // TODO: Add database query when tables exist
-    // For now, return mock data
-    const mockMessage = {
-      id: messageId,
-      channel_id: 'general',
-      user_id: 'user1',
-      content: 'This is a test message',
-      message_type: 'text',
-      created_at: new Date().toISOString(),
-      edited: false,
+    // Get message with user profile and verify access
+    const { data: message, error: messageError } = await supabase
+      .from('chat_messages')
+      .select(`
+        id,
+        channel_id,
+        user_id,
+        content,
+        message_type,
+        created_at,
+        updated_at,
+        edited_at,
+        deleted_at,
+        metadata,
+        user_profiles!inner(
+          id,
+          full_name,
+          role
+        ),
+        chat_channels!inner(
+          id,
+          chat_channel_participants!inner(
+            user_id
+          )
+        )
+      `)
+      .eq('id', messageId)
+      .eq('chat_channels.chat_channel_participants.user_id', userId)
+      .is('deleted_at', null)
+      .single();
+
+    if (messageError || !message) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Message not found or access denied' }),
+      };
+    }
+
+    const formattedMessage = {
+      id: message.id,
+      channel_id: message.channel_id,
+      user_id: message.user_id,
+      content: message.content,
+      message_type: message.message_type,
+      created_at: message.created_at,
+      updated_at: message.updated_at,
+      edited: !!message.edited_at,
       user: {
-        id: 'user1',
-        full_name: 'John Smith',
-        role: 'Admin'
+        id: message.user_id,
+        full_name: message.user_profiles?.full_name || 'Unknown User',
+        role: message.user_profiles?.role || 'User'
       }
     };
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(mockMessage),
+      body: JSON.stringify(formattedMessage),
     };
   } catch (error) {
     throw new Error(`Failed to get message: ${error.message}`);
@@ -230,37 +303,92 @@ async function getMessage(messageId: string, userId: string) {
 async function createMessage(messageData: Message, userId: string) {
   try {
     // Validate required fields
-    if (!messageData.channel_id || !messageData.content) {
+    if (!messageData.channel_id || !messageData.content?.trim()) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ 
-          error: 'channel_id and content are required' 
+        body: JSON.stringify({
+          error: 'channel_id and content are required'
         }),
       };
     }
 
-    // TODO: Add to database when tables exist
-    // For now, return mock response
-    const newMessage = {
-      id: Date.now().toString(),
-      channel_id: messageData.channel_id,
-      user_id: userId,
-      content: messageData.content,
-      message_type: messageData.message_type || 'text',
-      created_at: new Date().toISOString(),
+    // Verify user has access to channel
+    const { data: participation, error: participationError } = await supabase
+      .from('chat_channel_participants')
+      .select('*')
+      .eq('channel_id', messageData.channel_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (participationError || !participation) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: 'Access denied to this channel' }),
+      };
+    }
+
+    // Get user profile
+    const userProfile = await getUserProfile(userId);
+
+    // Insert message into database
+    const { data: newMessage, error: insertError } = await supabase
+      .from('chat_messages')
+      .insert({
+        channel_id: messageData.channel_id,
+        user_id: userId,
+        content: messageData.content.trim(),
+        message_type: messageData.message_type || 'text',
+        metadata: messageData.metadata || {}
+      })
+      .select('*')
+      .single();
+
+    if (insertError) {
+      throw new Error(`Failed to insert message: ${insertError.message}`);
+    }
+
+    // Create notifications for other channel participants
+    const { data: participants } = await supabase
+      .from('chat_channel_participants')
+      .select('user_id')
+      .eq('channel_id', messageData.channel_id)
+      .neq('user_id', userId);
+
+    if (participants && participants.length > 0) {
+      const notifications = participants.map(p => ({
+        user_id: p.user_id,
+        channel_id: messageData.channel_id,
+        message_id: newMessage.id,
+        notification_type: 'message'
+      }));
+
+      await supabase
+        .from('chat_notifications')
+        .insert(notifications);
+    }
+
+    // Format response
+    const formattedMessage = {
+      id: newMessage.id,
+      channel_id: newMessage.channel_id,
+      user_id: newMessage.user_id,
+      content: newMessage.content,
+      message_type: newMessage.message_type,
+      created_at: newMessage.created_at,
       edited: false,
       user: {
         id: userId,
-        full_name: 'Current User',
-        role: 'User'
+        full_name: userProfile.full_name || userProfile.name || 'Unknown User',
+        role: userProfile.role || 'User'
       }
     };
 
     return {
       statusCode: 201,
       headers,
-      body: JSON.stringify(newMessage),
+      body: JSON.stringify(formattedMessage),
     };
   } catch (error) {
     throw new Error(`Failed to create message: ${error.message}`);
@@ -270,45 +398,126 @@ async function createMessage(messageData: Message, userId: string) {
 // Update message
 async function updateMessage(messageId: string, updateData: Partial<Message>, userId: string) {
   try {
-    // TODO: Add database update when tables exist
-    // For now, return mock response
-    const updatedMessage = {
-      id: messageId,
-      channel_id: 'general',
-      user_id: userId,
-      content: updateData.content || 'Updated message',
-      message_type: 'text',
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-      updated_at: new Date().toISOString(),
+    if (!updateData.content?.trim()) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Content is required' }),
+      };
+    }
+
+    // Verify user owns the message
+    const { data: existingMessage, error: checkError } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('id', messageId)
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .single();
+
+    if (checkError || !existingMessage) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Message not found or access denied' }),
+      };
+    }
+
+    // Update the message
+    const { data: updatedMessage, error: updateError } = await supabase
+      .from('chat_messages')
+      .update({
+        content: updateData.content.trim(),
+        edited_at: new Date().toISOString()
+      })
+      .eq('id', messageId)
+      .select(`
+        id,
+        channel_id,
+        user_id,
+        content,
+        message_type,
+        created_at,
+        updated_at,
+        edited_at
+      `)
+      .single();
+
+    if (updateError) {
+      throw new Error(`Failed to update message: ${updateError.message}`);
+    }
+
+    // Get user profile
+    const userProfile = await getUserProfile(userId);
+
+    const formattedMessage = {
+      id: updatedMessage.id,
+      channel_id: updatedMessage.channel_id,
+      user_id: updatedMessage.user_id,
+      content: updatedMessage.content,
+      message_type: updatedMessage.message_type,
+      created_at: updatedMessage.created_at,
+      updated_at: updatedMessage.updated_at,
       edited: true,
       user: {
         id: userId,
-        full_name: 'Current User',
-        role: 'User'
+        full_name: userProfile.full_name || userProfile.name || 'Unknown User',
+        role: userProfile.role || 'User'
       }
     };
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(updatedMessage),
+      body: JSON.stringify(formattedMessage),
     };
   } catch (error) {
     throw new Error(`Failed to update message: ${error.message}`);
   }
 }
 
-// Delete message
+// Delete message (soft delete)
 async function deleteMessage(messageId: string, userId: string) {
   try {
-    // TODO: Add database deletion when tables exist
-    // For now, return success response
+    // Verify user owns the message
+    const { data: existingMessage, error: checkError } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('id', messageId)
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .single();
+
+    if (checkError || !existingMessage) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Message not found or access denied' }),
+      };
+    }
+
+    // Soft delete the message
+    const { error: deleteError } = await supabase
+      .from('chat_messages')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', messageId);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete message: ${deleteError.message}`);
+    }
+
+    // Remove related notifications
+    await supabase
+      .from('chat_notifications')
+      .delete()
+      .eq('message_id', messageId);
+
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: 'Message deleted successfully',
-        id: messageId 
+        id: messageId
       }),
     };
   } catch (error) {
