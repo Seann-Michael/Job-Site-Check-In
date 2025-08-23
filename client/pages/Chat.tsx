@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { createClient } from '@supabase/supabase-js';
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/hooks/useAuth';
 import { useChatPresence } from '@/hooks/useChatPresence';
