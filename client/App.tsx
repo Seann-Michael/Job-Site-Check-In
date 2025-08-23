@@ -1350,6 +1350,10 @@ const App = () => (
                   path="/Support"
                   element={<Navigate to="/support" replace />}
                 />
+                <Route
+                  path="/Chat"
+                  element={<Navigate to="/admin/chat" replace />}
+                />
 
                 {/* CRM Redirect Routes (moved from admin to agency) */}
                 <Route
