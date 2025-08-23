@@ -11,10 +11,10 @@ interface NotificationOptions {
   badge?: string;
   tag?: string;
   data?: any;
-  actions?: NotificationAction[];
+  actions?: Array<{action: string; title: string; icon?: string;}>;
   requireInteraction?: boolean;
   silent?: boolean;
-  vibrate?: number[];
+  // vibrate?: number[]; // Not supported in standard NotificationOptions
 }
 
 interface PushSubscriptionData {
