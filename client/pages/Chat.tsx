@@ -23,10 +23,14 @@ import {
   Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { chatService, Message as ChatMessage } from "@/lib/chatService";
+import { getCurrentUser } from "@/lib/auth";
+import { toast } from "sonner";
 
 interface User {
   id: string;
   name: string;
+  full_name: string;
   avatar?: string;
   status: "online" | "away" | "busy" | "offline";
   role?: string;
@@ -49,78 +53,94 @@ interface Message {
   reactions?: { emoji: string; count: number; users: string[] }[];
 }
 
-const mockUsers: User[] = [
-  { id: "1", name: "John Smith", status: "online", role: "Admin" },
-  { id: "2", name: "Sarah Johnson", status: "online", role: "Manager" },
-  { id: "3", name: "Mike Wilson", status: "away", role: "Agent" },
-  { id: "4", name: "Emma Davis", status: "busy", role: "Agent" },
-  { id: "5", name: "Alex Brown", status: "offline", role: "Client" },
-];
-
-const mockChannels: Channel[] = [
-  { id: "1", name: "general", type: "text", category: "Company" },
-  { id: "2", name: "announcements", type: "text", category: "Company" },
-  { id: "3", name: "project-updates", type: "text", category: "Work", unread: 3 },
-  { id: "4", name: "team-discussion", type: "text", category: "Work" },
-  { id: "5", name: "client-feedback", type: "text", category: "Clients" },
-  { id: "6", name: "Sarah Johnson", type: "dm", category: "Direct Messages" },
-  { id: "7", name: "Mike Wilson", type: "dm", category: "Direct Messages" },
-];
-
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    user: mockUsers[0],
-    content: "Welcome to the team chat! 👋 Let's keep our communications organized here.",
-    timestamp: new Date(Date.now() - 3600000),
-  },
-  {
-    id: "2",
-    user: mockUsers[1],
-    content: "Thanks John! This will help us stay connected. I've uploaded the project guidelines to the shared folder.",
-    timestamp: new Date(Date.now() - 3500000),
-  },
-  {
-    id: "3",
-    user: mockUsers[2],
-    content: "Perfect timing! I was just about to ask about the new client onboarding process.",
-    timestamp: new Date(Date.now() - 3400000),
-  },
-  {
-    id: "4",
-    user: mockUsers[1],
-    content: "The onboarding docs are ready. I'll share them in #project-updates shortly.",
-    timestamp: new Date(Date.now() - 3300000),
-    reactions: [{ emoji: "👍", count: 2, users: ["1", "3"] }],
-  },
-];
+// Get real data from chatService
+const companyUsers = chatService.getCompanyUsers();
+const availableChannels = chatService.getChannels();
 
 export default function Chat() {
-  const [selectedChannel, setSelectedChannel] = useState<Channel>(mockChannels[0]);
+  const currentUser = getCurrentUser();
+  const [selectedChannel, setSelectedChannel] = useState<Channel>(availableChannels[0]);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(["Company", "Work", "Clients", "Direct Messages"])
   );
   const [showMembersList, setShowMembersList] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load messages when channel changes
+  useEffect(() => {
+    if (selectedChannel) {
+      loadMessages(selectedChannel.id);
+    }
+  }, [selectedChannel]);
+
+  const loadMessages = async (channelId: string) => {
+    setLoading(true);
+    try {
+      const chatMessages = await chatService.getMessages(channelId);
+
+      // Convert API messages to component format
+      const formattedMessages: Message[] = chatMessages.map(msg => ({
+        id: msg.id,
+        user: {
+          id: msg.user?.id || msg.user_id,
+          name: msg.user?.full_name || 'Unknown User',
+          full_name: msg.user?.full_name || 'Unknown User',
+          status: 'online' as const,
+          role: msg.user?.role || 'User',
+        },
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+        edited: msg.edited || false,
+      }));
+
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      toast.error('Failed to load messages');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
+  const sendMessage = async () => {
+    if (!message.trim() || !currentUser) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      user: mockUsers[0], // Current user
-      content: message,
-      timestamp: new Date(),
-    };
+    setLoading(true);
+    try {
+      const chatMessage = await chatService.sendMessage(selectedChannel.id, message);
 
-    setMessages([...messages, newMessage]);
-    setMessage("");
+      if (chatMessage) {
+        // Add optimistic update
+        const newMessage: Message = {
+          id: chatMessage.id,
+          user: {
+            id: currentUser.id,
+            name: currentUser.name,
+            full_name: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.name,
+            status: 'online',
+            role: currentUser.role,
+          },
+          content: message,
+          timestamp: new Date(),
+        };
+
+        setMessages(prev => [...prev, newMessage]);
+        setMessage("");
+        toast.success('Message sent');
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -140,7 +160,7 @@ export default function Chat() {
     setExpandedCategories(newExpanded);
   };
 
-  const groupedChannels = mockChannels.reduce((acc, channel) => {
+  const groupedChannels = availableChannels.reduce((acc, channel) => {
     const category = channel.category || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(channel);
@@ -381,7 +401,7 @@ export default function Chat() {
                     onClick={sendMessage}
                     size="sm"
                     className="w-8 h-8 p-0"
-                    disabled={!message.trim()}
+                    disabled={!message.trim() || loading}
                   >
                     <Send className="w-4 h-4" />
                   </Button>
@@ -396,12 +416,12 @@ export default function Chat() {
           <Card className="w-64 border-l border-r-0 rounded-none shadow-sm">
             <CardContent className="p-4">
               <h4 className="text-sm font-semibold text-foreground mb-3">
-                Members — {mockUsers.filter(u => u.status !== "offline").length}
+                Members — {companyUsers.filter(u => u.status !== "offline").length}
               </h4>
-              
+
               <div className="space-y-3">
                 {["online", "away", "busy", "offline"].map((status) => {
-                  const usersInStatus = mockUsers.filter(user => user.status === status);
+                  const usersInStatus = companyUsers.filter(user => user.status === status);
                   if (usersInStatus.length === 0) return null;
                   
                   return (
