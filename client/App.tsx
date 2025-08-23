@@ -46,6 +46,7 @@ const Ideas = lazy(() => import("./pages/Ideas"));
 const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
+const Chat = lazy(() => import("./pages/Chat"));
 const CRM = lazy(() => import("./pages/CRM"));
 const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
 const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement"));
@@ -447,6 +448,16 @@ const App = () => (
                     <ProtectedRoute>
                       <Suspense fallback={<div>Loading...</div>}>
                         <SocialMediaPosting />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/chat"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <Chat />
                       </Suspense>
                     </ProtectedRoute>
                   }
