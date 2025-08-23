@@ -269,8 +269,8 @@ export function useOfflineData() {
       // Trigger sync via service worker
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.ready;
-        if (registration.sync) {
-          await registration.sync.register('sync-data');
+        if ('sync' in registration) {
+          await (registration as any).sync.register('sync-data');
         }
       }
     } catch (err) {
