@@ -206,11 +206,13 @@ export const PERMISSIONS = {
   KEYWORDS_READ: 'keywords:read',
   KEYWORDS_UPDATE: 'keywords:update',
   KEYWORDS_DELETE: 'keywords:delete',
+  KEYWORDS_MANAGE: 'keywords:manage',
   
   CITATIONS_CREATE: 'citations:create',
   CITATIONS_READ: 'citations:read',
   CITATIONS_UPDATE: 'citations:update',
   CITATIONS_DELETE: 'citations:delete',
+  CITATIONS_MANAGE: 'citations:manage',
   
   REVIEWS_READ: 'reviews:read',
   REVIEWS_UPDATE: 'reviews:update',
