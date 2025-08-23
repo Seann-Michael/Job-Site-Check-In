@@ -53,8 +53,8 @@ class AnalyticsService {
 
       if (!this.isEnabled) return;
 
-      // Set up automatic flushing
-      setInterval(() => this.flush(), this.flushInterval);
+      // Set up automatic flushing (disabled temporarily to prevent load issues)
+      // setInterval(() => this.flush(), this.flushInterval);
 
       // Track page views automatically
       this.trackPageView();
