@@ -2,14 +2,27 @@ import { useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentUser } from '@/lib/auth';
 
-// Initialize Supabase client
+// Initialize Supabase client with proper error handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseClient: any = null;
+let supabaseConfigured = false;
 
-if (supabaseUrl && supabaseAnonKey) {
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+try {
+  if (supabaseUrl && supabaseAnonKey) {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    supabaseConfigured = true;
+    console.log('✅ Supabase client initialized successfully');
+  } else {
+    console.warn('⚠️ Supabase not configured - real-time features disabled');
+    console.warn('Missing environment variables:');
+    if (!supabaseUrl) console.warn('- VITE_SUPABASE_URL');
+    if (!supabaseAnonKey) console.warn('- VITE_SUPABASE_ANON_KEY');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Supabase client:', error);
+  supabaseConfigured = false;
 }
 
 interface Message {
@@ -43,7 +56,11 @@ export function useChatRealtime({
   const currentUser = getCurrentUser();
 
   useEffect(() => {
-    if (!supabaseClient || !channelId || !currentUser) {
+    // Early return if Supabase is not configured
+    if (!supabaseConfigured || !supabaseClient || !channelId || !currentUser) {
+      if (!supabaseConfigured) {
+        console.log('ℹ️ Real-time messaging disabled - Supabase not configured');
+      }
       return;
     }
 
@@ -157,7 +174,9 @@ export function useChatRealtime({
 
   // Update user presence
   const updateUserPresence = async (status: 'online' | 'away' | 'busy' | 'offline') => {
-    if (!supabaseClient || !currentUser) return;
+    if (!supabaseConfigured || !supabaseClient || !currentUser) {
+      return;
+    }
 
     try {
       await supabaseClient
@@ -210,7 +229,7 @@ export function useTypingIndicator(channelId: string) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startTyping = () => {
-    if (!supabaseClient || !currentUser || !channelId) return;
+    if (!supabaseConfigured || !supabaseClient || !currentUser || !channelId) return;
 
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -236,7 +255,7 @@ export function useTypingIndicator(channelId: string) {
   };
 
   const stopTyping = () => {
-    if (!supabaseClient || !currentUser || !channelId) return;
+    if (!supabaseConfigured || !supabaseClient || !currentUser || !channelId) return;
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
