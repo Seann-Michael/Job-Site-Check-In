@@ -1418,7 +1418,7 @@ export default function ProjectDetail() {
                               </span>
                             </div>
                           )}
-                          <GoogleMapComponent
+                          <SafeGoogleMapComponent
                             address={project.address}
                             lat={project.gpsLat}
                             lng={project.gpsLng}
