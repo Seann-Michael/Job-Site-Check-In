@@ -63,6 +63,28 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   );
   const [useIframeFallback, setUseIframeFallback] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  // Validate coordinates
+  const isValidCoordinate = (coord: number | undefined | null): boolean => {
+    return typeof coord === 'number' && !isNaN(coord) && isFinite(coord);
+  };
+
+  // Get valid coordinates or defaults
+  const getValidCoordinates = () => {
+    // Use provided center first
+    if (center && isValidCoordinate(center.lat) && isValidCoordinate(center.lng)) {
+      return center;
+    }
+
+    // Then try lat/lng props
+    if (isValidCoordinate(lat) && isValidCoordinate(lng)) {
+      return { lat: lat!, lng: lng! };
+    }
+
+    // Default to NYC if no valid coordinates
+    return { lat: 40.7128, lng: -74.006 };
+  };
 
   // Check if API key is available
   useEffect(() => {
@@ -72,8 +94,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         "GoogleMapComponent: API key check result:",
         apiKey ? "Found" : "Not found",
       );
-      if (!apiKey) {
-        console.log("GoogleMapComponent: Switching to iframe fallback");
+      if (!apiKey || apiKey.length < 20) {
+        console.log("GoogleMapComponent: Invalid or missing API key, switching to iframe fallback");
         setUseIframeFallback(true);
       }
     } catch (error) {
@@ -82,6 +104,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         error,
       );
       setUseIframeFallback(true);
+      setHasError(true);
     }
   }, []);
 
