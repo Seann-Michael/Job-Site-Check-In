@@ -13,6 +13,7 @@ import TestPage from "./pages/TestPage";
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
 const AddProject = lazy(() => import("./pages/AddProject"));
+const AdminAddProject = lazy(() => import("./pages/AdminAddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
 const Gallery = TestPage;
