@@ -71,6 +71,10 @@ class CompatibleDataService {
     return await dataService.updateProject(id, updates);
   }
 
+  async uploadProjectPhoto(projectId: string, file: File, metadata: any) {
+    return await dataService.uploadProjectPhoto(projectId, file, metadata);
+  }
+
   async signIn(email: string, password: string) {
     return await dataService.signIn(email, password);
   }
