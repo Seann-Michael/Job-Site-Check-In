@@ -32,17 +32,17 @@ import {
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-// import type { ProjectInfo } from "@/lib/mediaMetadata";
-// import { generateProjectId } from "@/lib/idGenerator";
-// import { AddressAutocomplete } from "@/components/GoogleMaps";
-// import { USStatesSelect } from "@/components/ui/us-states-select";
-// import { dataService, Business } from "@/lib/dataService";
-// import {
-//   getGoogleMapsApiKey,
-//   validateGoogleMapsApiKey,
-//   createStreetViewEmbedUrl,
-//   checkStreetViewAvailability,
-// } from "@/lib/googleMaps";
+import type { ProjectInfo } from "@/lib/mediaMetadata";
+import { generateProjectId } from "@/lib/idGenerator";
+import { AddressAutocomplete } from "@/components/GoogleMaps";
+import { USStatesSelect } from "@/components/ui/us-states-select";
+import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
+import {
+  getGoogleMapsApiKey,
+  validateGoogleMapsApiKey,
+  createStreetViewEmbedUrl,
+  checkStreetViewAvailability,
+} from "@/lib/googleMaps";
 
 interface EnhancedPhoto {
   url: string;
@@ -106,63 +106,63 @@ export default function AdminAddProject() {
   const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
 
   // Load user's businesses on component mount
-  // useEffect(() => {
-  //   const loadBusinesses = async () => {
-  //     try {
-  //       const businessData = await dataService.getBusinesses();
-  //       setBusinesses(businessData);
-  //       // Auto-select if only one business
-  //       if (businessData.length === 1) {
-  //         setSelectedBusinessId(businessData[0].id);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error loading businesses:", error);
-  //       toast.error("Failed to load businesses. Please try again.");
-  //     }
-  //   };
+  useEffect(() => {
+    const loadBusinesses = async () => {
+      try {
+        const businessData = await dataService.getBusinesses();
+        setBusinesses(businessData);
+        // Auto-select if only one business
+        if (businessData.length === 1) {
+          setSelectedBusinessId(businessData[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading businesses:", error);
+        toast.error("Failed to load businesses. Please try again.");
+      }
+    };
 
-  //   loadBusinesses();
-  // }, []);
+    loadBusinesses();
+  }, []);
 
   // Debug Google Maps API setup on page load
-  // useEffect(() => {
-  //   const debugGoogleMapsSetup = async () => {
-  //     console.log("🔧 AdminAddProject: Starting Google Maps API debug...");
+  useEffect(() => {
+    const debugGoogleMapsSetup = async () => {
+      console.log("🔧 AdminAddProject: Starting Google Maps API debug...");
 
-  //     // Check environment variable directly
-  //     const envApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  //     console.log(
-  //       "🌍 Environment variable VITE_GOOGLE_MAPS_API_KEY:",
-  //       envApiKey
-  //         ? `${envApiKey.substring(0, 10)}...${envApiKey.substring(envApiKey.length - 6)}`
-  //         : "Not Set",
-  //     );
+      // Check environment variable directly
+      const envApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      console.log(
+        "🌍 Environment variable VITE_GOOGLE_MAPS_API_KEY:",
+        envApiKey
+          ? `${envApiKey.substring(0, 10)}...${envApiKey.substring(envApiKey.length - 6)}`
+          : "Not Set",
+      );
 
-  //     // Test getGoogleMapsApiKey function
-  //     const apiKey = getGoogleMapsApiKey();
-  //     console.log(
-  //       "🔑 getGoogleMapsApiKey() returned:",
-  //       apiKey
-  //         ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}`
-  //         : "No Key",
-  //     );
+      // Test getGoogleMapsApiKey function
+      const apiKey = getGoogleMapsApiKey();
+      console.log(
+        "🔑 getGoogleMapsApiKey() returned:",
+        apiKey
+          ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}`
+          : "No Key",
+      );
 
-  //     // Test API key validation if we have one
-  //     if (apiKey) {
-  //       console.log("🧪 Testing API key validation...");
-  //       try {
-  //         const validation = await validateGoogleMapsApiKey(apiKey);
-  //         console.log("✅ API Key Validation Result:", validation);
-  //       } catch (error) {
-  //         console.error("❌ API Key Validation Error:", error);
-  //       }
-  //     } else {
-  //       console.log("⚠️ No Google Maps API key found - address features disabled");
-  //     }
-  //   };
+      // Test API key validation if we have one
+      if (apiKey) {
+        console.log("🧪 Testing API key validation...");
+        try {
+          const validation = await validateGoogleMapsApiKey(apiKey);
+          console.log("✅ API Key Validation Result:", validation);
+        } catch (error) {
+          console.error("❌ API Key Validation Error:", error);
+        }
+      } else {
+        console.log("⚠️ No Google Maps API key found - address features disabled");
+      }
+    };
 
-  //   debugGoogleMapsSetup();
-  // }, []);
+    debugGoogleMapsSetup();
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -170,7 +170,57 @@ export default function AdminAddProject() {
 
   const handleAddressSelect = async (address: any) => {
     console.log("🗺️ Address selected:", address);
-    // Simplified for now
+
+    const updatedFormData = {
+      ...formData,
+      addressSearch: address.formatted_address || "",
+      streetAddress: address.name || "",
+      city: address.city || "",
+      state: address.state || "",
+      zipCode: address.postal_code || "",
+      placeId: address.place_id || "",
+      gpsLat: address.geometry?.location?.lat?.toString() || "",
+      gpsLng: address.geometry?.location?.lng?.toString() || "",
+    };
+
+    setFormData(updatedFormData);
+
+    // Check for Street View availability
+    const apiKey = getGoogleMapsApiKey();
+    if (apiKey && address.geometry?.location) {
+      try {
+        const streetViewAvailable = await checkStreetViewAvailability(
+          address.geometry.location.lat,
+          address.geometry.location.lng,
+          apiKey,
+        );
+
+        if (streetViewAvailable) {
+          const streetViewUrl = createStreetViewEmbedUrl(
+            address.geometry.location.lat,
+            address.geometry.location.lng,
+            apiKey,
+          );
+
+          setFormData((prev) => ({
+            ...prev,
+            streetViewUrl,
+            hasStreetView: true,
+          }));
+
+          console.log("📍 Street View available and URL generated");
+        } else {
+          console.log("📍 Street View not available for this location");
+          setFormData((prev) => ({
+            ...prev,
+            streetViewUrl: "",
+            hasStreetView: false,
+          }));
+        }
+      } catch (error) {
+        console.error("Error checking Street View availability:", error);
+      }
+    }
   };
 
   const handlePhotosUpdate = (newPhotos: EnhancedPhoto[]) => {
