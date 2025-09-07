@@ -3,6 +3,7 @@
 // For utilities, import directly from "@/lib/googleMaps"
 
 export { GoogleMapComponent } from "./GoogleMapComponent";
+export { SafeGoogleMapComponent } from "./SafeGoogleMapComponent";
 export { AddressAutocomplete } from "./AddressAutocomplete";
 export { BusinessPlacesSearch } from "./BusinessPlacesSearch";
 export { GoogleBusinessProfileFinder } from "./GoogleBusinessProfileFinder";
