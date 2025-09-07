@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AppLayout } from "@/components/AppLayout";
-import { GoogleMapComponent } from "@/components/GoogleMaps";
+import { SafeGoogleMapComponent } from "@/components/GoogleMaps/SafeGoogleMapComponent";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
 import { StreetView } from "@/components/StreetView";
 import { PhotoActionMenu } from "@/components/PhotoActionMenu";
