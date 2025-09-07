@@ -1,4 +1,4 @@
-interface ProjectInfo {
+export interface ProjectInfo {
   id: string;
   name: string;
   address: string;
