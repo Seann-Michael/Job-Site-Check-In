@@ -108,8 +108,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     }
   }, []);
 
+  const validCoordinates = getValidCoordinates();
+
   const mapOptions: google.maps.MapOptions = {
     zoom,
+    center: validCoordinates,
     disableDefaultUI: !showControls,
     zoomControl: showControls,
     streetViewControl: showControls,
@@ -117,6 +120,8 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   };
 
   const { mapRef, map, isLoaded, error, addMarker, setCenter } =
+    useIframeFallback ?
+    { mapRef: { current: null }, map: null, isLoaded: false, error: null, addMarker: () => null, setCenter: () => {} } :
     useGoogleMaps(mapOptions);
 
   // Add timeout for loading state
