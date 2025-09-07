@@ -155,43 +155,52 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   // Create custom marker icon based on rank and color
   const createMarkerIcon = (marker: MapMarker): google.maps.Icon | string => {
-    if (marker.icon === "business") {
+    try {
+      if (!window.google?.maps) {
+        return ""; // Return empty string as fallback
+      }
+
+      if (marker.icon === "business") {
+        return {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+            <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="14" fill="${marker.color || "#3B82F6"}" stroke="white" stroke-width="2"/>
+              <path d="M16 8 L20 12 L18 12 L18 20 L14 20 L14 12 L12 12 Z" fill="white"/>
+            </svg>
+          `)}`,
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16),
+        };
+      }
+
+      if (marker.rank) {
+        return {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+            <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 0 C7.163 0 0 7.163 0 16 C0 24.837 16 40 16 40 S32 24.837 32 16 C32 7.163 24.837 0 16 0 Z" fill="${marker.color || "#6B7280"}"/>
+              <circle cx="16" cy="16" r="12" fill="white"/>
+              <text x="16" y="21" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="${marker.color || "#6B7280"}">${marker.rank}</text>
+            </svg>
+          `)}`,
+          scaledSize: new google.maps.Size(32, 40),
+          anchor: new google.maps.Point(16, 40),
+        };
+      }
+
       return {
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-          <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="14" fill="${marker.color || "#3B82F6"}" stroke="white" stroke-width="2"/>
-            <path d="M16 8 L20 12 L18 12 L18 20 L14 20 L14 12 L12 12 Z" fill="white"/>
+          <svg width="24" height="30" viewBox="0 0 24 30" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0 C5.373 0 0 5.373 0 12 C0 18.627 12 30 12 30 S24 18.627 24 12 C24 5.373 18.627 0 12 0 Z" fill="${marker.color || "#6B7280"}"/>
+            <circle cx="12" cy="12" r="8" fill="white"/>
           </svg>
         `)}`,
-        scaledSize: new google.maps.Size(32, 32),
-        anchor: new google.maps.Point(16, 16),
+        scaledSize: new google.maps.Size(24, 30),
+        anchor: new google.maps.Point(12, 30),
       };
+    } catch (error) {
+      console.error("Error creating marker icon:", error);
+      return ""; // Return default icon
     }
-
-    if (marker.rank) {
-      return {
-        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-          <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 0 C7.163 0 0 7.163 0 16 C0 24.837 16 40 16 40 S32 24.837 32 16 C32 7.163 24.837 0 16 0 Z" fill="${marker.color || "#6B7280"}"/>
-            <circle cx="16" cy="16" r="12" fill="white"/>
-            <text x="16" y="21" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="${marker.color || "#6B7280"}">${marker.rank}</text>
-          </svg>
-        `)}`,
-        scaledSize: new google.maps.Size(32, 40),
-        anchor: new google.maps.Point(16, 40),
-      };
-    }
-
-    return {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-        <svg width="24" height="30" viewBox="0 0 24 30" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 0 C5.373 0 0 5.373 0 12 C0 18.627 12 30 12 30 S24 18.627 24 12 C24 5.373 18.627 0 12 0 Z" fill="${marker.color || "#6B7280"}"/>
-          <circle cx="12" cy="12" r="8" fill="white"/>
-        </svg>
-      `)}`,
-      scaledSize: new google.maps.Size(24, 30),
-      anchor: new google.maps.Point(12, 30),
-    };
   };
 
   // Clear existing markers
