@@ -325,6 +325,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/add-project"
+                  element={
+                    <ProtectedRoute>
+                      <AdminAddProject />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/app-pages"
                   element={
                     <ProtectedRoute>
