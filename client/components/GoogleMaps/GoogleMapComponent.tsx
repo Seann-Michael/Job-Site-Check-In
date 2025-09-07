@@ -124,9 +124,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     { mapRef: { current: null }, map: null, isLoaded: false, error: null, addMarker: () => null, setCenter: () => {} } :
     useGoogleMaps(mapOptions);
 
-  // Add timeout for loading state
+  // Add timeout for loading state and handle errors
   useEffect(() => {
-    if (useIframeFallback) return;
+    if (useIframeFallback || hasError) return;
 
     const timer = setTimeout(() => {
       try {
@@ -137,11 +137,21 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       } catch (error) {
         console.error("Error in timeout handler:", error);
         setUseIframeFallback(true);
+        setHasError(true);
       }
-    }, 10000); // 10 second timeout
+    }, 8000); // 8 second timeout
 
     return () => clearTimeout(timer);
-  }, [isLoaded, error, useIframeFallback]);
+  }, [isLoaded, error, useIframeFallback, hasError]);
+
+  // Handle Google Maps API errors
+  useEffect(() => {
+    if (error) {
+      console.error("Google Maps error:", error);
+      setUseIframeFallback(true);
+      setHasError(true);
+    }
+  }, [error]);
 
   // Create custom marker icon based on rank and color
   const createMarkerIcon = (marker: MapMarker): google.maps.Icon | string => {
