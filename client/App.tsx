@@ -16,7 +16,7 @@ const AddProject = lazy(() => import("./pages/AddProject"));
 const AdminAddProject = lazy(() => import("./pages/AdminAddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
-const Gallery = TestPage;
+const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Audits = lazy(() => import("./pages/Audits"));
