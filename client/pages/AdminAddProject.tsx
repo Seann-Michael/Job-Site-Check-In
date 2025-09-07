@@ -327,7 +327,7 @@ export default function AdminAddProject() {
 
     setIsSubmitting(true);
     try {
-      // Prepare project data
+      // Prepare project data with error handling
       const projectData = {
         business_id: selectedBusinessId,
         name: formData.name,
@@ -340,63 +340,83 @@ export default function AdminAddProject() {
           email: formData.customerEmail,
           phone: formData.mobilePhone
         } : undefined,
-        materials: formData.materials.filter(material => material.trim() !== ""),
-        tasks: formData.tasks.filter(task => task.trim() !== ""),
+        materials: formData.materials?.filter(material => material?.trim() !== "") || [],
+        tasks: formData.tasks?.filter(task => task?.trim() !== "") || [],
         timeline: {
           start_date: formData.startDate,
-          end_date: formData.completionDate,
-          estimated_duration: formData.completionDate ? 
-            Math.ceil((new Date(formData.completionDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)) : 
+          end_date: formData.completionDate || undefined,
+          estimated_duration: formData.completionDate && formData.startDate ?
+            Math.ceil((new Date(formData.completionDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)) :
             null
         },
         budget: formData.budget ? {
-          total: parseFloat(formData.budget),
+          total: parseFloat(formData.budget) || 0,
           spent: 0,
           currency: 'USD'
         } : undefined,
         metadata: {
           address: {
-            street: formData.streetAddress,
-            city: formData.city,
-            state: formData.state,
-            zipCode: formData.zipCode,
-            country: formData.country,
+            street: formData.streetAddress || "",
+            city: formData.city || "",
+            state: formData.state || "",
+            zipCode: formData.zipCode || "",
+            country: formData.country || "United States",
             coordinates: formData.gpsLat && formData.gpsLng ? {
-              lat: parseFloat(formData.gpsLat),
-              lng: parseFloat(formData.gpsLng)
+              lat: parseFloat(formData.gpsLat) || 0,
+              lng: parseFloat(formData.gpsLng) || 0
             } : undefined
           },
-          photos_count: photos.length,
-          street_view_available: formData.hasStreetView,
-          additional_phones: formData.additionalPhones.filter(phone => phone.trim() !== ""),
-          notes: formData.notes
+          photos_count: photos?.length || 0,
+          street_view_available: formData.hasStreetView || false,
+          additional_phones: formData.additionalPhones?.filter(phone => phone?.trim() !== "") || [],
+          notes: formData.notes || ""
         },
         due_date: formData.dueDate || undefined,
         started_at: new Date().toISOString()
       };
 
-      // Create the project
+      // Create the project with error handling
       const project = await dataService.createProject(projectData);
 
-      // Upload photos if any
-      if (photos.length > 0) {
+      if (!project || !project.id) {
+        throw new Error("Failed to create project - no project ID returned");
+      }
+
+      // Upload photos if any (with enhanced error handling)
+      if (photos && photos.length > 0) {
         toast.info("Uploading photos...");
+        let uploadedCount = 0;
         for (const photo of photos) {
           try {
+            if (!photo?.url || !photo?.enhancedFileName) {
+              console.warn("Skipping invalid photo:", photo);
+              continue;
+            }
+
             // Convert URL to File object for upload
             const response = await fetch(photo.url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch photo: ${response.statusText}`);
+            }
+
             const blob = await response.blob();
             const file = new File([blob], photo.enhancedFileName, { type: blob.type });
-            
+
             await dataService.uploadProjectPhoto(project.id, file, {
               category: 'general',
               description: photo.metadata?.description || '',
               is_featured: false,
-              metadata: photo.metadata
+              metadata: photo.metadata || {}
             });
+            uploadedCount++;
           } catch (error) {
             console.error("Error uploading photo:", error);
+            // Continue with other photos even if one fails
           }
+        }
+
+        if (uploadedCount > 0) {
+          toast.success(`Successfully uploaded ${uploadedCount} photo(s)`);
         }
       }
 
@@ -404,7 +424,8 @@ export default function AdminAddProject() {
       navigate(`/project/${project.id}`);
     } catch (error) {
       console.error("Error creating project:", error);
-      toast.error("Failed to create project. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to create project. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
