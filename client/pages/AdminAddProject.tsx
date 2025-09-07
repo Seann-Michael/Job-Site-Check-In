@@ -743,7 +743,12 @@ export default function AdminAddProject() {
               <div>
                 <Label htmlFor="addressSearch">Address Search</Label>
                 <AddressAutocomplete
-                  onAddressSelect={handleAddressSelect}
+                  value={formData.addressSearch}
+                  onChange={(address, placeResult) => {
+                    if (placeResult) {
+                      handleAddressSelect(placeResult);
+                    }
+                  }}
                   placeholder="Search for project address..."
                   className="w-full"
                 />
