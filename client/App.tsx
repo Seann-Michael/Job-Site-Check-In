@@ -277,6 +277,10 @@ const App = () => (
                   element={<Navigate to="/admin/ideas" replace />}
                 />
                 <Route
+                  path="/GMBOptimization"
+                  element={<Navigate to="/admin/gmb-optimization" replace />}
+                />
+                <Route
                   path="/onboard/:token"
                   element={
                     <div className="min-h-screen bg-background flex items-center justify-center">
