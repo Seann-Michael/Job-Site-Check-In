@@ -1,0 +1,132 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Webhooks Expanded",
+    "version": "1.0.0",
+    "description": "Detailed webhook examples for Stripe, PayPal and Coinbase Commerce."
+  },
+  "paths": {
+    "/api/webhook-stripe": {
+      "post": {
+        "summary": "Stripe webhook receiver",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StripeEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Received" }
+        }
+      }
+    },
+    "/api/webhook-paypal": {
+      "post": {
+        "summary": "PayPal webhook receiver",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PayPalWebhook" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    },
+    "/api/webhook-coinbase": {
+      "post": {
+        "summary": "Coinbase Commerce webhook receiver",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CoinbaseWebhook" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "StripeEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "object": { "type": "string" },
+          "type": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "example": {
+          "id": "evt_1JXXXXXX",
+          "object": "event",
+          "type": "checkout.session.completed",
+          "data": {
+            "object": {
+              "id": "cs_test_a1b2c3",
+              "object": "checkout.session",
+              "amount_total": 4999,
+              "currency": "usd",
+              "metadata": { "user_id": "f97a3e..." }
+            }
+          }
+        }
+      },
+      "PayPalWebhook": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "event_type": { "type": "string" },
+          "resource": { "type": "object" }
+        },
+        "examples": {
+          "payment_capture_completed": {
+            "summary": "PAYMENT.CAPTURE.COMPLETED example",
+            "value": {
+              "id": "WH-1ABCD",
+              "event_type": "PAYMENT.CAPTURE.COMPLETED",
+              "resource": {
+                "id": "2GG12345",
+                "amount": { "value": "49.99", "currency_code": "USD" },
+                "payer": { "payer_id": "ABCXYZ" }
+              }
+            }
+          },
+          "subscription_activated": {
+            "summary": "BILLING.SUBSCRIPTION.ACTIVATED example",
+            "value": {
+              "id": "WH-2SUBS",
+              "event_type": "BILLING.SUBSCRIPTION.ACTIVATED",
+              "resource": {
+                "id": "I-XXXXXX",
+                "status": "ACTIVE",
+                "plan_id": "P-XXXX",
+                "subscriber": { "payer_id": "ABCXYZ" }
+              }
+            }
+          }
+        }
+      },
+      "CoinbaseWebhook": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "type": { "type": "string" }, "data": { "type": "object" } },
+        "example": {
+          "id": "f1a2b3c4-d5e6",
+          "type": "charge:confirmed",
+          "data": {
+            "id": "3f2a1b",
+            "code": "abc123",
+            "name": "One-time credits",
+            "pricing": { "local": { "amount": "19.99", "currency": "USD" } }
+          }
+        }
+      }
+    }
+  }
+}
