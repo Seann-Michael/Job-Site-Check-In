@@ -53,6 +53,7 @@ const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
 const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement"));
 const AgencyBillingControl = lazy(() => import("./pages/AgencyBillingControl"));
 const PublicAuditReport = lazy(() => import("./pages/PublicAuditReport"));
+const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProject = lazy(() => import("./pages/PublicProject"));
@@ -407,6 +408,15 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Automation />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/payments"
+                  element={
+                    <ProtectedRoute>
+                      <Payments />
                     </ProtectedRoute>
                   }
                 />
