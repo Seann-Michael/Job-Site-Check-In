@@ -10,8 +10,13 @@ Files:
 - webhooks.openapi.yaml — Webhook endpoints for payment providers
 - webhooks-expanded.json — Expanded webhook examples (JSON)
 - swagger.html — Interactive Swagger UI that loads all specs (open in browser at /docs/api/swagger.html when deployed)
+- examples/curl_examples.md — cURL examples for onboarding and payment flows
+- examples/stripe_events_examples.md — sample Stripe webhook payloads
+- examples/paypal_events_examples.md — sample PayPal webhook payloads
+- postman_collection.json — Postman collection (v2.1) for common requests
 
 Notes:
 - The Swagger UI references these YAML/JSON files via relative paths. When deployed to Netlify, the docs folder is served statically; adjust paths if you host elsewhere.
 - Some endpoints require authorization (JWT). Use a valid Supabase access token when testing private endpoints.
-- Use the expanded specs when you need concrete payload examples for testing provider integrations and webhook replay.
+- Use the expanded specs and example payloads when you need concrete payload examples for testing provider integrations and webhook replay.
+- Import docs/api/postman_collection.json into Postman and set {{base_url}} and {{auth_token}} environment variables before testing.
