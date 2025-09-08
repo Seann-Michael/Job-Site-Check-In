@@ -487,7 +487,7 @@ export function AppLayout({
         {/* Mobile Sidebar */}
         <div
           className={cn(
-            "md:hidden fixed inset-y-0 left-0 z-[70] w-60 bg-card border-r shadow-lg transform transition-transform duration-300 flex flex-col max-h-screen overflow-y-auto pb-[env(safe-area-inset-bottom)]",
+            "md:hidden fixed inset-y-0 left-0 z-[90] w-60 bg-card border-r shadow-lg transform transition-transform duration-300 flex flex-col max-h-[100svh] overflow-y-auto scrolling-touch pb-[env(safe-area-inset-bottom)]",
             mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
