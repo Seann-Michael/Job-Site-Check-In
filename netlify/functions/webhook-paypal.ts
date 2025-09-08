@@ -76,10 +76,74 @@ export const handler: Handler = async (event) => {
     if (supabaseUrl && supabaseKey) {
       try {
         const supabase = createClient(supabaseUrl, supabaseKey);
-        // For certain event types, persist payment record
         const eventType = webhookEvent.event_type;
+        const resource = webhookEvent.resource;
+
+        // Handle subscription lifecycle events
+        if (eventType && eventType.startsWith("BILLING.SUBSCRIPTION.")) {
+          const subscriptionId = resource?.id || null;
+          const status = (resource?.status || eventType) as string | null;
+
+          // Try to resolve user: prefer custom_id (application set on subscription creation), then subscriber.payer_id
+          let userId: string | null = null;
+          if (resource?.custom_id) {
+            // assume custom_id contains app user id
+            userId = String(resource.custom_id);
+          } else if (resource?.subscriber?.payer_id) {
+            const payerId = resource.subscriber.payer_id;
+            try {
+              const { data: user, error } = await supabase
+                .from('user_profiles')
+                .select('id')
+                .eq('paypal_payer_id', payerId)
+                .single();
+              if (user && user.id) userId = user.id;
+            } catch (err) {
+              console.warn('Error finding user by PayPal payer id:', err);
+            }
+          }
+
+          // Persist a payments record for subscription event
+          try {
+            await supabase.from('payments').insert([
+              {
+                provider: 'paypal',
+                provider_event: eventType,
+                external_id: subscriptionId,
+                amount: resource?.billing_info?.last_payment?.amount?.value || null,
+                currency: resource?.billing_info?.last_payment?.amount?.currency_code || null,
+                status: status,
+                metadata: JSON.stringify(resource || {}),
+                raw: JSON.stringify(webhookEvent),
+              },
+            ]);
+          } catch (err) {
+            console.error('Failed to persist PayPal subscription payment record:', err);
+          }
+
+          // If we resolved a user, attempt to upsert into user_subscriptions.
+          // This will add a mapping from app user -> PayPal subscription id.
+          if (userId) {
+            try {
+              await supabase.from('user_subscriptions').upsert({
+                user_id: userId,
+                paypal_subscription_id: subscriptionId,
+                provider: 'paypal',
+                status: status,
+                current_period_start: resource?.billing_info?.next_billing_time || null,
+                current_period_end: resource?.billing_info?.next_billing_time || null,
+                plan_id: resource?.plan_id || null,
+                updated_at: new Date().toISOString(),
+              });
+            } catch (err) {
+              // If upsert fails (table may not have paypal_subscription_id column), log and continue
+              console.warn('Failed to upsert PayPal subscription into user_subscriptions (this may be due to missing column):', err);
+            }
+          }
+        }
+
+        // For certain event types, persist payment record for one-off captures
         if (eventType === "CHECKOUT.ORDER.APPROVED" || eventType === "PAYMENT.CAPTURE.COMPLETED") {
-          const resource = webhookEvent.resource;
           await supabase.from("payments").insert([
             {
               provider: "paypal",
@@ -94,19 +158,23 @@ export const handler: Handler = async (event) => {
           ]);
         }
 
-        // Always log the webhook
-        await supabase.from("payments_sessions").insert([
-          {
-            id: webhookEvent.id || transmissionId,
-            provider: "paypal",
-            mode: null,
-            amount: null,
-            currency: null,
-            metadata: JSON.stringify({ event_type: webhookEvent.event_type }),
-            status: "webhook_received",
-            raw: JSON.stringify(webhookEvent),
-          },
-        ]);
+        // Always log the webhook to payments_sessions
+        try {
+          await supabase.from("payments_sessions").insert([
+            {
+              id: webhookEvent.id || transmissionId,
+              provider: "paypal",
+              mode: null,
+              amount: null,
+              currency: null,
+              metadata: JSON.stringify({ event_type: webhookEvent.event_type }),
+              status: "webhook_received",
+              raw: JSON.stringify(webhookEvent),
+            },
+          ]);
+        } catch (err) {
+          console.warn('Failed to persist PayPal webhook session record:', err);
+        }
       } catch (err) {
         console.error("Failed to persist PayPal webhook in Supabase:", err);
       }
