@@ -85,7 +85,6 @@ export const handler: Handler = async (event) => {
           const { error: tokenErr } = await supabase.from("tokens_history").insert([{ user_id: user.id, task_id, amount: Number(task.token_reward), reason: `Task: ${task.task_name}` }]);
           if (tokenErr) console.error("Failed to insert token history:", tokenErr);
 
-          const { error: profileErr } = await supabase.rpc("", {} as any).catch(() => null);
           // Update profile token_balance and total_tokens_earned via SQL update
           const { error: pErr } = await supabase.from("profiles").update({
             token_balance: supabase.raw("COALESCE(token_balance,0) + ?", [Number(task.token_reward)]),
