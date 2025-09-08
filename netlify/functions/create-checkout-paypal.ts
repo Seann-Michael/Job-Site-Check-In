@@ -118,6 +118,8 @@ export const handler: Handler = async (event) => {
         },
         body: JSON.stringify({
           plan_id: planId,
+          // attach app user id if provided in metadata so webhooks can map subscriptions
+          custom_id: metadata?.user_id ? String(metadata.user_id) : undefined,
           application_context: {
             brand_name: process.env.SITE_NAME || "My App",
             return_url: `${process.env.SITE_URL || "http://localhost:8888"}/payments/success?provider=paypal`,
