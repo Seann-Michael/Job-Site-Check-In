@@ -51,6 +51,7 @@
     "@radix-ui/react-tooltip": "^1.0.7",
     "@react-google-maps/api": "^2.20.7",
     "@supabase/supabase-js": "^2.39.7",
+    "stripe": "^12.10.0",
     "@tanstack/react-query": "^5.85.3",
     "@tanstack/react-virtual": "^3.0.1",
     "class-variance-authority": "^0.7.0",
