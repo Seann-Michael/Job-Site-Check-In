@@ -479,16 +479,15 @@ export function AppLayout({
         {/* Mobile Sidebar Overlay */}
         {mobileSidebarOpen && (
           <div
-            className="md:hidden fixed inset-0 bg-black/50 z-[50] backdrop-blur-sm touch-none"
+            className="md:hidden fixed inset-0 bg-black/50 z-[50] backdrop-blur-sm"
             onClick={() => setMobileSidebarOpen(false)}
-            onTouchStart={(e) => e.preventDefault()}
           />
         )}
 
         {/* Mobile Sidebar */}
         <div
           className={cn(
-            "md:hidden fixed inset-y-0 left-0 z-[70] w-60 bg-card border-r shadow-lg transform transition-transform duration-300 flex flex-col",
+            "md:hidden fixed inset-y-0 left-0 z-[70] w-60 bg-card border-r shadow-lg transform transition-transform duration-300 flex flex-col max-h-screen overflow-y-auto pb-[env(safe-area-inset-bottom)]",
             mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
