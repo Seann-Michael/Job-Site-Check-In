@@ -1,0 +1,92 @@
+openapi: 3.0.3
+info:
+  title: Payments API
+  version: 1.0.0
+  description: Endpoints used to create checkouts and handle payment flows across Stripe, PayPal and Coinbase Commerce.
+servers:
+  - url: https://{site_url}
+    variables:
+      site_url:
+        default: example.com
+paths:
+  /.netlify/functions/create-checkout-stripe:
+    post:
+      summary: Create a Stripe Checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                mode:
+                  type: string
+                  enum: [one_time, subscription]
+                description:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: { url: 'stripe checkout url' }
+  /.netlify/functions/create-checkout-paypal:
+    post:
+      summary: Create a PayPal order or subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                mode:
+                  type: string
+                  enum: [one_time, subscription]
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: { url: 'paypal approve url' }
+  /.netlify/functions/create-checkout-coinbase:
+    post:
+      summary: Create a Coinbase Commerce charge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: { url: 'coinbase hosted url' }
+  /api/webhook-stripe:
+    post:
+      summary: Stripe webhook (implemented as netlify function path)
+      responses:
+        '200':
+          description: Received
+  /api/webhook-paypal:
+    post:
+      summary: PayPal webhook
+      responses:
+        '200':
+          description: Received
+  /api/webhook-coinbase:
+    post:
+      summary: Coinbase webhook
+      responses:
+        '200':
+          description: Received
+components: {}
+tags:
+  - name: payments
+    description: Payment creation and webhook endpoints
