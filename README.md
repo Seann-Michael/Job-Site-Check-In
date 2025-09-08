@@ -1,374 +1,142 @@
-# Local SEO Ranker
-
-A comprehensive local SEO management platform built with React, TypeScript, and Supabase. This application helps agencies and businesses manage their local SEO projects, track rankings, manage citations, and monitor their online presence.
+Local SEO Ranker — Full System README
+
+Purpose
+
+This repository implements Local SEO Ranker: a web application with onboarding, OAuth integrations, payments (Stripe / PayPal / Coinbase Commerce), chat, CRM, auditing and automation features. This README documents the entire system for non-developers and developers: architecture, configuration, DB schema/migrations, internal & public APIs, deployment, and common workflows.
+
+High-level summary (non-developer)
+
+- What it does: helps agencies manage local SEO projects, integrate advertising/analytics platforms, onboard clients, and accept payments.
+- Key flows:
+  - Authentication: Google Workspace (federal Gmail) primary + email/password fallback.
+  - Onboarding: multi-step wizard with tasks, progress tracking and token rewards.
+  - Integrations: OAuth for platforms (Google Ads, Google My Business, Meta, etc.).
+  - Payments: One-time and subscription support via Stripe, PayPal, Coinbase Commerce.
+  - Webhooks: Server endpoints accept asynchronous events (payments, platform callbacks).
+- Who this is for: product managers, sysops and developers who will run, maintain or extend the system.
+
+Repository layout (developer)
+
+- client/ — React TypeScript UI (Vite). Main front-end pages and components.
+- client/pages — SPA routes (OnboardingWizard, Payments, Admin pages, etc.).
+- client/lib — client-side helpers (supabaseClient.ts, paymentService.ts).
+- netlify/functions — serverless backend functions used by the app (OAuth flows, onboarding-api, payment checkout creators, webhook handlers, helpers).
+- supabase/migrations — SQL migrations to build the DB schema in order.
+- scripts/ — helper scripts (setup-supabase, populate-sample-data, create-payments-tables.sql).
+- server_complete/ — optional backend server code that can be used for heavier server workloads.
+- docs/ — supporting documents (SUPABASE_PRODUCTION_SETUP.md and other how-tos).
+
+Architecture & data flow
+
+- Frontend runs in the browser, authenticates users via Supabase Auth (Google + email/password), interacts with Netlify Functions for server-side operations.
+- Netlify functions use SUPABASE_SERVICE_ROLE_KEY to perform privileged DB operations (persist payment sessions, onboarding activity, OAuth tokens).
+- Supabase stores users (auth.users) and extended tables (profiles, onboarding_tasks, user_task_progress, client_access, payments, user_subscriptions, etc.).
+- Payments: frontend requests a checkout via /.netlify/functions/create-checkout-<provider>. Functions create provider checkout objects, persist sessions, then redirect users to provider-hosted pages.
+- Webhooks: provider webhooks arrive at /.netlify/functions/webhook-<provider>, are verified, and persisted into payments/payments_sessions and user_subscriptions where applicable.
 
-## 🚀 Features
+Key modules and what they do
 
-### Core Features
-- **Project Management**: Create and manage SEO projects with tasks, photos, and documents
-- **Business Management**: Multi-business support for agencies and business owners
-- **Citation Management**: Track and manage business directory listings
-- **Review Management**: Monitor and respond to customer reviews
-- **Keyword Tracking**: Track local search rankings and keyword performance
-- **Analytics Dashboard**: Comprehensive analytics and reporting
-- **Task Management**: Project task tracking with progress monitoring
-- **Photo & Document Management**: Upload and organize project files
+- Onboarding
+  - DB: supabase/migrations/20250902000000_profiles_onboarding.sql
+  - Server: netlify/functions/onboarding-api.ts — list tasks, complete tasks, award tokens, update profiles.
+  - Client: client/pages/OnboardingWizard.tsx — UI to display tasks and progress.
+- OAuth & Integrations
+  - DB: supabase/migrations/20241220000002_create_client_oauth_schema.sql
+  - Server: netlify/functions/oauth-flows.ts (authorize/callback), netlify/functions/oauth-api.ts (management endpoints).
+  - Client: client/components/OAuth/* UI components and popup manager.
+- Payments
+  - DB: scripts/create-payments-tables.sql; migrations add user_subscriptions table.
+  - Server: netlify/functions/create-checkout-stripe.ts, create-checkout-paypal.ts, create-checkout-coinbase.ts and webhook handlers webhook-stripe.ts, webhook-paypal.ts, webhook-coinbase.ts.
+  - Client: client/lib/paymentService.ts and client/pages/Payments.tsx
+- Chat / CRM / Audit
+  - Schemas under supabase/migrations (chat, crm, audit) and corresponding serverless functions in netlify/functions.
 
-### Advanced Features
-- **Agency Management**: Multi-tenant agency support with team collaboration
-- **Technical SEO Audits**: Website auditing and technical SEO analysis
-- **Competitor Tracking**: Monitor competitor rankings and strategies
-- **Content Calendar**: Plan and schedule content marketing
-- **Link Building**: Track link building opportunities and campaigns
-- **Monitoring & Alerts**: Automated monitoring with smart alerts
-- **Google My Business Integration**: GMB optimization and posting
-- **Local Rankings**: Track local pack and maps rankings
+Environment variables (summary)
 
-## 🛠️ Technology Stack
+Set these server-side (Netlify site settings) for production. Never expose service keys to the client.
 
-- **Frontend**: React 18, TypeScript, Vite
-- **UI Components**: Radix UI, Tailwind CSS, Shadcn/ui
-- **Backend**: Supabase (PostgreSQL, Auth, Storage, Realtime)
-- **Server**: Express.js (optional, in server_complete/)
-- **Maps**: Google Maps API integration
-- **Charts**: Recharts for analytics visualization
-- **Animations**: Framer Motion
-- **Form Handling**: React Hook Form with Zod validation
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY (server-only)
+- SUPABASE_ANON_KEY (client)
+- VITE_SUPABASE_URL (client)
+- VITE_SUPABASE_ANON_KEY (client)
+- SITE_URL
 
-## 📋 Prerequisites
+Payments & OAuth providers
+- STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+- PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_PLAN_ID, PAYPAL_WEBHOOK_ID
+- COINBASE_COMMERCE_API_KEY, COINBASE_COMMERCE_SHARED_SECRET
+- GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+- META_APP_ID, META_APP_SECRET
 
-Before you begin, ensure you have the following installed:
-- **Node.js** (v18 or higher)
-- **npm** or **yarn**
-- **Supabase account** (free tier available)
+See docs/SUPABASE_PRODUCTION_SETUP.md for the full list and step-by-step guide.
 
-Optional:
-- **Google Maps API key** (for address features)
-- **SendGrid API key** (for email notifications)
-- **Twilio credentials** (for SMS notifications)
+Database migrations
 
-## 🚀 Quick Start
+- All SQL migrations live in supabase/migrations/ and must be applied to your Supabase project in chronological order.
+- Use Supabase CLI for repeatable deployment or the Supabase SQL editor for manual application.
+- Important migrations added by this project:
+  - 20250902000000_profiles_onboarding.sql — profiles, onboarding_tasks, user_task_progress, tokens_history and triggers
+  - 20250901000000_create_user_subscriptions_and_platforms.sql — user_subscriptions and platform entries
+  - scripts/create-payments-tables.sql — payments_sessions and payments
+- After applying migrations, test triggers by creating a user and validating auto-created profiles.
 
-### 1. Clone the Repository
+Internal APIs (serverless functions)
 
-```bash
-git clone <repository-url>
-cd local-seo-ranker
-```
+All server functions live in netlify/functions/. Core endpoints (internal and public):
 
-### 2. Install Dependencies
+- /.netlify/functions/onboarding-api?action=tasks — GET tasks & progress (requires Authorization: Bearer <access_token>)
+- /.netlify/functions/onboarding-api?action=complete — POST complete a task
+- /.netlify/functions/validate-federal-domain — POST { email } → { isFederal, domain }
+- /api/oauth/:platform/authorize — redirect to provider OAuth (netlify/functions/oauth-flows.ts)
+- /api/oauth/:platform/callback — OAuth callback handler
+- /.netlify/functions/create-checkout-stripe (and -paypal, -coinbase) — create provider checkout
+- /.netlify/functions/webhook-stripe, /.netlify/functions/webhook-paypal, /.netlify/functions/webhook-coinbase — webhook receivers
 
-```bash
-npm install
-```
+Public API considerations
 
-### 3. Set Up Supabase
-
-First, create a new project in [Supabase](https://supabase.com/dashboard):
-
-1. Go to https://supabase.com/dashboard
-2. Click "New Project"
-3. Choose your organization and create the project
-4. Wait for the project to be set up
-
-### 4. Configure Environment Variables
-
-Run the interactive setup script:
-
-```bash
-npm run setup
-```
-
-This will guide you through:
-- Setting up your Supabase connection
-- Creating environment files
-- Optionally populating sample data
-
-**Manual Setup Alternative:**
-
-Copy the environment template:
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your Supabase credentials:
-```bash
-VITE_SUPABASE_URL=your-supabase-project-url
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-# ... other variables
-```
-
-### 5. Set Up Database Schema
-
-The database schema has already been created in your Supabase project. To populate it with sample data:
-
-```bash
-npm run populate-data
-```
-
-### 6. Start Development Server
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`
-
-### 7. Start Backend Server (Optional)
-
-If you want to use the Express.js backend API:
-
-```bash
-npm run server:dev
-```
-
-Or start both frontend and backend simultaneously:
-
-```bash
-npm run full:dev
-```
-
-## 📁 Project Structure
-
-```
-local-seo-ranker/
-├── client/                 # Frontend React application
-│   ├── components/         # Reusable UI components
-│   ├── pages/             # Application pages/routes
-│   ├── lib/               # Utilities and services
-│   ├── hooks/             # Custom React hooks
-│   └── types/             # TypeScript type definitions
-├── server_complete/       # Backend Express.js API (optional)
-│   ├── routes/            # API route handlers
-│   ├── services/          # Business logic services
-│   └── supabaseClient.ts  # Supabase client configuration
-├── scripts/               # Setup and utility scripts
-├── public/                # Static assets
-└── docs/                  # Documentation
-```
-
-## 🗄️ Database Schema
-
-The application uses a comprehensive PostgreSQL schema with the following main entities:
-
-### Core Tables
-- `users` - User accounts and authentication
-- `businesses` - Business information and details
-- `projects` - SEO projects and campaigns
-- `project_tasks` - Project task management
-- `project_photos` - Project photo uploads
-- `project_documents` - Project file attachments
-
-### SEO & Marketing
-- `keywords` - Target keywords and tracking
-- `local_rankings` - Local search position tracking
-- `citations` - Directory listings and NAP data
-- `reviews` - Customer reviews and responses
-- `competitors` - Competitor tracking
-- `backlinks` - Link building and analysis
-
-### Agency Management
-- `agencies` - Agency information
-- `agency_users` - Team member management
-- `agency_projects` - Agency-project relationships
-
-### Analytics & Monitoring
-- `analytics` - Performance metrics and data
-- `monitoring_alerts` - Automated alerts and notifications
-- `technical_audits` - SEO audit results
-- `business_insights` - AI-generated insights
-
-## 🔧 Configuration
-
-### Environment Variables
-
-#### Frontend (Required)
-```bash
-VITE_SUPABASE_URL=your-supabase-project-url
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-#### Backend (Optional)
-```bash
-SUPABASE_URL=your-supabase-project-url
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-#### Optional External Services
-```bash
-GOOGLE_MAPS_API_KEY=your-google-maps-api-key
-SENDGRID_API_KEY=your-sendgrid-api-key
-TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_AUTH_TOKEN=your-twilio-auth-token
-```
-
-### Google Maps Setup (Optional but Recommended)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable the following APIs:
-   - Maps JavaScript API
-   - Places API
-   - Geocoding API
-   - Street View Static API
-4. Create credentials (API Key)
-5. Add your API key to the environment variables
-
-## 📱 Usage
-
-### Getting Started
-
-1. **Create Your First Business**
-   - Navigate to "Add Business" from the dashboard
-   - Fill in your business information
-   - Add address and contact details
-
-2. **Create a Project**
-   - Click "Add Project" from the main dashboard
-   - Select your business
-   - Define project scope and objectives
-   - Add client contact information
-   - Set timeline and budget
-
-3. **Manage Tasks**
-   - Break down projects into manageable tasks
-   - Assign tasks to team members
-   - Track progress and deadlines
-   - Add notes and comments
-
-4. **Track Performance**
-   - Monitor keyword rankings
-   - Track local search visibility
-   - Analyze competitor performance
-   - Generate reports for clients
-
-### Key Features
-
-#### Project Management
-- Create and manage SEO projects
-- Task assignment and tracking
-- Photo and document management
-- Progress monitoring
-- Client communication
-
-#### SEO Tools
-- Keyword research and tracking
-- Local rankings monitoring
-- Citation management
-- Review monitoring
-- Technical SEO audits
-
-#### Agency Features
-- Multi-client management
-- Team collaboration
-- White-label reporting
-- Client portal access
-- Billing and invoicing
-
-## 🚀 Deployment
-
-### Frontend Deployment
-
-The frontend can be deployed to any static hosting service:
-
-#### Vercel
-```bash
-npm run build
-# Deploy to Vercel
-```
-
-#### Netlify
-```bash
-npm run build
-# Deploy dist/ folder to Netlify
-```
-
-#### Supabase Hosting
-```bash
-npm run build
-# Use Supabase CLI to deploy
-```
-
-### Backend Deployment (Optional)
-
-The Express.js backend can be deployed to:
-- Vercel (serverless functions)
-- Railway
-- Heroku
-- Digital Ocean
-- AWS/GCP/Azure
-
-## 🔒 Security
-
-The application implements several security measures:
-
-- **Row Level Security (RLS)**: Database-level access control
-- **Authentication**: Supabase Auth with JWT tokens
-- **Authorization**: Role-based access control
-- **Data Validation**: Input validation and sanitization
-- **API Security**: Rate limiting and CORS protection
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-### Common Issues
-
-**1. Supabase Connection Error**
-- Verify your environment variables are correct
-- Check that your Supabase project is active
-- Ensure you're using the correct URL and keys
-
-**2. Database Schema Issues**
-- Re-run the database setup script
-- Check the Supabase dashboard for any errors
-- Verify all tables were created successfully
-
-**3. Build Errors**
-- Clear node_modules and reinstall dependencies
-- Check for TypeScript errors
-- Verify all environment variables are set
-
-### Getting Help
-
-- Check the [documentation](docs/) for detailed guides
-- Review the [issues](issues) for known problems
-- Create a new issue for bugs or feature requests
-
-## 🎯 Roadmap
-
-### Upcoming Features
-- [ ] Advanced reporting and analytics
-- [ ] White-label client portals
-- [ ] API integrations (SEMrush, Ahrefs, etc.)
-- [ ] Mobile app (React Native)
-- [ ] Advanced automation workflows
-- [ ] Multi-language support
-- [ ] Enhanced AI recommendations
-
-### Current Version: 1.0.0
-
-- ✅ Core project management
-- ✅ SEO tracking and monitoring
-- ✅ Multi-business support
-- ✅ Agency management
-- ✅ Real-time analytics
-- ✅ Photo and document management
-- ✅ Task management
-- ✅ Review monitoring
-- ✅ Citation tracking
-
----
-
-**Built with ❤️ for the SEO community**
+- Public endpoints that third-party services consume (webhooks) must be reachable at your SITE_URL and verify signatures.
+- Protect all endpoints that modify server state using SUPABASE_SERVICE_ROLE_KEY on server functions; client-facing actions require authenticated session tokens.
+
+How to run locally (developer)
+
+1. Install dependencies: npm install
+2. Setup your Supabase credentials (see scripts/setup-supabase.js): npm run setup
+3. Populate sample data (optional): npm run populate-data
+4. Start dev server with Netlify: npm run dev (this runs netlify dev and exposes functions)
+5. Alternatively run client-only dev server: npm run dev:vite
+
+Deployment (Netlify)
+
+- Build: npm run build:client
+- Netlify will deploy the static site and functions from netlify/functions/.
+- Ensure Netlify environment variables include SUPABASE_SERVICE_ROLE_KEY and provider secrets.
+- Configure redirects in netlify.toml (already set up in repo for /api/* to netlify functions).
+
+Security and RLS
+
+- Row Level Security is enabled on many tables. Server operations must use SUPABASE_SERVICE_ROLE_KEY or elevated privileges.
+- Never commit secrets. Use Netlify environment variables for production secrets.
+- Webhook endpoints must validate signatures (Stripe/PayPal/Coinbase handlers implement verification).
+
+Testing
+
+- Use provider sandboxes for payments.
+- Use a staging Supabase project to apply migrations first.
+- Smoke test steps are listed in docs/SUPABASE_PRODUCTION_SETUP.md.
+
+Documentation
+
+- docs/SUPABASE_PRODUCTION_SETUP.md — detailed migration & production steps (created & maintained).
+- docs/PAYMENTS_ENV.md — payment provider env var guidance.
+- This README is the single high-level entrypoint.
+
+How this README is maintained
+
+- I will update this README automatically when I add migrations, server functions, or other critical infra changes. If you add files, please add a short note in docs/ or request an update.
+
+If you want, next I will:
+- Add generated OpenAPI-style documentation for the public webhooks and onboarding API in docs/api/ (JSON + markdown), and
+- Create a lightweight developer checklist for on-call runbook (how to inspect webhooks, rotate keys, rollback migrations).
+
+Tell me which of the two to add next and I will create files under docs/api/ and docs/runbooks/ respectively.
