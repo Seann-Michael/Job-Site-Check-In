@@ -1,0 +1,71 @@
+{
+  "info": {
+    "name": "Local SEO Ranker API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Onboarding - Get Tasks",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+        ],
+        "url": { "raw": "{{base_url}}/.netlify/functions/onboarding-api?action=tasks", "host": ["{{base_url}}"], "path": [".netlify","functions","onboarding-api"], "query": [{ "key": "action", "value": "tasks" }] }
+      }
+    },
+    {
+      "name": "Onboarding - Complete Task",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{auth_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{ \"task_id\": \"<TASK_ID>\", \"status\": \"completed\" }" },
+        "url": { "raw": "{{base_url}}/.netlify/functions/onboarding-api?action=complete", "host": ["{{base_url}}"], "path": [".netlify","functions","onboarding-api"], "query": [{ "key": "action", "value": "complete" }] }
+      }
+    },
+    {
+      "name": "Create Checkout - Stripe",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"amount\": 49.99, \"mode\": \"one_time\", \"description\": \"Test\", \"metadata\": { \"user_id\": \"<USER_ID>\" } }" },
+        "url": { "raw": "{{base_url}}/.netlify/functions/create-checkout-stripe", "host": ["{{base_url}}"], "path": [".netlify","functions","create-checkout-stripe"] }
+      }
+    },
+    {
+      "name": "Create Checkout - PayPal",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"amount\": 49.99, \"mode\": \"one_time\", \"description\": \"Test\", \"metadata\": { \"user_id\": \"<USER_ID>\" } }" },
+        "url": { "raw": "{{base_url}}/.netlify/functions/create-checkout-paypal", "host": ["{{base_url}}"], "path": [".netlify","functions","create-checkout-paypal"] }
+      }
+    },
+    {
+      "name": "Create Charge - Coinbase",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"amount\": 19.99, \"description\": \"Credits\", \"metadata\": { \"user_id\": \"<USER_ID>\" } }" },
+        "url": { "raw": "{{base_url}}/.netlify/functions/create-checkout-coinbase", "host": ["{{base_url}}"], "path": [".netlify","functions","create-checkout-coinbase"] }
+      }
+    },
+    {
+      "name": "Webhook - Stripe (test payload)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"id\": \"evt_test_1\", \"type\": \"checkout.session.completed\", \"data\": { \"object\": { \"id\": \"cs_test\", \"amount_total\": 4999 } } }" },
+        "url": { "raw": "{{base_url}}/api/webhook-stripe", "host": ["{{base_url}}"], "path": ["api","webhook-stripe"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "https://app.example.com" },
+    { "key": "auth_token", "value": "" }
+  ]
+}
