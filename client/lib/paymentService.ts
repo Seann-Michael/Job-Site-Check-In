@@ -6,7 +6,7 @@ export interface CheckoutRequest {
 
 export async function createCheckoutSession(body: CheckoutRequest) {
   const provider = body.provider;
-  const endpoint = `/api/create-checkout/${provider}`;
+  const endpoint = `/api/create-checkout-${provider}`;
 
   const res = await fetch(endpoint, {
     method: "POST",
