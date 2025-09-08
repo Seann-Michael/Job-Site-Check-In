@@ -59,6 +59,8 @@ export const handler: Handler = async (event) => {
                 value: amount.toFixed(2),
               },
               description,
+              // attach application-level metadata to help map orders to users
+              custom_id: metadata?.user_id ? String(metadata.user_id) : undefined,
             },
           ],
           application_context: {
