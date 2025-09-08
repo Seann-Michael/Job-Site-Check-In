@@ -1,4 +1,5 @@
 import type { Handler } from "@netlify/functions";
+import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
