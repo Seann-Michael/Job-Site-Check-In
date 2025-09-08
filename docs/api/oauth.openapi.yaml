@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: OAuth & Onboarding API
+  version: 1.0.0
+  description: API for onboarding link generation, OAuth flows and client access management.
+servers:
+  - url: https://{site_url}
+    variables:
+      site_url:
+        default: example.com
+paths:
+  /api/oauth/generate-link:
+    post:
+      summary: Generate onboarding link
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_name:
+                  type: string
+                client_email:
+                  type: string
+                client_company:
+                  type: string
+                selected_platforms:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created onboarding session with token and link
+  /api/oauth/sessions:
+    get:
+      summary: List onboarding sessions for authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of sessions
+  /api/oauth/onboarding/{token}:
+    get:
+      summary: Retrieve onboarding session by token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session data
+  /api/oauth/{platform}/authorize:
+    get:
+      summary: Redirect to platform OAuth authorize URL (handled by netlify functions)
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to provider
+  /api/oauth/{platform}/callback:
+    get:
+      summary: OAuth callback endpoint
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns a success HTML page
+  /api/oauth/platforms:
+    get:
+      summary: Get platform configurations
+      responses:
+        '200':
+          description: List of platforms
+  /api/oauth/sessions/{id}/access:
+    get:
+      summary: Get client access records for a session (admin/agency)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+      responses:
+        '200':
+          description: Access list
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    OnboardingSession:
+      type: object
+      properties:
+        id:
+          type: string
+        onboarding_token:
+          type: string
+        client_name:
+          type: string
+        required_platforms:
+          type: array
+          items:
+            type: string
+tags:
+  - name: oauth
+    description: OAuth and onboarding management
