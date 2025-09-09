@@ -45,7 +45,8 @@ const handler: Handler = async (event, context) => {
       if (!site_id || !template_id || !Array.isArray(items)) return { statusCode: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "site_id, template_id and items[] are required" }) };
 
       // Insert job record
-      const { data: job, error: jobErr } = await supabase.from("bulk_page_jobs").insert({ user_id: user.id, site_id, template_id, status: 'pending', total_pages: items.length, completed_pages: 0, options: options || {}, created_at: new Date().toISOString() }).select().single();
+      const jobOptions = { ...(options || {}), original_items: items };
+      const { data: job, error: jobErr } = await supabase.from("bulk_page_jobs").insert({ user_id: user.id, site_id, template_id, status: 'pending', total_pages: items.length, completed_pages: 0, options: jobOptions, created_at: new Date().toISOString() }).select().single();
       if (jobErr || !job) {
         console.error("Failed to create job", jobErr);
         return { statusCode: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "Failed to create job" }) };
