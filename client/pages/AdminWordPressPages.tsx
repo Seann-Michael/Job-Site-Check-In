@@ -160,6 +160,12 @@ export default function AdminWordPressPages() {
                 </div>
                 <Textarea value={itemsJson} onChange={(e) => setItemsJson((e.target as HTMLTextAreaElement).value)} className="h-44 mt-2" />
 
+                {rawCSVText && showCSVMapper && (
+                  <div className="mt-4">
+                    <CSVMapper rawText={rawCSVText} onApply={(items) => { setItemsJson(JSON.stringify(items, null, 2)); setShowCSVMapper(false); setRawCSVText(''); }} />
+                  </div>
+                )}
+
                 <div className="flex gap-2 mt-4">
                   <Button onClick={handlePreview}>Preview</Button>
                   <Button onClick={handleGenerate} variant="primary">Generate</Button>
