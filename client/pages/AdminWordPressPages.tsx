@@ -52,7 +52,7 @@ export default function AdminWordPressPages() {
     });
   }
 
-  // Handle CSV file upload and convert to JSON items
+  // Handle CSV file upload and convert to JSON items (store raw CSV too for mapping)
   const handleCSVFile = (file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
@@ -60,7 +60,9 @@ export default function AdminWordPressPages() {
       const text = String(e.target?.result || "");
       try {
         const parsed = parseCSV(text);
+        setRawCSVText(text);
         setItemsJson(JSON.stringify(parsed, null, 2));
+        setShowCSVMapper(true);
       } catch (err) {
         alert('Failed to parse CSV file');
       }
