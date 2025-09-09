@@ -47,6 +47,8 @@ const Ideas = lazy(() => import("./pages/Ideas"));
 const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
+const AdminWordPressPages = lazy(() => import("./pages/AdminWordPressPages"));
+const AdminWordPressSites = lazy(() => import("./pages/AdminWordPressSites"));
 const Chat = lazy(() => import("./pages/Chat"));
 const CRM = lazy(() => import("./pages/CRM"));
 const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
