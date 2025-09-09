@@ -129,7 +129,7 @@ export default function SpreadsheetEditor({ value, onChange }: { value: string; 
                   <div className="mt-2">
                     <label className="text-xs">AI instruction</label>
                     <Textarea value={col.ai || ''} onChange={(e) => updateColumnAI(col.slug, (e.target as HTMLTextAreaElement).value)} className="h-20 mt-1" />
-                    <div className="text-xs text-muted-foreground">You can reference other columns using {{column_slug}} or rows using {{column_slug[rowIndex]}} in your AI prompt. Evaluation happens during generation.</div>
+                    <div className="text-xs text-muted-foreground">You can reference other columns using {'{{column_slug}}'} or rows using {'{{column_slug[rowIndex]}}'} in your AI prompt. Evaluation happens during generation.</div>
                   </div>
                 </th>
               ))}
