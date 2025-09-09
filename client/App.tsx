@@ -478,6 +478,26 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/admin/wordpress-pages"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <AdminWordPressPages />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/wordpress-pages/sites"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <AdminWordPressSites />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin/chat"
                   element={
                     <ProtectedRoute>
