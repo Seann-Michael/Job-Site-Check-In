@@ -14,6 +14,8 @@ export default function AdminWordPressPages() {
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [itemsJson, setItemsJson] = useState<string>("[]");
+  const [rawCSVText, setRawCSVText] = useState<string>("");
+  const [showCSVMapper, setShowCSVMapper] = useState<boolean>(false);
   const [jobs, setJobs] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
 
