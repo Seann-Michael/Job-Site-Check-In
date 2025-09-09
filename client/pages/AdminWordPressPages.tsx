@@ -242,7 +242,7 @@ export default function AdminWordPressPages() {
             <h3 className="text-lg font-semibold">Generation Jobs</h3>
             <table className="w-full table-auto">
               <thead>
-                <tr><th>Date</th><th>Site</th><th>Template</th><th>Pages</th><th>Status</th></tr>
+                <tr><th>Date</th><th>Site</th><th>Template</th><th>Pages</th><th>Status</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {jobs.map((j) => (
