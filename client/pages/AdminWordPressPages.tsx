@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import TemplateEditor from "@/components/WordPress/TemplateEditor";
+import CSVMapper from "@/components/WordPress/CSVMapper";
 
 export default function AdminWordPressPages() {
   const [sites, setSites] = useState<any[]>([]);
