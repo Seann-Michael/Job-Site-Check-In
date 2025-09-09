@@ -210,7 +210,7 @@ export default function AdminWordPressPages() {
                 <Textarea value={newMetaDescriptionTemplate} onChange={(e) => setNewMetaDescriptionTemplate((e.target as HTMLTextAreaElement).value)} className="mt-2" />
 
                 <label className="text-sm mt-3">Content (HTML with variables)</label>
-                <Textarea value={newTemplateContent} onChange={(e) => setNewTemplateContent((e.target as HTMLTextAreaElement).value)} className="h-40 mt-2" />
+                <TemplateEditor value={newTemplateContent} onChange={(v) => setNewTemplateContent(v)} />
 
                 <div className="flex gap-2 mt-4">
                   <Button onClick={createTemplate}>Create Template</Button>
