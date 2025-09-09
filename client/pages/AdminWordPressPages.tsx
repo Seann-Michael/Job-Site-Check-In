@@ -147,7 +147,11 @@ export default function AdminWordPressPages() {
                   </SelectContent>
                 </Select>
 
-                <label className="text-sm mt-4">Data (JSON array)</label>
+                <label className="text-sm mt-4">Data (JSON array) or CSV</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input type="file" accept=".csv,text/csv" onChange={(e) => handleCSVFile(e.target.files ? e.target.files[0] : null)} className="" />
+                  <Button onClick={() => { try { const parsed = JSON.parse(itemsJson); alert(`Loaded ${parsed.length || 0} items`); } catch (e) { alert('Invalid JSON'); } }}>Validate JSON</Button>
+                </div>
                 <Textarea value={itemsJson} onChange={(e) => setItemsJson((e.target as HTMLTextAreaElement).value)} className="h-44 mt-2" />
 
                 <div className="flex gap-2 mt-4">
