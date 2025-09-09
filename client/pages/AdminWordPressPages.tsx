@@ -246,7 +246,19 @@ export default function AdminWordPressPages() {
               </thead>
               <tbody>
                 {jobs.map((j) => (
-                  <tr key={j.id}><td>{new Date(j.created_at).toLocaleString()}</td><td>{j.site_name || j.wordpress_connections?.site_name}</td><td>{j.template_id}</td><td>{j.completed_pages}/{j.total_pages}</td><td>{j.status}</td></tr>
+                  <tr key={j.id}>
+                    <td>{new Date(j.created_at).toLocaleString()}</td>
+                    <td>{j.site_name || j.wordpress_connections?.site_name}</td>
+                    <td>{j.template_id}</td>
+                    <td>{j.completed_pages}/{j.total_pages}</td>
+                    <td>{j.status}</td>
+                    <td className="flex gap-2">
+                      {j.status === 'processing' && <Button size="sm" variant="outline" onClick={async () => { await fetch(`/.netlify/functions/bulk-pages/jobs/${j.id}/pause`, { method: 'POST' }); alert('Pause requested'); }}>Pause</Button>}
+                      {j.status === 'paused' && <Button size="sm" onClick={async () => { await fetch(`/.netlify/functions/bulk-pages/jobs/${j.id}/resume`, { method: 'POST' }); alert('Resume requested'); }}>Resume</Button>}
+                      {j.status !== 'completed' && j.status !== 'canceled' && <Button size="sm" variant="destructive" onClick={async () => { if (!confirm('Cancel job?')) return; await fetch(`/.netlify/functions/bulk-pages/jobs/${j.id}/cancel`, { method: 'POST' }); alert('Cancel requested'); }}>Cancel</Button>}
+                      <Button size="sm" onClick={async () => { const res = await fetch(`/.netlify/functions/bulk-pages/jobs/${j.id}`); const d = await res.json(); console.log(d); alert('See console for job details'); }}>View</Button>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
