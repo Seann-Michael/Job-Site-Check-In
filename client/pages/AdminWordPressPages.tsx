@@ -178,10 +178,41 @@ export default function AdminWordPressPages() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="col-span-1">
                 <h3 className="text-lg font-semibold">Create Template</h3>
-                <p className="text-sm text-muted-foreground">Templates are managed in the Templates Library. Use the API or UI to create and edit templates.</p>
+                <p className="text-sm text-muted-foreground">Create a new template for bulk generation.</p>
+
+                <label className="text-sm mt-3">Template Name</label>
+                <Input value={newTemplateName} onChange={(e) => setNewTemplateName((e.target as HTMLInputElement).value)} className="mt-2" />
+
+                <label className="text-sm mt-3">Page Type</label>
+                <Select onValueChange={(v) => setNewTemplatePageType(v)}>
+                  <SelectTrigger className="w-full mt-2"><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">Custom</SelectItem>
+                    <SelectItem value="service">Service</SelectItem>
+                    <SelectItem value="location">Location</SelectItem>
+                    <SelectItem value="combo">Combo</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <label className="text-sm mt-3">Title Template</label>
+                <Input value={newTitleTemplate} onChange={(e) => setNewTitleTemplate((e.target as HTMLInputElement).value)} className="mt-2" />
+
+                <label className="text-sm mt-3">Slug Template</label>
+                <Input value={newSlugTemplate} onChange={(e) => setNewSlugTemplate((e.target as HTMLInputElement).value)} className="mt-2" />
+
+                <label className="text-sm mt-3">Meta Description Template</label>
+                <Textarea value={newMetaDescriptionTemplate} onChange={(e) => setNewMetaDescriptionTemplate((e.target as HTMLTextAreaElement).value)} className="mt-2" />
+
+                <label className="text-sm mt-3">Content (HTML with variables)</label>
+                <Textarea value={newTemplateContent} onChange={(e) => setNewTemplateContent((e.target as HTMLTextAreaElement).value)} className="h-40 mt-2" />
+
+                <div className="flex gap-2 mt-4">
+                  <Button onClick={createTemplate}>Create Template</Button>
+                </div>
               </div>
               <div className="col-span-2">
-                <table className="w-full table-auto">
+                <h3 className="text-lg font-semibold">Templates Library</h3>
+                <table className="w-full table-auto mt-4">
                   <thead>
                     <tr><th className="text-left">Name</th><th>Type</th><th>Actions</th></tr>
                   </thead>
