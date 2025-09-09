@@ -399,6 +399,22 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       comingSoon: false,
     },
     {
+      id: "wordpress-pages",
+      label: "WordPress Pages",
+      href: "/admin/wordpress-pages",
+      icon: Globe,
+      active: location.pathname.startsWith("/admin/wordpress-pages"),
+      comingSoon: false,
+    },
+    {
+      id: "wordpress-sites",
+      label: "WP Sites",
+      href: "/admin/wordpress-pages/sites",
+      icon: Globe,
+      active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
+      comingSoon: false,
+    },
+    {
       id: "audits",
       label: "Audits",
       href: "/agency/admin/audits",
