@@ -32,6 +32,70 @@ export default function AdminWordPressPages() {
       .catch(() => setJobs([]));
   }, []);
 
+  // CSV parsing utility (simple parser)
+  function parseCSV(text: string) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+    if (lines.length === 0) return [];
+    const headers = lines[0].split(",").map((h) => h.trim());
+    const rows = lines.slice(1);
+    return rows.map((r) => {
+      const cols = r.split(",").map((c) => c.trim());
+      const obj: Record<string, any> = {};
+      headers.forEach((h, i) => {
+        obj[h] = cols[i] || "";
+      });
+      return obj;
+    });
+  }
+
+  // Handle CSV file upload and convert to JSON items
+  const handleCSVFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = String(e.target?.result || "");
+      try {
+        const parsed = parseCSV(text);
+        setItemsJson(JSON.stringify(parsed, null, 2));
+      } catch (err) {
+        alert('Failed to parse CSV file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Template creation form state
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateContent, setNewTemplateContent] = useState("");
+  const [newTemplatePageType, setNewTemplatePageType] = useState("custom");
+  const [newTitleTemplate, setNewTitleTemplate] = useState("");
+  const [newSlugTemplate, setNewSlugTemplate] = useState("");
+  const [newMetaDescriptionTemplate, setNewMetaDescriptionTemplate] = useState("");
+
+  const createTemplate = async () => {
+    if (!newTemplateName || !newTemplateContent) { alert('Template name and content required'); return; }
+    const payload = {
+      template_name: newTemplateName,
+      template_content: newTemplateContent,
+      variables: [],
+      page_type: newTemplatePageType,
+      metadata: {
+        title_template: newTitleTemplate,
+        slug_template: newSlugTemplate,
+        meta_description_template: newMetaDescriptionTemplate,
+      },
+    };
+    const res = await fetch('/.netlify/functions/page-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.template) {
+      setTemplates((t) => [data.template, ...t]);
+      setNewTemplateName(''); setNewTemplateContent(''); setNewTemplatePageType('custom'); setNewTitleTemplate(''); setNewSlugTemplate(''); setNewMetaDescriptionTemplate('');
+      alert('Template created');
+    } else {
+      alert('Failed to create template');
+    }
+  };
+
   const handlePreview = async () => {
     if (!selectedTemplate) return;
     let items = [];
