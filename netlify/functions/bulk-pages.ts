@@ -134,6 +134,125 @@ const handler: Handler = async (event, context) => {
       return { statusCode: 202, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ job_id: jobId }) };
     }
 
+    // Pause job
+    if (httpMethod === "POST" && path && path.match(/\/jobs\/[^\/]+\/pause$/)) {
+      const authResult = await authMiddleware(event as any);
+      if (authResult.statusCode !== 200) return authResult;
+      const user = JSON.parse(authResult.body).user;
+      const parts = path.split('/');
+      const id = parts[parts.length - 2];
+      const { data: job, error } = await supabase.from('bulk_page_jobs').select('*').eq('id', id).single();
+      if (error || !job) return { statusCode: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Job not found' }) };
+      if (job.user_id !== user.id) return { statusCode: 403, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Not authorized' }) };
+      await supabase.from('bulk_page_jobs').update({ status: 'paused', updated_at: new Date().toISOString() }).eq('id', id);
+      return { statusCode: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ success: true }) };
+    }
+
+    // Resume job
+    if (httpMethod === "POST" && path && path.match(/\/jobs\/[^\/]+\/resume$/)) {
+      const authResult = await authMiddleware(event as any);
+      if (authResult.statusCode !== 200) return authResult;
+      const user = JSON.parse(authResult.body).user;
+      const parts = path.split('/');
+      const id = parts[parts.length - 2];
+      const { data: job, error } = await supabase.from('bulk_page_jobs').select('*').eq('id', id).single();
+      if (error || !job) return { statusCode: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Job not found' }) };
+      if (job.user_id !== user.id) return { statusCode: 403, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Not authorized' }) };
+
+      // Kick off processing from stored original_items
+      const items: any[] = (job.options && job.options.original_items) || [];
+      const startIndex = job.completed_pages || 0;
+      await supabase.from('bulk_page_jobs').update({ status: 'processing', updated_at: new Date().toISOString() }).eq('id', id);
+
+      (async () => {
+        try {
+          const { data: site } = await supabase.from('wordpress_connections').select('*').eq('id', job.site_id).single();
+          const { data: template } = await supabase.from('page_templates').select('*').eq('id', job.template_id).single();
+          if (!site || !template) {
+            await supabase.from('bulk_page_jobs').update({ status: 'failed', result_summary: { error: 'site or template not found' }, updated_at: new Date().toISOString() }).eq('id', id);
+            return;
+          }
+
+          const siteUrl = site.site_url;
+          const apiKey = site.api_key || null;
+
+          let completed = startIndex;
+
+          const BATCH_SIZE = 20;
+          for (let i = startIndex; i < items.length; i += BATCH_SIZE) {
+            // Check if job was paused or canceled
+            const { data: current } = await supabase.from('bulk_page_jobs').select('status').eq('id', id).single();
+            if (!current || current.status === 'paused' || current.status === 'canceled') break;
+            const batch = items.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(async (item) => {
+              try {
+                const rendered = renderTemplate(template.template_content, item || {});
+                const title = renderTemplate((template.metadata?.title_template as string) || item.title || (item.service && `${item.service} in ${item.city}`) || 'Page', item);
+                const slug = renderTemplate((template.metadata?.slug_template as string) || (item.slug) || (title || 'page').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''), item).slice(0, 200);
+                const meta_description = renderTemplate((template.metadata?.meta_description_template as string) || (item.meta_description || ''), item);
+
+                const payload = {
+                  title,
+                  content: rendered,
+                  slug,
+                  status: 'publish',
+                } as any;
+                if (meta_description) payload.meta = { description: meta_description };
+
+                const res = await postToWordPress(siteUrl, apiKey, payload);
+
+                const generated = {
+                  job_id: id,
+                  page_title: title,
+                  page_slug: slug,
+                  wordpress_post_id: res.json && (res.json.id || res.json.ID || res.json.post_id) || null,
+                  variables_used: item,
+                  result: { ok: res.ok, status: res.status, response: res.json },
+                  created_at: new Date().toISOString(),
+                };
+
+                const { error: gpErr } = await supabase.from('generated_pages').insert(generated);
+                if (gpErr) console.error('Failed to insert generated page record', gpErr);
+
+                completed += 1;
+                await supabase.from('bulk_page_jobs').update({ completed_pages: completed, updated_at: new Date().toISOString() }).eq('id', id);
+              } catch (innerErr) {
+                console.error('Error creating page for item', innerErr);
+                completed += 1;
+                await supabase.from('generated_pages').insert({ job_id: id, page_title: item.title || null, page_slug: item.slug || null, wordpress_post_id: null, variables_used: item, result: { error: innerErr.message || String(innerErr) }, created_at: new Date().toISOString() });
+                await supabase.from('bulk_page_jobs').update({ completed_pages: completed, updated_at: new Date().toISOString() }).eq('id', id);
+              }
+            }));
+          }
+
+          // Determine final status
+          const { data: finalStatus } = await supabase.from('bulk_page_jobs').select('status').eq('id', id).single();
+          if (finalStatus && finalStatus.status !== 'paused' && finalStatus.status !== 'canceled') {
+            await supabase.from('bulk_page_jobs').update({ status: 'completed', result_summary: { total: items.length, completed }, updated_at: new Date().toISOString() }).eq('id', id);
+          }
+        } catch (err) {
+          console.error('Resume processing failed', err);
+          await supabase.from('bulk_page_jobs').update({ status: 'failed', result_summary: { error: (err as Error).message }, updated_at: new Date().toISOString() }).eq('id', id);
+        }
+      })();
+
+      return { statusCode: 202, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ job_id: id }) };
+    }
+
+    // Cancel job
+    if (httpMethod === "POST" && path && path.match(/\/jobs\/[^\/]+\/cancel$/)) {
+      const authResult = await authMiddleware(event as any);
+      if (authResult.statusCode !== 200) return authResult;
+      const user = JSON.parse(authResult.body).user;
+      const parts = path.split('/');
+      const id = parts[parts.length - 2];
+      const { data: job, error } = await supabase.from('bulk_page_jobs').select('*').eq('id', id).single();
+      if (error || !job) return { statusCode: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Job not found' }) };
+      if (job.user_id !== user.id) return { statusCode: 403, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Not authorized' }) };
+      await supabase.from('bulk_page_jobs').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('id', id);
+      return { statusCode: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ success: true }) };
+    }
+
     // List jobs
     if (httpMethod === "GET" && path?.endsWith("/jobs")) {
       const authResult = await authMiddleware(event as any);
