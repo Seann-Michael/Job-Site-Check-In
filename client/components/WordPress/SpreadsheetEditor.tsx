@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 type Column = { slug: string; label: string; ai?: string };
 
-export default function SpreadsheetEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export default function SpreadsheetEditor({ value, onChange, onColumnsChange }: { value: string; onChange: (v: string) => void; onColumnsChange?: (cols: {slug:string,label:string,ai?:string}[]) => void }) {
   const [columns, setColumns] = useState<Column[]>([{ slug: 'col_1', label: 'col_1', ai: '' }]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
