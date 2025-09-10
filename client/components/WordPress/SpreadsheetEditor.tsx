@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+import React, { useEffect, useRef, useState } from 'react';
+
 type Column = { slug: string; label: string; ai?: string };
 
 export default function SpreadsheetEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
