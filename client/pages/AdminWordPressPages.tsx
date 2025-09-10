@@ -19,6 +19,7 @@ export default function AdminWordPressPages() {
   const [showCSVMapper, setShowCSVMapper] = useState<boolean>(false);
   const [jobs, setJobs] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
+  const [spreadsheetColumns, setSpreadsheetColumns] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/.netlify/functions/wordpress-connections')
