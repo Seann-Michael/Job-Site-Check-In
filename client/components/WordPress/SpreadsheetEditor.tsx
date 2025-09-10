@@ -288,7 +288,7 @@ export default function SpreadsheetEditor({ value, onChange }: { value: string; 
                   <div className="mt-2">
                     <label className="text-xs">AI instruction</label>
                     <textarea className="border w-full mt-1 p-1 h-20" value={col.ai || ''} onChange={(e) => updateColumnAI(col.slug, e.target.value)} />
-                    <div className="text-xs text-muted-foreground">Reference other cells with {{column_slug}} or {{column_slug[rowIndex]}}. Evaluation happens during generation.</div>
+                    <div className="text-xs text-muted-foreground">Reference other cells with {'{{column_slug}}'} or {'{{column_slug[rowIndex]}}'}. Evaluation happens during generation.</div>
                   </div>
                 </th>
               ))}
