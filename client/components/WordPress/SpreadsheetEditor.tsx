@@ -1,19 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useEffect, useRef, useState } from 'react';
 
 type Column = { slug: string; label: string; ai?: string };
 
 export default function SpreadsheetEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [columns, setColumns] = useState<Column[]>([{ slug: 'col_1', label: 'col_1', ai: '' }]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
+  const [active, setActive] = useState<{ r: number; c: number } | null>(null);
+  const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
+  // Parse incoming JSON value to initialize grid
   useEffect(() => {
     try {
       const parsed = JSON.parse(value || '[]');
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // derive columns from keys
         const derivedCols: Column[] = [];
         parsed.forEach((r: any) => {
           Object.keys(r).forEach((k) => {
@@ -31,17 +30,66 @@ export default function SpreadsheetEditor({ value, onChange }: { value: string; 
         setRows([]);
       }
     } catch (e) {
-      // invalid JSON — start fresh
       setColumns((c) => (c.length ? c : [{ slug: 'col_1', label: 'col_1', ai: '' }]));
       setRows([]);
     }
   }, [value]);
 
+  // Evaluate tokens {{col}} or {{col[index]}} against current rows
+  const evaluateValue = (raw: string, rowIndex: number, visited = new Set<string>()): string => {
+    if (typeof raw !== 'string') return String(raw ?? '');
+    // prevent deep recursion
+    if (visited.size > 50) return raw;
+    const tokenRe = /\{\{([a-zA-Z0-9_\-]+)(?:\[(\d+)\])?\}\}/g;
+    let result = raw;
+    let m: RegExpExecArray | null;
+    while ((m = tokenRe.exec(raw)) !== null) {
+      const col = m[1];
+      const idxStr = m[2];
+      const idx = idxStr !== undefined ? parseInt(idxStr, 10) : rowIndex;
+      const key = `${col}:${idx}`;
+      if (visited.has(key)) {
+        result = result.replace(m[0], '');
+        continue;
+      }
+      visited.add(key);
+      const refRow = rows[idx];
+      const replacement = refRow ? String(refRow[col] ?? '') : '';
+      // if replacement itself contains tokens, evaluate recursively
+      const evaluated = evaluateValue(replacement, idx, visited);
+      result = result.replace(m[0], evaluated);
+    }
+    return result;
+  };
+
+  // compute exported rows (apply token evaluation)
+  const computeExportRows = (): Record<string, string>[] => {
+    return rows.map((r, ri) => {
+      const out: Record<string, string> = {};
+      columns.forEach((c) => {
+        const raw = r[c.slug] ?? '';
+        // if cell begins with '=' treat as expression that may include tokens
+        if (raw && raw.startsWith('=')) {
+          const expr = raw.slice(1);
+          // allow tokens inside expression
+          out[c.slug] = evaluateValue(expr, ri);
+        } else {
+          out[c.slug] = evaluateValue(raw, ri);
+        }
+      });
+      return out;
+    });
+  };
+
+  // emit computed JSON whenever grid changes
   useEffect(() => {
-    // emit JSON whenever rows change
-    onChange(JSON.stringify(rows, null, 2));
+    try {
+      onChange(JSON.stringify(computeExportRows(), null, 2));
+    } catch (e) {
+      // ignore
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows]);
+  }, [rows, columns]);
 
   const addColumn = () => {
     const next = columns.length + 1;
@@ -74,6 +122,25 @@ export default function SpreadsheetEditor({ value, onChange }: { value: string; 
     }));
   };
 
+  const updateColumnAI = (slug: string, ai: string) => {
+    setColumns((c) => c.map((col) => col.slug === slug ? { ...col, ai } : col));
+  };
+
+  const addRow = () => {
+    const empty: Record<string, string> = {};
+    columns.forEach((c) => empty[c.slug] = '');
+    setRows((r) => [...r, empty]);
+    // focus new row first cell after next tick
+    setTimeout(() => {
+      const key = `0:${columns[0].slug}`; // using 0-based, but new row is last index
+      // no-op
+    }, 50);
+  };
+
+  const deleteRow = (idx: number) => {
+    setRows((r) => r.filter((_, i) => i !== idx));
+  };
+
   const updateCell = (rowIndex: number, slug: string, val: string) => {
     setRows((r) => {
       const copy = [...r];
@@ -82,54 +149,146 @@ export default function SpreadsheetEditor({ value, onChange }: { value: string; 
     });
   };
 
-  const addRow = () => {
-    const empty: Record<string, string> = {};
-    columns.forEach((c) => empty[c.slug] = '');
-    setRows((r) => [...r, empty]);
+  // Keyboard navigation and copy/paste
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, ri: number, ci: number) => {
+    const key = e.key;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && key.toLowerCase() === 'c') {
+      // copy single cell
+      const val = rows[ri]?.[columns[ci].slug] ?? '';
+      try { await navigator.clipboard.writeText(val); } catch (err) {}
+      e.preventDefault();
+      return;
+    }
+    if (ctrl && key.toLowerCase() === 'v') {
+      // paste into grid — support CSV/tab/line breaks
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) return;
+        const lines = text.split(/\r?\n/).filter(Boolean);
+        const newRows = [...rows];
+        lines.forEach((ln, rIndex) => {
+          const cells = ln.split(/\t|,/);
+          const targetRow = ri + rIndex;
+          while (newRows.length <= targetRow) {
+            const empty: Record<string, string> = {};
+            columns.forEach((c) => empty[c.slug] = '');
+            newRows.push(empty);
+          }
+          cells.forEach((cellVal, cIndex) => {
+            const targetCol = ci + cIndex;
+            if (targetCol < columns.length) {
+              newRows[targetRow][columns[targetCol].slug] = cellVal;
+            }
+          });
+        });
+        setRows(newRows);
+      } catch (err) {
+        // ignore
+      }
+      e.preventDefault();
+      return;
+    }
+
+    if (key === 'ArrowRight') {
+      const nc = Math.min(ci + 1, columns.length - 1);
+      setActive({ r: ri, c: nc });
+      e.preventDefault();
+    } else if (key === 'ArrowLeft') {
+      const nc = Math.max(ci - 1, 0);
+      setActive({ r: ri, c: nc });
+      e.preventDefault();
+    } else if (key === 'ArrowDown' || key === 'Enter') {
+      const nr = Math.min(ri + 1, Math.max(rows.length - 1, 0));
+      setActive({ r: nr, c: ci });
+      e.preventDefault();
+    } else if (key === 'ArrowUp') {
+      const nr = Math.max(ri - 1, 0);
+      setActive({ r: nr, c: ci });
+      e.preventDefault();
+    }
   };
 
-  const deleteRow = (idx: number) => {
-    setRows((r) => r.filter((_, i) => i !== idx));
+  // focus effect when active changes
+  useEffect(() => {
+    if (!active) return;
+    const slug = columns[active.c]?.slug;
+    if (!slug) return;
+    const key = `${active.r}:${slug}`;
+    const el = inputRefs.current.get(key);
+    if (el) {
+      el.focus();
+      // place cursor at end
+      const len = el.value.length;
+      try { el.setSelectionRange(len, len); } catch (e) {}
+    }
+  }, [active, columns]);
+
+  // Export CSV
+  const exportCSV = () => {
+    const header = columns.map((c) => c.slug).join(',');
+    const data = computeExportRows().map(r => columns.map(c => `"${String(r[c.slug] ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv = header + '\n' + data;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'export.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
-  const updateColumnAI = (slug: string, ai: string) => {
-    setColumns((c) => c.map((col) => col.slug === slug ? { ...col, ai } : col));
-  };
-
-  const importJSON = () => {
-    // already handled by parent via value prop — this button helps refresh parsing
-    try {
-      const parsed = JSON.parse(value || '[]');
-      if (Array.isArray(parsed)) setRows(parsed.map((r: any) => {
+  // Import CSV file
+  const handleFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = String(e.target?.result || '');
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length === 0) return;
+      const hdrs = lines[0].split(',').map(h => h.trim());
+      const newCols: Column[] = hdrs.map(h => ({ slug: h, label: h, ai: '' }));
+      const newRows = lines.slice(1).map(ln => {
+        const vals = ln.split(',');
         const obj: Record<string, string> = {};
-        columns.forEach((c) => obj[c.slug] = r[c.slug] ?? '');
+        hdrs.forEach((h, i) => { obj[h] = vals[i] ?? ''; });
         return obj;
-      }));
-    } catch (e) { /* ignore */ }
+      });
+      setColumns(newCols);
+      setRows(newRows);
+    };
+    reader.readAsText(file);
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Button onClick={addColumn}>Add column</Button>
-        <Button onClick={addRow}>Add row</Button>
-        <Button onClick={importJSON}>Refresh from JSON</Button>
+        <button onClick={() => setRows((r) => { const empty: Record<string,string> = {}; columns.forEach(c => empty[c.slug]=''); return [...r, empty]; })} className="btn">Add row</button>
+        <button onClick={addColumn} className="btn">Add column</button>
+        <label className="cursor-pointer btn">
+          Import CSV
+          <input type="file" accept=".csv,text/csv" onChange={(e) => handleFile(e.target.files ? e.target.files[0] : null)} className="hidden" />
+        </label>
+        <button onClick={exportCSV} className="btn">Export CSV</button>
+        <button onClick={() => onChange(JSON.stringify(computeExportRows(), null, 2))} className="btn">Apply to JSON</button>
       </div>
 
       <div className="overflow-auto border rounded mt-2">
         <table className="min-w-full table-auto">
           <thead>
             <tr>
-              {columns.map((col) => (
+              {columns.map((col, ci) => (
                 <th key={col.slug} className="p-2 align-top border-r">
                   <div className="flex items-center gap-2">
-                    <Input value={col.slug} onChange={(e) => updateColumnSlug(col.slug, (e.target as HTMLInputElement).value)} className="w-36" />
-                    <Button size="sm" variant="destructive" onClick={() => deleteColumn(col.slug)}>Del</Button>
+                    <input className="border px-2 py-1 w-32" value={col.slug} onChange={(e) => updateColumnSlug(col.slug, e.target.value)} />
+                    <button onClick={() => deleteColumn(col.slug)} className="text-sm text-red-600">Del</button>
                   </div>
                   <div className="mt-2">
                     <label className="text-xs">AI instruction</label>
-                    <Textarea value={col.ai || ''} onChange={(e) => updateColumnAI(col.slug, (e.target as HTMLTextAreaElement).value)} className="h-20 mt-1" />
-                    <div className="text-xs text-muted-foreground">You can reference other columns using {'{{column_slug}}'} or rows using {'{{column_slug[rowIndex]}}'} in your AI prompt. Evaluation happens during generation.</div>
+                    <textarea className="border w-full mt-1 p-1 h-20" value={col.ai || ''} onChange={(e) => updateColumnAI(col.slug, e.target.value)} />
+                    <div className="text-xs text-muted-foreground">Reference other cells with {{column_slug}} or {{column_slug[rowIndex]}}. Evaluation happens during generation.</div>
                   </div>
                 </th>
               ))}
@@ -142,24 +301,27 @@ export default function SpreadsheetEditor({ value, onChange }: { value: string; 
             )}
             {rows.map((row, ri) => (
               <tr key={ri} className="border-t">
-                {columns.map((col) => (
+                {columns.map((col, ci) => (
                   <td key={col.slug} className="p-2 align-top border-r">
-                    <Input value={row[col.slug] ?? ''} onChange={(e) => updateCell(ri, col.slug, (e.target as HTMLInputElement).value)} />
+                    <input
+                      ref={(el) => { if (!el) return; inputRefs.current.set(`${ri}:${col.slug}`, el); }}
+                      className="border px-2 py-1 w-72"
+                      value={row[col.slug] ?? ''}
+                      onChange={(e) => updateCell(ri, col.slug, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e as any, ri, ci)}
+                      onFocus={() => setActive({ r: ri, c: ci })}
+                    />
                   </td>
                 ))}
                 <td className="p-2 align-top">
                   <div className="flex flex-col gap-2">
-                    <Button size="sm" variant="destructive" onClick={() => deleteRow(ri)}>Delete row</Button>
+                    <button onClick={() => deleteRow(ri)} className="text-sm text-red-600">Delete row</button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="flex gap-2">
-        <Button onClick={() => onChange(JSON.stringify(rows, null, 2))}>Apply to JSON</Button>
       </div>
     </div>
   );
