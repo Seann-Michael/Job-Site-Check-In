@@ -395,12 +395,63 @@ const handler: Handler = async (event, context) => {
       const { data: template, error: tErr } = await supabase.from('page_templates').select('*').eq('id', template_id).single();
       if (tErr || !template) return { statusCode: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: 'Template not found' }) };
 
-      const previews = (items.slice(0, 5)).map((item: any) => {
+      // apply column AI instructions to preview items if provided
+      const colsPreview: any[] = ( (options && options.columns) || [] );
+      const evaluateTokens = (raw: string, rowIndex: number, rowsArr: any[], depth = 0): string => {
+        if (typeof raw !== 'string') return String(raw ?? '');
+        if (depth > 50) return raw;
+        const tokenRe = /\{\{([a-zA-Z0-9_\-]+)(?:\[(\d+)\])?\}\}/g;
+        let result = raw;
+        let m: RegExpExecArray | null;
+        while ((m = tokenRe.exec(raw)) !== null) {
+          const col = m[1];
+          const idxStr = m[2];
+          const idx = idxStr !== undefined ? parseInt(idxStr, 10) : rowIndex;
+          const refRow = rowsArr[idx];
+          const replacement = refRow ? String(refRow[col] ?? '') : '';
+          const evaluated = evaluateTokens(replacement, idx, rowsArr, depth + 1);
+          result = result.replace(m[0], evaluated);
+        }
+        return result;
+      };
+      const callAI = async (prompt: string) => {
+        const key = process.env.OPENAI_API_KEY || process.env.REPLACE_ENV_OPENAI_API_KEY || null;
+        if (!key) return prompt;
+        try {
+          const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({ model: 'gpt-3.5-turbo', messages: [{ role: 'user', content: prompt }], max_tokens: 200 }),
+          });
+          const j = await resp.json();
+          const txt = j?.choices?.[0]?.message?.content || j?.choices?.[0]?.text || '';
+          return String(txt).trim();
+        } catch (err) {
+          console.error('AI call failed', err);
+          return prompt;
+        }
+      };
+
+      const previews = [];
+      const previewItems = items.slice(0,5);
+      for (let pi = 0; pi < previewItems.length; pi++) {
+        const item = { ...previewItems[pi] };
+        if (Array.isArray(colsPreview) && colsPreview.length > 0) {
+          for (const col of colsPreview) {
+            if (col && col.slug && col.ai) {
+              const promptRaw = String(col.ai || '');
+              const promptEvaluated = evaluateTokens(promptRaw, pi, previewItems);
+              // call AI only if key present
+              const aiVal = await callAI(promptEvaluated);
+              item[col.slug] = aiVal;
+            }
+          }
+        }
         const rendered = renderTemplate(template.template_content, item || {});
         const title = renderTemplate((template.metadata?.title_template as string) || (item.title || ''), item);
         const slug = renderTemplate((template.metadata?.slug_template as string) || (title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''), item);
-        return { title, slug, rendered: rendered.slice(0, 3000), variables: item };
-      });
+        previews.push({ title, slug, rendered: rendered.slice(0, 3000), variables: item });
+      }
 
       return { statusCode: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ previews }) };
     }
