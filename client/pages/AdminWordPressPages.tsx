@@ -108,7 +108,7 @@ export default function AdminWordPressPages() {
     if (!selectedTemplate) return;
     let items = [];
     try { items = JSON.parse(itemsJson); } catch (e) { alert('Invalid JSON for items'); return; }
-    const res = await fetch('/.netlify/functions/bulk-pages/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template_id: selectedTemplate, items }) });
+    const res = await fetch('/.netlify/functions/bulk-pages/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template_id: selectedTemplate, items, options: { columns: spreadsheetColumns } }) });
     const data = await res.json();
     setPreviews(data.previews || []);
   };
