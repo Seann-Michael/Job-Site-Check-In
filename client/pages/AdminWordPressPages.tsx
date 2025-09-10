@@ -117,7 +117,7 @@ export default function AdminWordPressPages() {
     if (!selectedTemplate || !selectedSite) { alert('Select site and template'); return; }
     let items = [];
     try { items = JSON.parse(itemsJson); } catch (e) { alert('Invalid JSON for items'); return; }
-    const res = await fetch('/.netlify/functions/bulk-pages/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }, body: JSON.stringify({ site_id: selectedSite, template_id: selectedTemplate, items }) });
+    const res = await fetch('/.netlify/functions/bulk-pages/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }, body: JSON.stringify({ site_id: selectedSite, template_id: selectedTemplate, items, options: { columns: spreadsheetColumns } }) });
     const data = await res.json();
     if (data.job_id) {
       alert('Job started: ' + data.job_id);
