@@ -162,7 +162,7 @@ export default function AdminWordPressPages() {
                 </div>
 
                 <div className="mt-2">
-                  <SpreadsheetEditor value={itemsJson} onChange={(v) => setItemsJson(v)} />
+                  <SpreadsheetEditor value={itemsJson} onChange={(v) => setItemsJson(v)} onColumnsChange={(cols) => setSpreadsheetColumns(cols)} />
                 </div>
 
                 {rawCSVText && showCSVMapper && (
