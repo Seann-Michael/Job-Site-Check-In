@@ -37,6 +37,10 @@ export default function SpreadsheetEditor({ value, onChange, onColumnsChange }: 
     }
   }, [value]);
 
+  useEffect(() => {
+    if (typeof onColumnsChange === 'function') onColumnsChange(columns.map(c => ({ slug: c.slug, label: c.label, ai: c.ai })));
+  }, [columns, onColumnsChange]);
+
   // Evaluate tokens {{col}} or {{col[index]}} against current rows
   const evaluateValue = (raw: string, rowIndex: number, visited = new Set<string>()): string => {
     if (typeof raw !== 'string') return String(raw ?? '');
