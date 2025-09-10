@@ -389,7 +389,7 @@ const handler: Handler = async (event, context) => {
       if (authResult.statusCode !== 200) return authResult;
       if (!body) return { statusCode: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "Request body is required" }) };
 
-      const { template_id, items } = JSON.parse(body);
+      const { template_id, items, options } = JSON.parse(body);
       if (!template_id || !Array.isArray(items)) return { statusCode: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "template_id and items[] are required" }) };
 
       const { data: template, error: tErr } = await supabase.from('page_templates').select('*').eq('id', template_id).single();
