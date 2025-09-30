@@ -35,7 +35,13 @@ function expressPlugin(): Plugin {
 
       // Handle API and public routes with proper middleware order
       server.middlewares.use((req, res, next) => {
-        if (req.url?.startsWith("/api/") || req.url?.startsWith("/public/")) {
+        if (
+          req.url?.startsWith("/api/") ||
+          req.url?.startsWith("/public/") ||
+          req.url?.startsWith("/.netlify/functions/") ||
+          req.url === "./.netlify/functions" ||
+          req.url === "/.netlify/functions"
+        ) {
           app(req as any, res as any, next as any);
         } else {
           next();
