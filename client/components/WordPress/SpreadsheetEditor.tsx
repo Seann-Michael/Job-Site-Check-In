@@ -1,6 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
-
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
 type Column = { slug: string; label: string; ai?: string };
 
