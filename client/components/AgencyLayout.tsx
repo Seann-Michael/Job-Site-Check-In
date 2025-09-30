@@ -51,7 +51,6 @@ import {
   DollarSign,
   Monitor,
   Building2,
-  UsersIcon,
   TrendingUp,
   Percent,
   FolderKanban,
