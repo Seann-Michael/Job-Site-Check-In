@@ -1280,6 +1280,14 @@ const App = () => (
                   element={<Navigate to="/agency/admin/dashboard" replace />}
                 />
                 <Route
+                  path="/agency/admin"
+                  element={<Navigate to="/agency/admin/dashboard" replace />}
+                />
+                <Route
+                  path="/agency/admin/commission"
+                  element={<Navigate to="/agency/admin/reports" replace />}
+                />
+                <Route
                   path="/AgencyProjects"
                   element={<Navigate to="/agency/admin/projects" replace />}
                 />
