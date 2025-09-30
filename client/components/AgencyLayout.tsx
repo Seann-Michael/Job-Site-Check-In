@@ -368,7 +368,7 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       id: "admin-users",
       label: "Admin Users",
       href: "/agency/admin/admin-users",
-      icon: UsersIcon,
+      icon: Users,
       active:
         location.pathname === "/agency/admin/admin-users" ||
         location.pathname.startsWith("/agency/admin/admin-users/"),
