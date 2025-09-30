@@ -405,7 +405,9 @@ export function AppLayout({
       active:
         location.pathname.startsWith("/admin/tools") ||
         location.pathname.startsWith("/admin/marketplace") ||
-        location.pathname.startsWith("/admin/leads"),
+        location.pathname.startsWith("/admin/leads") ||
+        location.pathname.startsWith("/admin/ai-agent") ||
+        location.pathname.startsWith("/admin/gmb-optimization"),
       comingSoon: false,
       subItems: [
         {
@@ -432,23 +434,19 @@ export function AppLayout({
           href: "/admin/wordpress-pages/sites",
           active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
         },
+        {
+          id: "ai-agent",
+          label: "AI Agent",
+          href: "/admin/ai-agent",
+          active: location.pathname.startsWith("/admin/ai-agent"),
+        },
+        {
+          id: "gmb-optimization",
+          label: "GMB Optimization",
+          href: "/admin/gmb-optimization",
+          active: location.pathname.startsWith("/admin/gmb-optimization"),
+        },
       ],
-    },
-    {
-      id: "ai-agent",
-      label: "AI Agent",
-      href: "/admin/ai-agent",
-      icon: Bot,
-      active: location.pathname === "/admin/ai-agent",
-      comingSoon: false,
-    },
-    {
-      id: "gmb-optimization",
-      label: "GMB Optimization",
-      href: "/admin/gmb-optimization",
-      icon: Building2,
-      active: location.pathname === "/admin/gmb-optimization",
-      comingSoon: false,
     },
     {
       id: "social-posting",
