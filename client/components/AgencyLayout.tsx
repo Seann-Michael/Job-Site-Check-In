@@ -30,6 +30,7 @@ import {
   Home,
   BarChart3,
   FileText,
+  Globe,
   CreditCard,
   Briefcase,
   Settings,
