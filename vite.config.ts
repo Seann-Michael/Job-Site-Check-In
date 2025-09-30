@@ -35,8 +35,8 @@ function expressPlugin(): Plugin {
 
       // Handle API and public routes with proper middleware order
       server.middlewares.use((req, res, next) => {
-        if (req.url?.startsWith('/api/') || req.url?.startsWith('/public/')) {
-          app(req, res, next);
+        if (req.url?.startsWith("/api/") || req.url?.startsWith("/public/")) {
+          app(req as any, res as any, next as any);
         } else {
           next();
         }
