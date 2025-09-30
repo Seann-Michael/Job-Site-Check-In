@@ -257,4 +257,4 @@ export class MediaMetadataEnhancer {
   }
 }
 
-export type { MediaMetadata, EnhancedMediaFile, ProjectInfo };
+export type { MediaMetadata, EnhancedMediaFile };
