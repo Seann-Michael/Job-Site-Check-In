@@ -81,10 +81,9 @@ function expressPlugin(): Plugin {
             await new Promise((resolve) => req.on("end", resolve));
 
             // Build Netlify-style event
-            const { pathname, query } = new URL(req.url, `http://${req.headers.host}`);
-
+            const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
             const queryParams: Record<string, string> = {};
-            for (const [k, v] of new URLSearchParams(query)) {
+            for (const [k, v] of parsedUrl.searchParams.entries()) {
               queryParams[k] = v as string;
             }
 
