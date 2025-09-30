@@ -173,7 +173,7 @@ export default function AdminWordPressPages() {
 
                 <div className="flex gap-2 mt-4">
                   <Button onClick={handlePreview}>Preview</Button>
-                  <Button onClick={handleGenerate} variant="primary">Generate</Button>
+                  <Button onClick={handleGenerate}>Generate</Button>
                 </div>
               </div>
 
