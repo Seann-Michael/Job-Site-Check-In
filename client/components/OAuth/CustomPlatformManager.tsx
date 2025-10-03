@@ -141,6 +141,7 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
 
     setNewField({
       type: "text",
+      name: "",
       label: "",
       placeholder: "",
       required: false,
