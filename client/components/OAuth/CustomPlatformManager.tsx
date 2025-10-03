@@ -92,6 +92,7 @@ const CustomPlatformForm: React.FC<CustomPlatformFormProps> = ({
 
   const [newField, setNewField] = useState<Partial<CustomPlatformField>>({
     type: "text",
+    name: "",
     label: "",
     placeholder: "",
     required: false,
