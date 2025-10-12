@@ -367,7 +367,7 @@ export const NotificationTemplates = {
     data: { type: "message", url: "/notifications" },
     actions: [
       { action: "reply", title: "Reply" },
-      { action: "view", title: "View Messages", url: "/notifications" },
+      { action: "view", title: "View Messages" },
     ],
   }),
 
