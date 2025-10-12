@@ -35,7 +35,6 @@ import {
   CheckCircle,
   Circle,
   AlertCircle,
-  Edit,
   Trash,
   MessageSquare,
   Paperclip,
