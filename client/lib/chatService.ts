@@ -77,17 +77,42 @@ class ChatService {
         },
       });
 
-      // Read response body once as text, then parse as needed
-      const responseText = await response.text();
+      // Try to read response body safely. Some environments may have the body already consumed
+      // so we attempt multiple strategies: text(), then clone().json(), then clone().text().
+      let responseText = '';
+      try {
+        responseText = await response.text();
+      } catch (readErr) {
+        console.warn('Failed to read response.text():', readErr);
+        // Try parsing JSON from a clone if possible
+        try {
+          const clonedJson = await response.clone().json();
+          return clonedJson;
+        } catch (cloneJsonErr) {
+          console.warn('Failed to parse cloned response as JSON:', cloneJsonErr);
+          try {
+            responseText = await response.clone().text();
+          } catch (cloneTextErr) {
+            console.error('Unable to read response body by any method:', cloneTextErr);
+            // Fall back to minimal handling below
+            responseText = '';
+          }
+        }
+      }
 
       if (!response.ok) {
         // Try to parse error response as JSON first
         let errorMessage = `HTTP ${response.status}`;
         try {
-          const errorData = JSON.parse(responseText);
-          errorMessage = errorData.error || errorMessage;
+          const errorData = responseText ? JSON.parse(responseText) : null;
+          if (errorData && typeof errorData === 'object') {
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } else if (responseText && responseText.length < 200) {
+            errorMessage = responseText;
+          } else {
+            errorMessage = `HTTP ${response.status} - ${response.statusText}`;
+          }
         } catch {
-          // If JSON parsing fails, use the text content
           if (responseText && responseText.length < 200) {
             errorMessage = responseText;
           } else {
@@ -99,11 +124,11 @@ class ChatService {
 
       // Try to parse successful response as JSON
       try {
-        return JSON.parse(responseText);
+        return responseText ? JSON.parse(responseText) : { data: null };
       } catch (jsonError) {
         console.warn('Response is not valid JSON:', jsonError);
-        console.warn('Response text:', responseText.substring(0, 200));
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+        console.warn('Response text:', responseText ? responseText.substring(0, 200) : '<empty>');
+        throw new Error(`Invalid JSON response: ${responseText ? responseText.substring(0, 100) + '...' : '<empty>'}`);
       }
     } catch (error) {
       console.error('Chat API error:', error);
