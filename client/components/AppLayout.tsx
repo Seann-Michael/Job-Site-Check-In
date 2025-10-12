@@ -364,14 +364,6 @@ export function AppLayout({
       ],
     },
     {
-      id: "tasks",
-      label: "Tasks",
-      href: "/admin/tasks",
-      icon: CheckCircle,
-      active: location.pathname.startsWith("/admin/tasks"),
-      comingSoon: false,
-    },
-    {
       id: "reviews",
       label: "Reviews",
       href: "/admin/reviews",
