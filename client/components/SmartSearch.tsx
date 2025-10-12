@@ -41,7 +41,7 @@ interface SearchResult {
   id: string;
   title: string;
   subtitle: string;
-  type: "project" | "lead" | "contact" | "action" | "page";
+  type: "project" | "contact" | "action" | "page";
   icon: any;
   href?: string;
   action?: () => void;
@@ -199,8 +199,6 @@ export function SmartSearch({
     switch (type) {
       case "project":
         return "Projects";
-      case "lead":
-        return "Leads";
       case "contact":
         return "Contacts";
       case "action":
@@ -216,8 +214,6 @@ export function SmartSearch({
     switch (type) {
       case "project":
         return "bg-blue-100 text-blue-800";
-      case "lead":
-        return "bg-green-100 text-green-800";
       case "contact":
         return "bg-purple-100 text-purple-800";
       case "action":
@@ -279,7 +275,7 @@ export function SmartSearch({
           <DialogHeader className="px-4 pb-0 pt-4">
             <DialogTitle>Search</DialogTitle>
             <DialogDescription>
-              Search projects, leads, and more. Use{" "}
+              Search projects and more. Use{" "}
               <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">⌘K</kbd>{" "}
               to open anytime.
             </DialogDescription>
