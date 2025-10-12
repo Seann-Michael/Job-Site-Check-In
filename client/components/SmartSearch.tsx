@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/command";
 import {
   Search,
-  Users,
   DollarSign,
   FolderOpen,
   Star,
