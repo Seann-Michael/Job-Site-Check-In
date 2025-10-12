@@ -65,7 +65,6 @@ class PermissionService {
       analytics: "Analytics & Reporting",
       reports: "Analytics & Reporting",
       settings: "System Administration",
-      chat: "Communication & Chat",
       media: "Media & Content",
       tasks: "Project Management",
       reviews: "SEO Tools",
