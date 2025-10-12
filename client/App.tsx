@@ -43,11 +43,9 @@ const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const Tools = lazy(() => import("./pages/Tools"));
 const MarketPlace = lazy(() => import("./pages/MarketPlace"));
 const Ideas = lazy(() => import("./pages/Ideas"));
-const AIAgent = lazy(() => import("./pages/AIAgent"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
 const AdminWordPressSites = lazy(() => import("./pages/AdminWordPressSites"));
-const Chat = lazy(() => import("./pages/Chat"));
 const CRM = lazy(() => import("./pages/CRM"));
 const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
 const AdminBillingManagement = lazy(
@@ -133,14 +131,8 @@ const AgencyProjectCreate = lazy(() => import("./pages/AgencyProjectCreate"));
 const AgencyProjectDetail = lazy(() => import("./pages/AgencyProjectDetail"));
 const AgencyProjectEdit = lazy(() => import("./pages/AgencyProjectEdit"));
 
-// Agency Task Management
-const AgencyTasks = lazy(() => import("./pages/AgencyTasks"));
-const TaskView = lazy(() => import("./pages/TaskView"));
-
 // Lead Management
 const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
-const AdminLeads = lazy(() => import("./pages/AdminLeads"));
-const AgencyLeads = lazy(() => import("./pages/AgencyLeads"));
 
 // Service Worker registration is handled in index.html to avoid duplicates
 
