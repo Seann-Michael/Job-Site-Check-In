@@ -305,8 +305,7 @@ export function AppLayout({
   React.useEffect(() => {
     if (
       (location.pathname.startsWith("/admin/tools") ||
-        location.pathname.startsWith("/admin/marketplace") ||
-        location.pathname.startsWith("/admin/leads")) &&
+        location.pathname.startsWith("/admin/marketplace")) &&
       !expandedMenus.includes("tools")
     ) {
       setExpandedMenus((prev) => [...prev, "tools"]);
@@ -401,8 +400,6 @@ export function AppLayout({
       active:
         location.pathname.startsWith("/admin/tools") ||
         location.pathname.startsWith("/admin/marketplace") ||
-        location.pathname.startsWith("/admin/leads") ||
-        location.pathname.startsWith("/admin/ai-agent") ||
         location.pathname.startsWith("/admin/gmb-optimization"),
       comingSoon: false,
       subItems: [
@@ -413,22 +410,10 @@ export function AppLayout({
           active: location.pathname.startsWith("/admin/marketplace"),
         },
         {
-          id: "get-leads",
-          label: "Get Leads",
-          href: "/admin/leads",
-          active: location.pathname.startsWith("/admin/leads"),
-        },
-        {
           id: "wordpress-sites",
           label: "WP Sites",
           href: "/admin/wordpress-pages/sites",
           active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
-        },
-        {
-          id: "ai-agent",
-          label: "AI Agent",
-          href: "/admin/ai-agent",
-          active: location.pathname.startsWith("/admin/ai-agent"),
         },
         {
           id: "gmb-optimization",
@@ -444,14 +429,6 @@ export function AppLayout({
       href: "/admin/social-posting",
       icon: Share2,
       active: location.pathname === "/admin/social-posting",
-      comingSoon: false,
-    },
-    {
-      id: "chat",
-      label: "Team Chat",
-      href: "/admin/chat",
-      icon: MessageSquare,
-      active: location.pathname === "/admin/chat",
       comingSoon: false,
     },
     {
