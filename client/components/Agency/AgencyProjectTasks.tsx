@@ -41,7 +41,6 @@ import {
   Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import {
   AgencyProjectTask,
   AgencyTaskComment,
@@ -60,7 +59,6 @@ export function AgencyProjectTasks({
   tasks,
   onTasksChange,
 }: AgencyProjectTasksProps) {
-  const navigate = useNavigate();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<AgencyProjectTask | null>(
     null,
@@ -479,10 +477,9 @@ export function AgencyProjectTasks({
           filteredTasks.map((task) => (
             <Card
               key={task.id}
-              className={`transition-colors cursor-pointer hover:shadow-md ${
+              className={`transition-colors hover:shadow-md ${
                 isTaskOverdue(task) ? "border-red-200 bg-red-50/50" : ""
               }`}
-              onClick={() => navigate(`/agency/admin/tasks/${task.id}`)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
@@ -588,16 +585,6 @@ export function AgencyProjectTasks({
                           <span className="ml-2">{status.label}</span>
                         </DropdownMenuItem>
                       ))}
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/agency/admin/tasks/${task.id}`);
-                        }}
-                        className="text-blue-600"
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        View/Edit Task
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDeleteTask(task.id)}
                         className="text-red-600"
