@@ -190,14 +190,6 @@ export function AppLayout({
       comingSoon: false,
     },
     {
-      id: "wordpress-pages",
-      label: "WordPress Pages",
-      href: "/admin/wordpress-pages",
-      icon: Globe,
-      active: location.pathname.startsWith("/admin/wordpress-pages"),
-      comingSoon: false,
-    },
-    {
       id: "wordpress-sites",
       label: "WP Sites",
       href: "/admin/wordpress-pages/sites",
