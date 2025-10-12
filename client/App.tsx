@@ -51,7 +51,9 @@ const AdminWordPressSites = lazy(() => import("./pages/AdminWordPressSites"));
 const Chat = lazy(() => import("./pages/Chat"));
 const CRM = lazy(() => import("./pages/CRM"));
 const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
-const AdminBillingManagement = lazy(() => import("./pages/AdminBillingManagement"));
+const AdminBillingManagement = lazy(
+  () => import("./pages/AdminBillingManagement"),
+);
 const AgencyBillingControl = lazy(() => import("./pages/AgencyBillingControl"));
 const PublicAuditReport = lazy(() => import("./pages/PublicAuditReport"));
 const Payments = lazy(() => import("./pages/Payments"));
@@ -61,7 +63,9 @@ const PublicProject = lazy(() => import("./pages/PublicProject"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AgencyAdmin = lazy(() => import("./pages/AgencyAdmin"));
-const AgencyClientManagement = lazy(() => import("./pages/AgencyClientManagement"));
+const AgencyClientManagement = lazy(
+  () => import("./pages/AgencyClientManagement"),
+);
 const AddAgencyClient = lazy(() => import("./pages/AddAgencyClient"));
 const AgencyAnalytics = lazy(() => import("./pages/AgencyAnalytics"));
 const AgencyReports = lazy(() => import("./pages/AgencyReports"));
@@ -70,13 +74,21 @@ const AgencyBilling = lazy(() => import("./pages/AgencyBilling"));
 const AgencyBusinessOwners = lazy(() => import("./pages/AgencyBusinessOwners"));
 const AgencyAdminUsers = lazy(() => import("./pages/AgencyAdminUsers"));
 const AgencySettings = lazy(() => import("./pages/AgencySettings"));
-const AgencyBusinessOwnerDetail = lazy(() => import("./pages/AgencyBusinessOwnerDetail"));
-const AgencyBusinessOwnerEdit = lazy(() => import("./pages/AgencyBusinessOwnerEdit"));
+const AgencyBusinessOwnerDetail = lazy(
+  () => import("./pages/AgencyBusinessOwnerDetail"),
+);
+const AgencyBusinessOwnerEdit = lazy(
+  () => import("./pages/AgencyBusinessOwnerEdit"),
+);
 const AddAgencyAdminUser = lazy(() => import("./pages/AddAgencyAdminUser"));
-const AgencyAdminUserDetail = lazy(() => import("./pages/AgencyAdminUserDetail"));
+const AgencyAdminUserDetail = lazy(
+  () => import("./pages/AgencyAdminUserDetail"),
+);
 const AgencyAdminUserEdit = lazy(() => import("./pages/AgencyAdminUserEdit"));
 const AgencyClientAccess = lazy(() => import("./pages/AgencyClientAccess"));
-const SuperAdminAgencyManagement = lazy(() => import("./pages/SuperAdminAgencyManagement"));
+const SuperAdminAgencyManagement = lazy(
+  () => import("./pages/SuperAdminAgencyManagement"),
+);
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
 const SuperAdminStaff = lazy(() => import("./pages/SuperAdminStaff"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -91,19 +103,29 @@ const AdminReviews = lazy(() => import("./pages/AdminReviews"));
 const IdeaDetail = lazy(() => import("./pages/IdeaDetail"));
 const SuperAdminIdeas = lazy(() => import("./pages/SuperAdminIdeas"));
 const SuperAdminBroadcast = lazy(() => import("./pages/SuperAdminBroadcast"));
-const SuperAdminMessageTemplates = lazy(() => import("./pages/SuperAdminMessageTemplates"));
+const SuperAdminMessageTemplates = lazy(
+  () => import("./pages/SuperAdminMessageTemplates"),
+);
 const SuperAdminAnalytics = lazy(() => import("./pages/SuperAdminAnalytics"));
 const SuperAdminAutomation = lazy(() => import("./pages/SuperAdminAutomation"));
-const SuperAdminSegmentation = lazy(() => import("./pages/SuperAdminSegmentation"));
-const SuperAdminEmailIntegration = lazy(() => import("./pages/SuperAdminEmailIntegration"));
+const SuperAdminSegmentation = lazy(
+  () => import("./pages/SuperAdminSegmentation"),
+);
+const SuperAdminEmailIntegration = lazy(
+  () => import("./pages/SuperAdminEmailIntegration"),
+);
 const SuperAdminAPI = lazy(() => import("./pages/SuperAdminAPI"));
-const SuperAdminPerformance = lazy(() => import("./pages/SuperAdminPerformance"));
+const SuperAdminPerformance = lazy(
+  () => import("./pages/SuperAdminPerformance"),
+);
 const SuperAdminQuality = lazy(() => import("./pages/SuperAdminQuality"));
 const SuperAdminHelp = lazy(() => import("./pages/SuperAdminHelp"));
 const SuperAdminSupport = lazy(() => import("./pages/SuperAdminSupport"));
 const SuperAdminFinancial = lazy(() => import("./pages/SuperAdminFinancial"));
 const SuperAdminUsers = lazy(() => import("./pages/SuperAdminUsers"));
-const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunications"));
+const SuperAdminCommunications = lazy(
+  () => import("./pages/SuperAdminCommunications"),
+);
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
 // Agency Project Management imports
@@ -120,7 +142,6 @@ const TaskView = lazy(() => import("./pages/TaskView"));
 const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
 const AdminLeads = lazy(() => import("./pages/AdminLeads"));
 const AgencyLeads = lazy(() => import("./pages/AgencyLeads"));
-
 
 // Service Worker registration is handled in index.html to avoid duplicates
 
@@ -674,7 +695,6 @@ const App = () => (
                   }
                 />
 
-
                 <Route
                   path="/admin/billing"
                   element={
@@ -1180,7 +1200,12 @@ const App = () => (
                 />
                 <Route
                   path="/GeoGridReport/:reportId"
-                  element={<Navigate to="/admin/audits/geo-grid-report/:reportId" replace />}
+                  element={
+                    <Navigate
+                      to="/admin/audits/geo-grid-report/:reportId"
+                      replace
+                    />
+                  }
                 />
                 <Route
                   path="/AgencyClientAccess"

@@ -109,10 +109,12 @@ function CreditBalance({ collapsed }: { collapsed: boolean }) {
 
   if (isLoading) {
     return (
-      <div className={cn(
-        "flex items-center justify-center p-2 bg-muted/50 rounded-lg",
-        collapsed ? "" : "space-x-2"
-      )}>
+      <div
+        className={cn(
+          "flex items-center justify-center p-2 bg-muted/50 rounded-lg",
+          collapsed ? "" : "space-x-2",
+        )}
+      >
         <div className="animate-pulse h-4 w-4 bg-muted-foreground/50 rounded"></div>
         {!collapsed && (
           <div className="animate-pulse h-3 w-16 bg-muted-foreground/50 rounded"></div>
@@ -131,10 +133,12 @@ function CreditBalance({ collapsed }: { collapsed: boolean }) {
   };
 
   return (
-    <div className={cn(
-      "flex items-center p-2 bg-primary/10 rounded-lg border",
-      collapsed ? "justify-center" : "justify-between"
-    )}>
+    <div
+      className={cn(
+        "flex items-center p-2 bg-primary/10 rounded-lg border",
+        collapsed ? "justify-center" : "justify-between",
+      )}
+    >
       <div className="flex items-center space-x-2">
         <CreditCard className="h-4 w-4 text-primary" />
         {!collapsed && (
@@ -881,7 +885,11 @@ export function AppLayout({
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuContent
+                      className="w-56"
+                      align="end"
+                      forceMount
+                    >
                       <DropdownMenuLabel className="font-normal">
                         <div className="flex flex-col space-y-1">
                           <p className="text-sm font-medium leading-none">
