@@ -50,7 +50,6 @@ import {
   MapPin,
   X,
   Menu,
-  MessageSquare,
   BarChart3,
   FileText,
   Zap,
