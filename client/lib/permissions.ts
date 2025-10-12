@@ -577,12 +577,7 @@ export const PermissionHelpers = {
   canManageUsers: (user: UserData) => 
     permissionService.hasPermission(user, PERMISSIONS.USERS_MANAGE),
   
-  canAccessChat: (user: UserData) => 
-    permissionService.hasPermission(user, PERMISSIONS.CHAT_READ),
-  
-  canModerateChat: (user: UserData) => 
-    permissionService.hasPermission(user, PERMISSIONS.CHAT_MODERATE),
-  
+ 
   canManageBilling: (user: UserData) => 
     permissionService.hasPermission(user, PERMISSIONS.BILLING_MANAGE),
   
