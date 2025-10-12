@@ -143,9 +143,6 @@ function getAgencyBreadcrumbs(pathname: string): BreadcrumbItem[] {
         { label: "Create Project" },
       ];
 
-    case "/agency/admin/tasks":
-      return [baseBreadcrumb, { label: "Tasks" }];
-
     case "/agency/admin/client-access":
       return [baseBreadcrumb, { label: "Client Access" }];
 
@@ -326,22 +323,6 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       active:
         location.pathname === "/agency/admin/projects" ||
         location.pathname.startsWith("/agency/admin/projects/"),
-      comingSoon: false,
-    },
-    {
-      id: "tasks",
-      label: "Tasks",
-      href: "/agency/admin/tasks",
-      icon: CheckCircle,
-      active: location.pathname === "/agency/admin/tasks",
-      comingSoon: false,
-    },
-    {
-      id: "leads",
-      label: "Get Leads",
-      href: "/agency/admin/leads",
-      icon: Database,
-      active: location.pathname.startsWith("/agency/admin/leads"),
       comingSoon: false,
     },
     {
