@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": "20.x",
-    "npm": "10.x"
+    "node": ">=20.10.0 <21.0.0",
+    "npm": ">=10.2.0 <11.0.0"
   },
   "scripts": {
     "dev": "netlify dev",
@@ -103,5 +103,8 @@
     "tsx": "^4.7.1",
     "typescript": "^5.2.2",
     "vite": "^5.1.4"
+  },
+  "overrides": {
+    "@rollup/rollup-android-arm-eabi": "npm:@rollup/rollup-linux-x64-gnu@4.22.4"
   }
 }
