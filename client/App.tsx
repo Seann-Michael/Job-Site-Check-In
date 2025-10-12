@@ -451,16 +451,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/ai-agent"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<div>Loading...</div>}>
-                        <AIAgent />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/gmb-optimization"
                   element={
                     <ProtectedRoute>
