@@ -161,12 +161,7 @@ export const PERMISSIONS = {
   REPORTS_READ: 'reports:read',
   REPORTS_EXPORT: 'reports:export',
   
-  // Chat & Communication
-  CHAT_READ: 'chat:read',
-  CHAT_CREATE: 'chat:create',
-  CHAT_MODERATE: 'chat:moderate',
-  CHAT_MANAGE: 'chat:manage',
-  
+ 
   // Media Management
   MEDIA_CREATE: 'media:create',
   MEDIA_READ: 'media:read',
