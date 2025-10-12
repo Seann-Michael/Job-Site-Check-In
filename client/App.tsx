@@ -908,14 +908,6 @@ const App = () => (
 
                 {/* Agency Task Management Routes */}
                 <Route
-                  path="/agency/admin/tasks"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyTasks />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/agency/admin/tasks/:taskId"
                   element={
                     <ProtectedRoute>
