@@ -55,7 +55,6 @@ import {
   Percent,
   FolderKanban,
   ClipboardCheck,
-  Database,
   Link2,
   UserCheck,
 } from "lucide-react";
