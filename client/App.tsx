@@ -459,14 +459,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/tasks"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyTasks />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/ai-agent"
                   element={
                     <ProtectedRoute>
@@ -965,15 +957,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <AgencyLeads />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Admin Tasks Routes */}
-                <Route
-                  path="/admin/tasks/:taskId"
-                  element={
-                    <ProtectedRoute>
-                      <TaskView />
                     </ProtectedRoute>
                   }
                 />
