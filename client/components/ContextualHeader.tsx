@@ -131,44 +131,6 @@ function getPageConfig(pathname: string): PageConfig | null {
         ],
       };
 
-    case pathname === "/admin/leads":
-      return {
-        title: "Lead Management",
-        subtitle: "Track leads through your sales pipeline",
-        icon: Users,
-        primaryAction: {
-          label: "Add Lead",
-          icon: Plus,
-          href: "/admin/leads?action=add",
-        },
-        secondaryActions: [
-          { label: "Import Leads", icon: Download, onClick: () => {} },
-          { label: "Export Pipeline", icon: Download, onClick: () => {} },
-          {
-            label: "Lead Analytics",
-            icon: BarChart3,
-            href: "/admin/leads?tab=analytics",
-          },
-        ],
-        quickStats: [
-          { label: "Total Leads", value: mockStats.leads.total },
-          {
-            label: "Qualified",
-            value: mockStats.leads.qualified,
-            color: "success",
-          },
-          {
-            label: "Pipeline Value",
-            value: mockStats.leads.pipeline,
-            color: "success",
-          },
-        ],
-        breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
-          { label: "Lead Management" },
-        ],
-      };
-
     case pathname === "/admin/project-value":
       return {
         title: "Project Value & Revenue",
