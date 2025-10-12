@@ -423,12 +423,6 @@ export function AppLayout({
           active: location.pathname.startsWith("/admin/leads"),
         },
         {
-          id: "wordpress-pages",
-          label: "WordPress Pages",
-          href: "/admin/wordpress-pages",
-          active: location.pathname.startsWith("/admin/wordpress-pages"),
-        },
-        {
           id: "wordpress-sites",
           label: "WP Sites",
           href: "/admin/wordpress-pages/sites",
