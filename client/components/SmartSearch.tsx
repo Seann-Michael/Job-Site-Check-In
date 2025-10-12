@@ -85,32 +85,8 @@ export function SmartSearch({
           type: "Residential",
         },
       ],
-      leads: [
-        {
-          id: "lead-1",
-          name: "Sarah Johnson",
-          company: "Johnson Corp",
-          status: "Qualified",
-          value: "$15,000",
-          source: "Website",
-        },
-        {
-          id: "lead-2",
-          name: "David Chen",
-          company: "TechStartup Inc",
-          status: "New",
-          value: "$25,000",
-          source: "Advertising",
-        },
-      ],
       quickActions: [
         { label: "New Project", href: "/admin/add-project", icon: Plus },
-        { label: "Add Lead", href: "/admin/leads?action=add", icon: Users },
-        {
-          label: "View Pipeline",
-          href: "/admin/leads?tab=pipeline",
-          icon: Target,
-        },
         {
           label: "Revenue Report",
           href: "/admin/project-value?tab=analytics",
@@ -119,7 +95,6 @@ export function SmartSearch({
       ],
       pages: [
         { label: "Projects", href: "/admin/projects", icon: FolderOpen },
-        { label: "Lead Management", href: "/admin/leads", icon: Users },
         {
           label: "Project Value",
           href: "/admin/project-value",
