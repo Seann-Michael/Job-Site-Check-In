@@ -22,7 +22,6 @@ import {
   MoreHorizontal,
   Search,
   Bell,
-  Users,
   DollarSign,
   BarChart3,
   Target,
