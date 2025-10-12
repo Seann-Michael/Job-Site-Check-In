@@ -154,25 +154,6 @@ export function SmartSearch({
       }
     });
 
-    // Search leads
-    searchData.leads.forEach((lead) => {
-      if (
-        lead.name.toLowerCase().includes(lowerQuery) ||
-        lead.company?.toLowerCase().includes(lowerQuery) ||
-        lead.source.toLowerCase().includes(lowerQuery)
-      ) {
-        filtered.push({
-          id: lead.id,
-          title: lead.name,
-          subtitle: `${lead.company || "Individual"} • ${lead.status} • ${lead.value}`,
-          type: "lead",
-          icon: Users,
-          href: `/admin/leads?leadId=${lead.id}`,
-          metadata: lead,
-        });
-      }
-    });
-
     // Search actions
     searchData.quickActions.forEach((action) => {
       if (action.label.toLowerCase().includes(lowerQuery)) {
