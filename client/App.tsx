@@ -907,14 +907,6 @@ const App = () => (
                 />
 
                 {/* Agency Task Management Routes */}
-                <Route
-                  path="/agency/admin/tasks/:taskId"
-                  element={
-                    <ProtectedRoute>
-                      <TaskView />
-                    </ProtectedRoute>
-                  }
-                />
                 {/* Agency Lead Management Routes */}
                 <Route
                   path="/agency/admin/leads"
