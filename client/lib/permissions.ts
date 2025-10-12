@@ -10,8 +10,8 @@ import {
   PermissionAction,
   PERMISSIONS,
   ROLE_PERMISSIONS,
-  PermissionCondition
-} from '@/types/permissions';
+  PermissionCondition,
+} from "@/types/permissions";
 
 interface UserData {
   id: string;
@@ -42,52 +42,55 @@ class PermissionService {
   private initializeDefaultPermissions() {
     // Initialize with basic permission structure
     Object.entries(PERMISSIONS).forEach(([key, value]) => {
-      const [resource, action] = value.split(':') as [PermissionResource, PermissionAction];
+      const [resource, action] = value.split(":") as [
+        PermissionResource,
+        PermissionAction,
+      ];
       this.permissions.set(value, {
         id: value,
         resource,
         action,
-        scope: 'business', // Default scope
+        scope: "business", // Default scope
         description: `${action} ${resource}`,
-        category: this.getCategoryForResource(resource)
+        category: this.getCategoryForResource(resource),
       });
     });
   }
 
   private getCategoryForResource(resource: PermissionResource): string {
     const categoryMap: Record<PermissionResource, string> = {
-      projects: 'Project Management',
-      businesses: 'Business Management',
-      users: 'User & Team Management',
-      analytics: 'Analytics & Reporting',
-      reports: 'Analytics & Reporting',
-      settings: 'System Administration',
-      chat: 'Communication & Chat',
-      media: 'Media & Content',
-      tasks: 'Project Management',
-      reviews: 'SEO Tools',
-      keywords: 'SEO Tools',
-      citations: 'SEO Tools',
-      competitors: 'SEO Tools',
-      backlinks: 'SEO Tools',
-      audits: 'SEO Tools',
-      billing: 'Billing & Finance',
-      integrations: 'Integrations & API',
-      webhooks: 'Integrations & API',
-      api_keys: 'Integrations & API',
-      team: 'User & Team Management',
-      clients: 'Business Management',
-      agencies: 'Business Management'
+      projects: "Project Management",
+      businesses: "Business Management",
+      users: "User & Team Management",
+      analytics: "Analytics & Reporting",
+      reports: "Analytics & Reporting",
+      settings: "System Administration",
+      chat: "Communication & Chat",
+      media: "Media & Content",
+      tasks: "Project Management",
+      reviews: "SEO Tools",
+      keywords: "SEO Tools",
+      citations: "SEO Tools",
+      competitors: "SEO Tools",
+      backlinks: "SEO Tools",
+      audits: "SEO Tools",
+      billing: "Billing & Finance",
+      integrations: "Integrations & API",
+      webhooks: "Integrations & API",
+      api_keys: "Integrations & API",
+      team: "User & Team Management",
+      clients: "Business Management",
+      agencies: "Business Management",
     };
-    return categoryMap[resource] || 'General';
+    return categoryMap[resource] || "General";
   }
 
   private async loadPermissionsFromServer() {
     try {
       // Load custom permissions and roles from server
       const [permissionsResponse, rolesResponse] = await Promise.all([
-        this.fetchWithAuth('/api/permissions'),
-        this.fetchWithAuth('/api/roles')
+        this.fetchWithAuth("/api/permissions"),
+        this.fetchWithAuth("/api/roles"),
       ]);
 
       if (permissionsResponse.ok) {
@@ -104,7 +107,7 @@ class PermissionService {
         });
       }
     } catch (error) {
-      console.warn('Failed to load permissions from server:', error);
+      console.warn("Failed to load permissions from server:", error);
     }
   }
 
@@ -113,50 +116,50 @@ class PermissionService {
     return fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...options.headers
-      }
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
     });
   }
 
   private getAuthToken(): string {
-    return localStorage.getItem('auth_token') || '';
+    return localStorage.getItem("auth_token") || "";
   }
 
   /**
    * Check if user has a specific permission
    */
   async hasPermission(
-    user: UserData, 
-    permission: string, 
-    context?: Partial<PermissionContext>
+    user: UserData,
+    permission: string,
+    context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
     // Check cache first
     const cacheKey = `${user.id}:${permission}:${JSON.stringify(context)}`;
     const cached = this.cache.get(cacheKey);
-    
+
     if (cached && cached.expires_at > Date.now()) {
       return { granted: cached.permissions.has(permission) };
     }
 
     // Perform permission check
     const result = await this.checkPermission(user, permission, context);
-    
+
     // Cache result
     this.cachePermissionResult(cacheKey, permission, result.granted);
-    
+
     return result;
   }
 
   private async checkPermission(
-    user: UserData, 
-    permission: string, 
-    context?: Partial<PermissionContext>
+    user: UserData,
+    permission: string,
+    context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
     // Super admin has all permissions
-    if (user.role === 'super_admin') {
-      return { granted: true, reason: 'Super admin access' };
+    if (user.role === "super_admin") {
+      return { granted: true, reason: "Super admin access" };
     }
 
     // Check role-based permissions
@@ -168,7 +171,11 @@ class PermissionService {
         return scopeCheck;
       }
 
-      const conditionCheck = await this.checkConditions(user, permission, context);
+      const conditionCheck = await this.checkConditions(
+        user,
+        permission,
+        context,
+      );
       return conditionCheck;
     }
 
@@ -179,22 +186,24 @@ class PermissionService {
 
     // Check explicit user permissions
     if (user.permissions) {
-      const userPerm = user.permissions.find(p => p.permission_id === permission);
+      const userPerm = user.permissions.find(
+        (p) => p.permission_id === permission,
+      );
       if (userPerm) {
         return this.evaluateUserPermission(userPerm, context);
       }
     }
 
-    return { 
-      granted: false, 
-      reason: 'Permission not found in user role or custom permissions' 
+    return {
+      granted: false,
+      reason: "Permission not found in user role or custom permissions",
     };
   }
 
   private async checkScope(
-    user: UserData, 
-    permission: string, 
-    context?: Partial<PermissionContext>
+    user: UserData,
+    permission: string,
+    context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
     const permissionDef = this.permissions.get(permission);
     if (!permissionDef) {
@@ -202,66 +211,82 @@ class PermissionService {
     }
 
     switch (permissionDef.scope) {
-      case 'global':
-        return { granted: user.role === 'super_admin' || user.role === 'admin' };
-      
-      case 'agency':
+      case "global":
+        return {
+          granted: user.role === "super_admin" || user.role === "admin",
+        };
+
+      case "agency":
         if (!user.agency_id && context?.scope_id) {
-          return { granted: false, reason: 'User not associated with any agency' };
+          return {
+            granted: false,
+            reason: "User not associated with any agency",
+          };
         }
         if (context?.scope_id && context.scope_id !== user.agency_id) {
-          return { granted: false, reason: 'Access denied: different agency' };
+          return { granted: false, reason: "Access denied: different agency" };
         }
         return { granted: true };
-      
-      case 'business':
+
+      case "business":
         if (!user.business_id && context?.scope_id) {
-          return { granted: false, reason: 'User not associated with any business' };
+          return {
+            granted: false,
+            reason: "User not associated with any business",
+          };
         }
         if (context?.scope_id && context.scope_id !== user.business_id) {
-          return { granted: false, reason: 'Access denied: different business' };
+          return {
+            granted: false,
+            reason: "Access denied: different business",
+          };
         }
         return { granted: true };
-      
-      case 'project':
+
+      case "project":
         return this.checkProjectAccess(user, context);
-      
-      case 'self':
-        if (context?.resource_data?.user_id && context.resource_data.user_id !== user.id) {
-          return { granted: false, reason: 'Can only access own data' };
+
+      case "self":
+        if (
+          context?.resource_data?.user_id &&
+          context.resource_data.user_id !== user.id
+        ) {
+          return { granted: false, reason: "Can only access own data" };
         }
         return { granted: true };
-      
+
       default:
         return { granted: true };
     }
   }
 
   private async checkProjectAccess(
-    user: UserData, 
-    context?: Partial<PermissionContext>
+    user: UserData,
+    context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
     if (!context?.scope_id) {
       return { granted: true }; // No specific project check needed
     }
 
     try {
-      const response = await this.fetchWithAuth(`/api/projects/${context.scope_id}/access-check`);
+      const response = await this.fetchWithAuth(
+        `/api/projects/${context.scope_id}/access-check`,
+      );
       if (response.ok) {
         const accessData = await response.json();
         return { granted: accessData.has_access };
       }
     } catch (error) {
-      console.error('Project access check failed:', error);
+      console.error("Project access check failed:", error);
     }
 
-    return { granted: false, reason: 'Project access verification failed' };
+    return { granted: false, reason: "Project access verification failed" };
   }
 
   private async checkConditions(
-    user: UserData, 
-    permission: string, 
-    context?: Partial<PermissionContext>
+    user: UserData,
+    permission: string,
+    context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
     const permissionDef = this.permissions.get(permission);
     if (!permissionDef?.conditions || permissionDef.conditions.length === 0) {
@@ -271,10 +296,10 @@ class PermissionService {
     for (const condition of permissionDef.conditions) {
       const conditionMet = this.evaluateCondition(condition, user, context);
       if (!conditionMet) {
-        return { 
-          granted: false, 
+        return {
+          granted: false,
           reason: `Condition not met: ${condition.description}`,
-          conditions_met: false 
+          conditions_met: false,
         };
       }
     }
@@ -285,41 +310,52 @@ class PermissionService {
   private evaluateCondition(
     condition: PermissionCondition,
     user: UserData,
-    context?: Partial<PermissionContext>
+    context?: Partial<PermissionContext>,
   ): boolean {
     const fieldValue = this.getFieldValue(condition.field, user, context);
-    
+
     switch (condition.operator) {
-      case 'equals':
+      case "equals":
         return fieldValue === condition.value;
-      case 'not_equals':
+      case "not_equals":
         return fieldValue !== condition.value;
-      case 'in':
-        return Array.isArray(condition.value) && condition.value.includes(fieldValue);
-      case 'not_in':
-        return Array.isArray(condition.value) && !condition.value.includes(fieldValue);
-      case 'greater_than':
+      case "in":
+        return (
+          Array.isArray(condition.value) && condition.value.includes(fieldValue)
+        );
+      case "not_in":
+        return (
+          Array.isArray(condition.value) &&
+          !condition.value.includes(fieldValue)
+        );
+      case "greater_than":
         return Number(fieldValue) > Number(condition.value);
-      case 'less_than':
+      case "less_than":
         return Number(fieldValue) < Number(condition.value);
-      case 'contains':
-        return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+      case "contains":
+        return String(fieldValue)
+          .toLowerCase()
+          .includes(String(condition.value).toLowerCase());
       default:
         return false;
     }
   }
 
-  private getFieldValue(field: string, user: UserData, context?: Partial<PermissionContext>): any {
+  private getFieldValue(
+    field: string,
+    user: UserData,
+    context?: Partial<PermissionContext>,
+  ): any {
     // Support nested field access like "user.role" or "context.resource_data.status"
-    const parts = field.split('.');
+    const parts = field.split(".");
     let value: any;
 
-    if (parts[0] === 'user') {
+    if (parts[0] === "user") {
       value = user;
       for (let i = 1; i < parts.length; i++) {
         value = value?.[parts[i]];
       }
-    } else if (parts[0] === 'context') {
+    } else if (parts[0] === "context") {
       value = context;
       for (let i = 1; i < parts.length; i++) {
         value = value?.[parts[i]];
@@ -332,26 +368,32 @@ class PermissionService {
   }
 
   private async checkUserSpecificPermission(
-    user: UserData, 
-    permission: string, 
-    context?: Partial<PermissionContext>
+    user: UserData,
+    permission: string,
+    context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
     // Implementation for custom user permissions
-    return { granted: true, reason: 'Custom user permission' };
+    return { granted: true, reason: "Custom user permission" };
   }
 
   private evaluateUserPermission(
-    userPermission: UserPermission, 
-    context?: Partial<PermissionContext>
+    userPermission: UserPermission,
+    context?: Partial<PermissionContext>,
   ): PermissionResult {
     // Check if permission has expired
-    if (userPermission.expires_at && new Date(userPermission.expires_at) < new Date()) {
-      return { granted: false, reason: 'Permission expired' };
+    if (
+      userPermission.expires_at &&
+      new Date(userPermission.expires_at) < new Date()
+    ) {
+      return { granted: false, reason: "Permission expired" };
     }
 
     // Check scope
-    if (userPermission.scope_id && context?.scope_id !== userPermission.scope_id) {
-      return { granted: false, reason: 'Scope mismatch' };
+    if (
+      userPermission.scope_id &&
+      context?.scope_id !== userPermission.scope_id
+    ) {
+      return { granted: false, reason: "Scope mismatch" };
     }
 
     // Check custom conditions
@@ -366,10 +408,14 @@ class PermissionService {
     return { granted: true };
   }
 
-  private cachePermissionResult(cacheKey: string, permission: string, granted: boolean) {
+  private cachePermissionResult(
+    cacheKey: string,
+    permission: string,
+    granted: boolean,
+  ) {
     const existing = this.cache.get(cacheKey);
     const permissions = existing?.permissions || new Set<string>();
-    
+
     if (granted) {
       permissions.add(permission);
     }
@@ -377,28 +423,36 @@ class PermissionService {
     this.cache.set(cacheKey, {
       permissions,
       timestamp: Date.now(),
-      expires_at: Date.now() + this.CACHE_TTL
+      expires_at: Date.now() + this.CACHE_TTL,
     });
   }
 
   /**
    * Check multiple permissions at once
    */
-  async hasAnyPermission(user: UserData, permissions: string[], context?: Partial<PermissionContext>): Promise<boolean> {
+  async hasAnyPermission(
+    user: UserData,
+    permissions: string[],
+    context?: Partial<PermissionContext>,
+  ): Promise<boolean> {
     const results = await Promise.all(
-      permissions.map(perm => this.hasPermission(user, perm, context))
+      permissions.map((perm) => this.hasPermission(user, perm, context)),
     );
-    return results.some(result => result.granted);
+    return results.some((result) => result.granted);
   }
 
   /**
    * Check if user has all permissions
    */
-  async hasAllPermissions(user: UserData, permissions: string[], context?: Partial<PermissionContext>): Promise<boolean> {
+  async hasAllPermissions(
+    user: UserData,
+    permissions: string[],
+    context?: Partial<PermissionContext>,
+  ): Promise<boolean> {
     const results = await Promise.all(
-      permissions.map(perm => this.hasPermission(user, perm, context))
+      permissions.map((perm) => this.hasPermission(user, perm, context)),
     );
-    return results.every(result => result.granted);
+    return results.every((result) => result.granted);
   }
 
   /**
@@ -407,31 +461,38 @@ class PermissionService {
   async getUserPermissions(user: UserData): Promise<string[]> {
     const rolePermissions = ROLE_PERMISSIONS[user.role] || [];
     const customPermissions = user.custom_permissions || [];
-    const explicitPermissions = user.permissions?.map(p => p.permission_id) || [];
-    
-    return [...new Set([...rolePermissions, ...customPermissions, ...explicitPermissions])];
+    const explicitPermissions =
+      user.permissions?.map((p) => p.permission_id) || [];
+
+    return [
+      ...new Set([
+        ...rolePermissions,
+        ...customPermissions,
+        ...explicitPermissions,
+      ]),
+    ];
   }
 
   /**
    * Grant permission to user
    */
   async grantPermission(
-    userId: string, 
-    permission: string, 
-    scope: PermissionScope, 
+    userId: string,
+    permission: string,
+    scope: PermissionScope,
     scopeId?: string,
-    expiresAt?: Date
+    expiresAt?: Date,
   ): Promise<boolean> {
     try {
-      const response = await this.fetchWithAuth('/api/permissions/grant', {
-        method: 'POST',
+      const response = await this.fetchWithAuth("/api/permissions/grant", {
+        method: "POST",
         body: JSON.stringify({
           user_id: userId,
           permission_id: permission,
           scope_type: scope,
           scope_id: scopeId,
-          expires_at: expiresAt?.toISOString()
-        })
+          expires_at: expiresAt?.toISOString(),
+        }),
       });
 
       if (response.ok) {
@@ -440,7 +501,7 @@ class PermissionService {
       }
       return false;
     } catch (error) {
-      console.error('Failed to grant permission:', error);
+      console.error("Failed to grant permission:", error);
       return false;
     }
   }
@@ -448,15 +509,19 @@ class PermissionService {
   /**
    * Revoke permission from user
    */
-  async revokePermission(userId: string, permission: string, scopeId?: string): Promise<boolean> {
+  async revokePermission(
+    userId: string,
+    permission: string,
+    scopeId?: string,
+  ): Promise<boolean> {
     try {
-      const response = await this.fetchWithAuth('/api/permissions/revoke', {
-        method: 'POST',
+      const response = await this.fetchWithAuth("/api/permissions/revoke", {
+        method: "POST",
         body: JSON.stringify({
           user_id: userId,
           permission_id: permission,
-          scope_id: scopeId
-        })
+          scope_id: scopeId,
+        }),
       });
 
       if (response.ok) {
@@ -465,7 +530,7 @@ class PermissionService {
       }
       return false;
     } catch (error) {
-      console.error('Failed to revoke permission:', error);
+      console.error("Failed to revoke permission:", error);
       return false;
     }
   }
@@ -473,11 +538,13 @@ class PermissionService {
   /**
    * Create custom role
    */
-  async createRole(role: Omit<Role, 'id' | 'created_at' | 'updated_at'>): Promise<Role | null> {
+  async createRole(
+    role: Omit<Role, "id" | "created_at" | "updated_at">,
+  ): Promise<Role | null> {
     try {
-      const response = await this.fetchWithAuth('/api/roles', {
-        method: 'POST',
-        body: JSON.stringify(role)
+      const response = await this.fetchWithAuth("/api/roles", {
+        method: "POST",
+        body: JSON.stringify(role),
       });
 
       if (response.ok) {
@@ -487,7 +554,7 @@ class PermissionService {
       }
       return null;
     } catch (error) {
-      console.error('Failed to create role:', error);
+      console.error("Failed to create role:", error);
       return null;
     }
   }
@@ -535,7 +602,9 @@ class PermissionService {
    * Get permissions by category
    */
   getPermissionsByCategory(category: string): Permission[] {
-    return Array.from(this.permissions.values()).filter(p => p.category === category);
+    return Array.from(this.permissions.values()).filter(
+      (p) => p.category === category,
+    );
   }
 
   /**
@@ -549,7 +618,11 @@ class PermissionService {
   /**
    * Check if user can manage a specific resource
    */
-  async canManage(user: UserData, resource: PermissionResource, resourceId?: string): Promise<boolean> {
+  async canManage(
+    user: UserData,
+    resource: PermissionResource,
+    resourceId?: string,
+  ): Promise<boolean> {
     const permission = `${resource}:manage`;
     const context = resourceId ? { scope_id: resourceId } : undefined;
     const result = await this.hasPermission(user, permission, context);
@@ -562,27 +635,30 @@ export const permissionService = new PermissionService();
 
 // Helper functions for common permission checks
 export const PermissionHelpers = {
-  canCreateProject: (user: UserData) => 
+  canCreateProject: (user: UserData) =>
     permissionService.hasPermission(user, PERMISSIONS.PROJECTS_CREATE),
-  
-  canEditProject: (user: UserData, projectId: string) => 
-    permissionService.hasPermission(user, PERMISSIONS.PROJECTS_UPDATE, { scope_id: projectId }),
-  
-  canDeleteProject: (user: UserData, projectId: string) => 
-    permissionService.hasPermission(user, PERMISSIONS.PROJECTS_DELETE, { scope_id: projectId }),
-  
-  canViewAnalytics: (user: UserData) => 
+
+  canEditProject: (user: UserData, projectId: string) =>
+    permissionService.hasPermission(user, PERMISSIONS.PROJECTS_UPDATE, {
+      scope_id: projectId,
+    }),
+
+  canDeleteProject: (user: UserData, projectId: string) =>
+    permissionService.hasPermission(user, PERMISSIONS.PROJECTS_DELETE, {
+      scope_id: projectId,
+    }),
+
+  canViewAnalytics: (user: UserData) =>
     permissionService.hasPermission(user, PERMISSIONS.ANALYTICS_READ),
-  
-  canManageUsers: (user: UserData) => 
+
+  canManageUsers: (user: UserData) =>
     permissionService.hasPermission(user, PERMISSIONS.USERS_MANAGE),
-  
- 
-  canManageBilling: (user: UserData) => 
+
+  canManageBilling: (user: UserData) =>
     permissionService.hasPermission(user, PERMISSIONS.BILLING_MANAGE),
-  
-  canConfigureSystem: (user: UserData) => 
-    permissionService.hasPermission(user, PERMISSIONS.SETTINGS_CONFIGURE)
+
+  canConfigureSystem: (user: UserData) =>
+    permissionService.hasPermission(user, PERMISSIONS.SETTINGS_CONFIGURE),
 };
 
 export default permissionService;

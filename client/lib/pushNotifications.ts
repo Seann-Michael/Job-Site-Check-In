@@ -11,7 +11,7 @@ interface NotificationOptions {
   badge?: string;
   tag?: string;
   data?: any;
-  actions?: Array<{action: string; title: string; icon?: string;}>;
+  actions?: Array<{ action: string; title: string; icon?: string }>;
   requireInteraction?: boolean;
   silent?: boolean;
   // vibrate?: number[]; // Not supported in standard NotificationOptions
@@ -35,13 +35,14 @@ class PushNotificationService {
 
   constructor() {
     // VAPID public key - this should be stored in environment variables
-    this.vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BNxEcAeqCLnHqXmJ8lQn...'; // Placeholder
+    this.vapidPublicKey =
+      import.meta.env.VITE_VAPID_PUBLIC_KEY || "BNxEcAeqCLnHqXmJ8lQn..."; // Placeholder
     this.initialize();
   }
 
   private async initialize() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.warn('Push notifications not supported');
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.warn("Push notifications not supported");
       return;
     }
 
@@ -49,7 +50,7 @@ class PushNotificationService {
       this.serviceWorkerRegistration = await navigator.serviceWorker.ready;
       await this.checkExistingSubscription();
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
+      console.error("Failed to initialize push notifications:", error);
     }
   }
 
@@ -57,22 +58,23 @@ class PushNotificationService {
     if (!this.serviceWorkerRegistration) return;
 
     try {
-      this.subscription = await this.serviceWorkerRegistration.pushManager.getSubscription();
-      
+      this.subscription =
+        await this.serviceWorkerRegistration.pushManager.getSubscription();
+
       if (this.subscription) {
-        console.log('Existing push subscription found');
+        console.log("Existing push subscription found");
         await this.syncSubscriptionWithServer();
       }
     } catch (error) {
-      console.error('Error checking existing subscription:', error);
+      console.error("Error checking existing subscription:", error);
     }
   }
 
   async requestPermission(): Promise<NotificationPermissionResult> {
-    if (!('Notification' in window)) {
+    if (!("Notification" in window)) {
       return {
-        permission: 'denied',
-        error: 'Notifications not supported'
+        permission: "denied",
+        error: "Notifications not supported",
       };
     }
 
@@ -80,21 +82,21 @@ class PushNotificationService {
     let permission = Notification.permission;
 
     // Request permission if not already granted
-    if (permission === 'default') {
+    if (permission === "default") {
       permission = await Notification.requestPermission();
     }
 
-    if (permission === 'granted') {
+    if (permission === "granted") {
       try {
         const subscription = await this.subscribe();
         return {
           permission,
-          subscription
+          subscription,
         };
       } catch (error) {
         return {
           permission,
-          error: error instanceof Error ? error.message : 'Failed to subscribe'
+          error: error instanceof Error ? error.message : "Failed to subscribe",
         };
       }
     }
@@ -104,26 +106,27 @@ class PushNotificationService {
 
   async subscribe(): Promise<PushSubscription> {
     if (!this.serviceWorkerRegistration) {
-      throw new Error('Service worker not ready');
+      throw new Error("Service worker not ready");
     }
 
-    if (Notification.permission !== 'granted') {
-      throw new Error('Notification permission not granted');
+    if (Notification.permission !== "granted") {
+      throw new Error("Notification permission not granted");
     }
 
     try {
-      const subscription = await this.serviceWorkerRegistration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
-      });
+      const subscription =
+        await this.serviceWorkerRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey),
+        });
 
       this.subscription = subscription;
       await this.syncSubscriptionWithServer();
-      
-      console.log('Push subscription successful');
+
+      console.log("Push subscription successful");
       return subscription;
     } catch (error) {
-      console.error('Failed to subscribe to push notifications:', error);
+      console.error("Failed to subscribe to push notifications:", error);
       throw error;
     }
   }
@@ -135,16 +138,16 @@ class PushNotificationService {
 
     try {
       const success = await this.subscription.unsubscribe();
-      
+
       if (success) {
         await this.removeSubscriptionFromServer();
         this.subscription = null;
-        console.log('Successfully unsubscribed from push notifications');
+        console.log("Successfully unsubscribed from push notifications");
       }
-      
+
       return success;
     } catch (error) {
-      console.error('Failed to unsubscribe from push notifications:', error);
+      console.error("Failed to unsubscribe from push notifications:", error);
       return false;
     }
   }
@@ -156,67 +159,67 @@ class PushNotificationService {
       const subscriptionData: PushSubscriptionData = {
         endpoint: this.subscription.endpoint,
         keys: {
-          p256dh: this.arrayBufferToBase64(this.subscription.getKey('p256dh')),
-          auth: this.arrayBufferToBase64(this.subscription.getKey('auth'))
+          p256dh: this.arrayBufferToBase64(this.subscription.getKey("p256dh")),
+          auth: this.arrayBufferToBase64(this.subscription.getKey("auth")),
         },
         deviceType: this.getDeviceType(),
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
       };
 
-      await fetch('/api/notifications/subscribe', {
-        method: 'POST',
+      await fetch("/api/notifications/subscribe", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.getAuthToken()}`,
         },
-        body: JSON.stringify(subscriptionData)
+        body: JSON.stringify(subscriptionData),
       });
 
-      console.log('Subscription synced with server');
+      console.log("Subscription synced with server");
     } catch (error) {
-      console.error('Failed to sync subscription with server:', error);
+      console.error("Failed to sync subscription with server:", error);
     }
   }
 
   private async removeSubscriptionFromServer(): Promise<void> {
     try {
-      await fetch('/api/notifications/unsubscribe', {
-        method: 'POST',
+      await fetch("/api/notifications/unsubscribe", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
+          Authorization: `Bearer ${this.getAuthToken()}`,
+        },
       });
 
-      console.log('Subscription removed from server');
+      console.log("Subscription removed from server");
     } catch (error) {
-      console.error('Failed to remove subscription from server:', error);
+      console.error("Failed to remove subscription from server:", error);
     }
   }
 
   async showLocalNotification(options: NotificationOptions): Promise<void> {
-    if (Notification.permission !== 'granted') {
-      console.warn('Cannot show notification: permission not granted');
+    if (Notification.permission !== "granted") {
+      console.warn("Cannot show notification: permission not granted");
       return;
     }
 
     const notification = new Notification(options.title, {
       body: options.body,
-      icon: options.icon || '/icon-192x192.png',
-      badge: options.badge || '/icon-72x72.png',
+      icon: options.icon || "/icon-192x192.png",
+      badge: options.badge || "/icon-72x72.png",
       tag: options.tag,
       data: options.data,
       requireInteraction: options.requireInteraction,
-      silent: options.silent
+      silent: options.silent,
     });
 
     // Handle notification click
     notification.onclick = (event) => {
       event.preventDefault();
       notification.close();
-      
+
       // Focus or open app window
       if (options.data?.url) {
-        window.open(options.data.url, '_blank');
+        window.open(options.data.url, "_blank");
       }
     };
 
@@ -230,24 +233,24 @@ class PushNotificationService {
 
   async testNotification(): Promise<void> {
     await this.showLocalNotification({
-      title: 'Local SEO Ranker',
-      body: 'Push notifications are working! 🎉',
-      tag: 'test-notification',
-      data: { url: '/admin/projects' }
+      title: "Local SEO Ranker",
+      body: "Push notifications are working! 🎉",
+      tag: "test-notification",
+      data: { url: "/admin/projects" },
     });
   }
 
   // Notification management methods
   async getNotificationPreferences() {
     try {
-      const response = await fetch('/api/notifications/preferences', {
+      const response = await fetch("/api/notifications/preferences", {
         headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
+          Authorization: `Bearer ${this.getAuthToken()}`,
+        },
       });
       return await response.json();
     } catch (error) {
-      console.error('Failed to get notification preferences:', error);
+      console.error("Failed to get notification preferences:", error);
       return null;
     }
   }
@@ -260,26 +263,26 @@ class PushNotificationService {
     emailBackup?: boolean;
   }) {
     try {
-      await fetch('/api/notifications/preferences', {
-        method: 'PUT',
+      await fetch("/api/notifications/preferences", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.getAuthToken()}`,
         },
-        body: JSON.stringify(preferences)
+        body: JSON.stringify(preferences),
       });
-      console.log('Notification preferences updated');
+      console.log("Notification preferences updated");
     } catch (error) {
-      console.error('Failed to update notification preferences:', error);
+      console.error("Failed to update notification preferences:", error);
     }
   }
 
   // Utility methods
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
 
     const rawData = window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
@@ -291,10 +294,10 @@ class PushNotificationService {
   }
 
   private arrayBufferToBase64(buffer: ArrayBuffer | null): string {
-    if (!buffer) return '';
-    
+    if (!buffer) return "";
+
     const bytes = new Uint8Array(buffer);
-    let binary = '';
+    let binary = "";
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
@@ -303,26 +306,28 @@ class PushNotificationService {
 
   private getDeviceType(): string {
     const userAgent = navigator.userAgent.toLowerCase();
-    
-    if (/android/.test(userAgent)) return 'android';
-    if (/iphone|ipad|ipod/.test(userAgent)) return 'ios';
-    if (/windows/.test(userAgent)) return 'windows';
-    if (/macintosh|mac os/.test(userAgent)) return 'macos';
-    if (/linux/.test(userAgent)) return 'linux';
-    
-    return 'desktop';
+
+    if (/android/.test(userAgent)) return "android";
+    if (/iphone|ipad|ipod/.test(userAgent)) return "ios";
+    if (/windows/.test(userAgent)) return "windows";
+    if (/macintosh|mac os/.test(userAgent)) return "macos";
+    if (/linux/.test(userAgent)) return "linux";
+
+    return "desktop";
   }
 
   private getAuthToken(): string {
     // Get auth token from your auth system
-    return localStorage.getItem('auth_token') || '';
+    return localStorage.getItem("auth_token") || "";
   }
 
   // Getters
   get isSupported(): boolean {
-    return 'serviceWorker' in navigator && 
-           'PushManager' in window && 
-           'Notification' in window;
+    return (
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window
+    );
   }
 
   get permission(): NotificationPermission {
@@ -340,58 +345,64 @@ class PushNotificationService {
 
 // Notification templates for common use cases
 export const NotificationTemplates = {
-  projectDeadline: (projectName: string, daysLeft: number): NotificationOptions => ({
-    title: 'Project Deadline Reminder',
-    body: `"${projectName}" is due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
-    tag: 'deadline-reminder',
+  projectDeadline: (
+    projectName: string,
+    daysLeft: number,
+  ): NotificationOptions => ({
+    title: "Project Deadline Reminder",
+    body: `"${projectName}" is due in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`,
+    tag: "deadline-reminder",
     requireInteraction: true,
-    data: { type: 'deadline', url: '/admin/projects' },
+    data: { type: "deadline", url: "/admin/projects" },
     actions: [
-      { action: 'view', title: 'View Project' },
-      { action: 'snooze', title: 'Remind Later' }
-    ]
+      { action: "view", title: "View Project" },
+      { action: "snooze", title: "Remind Later" },
+    ],
   }),
 
   newMessage: (senderName: string, preview: string): NotificationOptions => ({
     title: `New message from ${senderName}`,
     body: preview,
-    tag: 'new-message',
-    data: { type: 'message', url: '/notifications' },
+    tag: "new-message",
+    data: { type: "message", url: "/notifications" },
     actions: [
-      { action: 'reply', title: 'Reply' },
-      { action: 'view', title: 'View Messages', url: '/notifications' }
-    ]
+      { action: "reply", title: "Reply" },
+      { action: "view", title: "View Messages", url: "/notifications" },
+    ],
   }),
 
-  taskAssigned: (taskName: string, assignedBy: string): NotificationOptions => ({
-    title: 'New Task Assigned',
+  taskAssigned: (
+    taskName: string,
+    assignedBy: string,
+  ): NotificationOptions => ({
+    title: "New Task Assigned",
     body: `"${taskName}" has been assigned to you by ${assignedBy}`,
-    tag: 'task-assigned',
+    tag: "task-assigned",
     requireInteraction: true,
-    data: { type: 'task', url: '/admin/projects' },
+    data: { type: "task", url: "/admin/projects" },
     actions: [
-      { action: 'view', title: 'View Task' },
-      { action: 'accept', title: 'Accept' }
-    ]
+      { action: "view", title: "View Task" },
+      { action: "accept", title: "Accept" },
+    ],
   }),
 
   systemUpdate: (version: string): NotificationOptions => ({
-    title: 'App Update Available',
+    title: "App Update Available",
     body: `Version ${version} is now available with new features and improvements`,
-    tag: 'system-update',
-    data: { type: 'update', url: '/admin/settings' },
+    tag: "system-update",
+    data: { type: "update", url: "/admin/settings" },
     actions: [
-      { action: 'update', title: 'Update Now' },
-      { action: 'later', title: 'Later' }
-    ]
+      { action: "update", title: "Update Now" },
+      { action: "later", title: "Later" },
+    ],
   }),
 
   backupComplete: (itemCount: number): NotificationOptions => ({
-    title: 'Backup Complete',
+    title: "Backup Complete",
     body: `Successfully backed up ${itemCount} items`,
-    tag: 'backup-complete',
-    data: { type: 'backup' }
-  })
+    tag: "backup-complete",
+    data: { type: "backup" },
+  }),
 };
 
 // Export singleton instance
