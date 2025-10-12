@@ -21,7 +21,6 @@ const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Audits = lazy(() => import("./pages/Audits"));
 const Settings = lazy(() => import("./pages/Settings"));
-const Tasks = lazy(() => import("./pages/Tasks"));
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
 const GeoGridReport = lazy(() => import("./pages/GeoGridReport"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
