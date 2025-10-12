@@ -12,6 +12,7 @@
     "dev:vite": "vite",
     "build": "tsc && vite build",
     "build:client": "tsc && vite build",
+    "start": "serve dist -l ${PORT:-8080} -s",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "setup": "node scripts/setup-supabase.js",
