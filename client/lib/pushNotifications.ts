@@ -356,10 +356,10 @@ export const NotificationTemplates = {
     title: `New message from ${senderName}`,
     body: preview,
     tag: 'new-message',
-    data: { type: 'message', url: '/chat' },
+    data: { type: 'message', url: '/notifications' },
     actions: [
       { action: 'reply', title: 'Reply' },
-      { action: 'view', title: 'View Chat' }
+      { action: 'view', title: 'View Messages', url: '/notifications' }
     ]
   }),
 
