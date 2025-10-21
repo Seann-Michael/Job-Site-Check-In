@@ -307,8 +307,8 @@ export default function GeoGridReport() {
 
   // Generate breadcrumbs
   const breadcrumbs = [
-    { label: "Audits", href: "/admin/audits" },
-    { label: "Scan History", href: "/admin/audits/scan-history" },
+    { label: "Maps", href: "/admin/maps/geo-grid-scan" },
+    { label: "Scan History", href: "/admin/maps/scan-history" },
     { label: `Report ${reportId}` },
   ];
 

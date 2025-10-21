@@ -145,36 +145,6 @@ export default function AppPages() {
           description: "Generate custom reports",
           icon: LineChart,
         },
-        {
-          name: "Audits",
-          path: "/admin/audits",
-          description: "Audit dashboard",
-          icon: Shield,
-        },
-        {
-          name: "Audit Report",
-          path: "/admin/audits/report",
-          description: "Detailed audit reports",
-          icon: FileText,
-        },
-        {
-          name: "One Time Scan",
-          path: "/admin/audits/one-time",
-          description: "Single audit scan",
-          icon: Search,
-        },
-        {
-          name: "Recurring Scans",
-          path: "/admin/audits/recurring",
-          description: "Scheduled audit scans",
-          icon: Clock,
-        },
-        {
-          name: "Scan History",
-          path: "/admin/audits/scan-history",
-          description: "Historical scan data",
-          icon: Activity,
-        },
       ],
     },
     {
@@ -268,12 +238,6 @@ export default function AppPages() {
           path: "/agency/admin/reports",
           description: "Agency reporting tools",
           icon: FileText,
-        },
-        {
-          name: "Agency Audits",
-          path: "/agency/admin/audits",
-          description: "Agency audit management",
-          icon: Search,
         },
         {
           name: "Agency Billing",
