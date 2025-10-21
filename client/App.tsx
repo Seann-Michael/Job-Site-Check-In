@@ -44,8 +44,6 @@ const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
 const AdminWordPressSites = lazy(() => import("./pages/AdminWordPressSites"));
-const CRM = lazy(() => import("./pages/CRM"));
-const CRMClientDetail = lazy(() => import("./pages/CRMClientDetail"));
 const AdminBillingManagement = lazy(
   () => import("./pages/AdminBillingManagement"),
 );
