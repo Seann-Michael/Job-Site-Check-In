@@ -245,7 +245,6 @@ interface Project {
 }
 
 enum ProjectType {
-  SEO_AUDIT = "seo_audit",
   LOCAL_OPTIMIZATION = "local_optimization",
   CONTENT_MARKETING = "content_marketing",
   REPUTATION_MANAGEMENT = "reputation_management",
