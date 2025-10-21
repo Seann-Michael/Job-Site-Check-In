@@ -432,7 +432,7 @@ export default function ScanHistory() {
   };
 
   const viewScanDetails = (scanId: string) => {
-    navigate(`/admin/audits/geo-grid-report/${scanId}`);
+    navigate(`/admin/maps/geo-grid-report/${scanId}`);
   };
 
   const exportScanData = (scanId: string) => {

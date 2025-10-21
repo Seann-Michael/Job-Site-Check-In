@@ -174,14 +174,6 @@ export function AppLayout({
       comingSoon: false,
     },
     {
-      id: "audits",
-      label: "Audits",
-      href: "/admin/audits",
-      icon: Shield,
-      active: location.pathname.startsWith("/admin/audits"),
-      comingSoon: false,
-    },
-    {
       id: "settings",
       label: "Settings",
       href: "/admin/settings",
