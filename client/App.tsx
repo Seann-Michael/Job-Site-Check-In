@@ -184,10 +184,6 @@ const App = () => (
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
                 <Route path="/public/project/:id" element={<PublicProject />} />
-                <Route
-                  path="/public/audit-report/:shareToken"
-                  element={<PublicAuditReport />}
-                />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
                 <Route
@@ -439,14 +435,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/audits"
-                  element={
-                    <ProtectedRoute>
-                      <Audits />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/gmb-optimization"
                   element={
                     <ProtectedRoute>
@@ -502,14 +490,6 @@ const App = () => (
                 />
                 {/* Audits routes */}
                 <Route
-                  path="/admin/audits/one-time-scan"
-                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
-                />
-                <Route
-                  path="/admin/maps/scan-history"
-                  element={<Navigate to="/admin/audits/scan-history" replace />}
-                />
-                <Route
                   path="/admin/grid-demo"
                   element={
                     <ProtectedRoute>
@@ -518,7 +498,7 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/audits/scan-history"
+                  path="/admin/maps/scan-history"
                   element={
                     <ProtectedRoute>
                       <ScanHistory />
@@ -526,18 +506,10 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/audits/geo-grid-report/:reportId"
+                  path="/admin/maps/geo-grid-report/:reportId"
                   element={
                     <ProtectedRoute>
                       <GeoGridReport />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/audits/report/:id"
-                  element={
-                    <ProtectedRoute>
-                      <AuditReport />
                     </ProtectedRoute>
                   }
                 />
@@ -663,14 +635,6 @@ const App = () => (
                   }
                 />
 
-                <Route
-                  path="/admin/audit-reports"
-                  element={
-                    <ProtectedRoute>
-                      <AuditReport />
-                    </ProtectedRoute>
-                  }
-                />
 
                 <Route
                   path="/admin/help"
@@ -737,14 +701,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <AgencyReports />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/audits"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyAudits />
                     </ProtectedRoute>
                   }
                 />
@@ -1114,13 +1070,13 @@ const App = () => (
                 />
                 <Route
                   path="/GeoGridReport"
-                  element={<Navigate to="/admin/audits/scan-history" replace />}
+                  element={<Navigate to="/admin/maps/scan-history" replace />}
                 />
                 <Route
                   path="/GeoGridReport/:reportId"
                   element={
                     <Navigate
-                      to="/admin/audits/geo-grid-report/:reportId"
+                      to="/admin/maps/geo-grid-report/:reportId"
                       replace
                     />
                   }
@@ -1200,10 +1156,6 @@ const App = () => (
                   element={<Navigate to="/admin/reports" replace />}
                 />
                 <Route
-                  path="/AdminAudits"
-                  element={<Navigate to="/admin/audits" replace />}
-                />
-                <Route
                   path="/AgencyAdmin"
                   element={<Navigate to="/agency/admin/dashboard" replace />}
                 />
@@ -1250,10 +1202,6 @@ const App = () => (
                   element={<Navigate to="/agency/admin/billing" replace />}
                 />
                 <Route
-                  path="/AgencyAudits"
-                  element={<Navigate to="/agency/admin/audits" replace />}
-                />
-                <Route
                   path="/AgencyProjectCreate"
                   element={
                     <Navigate to="/agency/admin/projects/create" replace />
@@ -1269,7 +1217,7 @@ const App = () => (
                 />
                 <Route
                   path="/ScanHistory"
-                  element={<Navigate to="/admin/audits/scan-history" replace />}
+                  element={<Navigate to="/admin/maps/scan-history" replace />}
                 />
                 <Route
                   path="/CreditPurchase"
@@ -1294,10 +1242,6 @@ const App = () => (
                 <Route
                   path="/OneTimeScan"
                   element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
-                />
-                <Route
-                  path="/AuditReport"
-                  element={<Navigate to="/admin/audits" replace />}
                 />
                 <Route
                   path="/WorkflowBuilder"
