@@ -142,16 +142,6 @@ function getAgencyBreadcrumbs(pathname: string): BreadcrumbItem[] {
         { label: "Create Project" },
       ];
 
-    case "/agency/admin/client-access":
-      return [baseBreadcrumb, { label: "Client Access" }];
-
-    case "/agency/admin/client-access/create":
-      return [
-        baseBreadcrumb,
-        { label: "Client Access", href: "/agency/admin/client-access" },
-        { label: "Create Onboarding Link" },
-      ];
-
     default:
       // Handle dynamic routes like /agency/admin/business-owners/:id
       if (
@@ -322,14 +312,6 @@ export function AgencyLayout({ children }: AgencyLayoutProps) {
       active:
         location.pathname === "/agency/admin/projects" ||
         location.pathname.startsWith("/agency/admin/projects/"),
-      comingSoon: false,
-    },
-    {
-      id: "client-access",
-      label: "Client Access",
-      href: "/agency/admin/client-access",
-      icon: Link2,
-      active: location.pathname.startsWith("/agency/admin/client-access"),
       comingSoon: false,
     },
     {
