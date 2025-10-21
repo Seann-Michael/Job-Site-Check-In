@@ -19,14 +19,12 @@ const EditProject = lazy(() => import("./pages/EditProject"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
-const Audits = lazy(() => import("./pages/Audits"));
 const Settings = lazy(() => import("./pages/Settings"));
 const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
 const GeoGridReport = lazy(() => import("./pages/GeoGridReport"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
 const GridMapDemo = lazy(() => import("./pages/GridMapDemo"));
 const ScanHistory = lazy(() => import("./pages/ScanHistory"));
-const AuditReport = lazy(() => import("./pages/AuditReport"));
 const CreditPurchase = lazy(() => import("./pages/CreditPurchase"));
 const CreditHistory = lazy(() => import("./pages/CreditHistory"));
 const CreditAnalytics = lazy(() => import("./pages/CreditAnalytics"));
@@ -52,7 +50,6 @@ const AdminBillingManagement = lazy(
   () => import("./pages/AdminBillingManagement"),
 );
 const AgencyBillingControl = lazy(() => import("./pages/AgencyBillingControl"));
-const PublicAuditReport = lazy(() => import("./pages/PublicAuditReport"));
 const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
@@ -66,7 +63,6 @@ const AgencyClientManagement = lazy(
 const AddAgencyClient = lazy(() => import("./pages/AddAgencyClient"));
 const AgencyAnalytics = lazy(() => import("./pages/AgencyAnalytics"));
 const AgencyReports = lazy(() => import("./pages/AgencyReports"));
-const AgencyAudits = lazy(() => import("./pages/AgencyAudits"));
 const AgencyBilling = lazy(() => import("./pages/AgencyBilling"));
 const AgencyBusinessOwners = lazy(() => import("./pages/AgencyBusinessOwners"));
 const AgencyAdminUsers = lazy(() => import("./pages/AgencyAdminUsers"));
