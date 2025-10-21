@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated project types to be specific to home services vs agency services
 
 ### Fixed
-- Error boundaries showing on Settings, Audits, Gallery, and Reports pages
+- Error boundaries showing on Settings, Gallery, and Reports pages
 - Navigation issues between different project types
 - Component import errors in AddProject functionality
 

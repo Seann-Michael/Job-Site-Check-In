@@ -14,7 +14,6 @@ Location of SQL files (relative paths)
 - supabase/migrations/20241220000005_create_crm_schema.sql
 - supabase/migrations/20241220000006_create_admin_agency_billing_schema.sql
 - supabase/migrations/20241220000007_enhance_credit_allocation_system.sql
-- supabase/migrations/20241220000008_create_audit_reports_schema.sql
 - supabase/migrations/20241220000009_create_social_media_posts_schema.sql
 - supabase/migrations/20241220000010_create_chat_system_schema.sql
 - supabase/migrations/20250901000000_create_user_subscriptions_and_platforms.sql

@@ -428,74 +428,12 @@ class BusinessService {
 
 #### SEO Service (`server/services/SEOService.ts`)
 
-**Purpose**: Comprehensive SEO analysis, ranking tracking, and optimization recommendations.
+**Purpose**: Keyword ranking tracking and optimization recommendations.
 
 **Key Functions**:
 
 ```typescript
 class SEOService {
-  // Comprehensive SEO audit
-  async performSEOAudit(auditData: SEOAuditData): Promise<SEOAuditResult> {
-    const { businessId, url, keywords, location } = auditData;
-
-    // Parallel analysis execution
-    const [
-      onPageAnalysis,
-      technicalAnalysis,
-      localSEOAnalysis,
-      competitorAnalysis,
-      keywordAnalysis,
-    ] = await Promise.all([
-      this.analyzeOnPageSEO(url),
-      this.analyzeTechnicalSEO(url),
-      this.analyzeLocalSEO(businessId, location),
-      this.analyzeCompetitors(keywords, location),
-      this.analyzeKeywords(keywords, location),
-    ]);
-
-    // Calculate overall score
-    const overallScore = this.calculateOverallScore({
-      onPageAnalysis,
-      technicalAnalysis,
-      localSEOAnalysis,
-      competitorAnalysis,
-      keywordAnalysis,
-    });
-
-    // Generate recommendations
-    const recommendations = this.generateRecommendations({
-      onPageAnalysis,
-      technicalAnalysis,
-      localSEOAnalysis,
-      competitorAnalysis,
-      keywordAnalysis,
-    });
-
-    // Store audit results
-    await this.storeSEOAudit(businessId, {
-      overall_score: overallScore,
-      on_page_analysis: onPageAnalysis,
-      technical_analysis: technicalAnalysis,
-      local_seo_analysis: localSEOAnalysis,
-      competitor_analysis: competitorAnalysis,
-      keyword_analysis: keywordAnalysis,
-      recommendations,
-      audit_date: new Date().toISOString(),
-    });
-
-    return {
-      overallScore,
-      analysis: {
-        onPage: onPageAnalysis,
-        technical: technicalAnalysis,
-        localSEO: localSEOAnalysis,
-        competitors: competitorAnalysis,
-        keywords: keywordAnalysis,
-      },
-      recommendations,
-      auditDate: new Date().toISOString(),
-    };
-  }
 
   // Keyword ranking tracking
   async trackKeywordRankings(
