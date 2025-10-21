@@ -76,7 +76,6 @@ const AgencyAdminUserDetail = lazy(
   () => import("./pages/AgencyAdminUserDetail"),
 );
 const AgencyAdminUserEdit = lazy(() => import("./pages/AgencyAdminUserEdit"));
-const AgencyClientAccess = lazy(() => import("./pages/AgencyClientAccess"));
 const SuperAdminAgencyManagement = lazy(
   () => import("./pages/SuperAdminAgencyManagement"),
 );
@@ -782,22 +781,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/agency/admin/client-access"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyClientAccess />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/client-access/create"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyClientAccess />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/agency/admin/settings"
                   element={
                     <ProtectedRoute>
@@ -1061,12 +1044,6 @@ const App = () => (
                       to="/admin/maps/geo-grid-report/:reportId"
                       replace
                     />
-                  }
-                />
-                <Route
-                  path="/AgencyClientAccess"
-                  element={
-                    <Navigate to="/agency/admin/client-access" replace />
                   }
                 />
 
