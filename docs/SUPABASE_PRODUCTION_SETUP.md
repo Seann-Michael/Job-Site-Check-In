@@ -11,7 +11,6 @@ Location of SQL files (relative paths)
 - supabase/migrations/20241220000002_create_client_oauth_schema.sql
 - supabase/migrations/20241220000003_create_static_onboarding_schema.sql
 - supabase/migrations/20241220000004_create_ai_chat_sessions.sql
-- supabase/migrations/20241220000005_create_crm_schema.sql
 - supabase/migrations/20241220000006_create_admin_agency_billing_schema.sql
 - supabase/migrations/20241220000007_enhance_credit_allocation_system.sql
 - supabase/migrations/20241220000009_create_social_media_posts_schema.sql
@@ -28,7 +27,6 @@ What each file covers (high level)
 - 20241220000002_create_client_oauth_schema.sql — onboarding_sessions, client_access, oauth_activity_log, platform_configurations, webhook_events, custom_platforms
 - 20241220000003_create_static_onboarding_schema.sql — agency_static_configs and client_onboarding_submissions
 - 20241220000004_create_ai_chat_sessions.sql — ai_chat_sessions/messages and related tables
-- 20241220000005_create_crm_schema.sql — crm_clients, crm_activities, crm_tasks, client documents, relationships
 - 20241220000006_create_admin_agency_billing_schema.sql — admin billing relationships, history and preferences
 - 20241220000007_enhance_credit_allocation_system.sql — credit allocation / overrides
 - 20241220000008_create_audit_reports_schema.sql — audit reports, findings, analytics tables
@@ -146,7 +144,7 @@ SQL application order recommendation (minimal to full)
 2. Onboarding & OAuth (onboarding_sessions, client_access) — 20241220000002_create_client_oauth_schema.sql
 3. Onboarding UI & profiles/tokens — supabase/migrations/20250902000000_profiles_onboarding.sql
 4. Payments and subscriptions — scripts/create-payments-tables.sql, 20250901000000_create_user_subscriptions_and_platforms.sql
-5. Features (chat, crm, social, audit reports) — other migration files in chronological order
+5. Features (chat, social) — other migration files in chronological order
 
 How to test onboarding API (smoke test)
 
