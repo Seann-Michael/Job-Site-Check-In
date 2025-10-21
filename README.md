@@ -48,8 +48,8 @@ Key modules and what they do
   - DB: scripts/create-payments-tables.sql; migrations add user_subscriptions table.
   - Server: netlify/functions/create-checkout-stripe.ts, create-checkout-paypal.ts, create-checkout-coinbase.ts and webhook handlers webhook-stripe.ts, webhook-paypal.ts, webhook-coinbase.ts.
   - Client: client/lib/paymentService.ts and client/pages/Payments.tsx
-- Chat / CRM
-  - Schemas under supabase/migrations (chat, crm) and corresponding serverless functions in netlify/functions.
+- Chat
+  - Schemas under supabase/migrations (chat) and corresponding serverless functions in netlify/functions.
 
 Environment variables (summary)
 
