@@ -711,22 +711,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/agency/admin/crm"
-                  element={
-                    <ProtectedRoute>
-                      <CRM />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/crm/clients/:clientId"
-                  element={
-                    <ProtectedRoute>
-                      <CRMClientDetail />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/agency/admin/business-owners"
                   element={
                     <ProtectedRoute>
@@ -1270,24 +1254,6 @@ const App = () => (
                   element={<Navigate to="/support" replace />}
                 />
 
-                {/* CRM Redirect Routes (moved from admin to agency) */}
-                <Route
-                  path="/admin/crm"
-                  element={<Navigate to="/agency/admin/crm" replace />}
-                />
-                <Route
-                  path="/admin/crm/clients/:clientId"
-                  element={
-                    <Navigate
-                      to="/agency/admin/crm/clients/:clientId"
-                      replace
-                    />
-                  }
-                />
-                <Route
-                  path="/CRMClientDetail"
-                  element={<Navigate to="/agency/admin/crm" replace />}
-                />
 
                 {/* Super Admin Compatibility Routes */}
                 <Route
