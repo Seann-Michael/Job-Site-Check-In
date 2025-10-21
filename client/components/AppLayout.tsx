@@ -289,14 +289,13 @@ export function AppLayout({
     }
   }, [location.pathname, expandedMenus]);
 
-  // Auto-expand Audits menu if we're on an audits page or maps page (since geo-grid-scan moved to audits)
+  // Auto-expand Maps menu if we're on maps page
   React.useEffect(() => {
     if (
-      (location.pathname.startsWith("/admin/audits") ||
-        location.pathname.startsWith("/admin/maps")) &&
-      !expandedMenus.includes("audits")
+      location.pathname.startsWith("/admin/maps") &&
+      !expandedMenus.includes("maps")
     ) {
-      setExpandedMenus((prev) => [...prev, "audits"]);
+      setExpandedMenus((prev) => [...prev, "maps"]);
     }
   }, [location.pathname, expandedMenus]);
 
@@ -332,21 +331,13 @@ export function AppLayout({
       comingSoon: false,
     },
     {
-      id: "audits",
-      label: "Audits",
+      id: "maps",
+      label: "Maps",
       href: "", // No direct href - dropdown placeholder
       icon: Shield,
-      active:
-        location.pathname.startsWith("/admin/audits") ||
-        location.pathname.startsWith("/admin/maps"),
+      active: location.pathname.startsWith("/admin/maps"),
       comingSoon: false,
       subItems: [
-        {
-          id: "audit-reports",
-          label: "SEO Audit Reports",
-          href: "/admin/audit-reports",
-          active: location.pathname === "/admin/audit-reports",
-        },
         {
           id: "geo-grid-scan",
           label: "Geo Grid Scan",
@@ -356,8 +347,8 @@ export function AppLayout({
         {
           id: "scan-history",
           label: "Scan History",
-          href: "/admin/audits/scan-history",
-          active: location.pathname === "/admin/audits/scan-history",
+          href: "/admin/maps/scan-history",
+          active: location.pathname === "/admin/maps/scan-history",
         },
       ],
     },
