@@ -289,15 +289,6 @@ export function AppLayout({
     }
   }, [location.pathname, expandedMenus]);
 
-  // Auto-expand Maps menu if we're on maps page
-  React.useEffect(() => {
-    if (
-      location.pathname.startsWith("/admin/maps") &&
-      !expandedMenus.includes("maps")
-    ) {
-      setExpandedMenus((prev) => [...prev, "maps"]);
-    }
-  }, [location.pathname, expandedMenus]);
 
   // Auto-expand Tools menu if we're on tools pages
   React.useEffect(() => {
