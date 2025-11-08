@@ -4,125 +4,139 @@
 
 ### Production Environment
 
-- **Frontend Hosting**: Netlify CDN
+- **Frontend Hosting**: Digital Ocean App Platform (Static Site)
+- **Backend API**: Digital Ocean App Platform (Functions/Service)
 - **Backend Database**: Supabase PostgreSQL
 - **Authentication**: Supabase Auth
 - **File Storage**: Supabase Storage
-- **Serverless Functions**: Netlify Functions
-- **Domain Management**: Netlify DNS
-- **SSL Certificates**: Automatic via Netlify
+- **Domain Management**: Digital Ocean DNS
+- **SSL Certificates**: Automatic via Digital Ocean
 
 ### Domain Configuration
 
 ```
 mylocalseoranker.com          → WordPress Marketing Site
-app.mylocalseoranker.com      → React Web Application
-api.mylocalseoranker.com      → API Gateway (Netlify Functions)
+app.mylocalseoranker.com      → React Web Application (Digital Ocean)
+api.mylocalseoranker.com      → API Gateway (Digital Ocean Functions)
 ```
 
-## 🚀 Netlify Deployment
+## 🚀 Digital Ocean App Platform Deployment
 
-### Build Configuration
+### App Configuration (.do/app.yaml)
 
-```toml
-# netlify.toml
-[build]
-  command = "npm run build:client"
-  functions = "netlify/functions"
-  publish = "dist/spa"
+The application is configured in `.do/app.yaml` with two components:
 
-[build.environment]
-  NODE_VERSION = "18"
-  NPM_VERSION = "9"
+1. **Static Site** (Frontend)
+   - Build command: `npm run build:client`
+   - Output directory: `dist`
+   - Routes: `/` (all frontend routes)
 
-[functions]
-  external_node_modules = ["express", "@supabase/supabase-js"]
-  node_bundler = "esbuild"
-  included_files = ["shared/**"]
+2. **Service** (API Functions)
+   - Source directory: `/api`
+   - Routes: `/api/*`
+   - Runtime: Node.js 20+
 
-# API Routes
-[[redirects]]
-  force = true
-  from = "/api/*"
-  status = 200
-  to = "/.netlify/functions/api/:splat"
+### Environment Variables (Digital Ocean)
 
-# SPA Routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  conditions = {Role = ["user"]}
+Configure these in the Digital Ocean App Platform dashboard under Settings → Environment Variables:
 
-# Security Headers
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Content-Type-Options = "nosniff"
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://api.twilio.com; frame-src 'none';"
-
-# Cache Control
-[[headers]]
-  for = "/static/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000"
-
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000"
-```
-
-### Environment Variables (Netlify)
-
+#### Build-Time Variables (Frontend)
 ```bash
-# Supabase Configuration
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Google APIs
 VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
-GOOGLE_PLACES_API_KEY=your-places-key
-
-# Twilio Configuration
-TWILIO_ACCOUNT_SID=your-twilio-sid
-TWILIO_AUTH_TOKEN=your-twilio-token
-TWILIO_PHONE_NUMBER=+1234567890
-SENDGRID_API_KEY=your-sendgrid-key
-
-# Application URLs
 VITE_APP_URL=https://app.mylocalseoranker.com
 VITE_API_URL=https://app.mylocalseoranker.com/api
-
-# Security
-JWT_SECRET=your-jwt-secret
-WEBHOOK_SECRET=your-webhook-secret
-ENCRYPTION_KEY=your-encryption-key
-
-# External Services
-OPENAI_API_KEY=your-openai-key
-ANALYTICS_ID=your-analytics-id
 ```
 
-### Deployment Commands
+#### Runtime Variables (API Service)
+```bash
+# Supabase Configuration
+SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_STORAGE_BUCKET=media
+
+# Payment Processors
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+PAYPAL_CLIENT_ID=...
+PAYPAL_CLIENT_SECRET=...
+PAYPAL_PLAN_ID=...
+PAYPAL_WEBHOOK_ID=...
+COINBASE_COMMERCE_API_KEY=...
+COINBASE_COMMERCE_SHARED_SECRET=...
+
+# Communications
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=+1234567890
+TWILIO_WEBHOOK_URL=https://app.mylocalseoranker.com/api/twilio/webhook
+MAILGUN_API_KEY=...
+MAILGUN_DOMAIN=mg.localcontractorleads.com
+FROM_EMAIL=noreply@localcontractorleads.com
+
+# OAuth & Social
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_ADS_DEVELOPER_TOKEN=...
+META_APP_ID=...
+META_APP_SECRET=...
+
+# Third-Party Services
+DATAFORSEO_API_LOGIN=...
+DATAFORSEO_API_PASSWORD=...
+DATAFORSEO_API_KEY=...
+DATAFORSEO_USERNAME=...
+DATAFORSEO_PASSWORD=...
+OPENAI_API_KEY=sk-...
+GOOGLE_MAPS_API_KEY=...
+
+# General
+SITE_NAME=Local SEO Ranker
+NODE_ENV=production
+PORT=8080
+```
+
+### Deployment via doctl CLI
 
 ```bash
-# Install Netlify CLI
-npm install -g netlify-cli
+# Install doctl CLI
+brew install doctl  # macOS
+# or download from https://docs.digitalocean.com/reference/doctl/
 
-# Link to Netlify site
-netlify link
+# Authenticate
+doctl auth init
 
-# Set environment variables
-netlify env:set VITE_SUPABASE_URL "https://your-project.supabase.co"
-netlify env:set VITE_SUPABASE_ANON_KEY "your-anon-key"
+# Create app from spec
+doctl apps create --spec .do/app.yaml
 
-# Deploy to production
-netlify deploy --prod
+# Get app ID
+doctl apps list
+
+# Deploy updates
+doctl apps update YOUR_APP_ID --spec .do/app.yaml
+
+# View deployment logs
+doctl apps logs YOUR_APP_ID --follow
+```
+
+### Deployment via GitHub Integration
+
+1. Connect your GitHub repository in Digital Ocean dashboard
+2. Select branch: `main`
+3. Digital Ocean will automatically deploy on push
+4. Configure environment variables in the dashboard
+5. Deployments are automatic on every commit to main
+
+### Manual Deployment
+
+```bash
+# Build the application
+npm run build:client
+
+# Deploy using doctl
+doctl apps create-deployment YOUR_APP_ID
 ```
 
 ## 🗄️ Supabase Configuration
@@ -265,7 +279,7 @@ CREATE TRIGGER update_projects_updated_at
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm or yarn
 - Git
 - VS Code (recommended)
@@ -290,7 +304,7 @@ cp .env.example .env.local
 npm run dev
 
 # 6. Open browser
-open http://localhost:8080
+open http://localhost:5173
 ```
 
 ### Development Environment Variables
@@ -300,8 +314,8 @@ open http://localhost:8080
 VITE_SUPABASE_URL=https://your-dev-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-dev-anon-key
 VITE_GOOGLE_MAPS_API_KEY=your-maps-key
-VITE_APP_URL=http://localhost:8080
-VITE_API_URL=http://localhost:8080/api
+VITE_APP_URL=http://localhost:5173
+VITE_API_URL=http://localhost:5173/api
 
 # For testing Twilio (optional)
 TWILIO_ACCOUNT_SID=your-test-sid
@@ -337,8 +351,8 @@ npm run format
 - [ ] All tests passing
 - [ ] TypeScript compilation successful
 - [ ] No ESLint errors
-- [ ] Environment variables configured
-- [ ] Database migrations applied
+- [ ] Environment variables configured in Digital Ocean
+- [ ] Database migrations applied to Supabase
 - [ ] SSL certificate valid
 - [ ] Performance benchmarks met
 - [ ] Security scan passed
@@ -370,8 +384,9 @@ trackPerformance({
 ### Log Aggregation
 
 ```bash
-# Netlify Function logs
-netlify functions:invoke api --logs
+# Digital Ocean App logs
+doctl apps logs YOUR_APP_ID --type=BUILD
+doctl apps logs YOUR_APP_ID --type=RUN --follow
 
 # Supabase logs
 # Access via Supabase Dashboard > Logs
@@ -433,7 +448,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
 
       - run: npm ci
@@ -449,22 +464,17 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
 
       - run: npm ci
       - run: npm run build
 
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v1.2
+      - name: Deploy to Digital Ocean
+        uses: digitalocean/app_action@v1.1.5
         with:
-          publish-dir: "./dist/spa"
-          production-branch: main
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Deploy from GitHub Actions"
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          app_name: local-seo-ranker
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 ```
 
 ## 🔐 Security Configuration
@@ -527,8 +537,9 @@ $$ LANGUAGE plpgsql;
 rm -rf node_modules package-lock.json
 npm install
 
-# Clear Netlify cache
-netlify build --clear-cache
+# Clear build cache
+rm -rf dist
+npm run build
 ```
 
 **Database Connection Issues**
@@ -538,7 +549,7 @@ netlify build --clear-cache
 curl https://status.supabase.com
 
 # Verify environment variables
-netlify env:list
+doctl apps list-envs YOUR_APP_ID
 ```
 
 **Performance Issues**
@@ -553,13 +564,14 @@ lighthouse https://app.mylocalseoranker.com
 
 ### Emergency Procedures
 
-1. **Service Down**: Check status.mylocalseoranker.com
+1. **Service Down**: Check Digital Ocean status page
 2. **Database Issues**: Contact Supabase support
-3. **CDN Issues**: Contact Netlify support
+3. **CDN Issues**: Contact Digital Ocean support
 4. **Security Incident**: security@mylocalseoranker.com
 
 ---
 
-**Last Updated**: January 2024  
-**Version**: 2.0.0  
+**Last Updated**: January 2025
+**Version**: 2.0.0
+**Platform**: Digital Ocean App Platform
 **Maintained By**: DevOps Team
