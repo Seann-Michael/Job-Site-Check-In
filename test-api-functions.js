@@ -11,8 +11,8 @@ const https = require("https");
 const http = require("http");
 
 // Configuration
-const BASE_URL = process.env.TEST_BASE_URL || "https://your-site.netlify.app";
-const LOCAL_URL = "http://localhost:8888"; // Netlify Dev local URL
+const BASE_URL = process.env.TEST_BASE_URL || "https://your-site.digitaloceanapp.com";
+const LOCAL_URL = "http://localhost:5173"; // Local Vite dev server
 
 console.log("🧪 API Function Testing Script");
 console.log("===============================\n");
@@ -117,7 +117,7 @@ async function testEmailFunction(baseUrl) {
   console.log("📧 Testing Email Function...");
   try {
     const response = await makeRequest(
-      `${baseUrl}/.netlify/functions/send-email`,
+      `${baseUrl}/api/send-email`,
       "POST",
       testData.email,
     );
@@ -134,7 +134,7 @@ async function testSMSFunction(baseUrl) {
   console.log("📱 Testing SMS Function...");
   try {
     const response = await makeRequest(
-      `${baseUrl}/.netlify/functions/send-sms`,
+      `${baseUrl}/api/send-sms`,
       "POST",
       testData.sms,
     );
@@ -151,7 +151,7 @@ async function testDataForSEOFunction(baseUrl) {
   console.log("🔍 Testing DataForSEO Function...");
   try {
     const response = await makeRequest(
-      `${baseUrl}/.netlify/functions/dataforseo-service`,
+      `${baseUrl}/api/dataforseo-service`,
       "POST",
       testData.dataforseo,
     );
@@ -170,7 +170,7 @@ async function testMediaStorageFunction(baseUrl) {
   // Test upload
   try {
     const uploadResponse = await makeRequest(
-      `${baseUrl}/.netlify/functions/media-storage`,
+      `${baseUrl}/api/media-storage`,
       "POST",
       testData.mediaUpload,
     );
@@ -179,7 +179,7 @@ async function testMediaStorageFunction(baseUrl) {
 
     // Test list
     const listResponse = await makeRequest(
-      `${baseUrl}/.netlify/functions/media-storage?limit=5`,
+      `${baseUrl}/api/media-storage?limit=5`,
       "GET",
     );
     console.log(`   List Status: ${listResponse.status}`);
@@ -200,7 +200,7 @@ async function runTests() {
   console.log(`🎯 Testing against: ${testUrl}\n`);
 
   if (isLocal) {
-    console.log("💡 Make sure you have Netlify Dev running: netlify dev\n");
+    console.log("💡 Make sure you have Vite dev server running: npm run dev\n");
   }
 
   const results = {
@@ -240,13 +240,13 @@ if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log("");
   console.log("Options:");
   console.log(
-    "  --local    Test against local Netlify Dev server (http://localhost:8888)",
+    "  --local    Test against local Vite dev server (http://localhost:5173)",
   );
   console.log("  --help     Show this help message");
   console.log("");
   console.log("Environment Variables:");
   console.log(
-    "  TEST_BASE_URL    Override the base URL for testing (default: https://your-site.netlify.app)",
+    "  TEST_BASE_URL    Override the base URL for testing (default: https://your-site.digitaloceanapp.com)",
   );
   process.exit(0);
 }
