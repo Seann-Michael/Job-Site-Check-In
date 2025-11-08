@@ -3,7 +3,7 @@
 /**
  * API Function Testing Script
  *
- * This script tests the Netlify functions locally during development.
+ * This script tests the API functions locally during development.
  * Run with: node test-api-functions.js
  */
 

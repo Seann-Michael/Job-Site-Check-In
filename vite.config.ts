@@ -43,30 +43,42 @@ function expressPlugin(): Plugin {
             return app(req, res, next);
           }
 
-          // Handle Netlify Functions in dev: /.netlify/functions/<name>
-          if (url.startsWith("/.netlify/functions/")) {
+          // Handle API endpoints in dev (supports both /api/ and legacy /.netlify/functions/)
+          if (url.startsWith("/api/") || url.startsWith("/.netlify/functions/")) {
             // Extract function name and remaining path
-            const parts = url.replace("/.netlify/functions/", "").split("/");
+            const cleanPath = url.startsWith("/api/") ? url.replace("/api/", "") : url.replace("/.netlify/functions/", "");
+            const parts = cleanPath.split("/");
             const funcName = parts.shift();
             const remainingPath = parts.length ? `/${parts.join("/")}` : "";
 
             if (!funcName) return next();
 
-            // Resolve module path in dev (support .ts files)
+            // Resolve module path in dev (support .ts files) - try api/ first, then netlify/functions/
+            const modulePathTsApi = path.resolve(process.cwd(), `api/${funcName}.ts`);
+            const modulePathJsApi = path.resolve(process.cwd(), `api/${funcName}.js`);
             const modulePathTs = path.resolve(process.cwd(), `netlify/functions/${funcName}.ts`);
             const modulePathJs = path.resolve(process.cwd(), `netlify/functions/${funcName}.js`);
 
             let mod: any = null;
             try {
-              // Try to load TS module via Vite's SSR loader which transpiles on the fly
-              mod = await server.ssrLoadModule(modulePathTs);
+              // Try to load from api/ directory first
+              mod = await server.ssrLoadModule(modulePathTsApi);
             } catch (e) {
               try {
-                mod = await server.ssrLoadModule(modulePathJs);
-              } catch (err) {
-                console.error(`Failed to load Netlify function module for ${funcName}:`, err);
-                res.statusCode = 500;
-                return res.end(`Function ${funcName} not found`);
+                mod = await server.ssrLoadModule(modulePathJsApi);
+              } catch (e2) {
+                try {
+                  // Fall back to netlify/functions/ for legacy support
+                  mod = await server.ssrLoadModule(modulePathTs);
+                } catch (e3) {
+                  try {
+                    mod = await server.ssrLoadModule(modulePathJs);
+                  } catch (err) {
+                    console.error(`Failed to load API function module for ${funcName}:`, err);
+                    res.statusCode = 500;
+                    return res.end(`Function ${funcName} not found`);
+                  }
+                }
               }
             }
 
@@ -89,7 +101,7 @@ function expressPlugin(): Plugin {
 
             const event = {
               httpMethod: req.method,
-              path: `/.netlify/functions/${funcName}${remainingPath}`,
+              path: url.startsWith("/api/") ? `/api/${funcName}${remainingPath}` : `/.netlify/functions/${funcName}${remainingPath}`,
               headers: req.headers,
               queryStringParameters: queryParams,
               body: body || null,
