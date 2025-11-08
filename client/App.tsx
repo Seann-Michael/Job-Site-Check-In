@@ -20,11 +20,8 @@ const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
-const GeoGridScan = lazy(() => import("./pages/GeoGridScan"));
-const GeoGridReport = lazy(() => import("./pages/GeoGridReport"));
 const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
 const GridMapDemo = lazy(() => import("./pages/GridMapDemo"));
-const ScanHistory = lazy(() => import("./pages/ScanHistory"));
 const CreditPurchase = lazy(() => import("./pages/CreditPurchase"));
 const CreditHistory = lazy(() => import("./pages/CreditHistory"));
 const CreditAnalytics = lazy(() => import("./pages/CreditAnalytics"));
@@ -39,7 +36,6 @@ const UserManagement = lazy(() => import("./pages/UserManagement"));
 const CrashLogs = lazy(() => import("./pages/CrashLogs"));
 const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const Tools = lazy(() => import("./pages/Tools"));
-const MarketPlace = lazy(() => import("./pages/MarketPlace"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
@@ -268,14 +264,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/Tools"
-                  element={<Navigate to="/admin/marketplace" replace />}
-                />
-                <Route
-                  path="/MarketPlace"
-                  element={<Navigate to="/admin/marketplace" replace />}
-                />
-                <Route
                   path="/Ideas"
                   element={<Navigate to="/admin/ideas" replace />}
                 />
@@ -462,18 +450,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/maps"
-                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
-                />
-                <Route
-                  path="/admin/maps/geo-grid-scan"
-                  element={
-                    <ProtectedRoute>
-                      <GeoGridScan />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/grid-map-demo"
                   element={
                     <ProtectedRoute>
@@ -481,32 +457,12 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/admin/maps/one-time-scan"
-                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
-                />
                 {/* Audits routes */}
                 <Route
                   path="/admin/grid-demo"
                   element={
                     <ProtectedRoute>
                       <GridOverlayDemo />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/maps/scan-history"
-                  element={
-                    <ProtectedRoute>
-                      <ScanHistory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/maps/geo-grid-report/:reportId"
-                  element={
-                    <ProtectedRoute>
-                      <GeoGridReport />
                     </ProtectedRoute>
                   }
                 />
@@ -600,19 +556,6 @@ const App = () => (
                   }
                 />
 
-                <Route
-                  path="/admin/tools"
-                  element={<Navigate to="/admin/marketplace" replace />}
-                />
-
-                <Route
-                  path="/admin/marketplace"
-                  element={
-                    <ProtectedRoute>
-                      <MarketPlace />
-                    </ProtectedRoute>
-                  }
-                />
 
                 <Route
                   path="/admin/ideas"
@@ -1029,23 +972,7 @@ const App = () => (
                   path="/photos"
                   element={<Navigate to="/admin/gallery" replace />}
                 />
-                <Route
-                  path="/OneTimeScan"
-                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
-                />
-                <Route
-                  path="/GeoGridReport"
-                  element={<Navigate to="/admin/maps/scan-history" replace />}
-                />
-                <Route
-                  path="/GeoGridReport/:reportId"
-                  element={
-                    <Navigate
-                      to="/admin/maps/geo-grid-report/:reportId"
-                      replace
-                    />
-                  }
-                />
+
 
                 {/* Builder.io compatibility routes (URLs without separators) */}
                 <Route
@@ -1175,10 +1102,6 @@ const App = () => (
                   element={<Navigate to="/agency/admin/projects" replace />}
                 />
                 <Route
-                  path="/ScanHistory"
-                  element={<Navigate to="/admin/maps/scan-history" replace />}
-                />
-                <Route
                   path="/CreditPurchase"
                   element={<Navigate to="/admin/credits/purchase" replace />}
                 />
@@ -1198,10 +1121,7 @@ const App = () => (
                   path="/GridOverlayDemo"
                   element={<Navigate to="/admin/grid-demo" replace />}
                 />
-                <Route
-                  path="/OneTimeScan"
-                  element={<Navigate to="/admin/maps/geo-grid-scan" replace />}
-                />
+
                 <Route
                   path="/WorkflowBuilder"
                   element={<Navigate to="/admin/workflow-builder" replace />}
