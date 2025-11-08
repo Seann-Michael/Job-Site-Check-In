@@ -3,7 +3,7 @@ import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 interface SMSRequest {
   to: string;
   message?: string;
-  template?: 'geo-grid-share' | 'project-update' | 'system-alert';
+  template?: 'project-update' | 'system-alert';
   templateData?: Record<string, any>;
 }
 
@@ -12,18 +12,6 @@ const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || '+1234567890';
 
 const SMS_TEMPLATES = {
-  'geo-grid-share': {
-    message: `🗺️ Geo Grid Results Shared
-
-{{userName}} shared ranking results for {{businessCount}} business(es):
-{{#each results}}
-• {{businessName}} - {{keyword}}
-{{/each}}
-
-View full results: {{publicUrl}}
-
-- Local SEO Ranker`,
-  },
   'project-update': {
     message: `📊 Project Update
 

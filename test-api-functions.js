@@ -22,32 +22,22 @@ const testData = {
   email: {
     to: "test@example.com",
     subject: "Test Email from Local SEO Ranker",
-    template: "geo-grid-share",
+    template: "project-notification",
     templateData: {
-      userName: "Test User",
-      results: [
-        {
-          businessName: "Test Pizza Restaurant",
-          keyword: "pizza near me",
-          averageRanking: "2.3",
-        },
-      ],
-      publicUrl: "https://example.com/results/123",
+      projectName: "Test Project",
+      status: "In Progress",
+      updatedAt: new Date().toISOString(),
+      message: "Test notification message",
     },
   },
   sms: {
     to: "+1234567890", // Replace with your test number
-    template: "geo-grid-share",
+    template: "project-update",
     templateData: {
-      userName: "Test User",
-      businessCount: 1,
-      results: [
-        {
-          businessName: "Test Pizza Restaurant",
-          keyword: "pizza near me",
-        },
-      ],
-      publicUrl: "https://example.com/results/123",
+      projectName: "Test Project",
+      status: "Completed",
+      message: "Your project has been updated",
+      projectUrl: "https://example.com/projects/123",
     },
   },
   dataforseo: {

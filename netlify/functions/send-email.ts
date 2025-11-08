@@ -5,7 +5,7 @@ interface EmailRequest {
   subject: string;
   html?: string;
   text?: string;
-  template?: 'geo-grid-share' | 'project-notification' | 'system-alert';
+  template?: 'project-notification' | 'system-alert';
   templateData?: Record<string, any>;
 }
 
@@ -14,35 +14,6 @@ const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || 'mg.yourdomain.com';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@yourdomain.com';
 
 const EMAIL_TEMPLATES = {
-  'geo-grid-share': {
-    subject: 'Geo Grid Ranking Results Shared',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Geo Grid Ranking Results</h2>
-        <p>Hello,</p>
-        <p>{{userName}} has shared geo grid ranking results with you:</p>
-        
-        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin-top: 0;">Results Summary</h3>
-          <ul>
-            {{#each results}}
-            <li><strong>{{businessName}}</strong> - {{keyword}} (Avg Ranking: #{{averageRanking}})</li>
-            {{/each}}
-          </ul>
-        </div>
-        
-        <p>
-          <a href="{{publicUrl}}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-            View Full Results
-          </a>
-        </p>
-        
-        <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-          This email was sent from Local SEO Ranker. If you have any questions, please contact support.
-        </p>
-      </div>
-    `,
-  },
   'project-notification': {
     subject: 'Project Update - {{projectName}}',
     html: `
