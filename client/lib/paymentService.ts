@@ -6,8 +6,8 @@ export interface CheckoutRequest {
 
 export async function createCheckoutSession(body: CheckoutRequest) {
   const provider = body.provider;
-  // Netlify functions are exposed under /.netlify/functions/<name>
-  const endpoint = `/.netlify/functions/create-checkout-${provider}`;
+  // API endpoints are exposed under /api/<name>
+  const endpoint = `/api/create-checkout-${provider}`;
 
   const res = await fetch(endpoint, {
     method: "POST",

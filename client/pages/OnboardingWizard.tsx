@@ -14,7 +14,7 @@ export default function OnboardingWizard() {
     setLoading(true);
     const session = await supabaseClient.auth.getSession();
     const token = session.data?.session?.access_token;
-    const res = await fetch('/.netlify/functions/onboarding-api?action=tasks', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch('/api/onboarding-api?action=tasks', { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
       setLoading(false);
       return;
@@ -31,7 +31,7 @@ export default function OnboardingWizard() {
     setLoading(true);
     const session = await supabaseClient.auth.getSession();
     const token = session.data?.session?.access_token;
-    const res = await fetch('/.netlify/functions/onboarding-api?action=complete', {
+    const res = await fetch('/api/onboarding-api?action=complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ task_id: taskId, status: 'completed' }),

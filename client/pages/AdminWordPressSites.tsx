@@ -10,7 +10,7 @@ export default function AdminWordPressSites() {
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
-    fetch('/.netlify/functions/wordpress-connections')
+    fetch('/api/wordpress-connections')
       .then((r) => r.json())
       .then((d) => setSites(d.sites || []))
       .catch(() => setSites([]));
@@ -18,7 +18,7 @@ export default function AdminWordPressSites() {
 
   const handleAdd = async () => {
     if (!siteUrl) { alert('site url required'); return; }
-    const res = await fetch('/.netlify/functions/wordpress-connections/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_url: siteUrl, site_name: siteName, api_key: apiKey }) });
+    const res = await fetch('/api/wordpress-connections/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_url: siteUrl, site_name: siteName, api_key: apiKey }) });
     const data = await res.json();
     if (data.site) {
       setSites((s) => [data.site, ...s]);
@@ -29,13 +29,13 @@ export default function AdminWordPressSites() {
   };
 
   const handleTest = async (s: any) => {
-    const res = await fetch('/.netlify/functions/wordpress-connections/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_url: s.site_url, api_key: s.api_key }) });
+    const res = await fetch('/api/wordpress-connections/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_url: s.site_url, api_key: s.api_key }) });
     const data = await res.json();
     if (data.success) alert('Connection OK'); else alert('Connection failed');
   };
 
   const handleDelete = async (id: string) => {
-    const res = await fetch('/.netlify/functions/wordpress-connections/' + id, { method: 'DELETE' });
+    const res = await fetch('/api/wordpress-connections/' + id, { method: 'DELETE' });
     const data = await res.json();
     if (data.success) setSites((prev) => prev.filter((p) => p.id !== id)); else alert('Failed to delete');
   };

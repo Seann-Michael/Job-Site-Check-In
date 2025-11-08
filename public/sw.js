@@ -397,7 +397,7 @@ async function cleanupCache(cacheName, maxEntries) {
 
 function isAPIRequest(request) {
   const url = new URL(request.url);
-  return url.pathname.startsWith("/api/") || url.pathname.startsWith("/.netlify/functions/");
+  return url.pathname.startsWith("/api/");
 }
 
 function isStaticAsset(request) {
