@@ -678,7 +678,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             }}
           >
             <GoogleMap
-              key="stable-geo-grid-map"
+              key="stable-google-map"
               mapContainerStyle={mapContainerStyle}
               center={mapCenter}
               zoom={zoom}
