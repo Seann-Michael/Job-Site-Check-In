@@ -258,30 +258,6 @@ class AuditLogService {
     );
   }
 
-  /**
-   * Helper method to log geo grid ranking operations
-   */
-  async logGeoGridScan(
-    keyword: string,
-    location: string,
-    businessName: string,
-    results: any,
-    userId?: string,
-  ): Promise<void> {
-    await this.logSystemEvent(
-      "geo_grid_scan",
-      `Geo grid scan completed for "${keyword}" in ${location}`,
-      userId,
-      {
-        keyword,
-        location,
-        business_name: businessName,
-        results_count: results?.total_results || 0,
-        average_ranking: results?.average_ranking || 0,
-        credits_used: results?.credits_used || 0,
-      },
-    );
-  }
 
   /**
    * Helper method to log bulk actions
@@ -313,7 +289,6 @@ export const logDatabaseChange = auditLog.logDatabaseChange.bind(auditLog);
 export const logSystemEvent = auditLog.logSystemEvent.bind(auditLog);
 export const logUserAction = auditLog.logUserAction.bind(auditLog);
 export const logProjectChange = auditLog.logProjectChange.bind(auditLog);
-export const logGeoGridScan = auditLog.logGeoGridScan.bind(auditLog);
 export const logBulkAction = auditLog.logBulkAction.bind(auditLog);
 
 // Hook for automatically logging changes
@@ -324,7 +299,6 @@ export const useAuditLog = () => {
     logSystemEvent,
     logUserAction,
     logProjectChange,
-    logGeoGridScan,
     logBulkAction,
     getRecentLogs: auditLog.getRecentLogs.bind(auditLog),
     getTableLogs: auditLog.getTableLogs.bind(auditLog),
