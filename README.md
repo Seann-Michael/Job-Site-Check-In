@@ -20,7 +20,7 @@ Repository layout (developer)
 - client/ — React TypeScript UI (Vite). Main front-end pages and components.
 - client/pages — SPA routes (OnboardingWizard, Payments, Admin pages, etc.).
 - client/lib — client-side helpers (supabaseClient.ts, paymentService.ts).
-- netlify/functions — serverless backend functions used by the app (OAuth flows, onboarding-api, payment checkout creators, webhook handlers, helpers).
+- api/ — serverless backend functions used by the app (OAuth flows, onboarding-api, payment checkout creators, webhook handlers, helpers).
 - supabase/migrations — SQL migrations to build the DB schema in order.
 - scripts/ — helper scripts (setup-supabase, populate-sample-data, create-payments-tables.sql).
 - server_complete/ — optional backend server code that can be used for heavier server workloads.
@@ -28,32 +28,32 @@ Repository layout (developer)
 
 Architecture & data flow
 
-- Frontend runs in the browser, authenticates users via Supabase Auth (Google + email/password), interacts with Netlify Functions for server-side operations.
-- Netlify functions use SUPABASE_SERVICE_ROLE_KEY to perform privileged DB operations (persist payment sessions, onboarding activity, OAuth tokens).
+- Frontend runs in the browser, authenticates users via Supabase Auth (Google + email/password), interacts with API functions for server-side operations.
+- API functions use SUPABASE_SERVICE_ROLE_KEY to perform privileged DB operations (persist payment sessions, onboarding activity, OAuth tokens).
 - Supabase stores users (auth.users) and extended tables (profiles, onboarding_tasks, user_task_progress, client_access, payments, user_subscriptions, etc.).
-- Payments: frontend requests a checkout via /.netlify/functions/create-checkout-<provider>. Functions create provider checkout objects, persist sessions, then redirect users to provider-hosted pages.
-- Webhooks: provider webhooks arrive at /.netlify/functions/webhook-<provider>, are verified, and persisted into payments/payments_sessions and user_subscriptions where applicable.
+- Payments: frontend requests a checkout via /api/create-checkout-<provider>. Functions create provider checkout objects, persist sessions, then redirect users to provider-hosted pages.
+- Webhooks: provider webhooks arrive at /api/webhook-<provider>, are verified, and persisted into payments/payments_sessions and user_subscriptions where applicable.
 
 Key modules and what they do
 
 - Onboarding
   - DB: supabase/migrations/20250902000000_profiles_onboarding.sql
-  - Server: netlify/functions/onboarding-api.ts — list tasks, complete tasks, award tokens, update profiles.
+  - Server: api/onboarding-api.ts — list tasks, complete tasks, award tokens, update profiles.
   - Client: client/pages/OnboardingWizard.tsx — UI to display tasks and progress.
 - OAuth & Integrations
   - DB: supabase/migrations/20241220000002_create_client_oauth_schema.sql
-  - Server: netlify/functions/oauth-flows.ts (authorize/callback), netlify/functions/oauth-api.ts (management endpoints).
+  - Server: api/oauth-flows.ts (authorize/callback), api/oauth-api.ts (management endpoints).
   - Client: client/components/OAuth/* UI components and popup manager.
 - Payments
   - DB: scripts/create-payments-tables.sql; migrations add user_subscriptions table.
-  - Server: netlify/functions/create-checkout-stripe.ts, create-checkout-paypal.ts, create-checkout-coinbase.ts and webhook handlers webhook-stripe.ts, webhook-paypal.ts, webhook-coinbase.ts.
+  - Server: api/create-checkout-stripe.ts, create-checkout-paypal.ts, create-checkout-coinbase.ts and webhook handlers webhook-stripe.ts, webhook-paypal.ts, webhook-coinbase.ts.
   - Client: client/lib/paymentService.ts and client/pages/Payments.tsx
 - Chat
-  - Schemas under supabase/migrations (chat) and corresponding serverless functions in netlify/functions.
+  - Schemas under supabase/migrations (chat) and corresponding serverless functions in api/.
 
 Environment variables (summary)
 
-Set these server-side (Netlify site settings) for production. Never expose service keys to the client.
+Set these in Digital Ocean App Platform environment settings for production. Never expose service keys to the client.
 
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY (server-only)
@@ -83,15 +83,15 @@ Database migrations
 
 Internal APIs (serverless functions)
 
-All server functions live in netlify/functions/. Core endpoints (internal and public):
+All server functions live in api/. Core endpoints (internal and public):
 
-- /.netlify/functions/onboarding-api?action=tasks — GET tasks & progress (requires Authorization: Bearer <access_token>)
-- /.netlify/functions/onboarding-api?action=complete — POST complete a task
-- /.netlify/functions/validate-federal-domain — POST { email } → { isFederal, domain }
-- /api/oauth/:platform/authorize — redirect to provider OAuth (netlify/functions/oauth-flows.ts)
+- /api/onboarding-api?action=tasks — GET tasks & progress (requires Authorization: Bearer <access_token>)
+- /api/onboarding-api?action=complete — POST complete a task
+- /api/validate-federal-domain — POST { email } → { isFederal, domain }
+- /api/oauth/:platform/authorize — redirect to provider OAuth (api/oauth-flows.ts)
 - /api/oauth/:platform/callback — OAuth callback handler
-- /.netlify/functions/create-checkout-stripe (and -paypal, -coinbase) — create provider checkout
-- /.netlify/functions/webhook-stripe, /.netlify/functions/webhook-paypal, /.netlify/functions/webhook-coinbase — webhook receivers
+- /api/create-checkout-stripe (and -paypal, -coinbase) — create provider checkout
+- /api/webhook-stripe, /api/webhook-paypal, /api/webhook-coinbase — webhook receivers
 
 Public API considerations
 
@@ -103,20 +103,20 @@ How to run locally (developer)
 1. Install dependencies: npm install
 2. Setup your Supabase credentials (see scripts/setup-supabase.js): npm run setup
 3. Populate sample data (optional): npm run populate-data
-4. Start dev server with Netlify: npm run dev (this runs netlify dev and exposes functions)
+4. Start dev server: npm run dev (this runs vite dev server)
 5. Alternatively run client-only dev server: npm run dev:vite
 
-Deployment (Netlify)
+Deployment (Digital Ocean App Platform)
 
 - Build: npm run build:client
-- Netlify will deploy the static site and functions from netlify/functions/.
-- Ensure Netlify environment variables include SUPABASE_SERVICE_ROLE_KEY and provider secrets.
-- Configure redirects in netlify.toml (already set up in repo for /api/* to netlify functions).
+- Digital Ocean App Platform will deploy the static site and API functions from api/.
+- Ensure Digital Ocean environment variables include SUPABASE_SERVICE_ROLE_KEY and provider secrets.
+- Configure routing in .do/app.yaml (already set up in repo for /api/* routing).
 
 Security and RLS
 
 - Row Level Security is enabled on many tables. Server operations must use SUPABASE_SERVICE_ROLE_KEY or elevated privileges.
-- Never commit secrets. Use Netlify environment variables for production secrets.
+- Never commit secrets. Use Digital Ocean App Platform environment variables for production secrets.
 - Webhook endpoints must validate signatures (Stripe/PayPal/Coinbase handlers implement verification).
 
 Testing
