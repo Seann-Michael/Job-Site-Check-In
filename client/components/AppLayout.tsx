@@ -302,8 +302,7 @@ export function AppLayout({
   // Auto-expand Tools menu if we're on tools pages
   React.useEffect(() => {
     if (
-      (location.pathname.startsWith("/admin/tools") ||
-        location.pathname.startsWith("/admin/marketplace")) &&
+      location.pathname.startsWith("/admin/tools") &&
       !expandedMenus.includes("tools")
     ) {
       setExpandedMenus((prev) => [...prev, "tools"]);
@@ -329,28 +328,6 @@ export function AppLayout({
       icon: Camera,
       active: location.pathname === "/admin/gallery",
       comingSoon: false,
-    },
-    {
-      id: "maps",
-      label: "Maps",
-      href: "", // No direct href - dropdown placeholder
-      icon: Shield,
-      active: location.pathname.startsWith("/admin/maps"),
-      comingSoon: false,
-      subItems: [
-        {
-          id: "geo-grid-scan",
-          label: "Geo Grid Scan",
-          href: "/admin/maps/geo-grid-scan",
-          active: location.pathname === "/admin/maps/geo-grid-scan",
-        },
-        {
-          id: "scan-history",
-          label: "Scan History",
-          href: "/admin/maps/scan-history",
-          active: location.pathname === "/admin/maps/scan-history",
-        },
-      ],
     },
     {
       id: "reviews",
@@ -389,16 +366,9 @@ export function AppLayout({
       icon: Wrench,
       active:
         location.pathname.startsWith("/admin/tools") ||
-        location.pathname.startsWith("/admin/marketplace") ||
         location.pathname.startsWith("/admin/gmb-optimization"),
       comingSoon: false,
       subItems: [
-        {
-          id: "marketplace",
-          label: "Market Place",
-          href: "/admin/marketplace",
-          active: location.pathname.startsWith("/admin/marketplace"),
-        },
         {
           id: "wordpress-sites",
           label: "WP Sites",
