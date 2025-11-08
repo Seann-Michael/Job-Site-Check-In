@@ -20,8 +20,6 @@ const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
-const GridOverlayDemo = lazy(() => import("./pages/GridOverlayDemo"));
-const GridMapDemo = lazy(() => import("./pages/GridMapDemo"));
 const CreditPurchase = lazy(() => import("./pages/CreditPurchase"));
 const CreditHistory = lazy(() => import("./pages/CreditHistory"));
 const CreditAnalytics = lazy(() => import("./pages/CreditAnalytics"));
@@ -446,23 +444,6 @@ const App = () => (
                       <Suspense fallback={<div>Loading...</div>}>
                         <AdminWordPressSites />
                       </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/grid-map-demo"
-                  element={
-                    <ProtectedRoute>
-                      <GridMapDemo />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Audits routes */}
-                <Route
-                  path="/admin/grid-demo"
-                  element={
-                    <ProtectedRoute>
-                      <GridOverlayDemo />
                     </ProtectedRoute>
                   }
                 />
@@ -1116,10 +1097,6 @@ const App = () => (
                 <Route
                   path="/ReportGenerator"
                   element={<Navigate to="/admin/report-generator" replace />}
-                />
-                <Route
-                  path="/GridOverlayDemo"
-                  element={<Navigate to="/admin/grid-demo" replace />}
                 />
 
                 <Route
