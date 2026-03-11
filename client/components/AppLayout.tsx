@@ -361,12 +361,6 @@ export function AppLayout({
       comingSoon: false,
       subItems: [
         {
-          id: "wordpress-sites",
-          label: "WP Sites",
-          href: "/admin/wordpress-pages/sites",
-          active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
-        },
-        {
           id: "gmb-optimization",
           label: "GMB Optimization",
           href: "/admin/gmb-optimization",

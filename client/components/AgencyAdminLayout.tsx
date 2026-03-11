@@ -102,12 +102,6 @@ export function AgencyAdminLayout({ children }: AgencyAdminLayoutProps) {
       icon: MessageSquare,
       active: location.pathname === "/support",
     },
-    {
-      label: "WP Sites",
-      href: "/admin/wordpress-pages/sites",
-      icon: BookOpen,
-      active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
-    },
   ];
 
   return (

@@ -158,12 +158,6 @@ export function SuperAdminLayout({
       icon: MessageSquare,
       active: location.pathname === "/super-admin/support",
     },
-    {
-      label: "WP Sites",
-      href: "/admin/wordpress-pages/sites",
-      icon: Globe,
-      active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
-    },
   ];
 
   return (

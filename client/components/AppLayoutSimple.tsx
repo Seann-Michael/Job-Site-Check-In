@@ -181,14 +181,6 @@ export function AppLayout({
       active: location.pathname === "/admin/settings",
       comingSoon: false,
     },
-    {
-      id: "wordpress-sites",
-      label: "WP Sites",
-      href: "/admin/wordpress-pages/sites",
-      icon: Globe,
-      active: location.pathname.startsWith("/admin/wordpress-pages/sites"),
-      comingSoon: false,
-    },
   ];
 
   return (

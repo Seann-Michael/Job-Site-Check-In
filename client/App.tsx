@@ -37,7 +37,6 @@ const Tools = lazy(() => import("./pages/Tools"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
-const AdminWordPressSites = lazy(() => import("./pages/AdminWordPressSites"));
 const AdminBillingManagement = lazy(
   () => import("./pages/AdminBillingManagement"),
 );
@@ -442,16 +441,6 @@ const App = () => (
                     <ProtectedRoute>
                       <Suspense fallback={<div>Loading...</div>}>
                         <SocialMediaPosting />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/wordpress-pages/sites"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<div>Loading...</div>}>
-                        <AdminWordPressSites />
                       </Suspense>
                     </ProtectedRoute>
                   }
