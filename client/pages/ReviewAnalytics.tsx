@@ -41,7 +41,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Legend,
 } from "recharts";
 import { supabase } from "@/lib/dataService";
 

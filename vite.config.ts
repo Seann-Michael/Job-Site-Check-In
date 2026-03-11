@@ -66,6 +66,7 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       entries: ["index.html"],
       exclude: ["test-google-maps.html", "public/offline.html"],
+      include: ["recharts"],
     },
   };
 });
