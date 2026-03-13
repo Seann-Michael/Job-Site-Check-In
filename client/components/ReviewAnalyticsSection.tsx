@@ -77,7 +77,7 @@ function generateMockData(months: number): ReviewDataPoint[] {
       startRating + monthProgress * 0.6 + Math.sin(i * 0.5) * 0.05;
     points.push({
       date: date.toISOString().slice(0, 7),
-      label: date.toLocaleString("default", { month: "short", year: "2-digit" }),
+      label: date.toLocaleString("default", { month: "short" }) + " '" + date.toLocaleString("default", { year: "2-digit" }),
       reviewCount: Math.max(startCount, reviewGrowth),
       rating: Math.min(5, Math.max(3.5, parseFloat(ratingDrift.toFixed(1)))),
     });
@@ -187,7 +187,7 @@ export function ReviewAnalyticsSection({ timeRange, refreshTrigger = 0 }: Review
             const d = new Date(key + "-01");
             return {
               date: key,
-              label: d.toLocaleString("default", { month: "short", year: "2-digit" }),
+              label: d.toLocaleString("default", { month: "short" }) + " '" + d.toLocaleString("default", { year: "2-digit" }),
               reviewCount: vals.count ?? 0,
               rating: vals.rating ?? 0,
             };
