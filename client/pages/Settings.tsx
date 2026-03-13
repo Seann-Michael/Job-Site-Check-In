@@ -4597,9 +4597,6 @@ export default function Settings() {
                           <AlertTriangle className="h-4 w-4 mr-2" />
                           Cancel Subscription
                         </Button>
-                        <Button variant="outline" size="sm">
-                          Pause Instead
-                        </Button>
                       </div>
                     </div>
 
