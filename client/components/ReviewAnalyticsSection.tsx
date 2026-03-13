@@ -156,16 +156,18 @@ export function ReviewAnalyticsSection() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const months = parseInt(timeRange, 10);
-      const since = new Date();
-      since.setMonth(since.getMonth() - months);
+      const isAllTime = timeRange === "all";
+      const months = isAllTime ? 0 : parseInt(timeRange, 10);
+      const since = isAllTime ? null : new Date();
+      if (since) since.setMonth(since.getMonth() - months);
 
-      const { data: rows, error } = await supabase
+      let query = supabase
         .from("analytics")
         .select("*")
         .in("metric_type", ["review_count", "review_rating"])
-        .gte("date", since.toISOString().slice(0, 10))
         .order("date", { ascending: true });
+      if (since) query = query.gte("date", since.toISOString().slice(0, 10));
+      const { data: rows, error } = await query;
 
       if (!error && rows && rows.length > 0) {
         const grouped: Record<string, { count?: number; rating?: number }> = {};
@@ -200,12 +202,14 @@ export function ReviewAnalyticsSection() {
           });
         }
       } else {
-        setChartData(generateMockData(parseInt(timeRange, 10)));
+        const mockMonths = timeRange === "all" ? 24 : parseInt(timeRange, 10);
+        setChartData(generateMockData(mockMonths));
         setSnapshot(MOCK_SNAPSHOT);
         setDataSource("demo");
       }
     } catch {
-      setChartData(generateMockData(parseInt(timeRange, 10)));
+      const mockMonths = timeRange === "all" ? 24 : parseInt(timeRange, 10);
+      setChartData(generateMockData(mockMonths));
       setSnapshot(MOCK_SNAPSHOT);
       setDataSource("demo");
     } finally {
@@ -230,16 +234,7 @@ export function ReviewAnalyticsSection() {
     <div className="space-y-6">
       {/* Section header with time range + refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-blue-600" />
-          <h2 className="text-base font-semibold text-foreground">Review Analytics</h2>
-          {dataSource === "demo" && (
-            <Badge variant="secondary" className="gap-1 text-xs">
-              <Plug className="h-3 w-3" />
-              Demo Data
-            </Badge>
-          )}
-        </div>
+        <div />
         <div className="flex items-center gap-2">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="h-8 w-40 text-sm">
@@ -251,6 +246,7 @@ export function ReviewAnalyticsSection() {
               <SelectItem value="6">Last 6 months</SelectItem>
               <SelectItem value="12">Last 12 months</SelectItem>
               <SelectItem value="24">Last 24 months</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={loadData} disabled={isLoading}>
