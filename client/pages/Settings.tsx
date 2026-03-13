@@ -577,9 +577,16 @@ export default function Settings() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Settings
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Settings
+              </h1>
+              {settings.subAccountId && (
+                <span className="inline-flex items-center gap-1.5 rounded-md border bg-muted px-2.5 py-1 text-xs font-mono text-muted-foreground select-all">
+                  ID: {settings.subAccountId}
+                </span>
+              )}
+            </div>
             <p className="text-sm sm:text-base text-muted-foreground">
               Manage your business settings and preferences
             </p>
