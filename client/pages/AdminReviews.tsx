@@ -158,8 +158,11 @@ function ReviewDataTable({
                   >
                     Customer <SortIcon field="customerName" />
                   </th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 hidden sm:table-cell whitespace-nowrap">
-                    Project
+                  <th
+                    className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 hidden sm:table-cell cursor-pointer hover:text-foreground select-none whitespace-nowrap"
+                    onClick={() => onSort("projectName")}
+                  >
+                    Project <SortIcon field="projectName" />
                   </th>
                   <th
                     className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 cursor-pointer hover:text-foreground select-none whitespace-nowrap"
@@ -183,8 +186,8 @@ function ReviewDataTable({
                     <SortIcon field="sentAt" />
                   </th>
                   {tab === "past" && (
-                    <th className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 hidden xl:table-cell whitespace-nowrap">
-                      Review Text
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 whitespace-nowrap">
+                      Review
                     </th>
                   )}
                   <th className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 whitespace-nowrap">
@@ -216,7 +219,6 @@ function ReviewDataTable({
                         <tr
                           key={request.id}
                           className="border-b last:border-b-0 hover:bg-muted/30 transition-colors"
-                          style={{ height: 57 }}
                         >
                           {/* Customer */}
                           <td className="px-4 py-3">
@@ -277,26 +279,14 @@ function ReviewDataTable({
 
                           {/* Review text (past only) */}
                           {tab === "past" && (
-                            <td className="px-4 py-3 hidden xl:table-cell">
+                            <td className="px-4 py-3 max-w-xs">
                               {request.reviewText ? (
-                                <div className="space-y-1 max-w-[200px]">
-                                  <p className="text-sm line-clamp-2 break-words">
-                                    {request.reviewText.length > 60
-                                      ? `${request.reviewText.substring(0, 60)}…`
-                                      : request.reviewText}
-                                  </p>
-                                  {request.reviewText.length > 60 && (
-                                    <button
-                                      onClick={() => onViewReview(request.reviewText)}
-                                      className="text-xs text-primary hover:underline"
-                                    >
-                                      Read more
-                                    </button>
-                                  )}
-                                </div>
+                                <p className="text-sm text-foreground italic leading-snug break-words whitespace-normal">
+                                  "{request.reviewText}"
+                                </p>
                               ) : (
                                 <span className="text-muted-foreground text-sm">
-                                  No review yet
+                                  No review left
                                 </span>
                               )}
                             </td>
@@ -708,6 +698,8 @@ export default function AdminReviews() {
           return dir * ((a.rating || 0) - (b.rating || 0));
         case "customerName":
           return dir * a.customerName.localeCompare(b.customerName);
+        case "projectName":
+          return dir * a.projectName.localeCompare(b.projectName);
         case "status": {
           const ord: Record<string, number> = { completed: 4, viewed: 3, sent: 2, expired: 1, scheduled: 0 };
           return dir * ((ord[a.status] || 0) - (ord[b.status] || 0));
