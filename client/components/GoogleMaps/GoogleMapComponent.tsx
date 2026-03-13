@@ -119,10 +119,12 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     fullscreenControl: showControls,
   };
 
-  const { mapRef, map, isLoaded, error, addMarker, setCenter } =
-    useIframeFallback ?
-    { mapRef: { current: null }, map: null, isLoaded: false, error: null, addMarker: () => null, setCenter: () => {} } :
-    useGoogleMaps(mapOptions);
+  // Always call useGoogleMaps unconditionally (Rules of Hooks).
+  // When useIframeFallback is true we simply ignore the returned values.
+  const googleMapsResult = useGoogleMaps(mapOptions);
+  const { mapRef, map, isLoaded, error, addMarker, setCenter } = useIframeFallback
+    ? { mapRef: { current: null } as React.RefObject<HTMLDivElement>, map: null, isLoaded: false, error: null as string | null, addMarker: () => null as any, setCenter: () => {} }
+    : googleMapsResult;
 
   // Add timeout for loading state and handle errors
   useEffect(() => {
@@ -418,6 +420,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     window.open(url, "_blank");
   };
 
+  // Debug logging — must stay here (before any early returns) to satisfy Rules of Hooks
+  useEffect(() => {
+    console.log("GoogleMapComponent state:", {
+      isLoaded,
+      useIframeFallback,
+      error,
+      mapExists: !!map,
+      centerProp: center,
+      markerCount: markers?.length || 0,
+      waypointCount: waypoints?.length || 0,
+    });
+  }, [isLoaded, useIframeFallback, error, map, center, markers, waypoints]);
+
   // Iframe fallback when no API key is available
   if (useIframeFallback) {
     let embedUrl = "";
@@ -551,19 +566,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       </Card>
     );
   }
-
-  // Debug logging
-  useEffect(() => {
-    console.log("GoogleMapComponent state:", {
-      isLoaded,
-      useIframeFallback,
-      error,
-      mapExists: !!map,
-      centerProp: center,
-      markerCount: markers?.length || 0,
-      waypointCount: waypoints?.length || 0,
-    });
-  }, [isLoaded, useIframeFallback, error, map, center, markers, waypoints]);
 
   if (!isLoaded && !useIframeFallback) {
     return (
