@@ -99,7 +99,7 @@ function ReviewDataTable({
   onResend,
   onCancel,
   onCopyText,
-  onViewReview,
+  onRowClick,
   getStatusBadge,
   searchTerm,
   formatDate,
@@ -195,11 +195,6 @@ function ReviewDataTable({
                       Rating <SortIcon field="rating" />
                     </th>
                   )}
-                  {tab === "past" && (
-                    <th className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 whitespace-nowrap">
-                      Review
-                    </th>
-                  )}
                   <th
                     className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 hidden lg:table-cell cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                     onClick={() => onSort("sentAt")}
@@ -227,7 +222,7 @@ function ReviewDataTable({
                 {data.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={tab === "past" ? 9 : tab === "current" ? 7 : 6}
+                      colSpan={tab === "past" ? 8 : tab === "current" ? 7 : 6}
                       className="text-center py-14 text-muted-foreground text-sm"
                     >
                       {emptyMessage}
@@ -245,7 +240,8 @@ function ReviewDataTable({
                       return (
                         <tr
                           key={request.id}
-                          className="border-b last:border-b-0 hover:bg-muted/30 transition-colors"
+                          className={`border-b last:border-b-0 hover:bg-muted/30 transition-colors ${tab === "past" ? "cursor-pointer" : ""}`}
+                          onClick={() => tab === "past" && onRowClick?.(request)}
                         >
                           {/* Customer */}
                           <td className="px-4 py-3">
@@ -299,21 +295,6 @@ function ReviewDataTable({
                             </td>
                           )}
 
-                          {/* Review text (past only) — directly after rating */}
-                          {tab === "past" && (
-                            <td className="px-4 py-3 max-w-xs">
-                              {request.reviewText ? (
-                                <p className="text-sm text-foreground italic leading-snug break-words whitespace-normal">
-                                  "{request.reviewText}"
-                                </p>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">
-                                  No review left
-                                </span>
-                              )}
-                            </td>
-                          )}
-
                           {/* Sent Date */}
                           <td className="px-4 py-3 hidden lg:table-cell">
                             <div className="text-sm">
@@ -357,7 +338,7 @@ function ReviewDataTable({
                           )}
 
                           {/* Actions */}
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -391,17 +372,16 @@ function ReviewDataTable({
                                 )}
                                 {request.reviewText && (
                                   <DropdownMenuItem
-                                    onClick={() => onCopyText(request.reviewText!)}
+                                    onClick={(e) => { e.stopPropagation(); onCopyText(request.reviewText!); }}
                                   >
                                     <Copy className="h-4 w-4 mr-2" /> Copy Review Text
                                   </DropdownMenuItem>
                                 )}
-                                {request.reviewText && (
+                                {tab === "past" && (
                                   <DropdownMenuItem
-                                    className="xl:hidden"
-                                    onClick={() => onViewReview(request.reviewText)}
+                                    onClick={(e) => { e.stopPropagation(); onRowClick?.(request); }}
                                   >
-                                    <MessageSquare className="h-4 w-4 mr-2" /> View Review
+                                    <MessageSquare className="h-4 w-4 mr-2" /> View Details
                                   </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
@@ -1091,7 +1071,7 @@ export default function AdminReviews() {
                 onResend={() => setShowReviewRequest(true)}
                 onCancel={cancelReviewRequest}
                 onCopyText={copyReviewText}
-                onViewReview={(text: string) => toast.info(text, { duration: 10000 })}
+                onRowClick={(request: any) => navigate(`/admin/reviews/${request.id}`, { state: { request } })}
                 getStatusBadge={getStatusBadge}
                 searchTerm={searchTerm}
                 formatDate={formatTableDate}
