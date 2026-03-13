@@ -2102,18 +2102,6 @@ export default function Settings() {
                             desc: "Windows Media Video",
                             platform: "windows",
                           },
-                          { ext: ".webm", desc: "WebM Video", platform: "all" },
-                          {
-                            ext: ".m4v",
-                            desc: "iTunes Video",
-                            platform: "apple",
-                          },
-                          { ext: ".3gp", desc: "3GPP Video", platform: "all" },
-                          {
-                            ext: ".mkv",
-                            desc: "Matroska Video",
-                            platform: "all",
-                          },
                         ].map((format) => (
                           <div
                             key={format.ext}
