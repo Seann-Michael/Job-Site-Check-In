@@ -51,6 +51,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -457,6 +458,8 @@ export default function AdminReviews() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState("12");
+  const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0);
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -851,9 +854,34 @@ export default function AdminReviews() {
         </Card>
 
         {/* Review Analytics heading */}
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="h-5 w-5 text-blue-600" />
-          <h2 className="text-base font-semibold text-foreground">Review Analytics</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-blue-600" />
+            <h2 className="text-base font-semibold text-foreground">Review Analytics</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={analyticsTimeRange} onValueChange={setAnalyticsTimeRange}>
+              <SelectTrigger className="h-8 w-40 text-sm">
+                <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">Last 3 months</SelectItem>
+                <SelectItem value="6">Last 6 months</SelectItem>
+                <SelectItem value="12">Last 12 months</SelectItem>
+                <SelectItem value="24">Last 24 months</SelectItem>
+                <SelectItem value="all">All Time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setAnalyticsRefreshTrigger((n) => n + 1)}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -945,7 +973,7 @@ export default function AdminReviews() {
 
         {/* Analytics Section */}
         <div className="mb-6">
-          <ReviewAnalyticsSection />
+          <ReviewAnalyticsSection timeRange={analyticsTimeRange} refreshTrigger={analyticsRefreshTrigger} />
         </div>
 
         {/* Tabbed Review Requests Table */}

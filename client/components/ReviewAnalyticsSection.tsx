@@ -142,8 +142,12 @@ function StarDisplay({ rating }: { rating: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ReviewAnalyticsSection() {
-  const [timeRange, setTimeRange] = useState("12");
+interface ReviewAnalyticsSectionProps {
+  timeRange: string;
+  refreshTrigger?: number;
+}
+
+export function ReviewAnalyticsSection({ timeRange, refreshTrigger = 0 }: ReviewAnalyticsSectionProps) {
   const [chartData, setChartData] = useState<ReviewDataPoint[]>([]);
   const [snapshot, setSnapshot] = useState<ReviewSnapshot>(MOCK_SNAPSHOT);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,7 +155,7 @@ export function ReviewAnalyticsSection() {
 
   useEffect(() => {
     loadData();
-  }, [timeRange]);
+  }, [timeRange, refreshTrigger]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -232,29 +236,6 @@ export function ReviewAnalyticsSection() {
 
   return (
     <div className="space-y-6">
-      {/* Section header with time range + refresh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div />
-        <div className="flex items-center gap-2">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="h-8 w-40 text-sm">
-              <Calendar className="h-3.5 w-3.5 mr-1.5" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3">Last 3 months</SelectItem>
-              <SelectItem value="6">Last 6 months</SelectItem>
-              <SelectItem value="12">Last 12 months</SelectItem>
-              <SelectItem value="24">Last 24 months</SelectItem>
-              <SelectItem value="all">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={loadData} disabled={isLoading}>
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-dashed border-gray-300">
