@@ -20,9 +20,6 @@ const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
-const CreditPurchase = lazy(() => import("./pages/CreditPurchase"));
-const CreditHistory = lazy(() => import("./pages/CreditHistory"));
-const CreditAnalytics = lazy(() => import("./pages/CreditAnalytics"));
 const ReportGenerator = lazy(() => import("./pages/BasicReportGenerator"));
 const WorkflowBuilder = lazy(() => import("./pages/WorkflowBuilder"));
 const AppPages = lazy(() => import("./pages/AppPages"));
@@ -442,30 +439,6 @@ const App = () => (
                       <Suspense fallback={<div>Loading...</div>}>
                         <SocialMediaPosting />
                       </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/credits/purchase"
-                  element={
-                    <ProtectedRoute>
-                      <CreditPurchase />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/credits/history"
-                  element={
-                    <ProtectedRoute>
-                      <CreditHistory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/credits/analytics"
-                  element={
-                    <ProtectedRoute>
-                      <CreditAnalytics />
                     </ProtectedRoute>
                   }
                 />
@@ -1079,18 +1052,6 @@ const App = () => (
                 <Route
                   path="/AgencyProjectEdit"
                   element={<Navigate to="/agency/admin/projects" replace />}
-                />
-                <Route
-                  path="/CreditPurchase"
-                  element={<Navigate to="/admin/credits/purchase" replace />}
-                />
-                <Route
-                  path="/CreditHistory"
-                  element={<Navigate to="/admin/credits/history" replace />}
-                />
-                <Route
-                  path="/CreditAnalytics"
-                  element={<Navigate to="/admin/credits/analytics" replace />}
                 />
                 <Route
                   path="/ReportGenerator"

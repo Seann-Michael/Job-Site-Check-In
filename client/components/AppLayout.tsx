@@ -25,7 +25,6 @@ import { ThemeToggle } from "@/components/ThemeProvider";
 import { AppNotifications } from "@/components/UpdateNotification";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Footer } from "@/components/Footer";
-import { CreditProvider, useCredits } from "@/components/CreditProvider";
 import { CompanySelector } from "@/components/CompanySelector";
 
 import {
@@ -58,7 +57,6 @@ import {
   TrendingUp,
   Database,
   Calendar,
-  CreditCard,
   HelpCircle,
   Globe,
   Smartphone,
@@ -100,64 +98,6 @@ interface NavItem {
   badge?: string;
   isActive?: boolean;
   children?: NavItem[];
-}
-
-// Credit Balance Component
-function CreditBalance({ collapsed }: { collapsed: boolean }) {
-  const { balance, isLoading } = useCredits();
-
-  if (isLoading) {
-    return (
-      <div
-        className={cn(
-          "flex items-center justify-center p-2 bg-muted/50 rounded-lg",
-          collapsed ? "" : "space-x-2",
-        )}
-      >
-        <div className="animate-pulse h-4 w-4 bg-muted-foreground/50 rounded"></div>
-        {!collapsed && (
-          <div className="animate-pulse h-3 w-16 bg-muted-foreground/50 rounded"></div>
-        )}
-      </div>
-    );
-  }
-
-  const formatCredits = (credits: number) => {
-    if (credits >= 1000000) {
-      return `${(credits / 1000000).toFixed(1)}M`;
-    } else if (credits >= 1000) {
-      return `${(credits / 1000).toFixed(1)}K`;
-    }
-    return credits.toString();
-  };
-
-  return (
-    <div
-      className={cn(
-        "flex items-center p-2 bg-primary/10 rounded-lg border",
-        collapsed ? "justify-center" : "justify-between",
-      )}
-    >
-      <div className="flex items-center space-x-2">
-        <CreditCard className="h-4 w-4 text-primary" />
-        {!collapsed && (
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-foreground">
-              {formatCredits(balance.remaining)} credits
-            </span>
-            <span className="text-xs text-muted-foreground">
-              of {formatCredits(balance.total)}
-            </span>
-          </div>
-        )}
-      </div>
-      {!collapsed && balance.remaining < balance.total * 0.2 && (
-        <Badge variant="destructive" className="text-xs px-1 py-0">
-          Low
-        </Badge>
-      )}
-    </div>
-  );
 }
 
 export function AppLayout({
@@ -396,8 +336,7 @@ export function AppLayout({
   }[maxWidth];
 
   return (
-    <CreditProvider>
-      <div className="min-h-[100dvh] bg-background flex w-full">
+    <div className="min-h-[100dvh] bg-background flex w-full">
         {/* Mobile Sidebar Overlay */}
         {mobileSidebarOpen && (
           <div
@@ -533,11 +472,10 @@ export function AppLayout({
           </div>
 
           {/* Mobile Sidebar Footer */}
-          <div className="p-4 border-t space-y-2">
+          <div className="p-4 border-t">
             <div className="text-xs text-muted-foreground text-center">
               Local SEO Ranker v2.0
             </div>
-            <CreditBalance collapsed={false} />
           </div>
         </div>
 
@@ -706,13 +644,12 @@ export function AppLayout({
               </div>
 
               {/* Desktop Sidebar Footer */}
-              <div className="p-4 border-t space-y-2">
+              <div className="p-4 border-t">
                 {!sidebarCollapsed && (
                   <div className="text-xs text-muted-foreground text-center">
                     Local SEO Ranker v2.0
                   </div>
                 )}
-                <CreditBalance collapsed={sidebarCollapsed} />
               </div>
             </div>
           </div>
@@ -866,6 +803,5 @@ export function AppLayout({
         {/* App Notifications */}
         <AppNotifications />
       </div>
-    </CreditProvider>
   );
 }
