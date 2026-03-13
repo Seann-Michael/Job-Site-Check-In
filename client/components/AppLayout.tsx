@@ -323,24 +323,10 @@ export function AppLayout({
     {
       id: "reviews",
       label: "Reviews",
-      href: "", // No direct href - uses dropdown
+      href: "/admin/reviews",
       icon: Star,
       active: location.pathname.startsWith("/admin/reviews"),
       comingSoon: false,
-      subItems: [
-        {
-          id: "reviews-dashboard",
-          label: "Dashboard",
-          href: "/admin/reviews",
-          active: location.pathname === "/admin/reviews",
-        },
-        {
-          id: "reviews-activity",
-          label: "Activity",
-          href: "/admin/reviews/activity",
-          active: location.pathname.startsWith("/admin/reviews/activity"),
-        },
-      ],
     },
     {
       id: "automation",

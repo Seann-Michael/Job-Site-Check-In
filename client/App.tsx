@@ -83,8 +83,6 @@ const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const ReviewGate = lazy(() => import("./pages/ReviewGate"));
 const AdminReviews = lazy(() => import("./pages/AdminReviews"));
-const ReviewAnalytics = lazy(() => import("./pages/ReviewAnalytics"));
-const ReviewActivity = lazy(() => import("./pages/ReviewActivity"));
 const IdeaDetail = lazy(() => import("./pages/IdeaDetail"));
 const SuperAdminIdeas = lazy(() => import("./pages/SuperAdminIdeas"));
 const SuperAdminBroadcast = lazy(() => import("./pages/SuperAdminBroadcast"));
@@ -364,22 +362,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <AdminReviews />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/reviews/analytics"
-                  element={
-                    <ProtectedRoute>
-                      <ReviewAnalytics />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/reviews/activity"
-                  element={
-                    <ProtectedRoute>
-                      <ReviewActivity />
                     </ProtectedRoute>
                   }
                 />
