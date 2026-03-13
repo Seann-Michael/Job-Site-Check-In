@@ -748,34 +748,7 @@ export default function AdminReviews() {
               Track and manage customer review requests
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              onClick={() => navigate("/admin/reviews/activity")}
-              className="gap-2 whitespace-nowrap w-full sm:w-auto"
-            >
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Activity</span>
-              <span className="sm:hidden">Activity</span>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/admin/reviews/analytics")}
-              className="gap-2 whitespace-nowrap w-full sm:w-auto"
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">View Analytics</span>
-              <span className="sm:hidden">Analytics</span>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/review-demo")}
-              className="gap-2 whitespace-nowrap w-full sm:w-auto"
-            >
-              <ExternalLink className="h-4 w-4" />
-              <span className="hidden sm:inline">Preview Review Gate</span>
-              <span className="sm:hidden">Preview</span>
-            </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
               onClick={() => setShowReviewRequest(true)}
               className="gap-2 whitespace-nowrap w-full sm:w-auto"
@@ -784,6 +757,19 @@ export default function AdminReviews() {
               <span className="hidden sm:inline">Send Review Request</span>
               <span className="sm:hidden">Send Request</span>
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="shrink-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/review-demo")} className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Preview Review Gate
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
