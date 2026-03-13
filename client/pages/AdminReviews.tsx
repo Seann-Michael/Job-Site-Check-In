@@ -56,6 +56,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { formatTableDate } from "@/lib/dateUtils";
 import { ReviewRequest } from "@/components/ReviewRequest";
+import { ReviewAnalyticsSection } from "@/components/ReviewAnalyticsSection";
 
 interface ReviewRequest {
   id: string;
@@ -934,6 +935,11 @@ export default function AdminReviews() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Analytics Section */}
+        <div className="mb-6">
+          <ReviewAnalyticsSection />
         </div>
 
         {/* Tabbed Review Requests Table */}
