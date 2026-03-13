@@ -49,7 +49,6 @@ import {
   MapPin,
   X,
   Menu,
-  BarChart3,
   FileText,
   Zap,
   Clock,
@@ -314,14 +313,6 @@ export function AppLayout({
       href: "/admin/social-posting",
       icon: Share2,
       active: location.pathname === "/admin/social-posting",
-      comingSoon: false,
-    },
-    {
-      id: "reports",
-      label: "Reports",
-      href: "/admin/reports",
-      icon: BarChart3,
-      active: location.pathname === "/admin/reports",
       comingSoon: false,
     },
   ];

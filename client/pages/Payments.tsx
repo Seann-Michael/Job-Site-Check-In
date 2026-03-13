@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { createCheckoutSession } from "@/lib/paymentService";
 
 export default function Payments() {
-  const [provider, setProvider] = useState<"stripe" | "paypal" | "coinbase">("stripe");
+  const [provider, setProvider] = useState<"stripe" | "paypal">("stripe");
   const [mode, setMode] = useState<"one_time" | "subscription">("one_time");
   const [amount, setAmount] = useState<number>(49);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +48,6 @@ export default function Payments() {
                 <SelectContent>
                   <SelectItem value="stripe">Stripe</SelectItem>
                   <SelectItem value="paypal">PayPal</SelectItem>
-                  <SelectItem value="coinbase">Coinbase Commerce</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -85,7 +84,7 @@ export default function Payments() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              This page scaffolds Stripe, PayPal and Coinbase Commerce checkout flows. API keys must be configured on the server for real payments.
+              This page scaffolds Stripe and PayPal checkout flows. API keys must be configured on the server for real payments.
             </p>
           </CardContent>
         </Card>

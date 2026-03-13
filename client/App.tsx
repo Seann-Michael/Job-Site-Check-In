@@ -18,9 +18,7 @@ const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const EditProject = lazy(() => import("./pages/EditProject"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const Automation = lazy(() => import("./pages/Automation"));
-const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
-const ReportGenerator = lazy(() => import("./pages/BasicReportGenerator"));
 const WorkflowBuilder = lazy(() => import("./pages/WorkflowBuilder"));
 const AppPages = lazy(() => import("./pages/AppPages"));
 
@@ -37,42 +35,16 @@ const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
 const AdminBillingManagement = lazy(
   () => import("./pages/AdminBillingManagement"),
 );
-const AgencyBillingControl = lazy(() => import("./pages/AgencyBillingControl"));
 const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProject = lazy(() => import("./pages/PublicProject"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const AgencyAdmin = lazy(() => import("./pages/AgencyAdmin"));
-const AgencyClientManagement = lazy(
-  () => import("./pages/AgencyClientManagement"),
-);
-const AddAgencyClient = lazy(() => import("./pages/AddAgencyClient"));
-const AgencyAnalytics = lazy(() => import("./pages/AgencyAnalytics"));
-const AgencyReports = lazy(() => import("./pages/AgencyReports"));
-const AgencyBilling = lazy(() => import("./pages/AgencyBilling"));
-const AgencyBusinessOwners = lazy(() => import("./pages/AgencyBusinessOwners"));
-const AgencyAdminUsers = lazy(() => import("./pages/AgencyAdminUsers"));
-const AgencySettings = lazy(() => import("./pages/AgencySettings"));
-const AgencyBusinessOwnerDetail = lazy(
-  () => import("./pages/AgencyBusinessOwnerDetail"),
-);
-const AgencyBusinessOwnerEdit = lazy(
-  () => import("./pages/AgencyBusinessOwnerEdit"),
-);
-const AddAgencyAdminUser = lazy(() => import("./pages/AddAgencyAdminUser"));
-const AgencyAdminUserDetail = lazy(
-  () => import("./pages/AgencyAdminUserDetail"),
-);
-const AgencyAdminUserEdit = lazy(() => import("./pages/AgencyAdminUserEdit"));
-const SuperAdminAgencyManagement = lazy(
-  () => import("./pages/SuperAdminAgencyManagement"),
-);
+
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
 const SuperAdminStaff = lazy(() => import("./pages/SuperAdminStaff"));
 const Signup = lazy(() => import("./pages/Signup"));
-const AgencySignup = lazy(() => import("./pages/AgencySignup"));
 const Login = lazy(() => import("./pages/Login"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Support = lazy(() => import("./pages/Support"));
@@ -108,12 +80,6 @@ const SuperAdminCommunications = lazy(
   () => import("./pages/SuperAdminCommunications"),
 );
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
-
-// Agency Project Management imports
-const AgencyProjects = lazy(() => import("./pages/AgencyProjects"));
-const AgencyProjectCreate = lazy(() => import("./pages/AgencyProjectCreate"));
-const AgencyProjectDetail = lazy(() => import("./pages/AgencyProjectDetail"));
-const AgencyProjectEdit = lazy(() => import("./pages/AgencyProjectEdit"));
 
 // Lead Management
 const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
@@ -167,7 +133,6 @@ const App = () => (
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/agency-signup" element={<AgencySignup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
@@ -415,14 +380,6 @@ const App = () => (
                 />
 
                 <Route
-                  path="/admin/reports"
-                  element={
-                    <ProtectedRoute>
-                      <Reports />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/gmb-optimization"
                   element={
                     <ProtectedRoute>
@@ -439,14 +396,6 @@ const App = () => (
                       <Suspense fallback={<div>Loading...</div>}>
                         <SocialMediaPosting />
                       </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/report-generator"
-                  element={
-                    <ProtectedRoute>
-                      <ReportGenerator />
                     </ProtectedRoute>
                   }
                 />
@@ -508,7 +457,6 @@ const App = () => (
                   }
                 />
 
-
                 <Route
                   path="/admin/ideas"
                   element={
@@ -526,7 +474,6 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-
 
                 <Route
                   path="/admin/help"
@@ -555,188 +502,6 @@ const App = () => (
                   }
                 />
 
-                {/* Agency Admin Routes */}
-                <Route
-                  path="/agency/admin/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyAdmin />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/clients"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyClientManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/clients/add"
-                  element={
-                    <ProtectedRoute>
-                      <AddAgencyClient />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/analytics"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyAnalytics />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/reports"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyReports />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/billing"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyBillingControl />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/business-owners"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyBusinessOwners />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/business-owners/add"
-                  element={
-                    <ProtectedRoute>
-                      <AddAgencyClient />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/business-owners/:id"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyBusinessOwnerDetail />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/business-owners/:id/edit"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyBusinessOwnerEdit />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/admin-users"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyAdminUsers />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/admin-users/add"
-                  element={
-                    <ProtectedRoute>
-                      <AddAgencyAdminUser />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Legacy redirect for old AddAgencyAdminUser path */}
-                <Route
-                  path="/AddAgencyAdminUser"
-                  element={
-                    <Navigate to="/agency/admin/admin-users/add" replace />
-                  }
-                />
-                <Route
-                  path="/agency/admin/admin-users/:id"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyAdminUserDetail />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/admin-users/:id/edit"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyAdminUserEdit />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/settings"
-                  element={
-                    <ProtectedRoute>
-                      <AgencySettings />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Agency Project Management Routes */}
-                <Route
-                  path="/agency/admin/projects"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyProjects />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/projects/create"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyProjectCreate />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/projects/:id"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyProjectDetail />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/admin/projects/:id/edit"
-                  element={
-                    <ProtectedRoute>
-                      <AgencyProjectEdit />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Agency Task Management Routes */}
-                {/* Agency Lead Management Routes */}
-                {/* Admin Lead Management Routes */}
-                <Route
-                  path="/agency/admin/help"
-                  element={
-                    <ProtectedRoute>
-                      <KnowledgeBase />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/super-admin/agencies"
-                  element={
-                    <ProtectedRoute>
-                      <SuperAdminAgencyManagement />
-                    </ProtectedRoute>
-                  }
-                />
                 <Route
                   path="/super-admin/settings"
                   element={
@@ -925,17 +690,10 @@ const App = () => (
                   element={<Navigate to="/admin/gallery" replace />}
                 />
 
-
                 {/* Builder.io compatibility routes (URLs without separators) */}
                 <Route
                   path="/AddProject"
                   element={<Navigate to="/admin/add-project" replace />}
-                />
-                <Route
-                  path="/AddAgencyClient"
-                  element={
-                    <Navigate to="/agency/admin/business-owners/add" replace />
-                  }
                 />
 
                 {/* Auth and Public Routes */}
@@ -950,10 +708,6 @@ const App = () => (
                 <Route
                   path="/SignUp"
                   element={<Navigate to="/signup" replace />}
-                />
-                <Route
-                  path="/AgencySignup"
-                  element={<Navigate to="/agency-signup" replace />}
                 />
                 <Route
                   path="/ForgotPassword"
@@ -990,75 +744,6 @@ const App = () => (
                   element={<Navigate to="/admin/reviews" replace />}
                 />
                 <Route
-                  path="/AdminReports"
-                  element={<Navigate to="/admin/reports" replace />}
-                />
-                <Route
-                  path="/AgencyAdmin"
-                  element={<Navigate to="/agency/admin/dashboard" replace />}
-                />
-                <Route
-                  path="/agency/admin"
-                  element={<Navigate to="/agency/admin/dashboard" replace />}
-                />
-                <Route
-                  path="/agency/admin/commission"
-                  element={<Navigate to="/agency/admin/reports" replace />}
-                />
-                <Route
-                  path="/AgencyProjects"
-                  element={<Navigate to="/agency/admin/projects" replace />}
-                />
-                <Route
-                  path="/AgencyClients"
-                  element={
-                    <Navigate to="/agency/admin/business-owners" replace />
-                  }
-                />
-                <Route
-                  path="/AgencyClientManagement"
-                  element={<Navigate to="/agency/admin/clients" replace />}
-                />
-                <Route
-                  path="/AgencySettings"
-                  element={<Navigate to="/agency/admin/settings" replace />}
-                />
-                <Route
-                  path="/AgencyAnalytics"
-                  element={<Navigate to="/agency/admin/analytics" replace />}
-                />
-                <Route
-                  path="/AgencyReports"
-                  element={<Navigate to="/agency/admin/reports" replace />}
-                />
-                <Route
-                  path="/AgencyBilling"
-                  element={<Navigate to="/agency/admin/billing" replace />}
-                />
-                <Route
-                  path="/AgencyBillingControl"
-                  element={<Navigate to="/agency/admin/billing" replace />}
-                />
-                <Route
-                  path="/AgencyProjectCreate"
-                  element={
-                    <Navigate to="/agency/admin/projects/create" replace />
-                  }
-                />
-                <Route
-                  path="/AgencyProjectDetail"
-                  element={<Navigate to="/agency/admin/projects" replace />}
-                />
-                <Route
-                  path="/AgencyProjectEdit"
-                  element={<Navigate to="/agency/admin/projects" replace />}
-                />
-                <Route
-                  path="/ReportGenerator"
-                  element={<Navigate to="/admin/report-generator" replace />}
-                />
-
-                <Route
                   path="/WorkflowBuilder"
                   element={<Navigate to="/admin/workflow-builder" replace />}
                 />
@@ -1087,7 +772,6 @@ const App = () => (
                   element={<Navigate to="/support" replace />}
                 />
 
-
                 {/* Super Admin Compatibility Routes */}
                 <Route
                   path="/SuperAdmin"
@@ -1096,10 +780,6 @@ const App = () => (
                 <Route
                   path="/SuperAdminBusinesses"
                   element={<Navigate to="/super-admin/businesses" replace />}
-                />
-                <Route
-                  path="/SuperAdminAgencies"
-                  element={<Navigate to="/super-admin/agencies" replace />}
                 />
                 <Route
                   path="/SuperAdminSettings"
@@ -1144,93 +824,6 @@ const App = () => (
                 <Route
                   path="/SuperAdminUsers"
                   element={<Navigate to="/super-admin/users" replace />}
-                />
-
-                {/* Agency Admin Legacy URL Redirects */}
-                <Route
-                  path="/agency"
-                  element={<Navigate to="/agency/admin/dashboard" replace />}
-                />
-                <Route
-                  path="/agency-admin"
-                  element={<Navigate to="/agency/admin/dashboard" replace />}
-                />
-                <Route
-                  path="/agency-admin/clients"
-                  element={
-                    <Navigate to="/agency/admin/business-owners" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/clients/:id"
-                  element={
-                    <Navigate to="/agency/admin/business-owners/:id" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/billing"
-                  element={<Navigate to="/agency/admin/billing" replace />}
-                />
-                <Route
-                  path="/agency-admin/analytics"
-                  element={<Navigate to="/agency/admin/analytics" replace />}
-                />
-                <Route
-                  path="/agency-admin/settings"
-                  element={<Navigate to="/agency/admin/settings" replace />}
-                />
-                <Route
-                  path="/agency-admin/business-owners"
-                  element={
-                    <Navigate to="/agency/admin/business-owners" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/business-owners/add"
-                  element={
-                    <Navigate to="/agency/admin/business-owners/add" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/business-owners/:id"
-                  element={
-                    <Navigate to="/agency/admin/business-owners/:id" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/business-owners/:id/edit"
-                  element={
-                    <Navigate
-                      to="/agency/admin/business-owners/:id/edit"
-                      replace
-                    />
-                  }
-                />
-                <Route
-                  path="/agency-admin/admin-users"
-                  element={<Navigate to="/agency/admin/admin-users" replace />}
-                />
-                <Route
-                  path="/agency-admin/admin-users/add"
-                  element={
-                    <Navigate to="/agency/admin/admin-users/add" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/admin-users/:id"
-                  element={
-                    <Navigate to="/agency/admin/admin-users/:id" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/admin-users/:id/edit"
-                  element={
-                    <Navigate to="/agency/admin/admin-users/:id/edit" replace />
-                  }
-                />
-                <Route
-                  path="/agency-admin/reports"
-                  element={<Navigate to="/agency/admin/reports" replace />}
                 />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

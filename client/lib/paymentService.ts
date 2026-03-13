@@ -1,5 +1,5 @@
 export interface CheckoutRequest {
-  provider: "stripe" | "paypal" | "coinbase";
+  provider: "stripe" | "paypal";
   mode: "one_time" | "subscription";
   amount: number;
 }
