@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -316,169 +317,165 @@ export function ReviewAnalyticsSection() {
         </Card>
       </div>
 
-      {/* Charts side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Review Count Timeline */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-blue-600" />
-              Google Review Growth
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Total review count over time
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="h-52 flex items-center justify-center text-muted-foreground">
-                <RefreshCw className="h-5 w-5 animate-spin mr-2" />
-                Loading…
-              </div>
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="reviewGradSection" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} width={36} />
-                    <Tooltip content={<CustomTooltipReviews />} />
-                    {connectedDataPoint && (
-                      <ReferenceLine
-                        x={connectedDataPoint.label}
-                        stroke="#9ca3af"
-                        strokeDasharray="4 4"
-                        label={{ value: "Connected", position: "top", fontSize: 10, fill: "#6b7280" }}
-                      />
-                    )}
-                    <Area
-                      type="monotone"
-                      dataKey="reviewCount"
-                      name="Total Reviews"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      fill="url(#reviewGradSection)"
-                      dot={false}
-                      activeDot={{ r: 4, fill: "#3b82f6" }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-                <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-8 bg-gray-200 rounded-full shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Before</p>
-                      <p className="font-bold text-gray-600">{snapshot.connectedCount}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-8 bg-blue-500 rounded-full shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Today</p>
-                      <p className="font-bold text-blue-700">{snapshot.currentCount}</p>
-                      <p className="text-xs text-green-600">+{reviewGrowth} ({reviewGrowthPct}%)</p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+      {/* Full-width tabbed chart card */}
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <Tabs defaultValue="reviews" className="w-full">
+              <TabsList className="mb-0">
+                <TabsTrigger value="reviews" className="gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Google Review Growth
+                </TabsTrigger>
+                <TabsTrigger value="rating" className="gap-1.5">
+                  <Star className="h-3.5 w-3.5" />
+                  Average Rating Over Time
+                </TabsTrigger>
+              </TabsList>
 
-        {/* Rating Timeline */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Star className="h-4 w-4 text-yellow-500" />
-              Average Rating Over Time
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Star rating trend since connecting
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="h-52 flex items-center justify-center text-muted-foreground">
-                <RefreshCw className="h-5 w-5 animate-spin mr-2" />
-                Loading…
-              </div>
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      domain={[3, 5]}
-                      tickCount={5}
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={36}
-                      tickFormatter={(v) => `${v}★`}
-                    />
-                    <Tooltip content={<CustomTooltipRating />} />
-                    {connectedDataPoint && (
-                      <ReferenceLine
-                        x={connectedDataPoint.label}
-                        stroke="#9ca3af"
-                        strokeDasharray="4 4"
-                        label={{ value: "Connected", position: "top", fontSize: 10, fill: "#6b7280" }}
-                      />
-                    )}
-                    <ReferenceLine
-                      y={snapshot.connectedRating}
-                      stroke="#d1d5db"
-                      strokeDasharray="3 3"
-                      label={{ value: `Start: ${snapshot.connectedRating}★`, position: "right", fontSize: 10, fill: "#9ca3af" }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="rating"
-                      name="Avg Rating"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, fill: "#f59e0b" }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-                <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t text-sm">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-7 w-7 text-gray-300 shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">At connection</p>
-                      <div className="flex items-center gap-1">
-                        <p className="font-bold text-gray-600">{snapshot.connectedRating}</p>
-                        <StarDisplay rating={snapshot.connectedRating} />
+              {/* Review Growth */}
+              <TabsContent value="reviews" className="mt-4">
+                {isLoading ? (
+                  <div className="h-64 flex items-center justify-center text-muted-foreground">
+                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                    Loading…
+                  </div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="reviewGradSection" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} width={40} />
+                        <Tooltip content={<CustomTooltipReviews />} />
+                        {connectedDataPoint && (
+                          <ReferenceLine
+                            x={connectedDataPoint.label}
+                            stroke="#9ca3af"
+                            strokeDasharray="4 4"
+                            label={{ value: "Connected", position: "top", fontSize: 11, fill: "#6b7280" }}
+                          />
+                        )}
+                        <Area
+                          type="monotone"
+                          dataKey="reviewCount"
+                          name="Total Reviews"
+                          stroke="#3b82f6"
+                          strokeWidth={2.5}
+                          fill="url(#reviewGradSection)"
+                          dot={false}
+                          activeDot={{ r: 5, fill: "#3b82f6" }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-8 bg-gray-200 rounded-full shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Before platform</p>
+                          <p className="font-bold text-gray-600">{snapshot.connectedCount} reviews</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-8 bg-blue-500 rounded-full shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Today</p>
+                          <p className="font-bold text-blue-700">{snapshot.currentCount} reviews</p>
+                          <p className="text-xs text-green-600">+{reviewGrowth} gained ({reviewGrowthPct}%)</p>
+                        </div>
                       </div>
                     </div>
+                  </>
+                )}
+              </TabsContent>
+
+              {/* Average Rating */}
+              <TabsContent value="rating" className="mt-4">
+                {isLoading ? (
+                  <div className="h-64 flex items-center justify-center text-muted-foreground">
+                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                    Loading…
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Award className="h-7 w-7 text-yellow-400 shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Current</p>
-                      <div className="flex items-center gap-1">
-                        <p className="font-bold text-yellow-600">{snapshot.currentRating}</p>
-                        <StarDisplay rating={snapshot.currentRating} />
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                        <YAxis
+                          domain={[3, 5]}
+                          tickCount={5}
+                          tick={{ fontSize: 12, fill: "#6b7280" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={40}
+                          tickFormatter={(v) => `${v}★`}
+                        />
+                        <Tooltip content={<CustomTooltipRating />} />
+                        {connectedDataPoint && (
+                          <ReferenceLine
+                            x={connectedDataPoint.label}
+                            stroke="#9ca3af"
+                            strokeDasharray="4 4"
+                            label={{ value: "Connected", position: "top", fontSize: 11, fill: "#6b7280" }}
+                          />
+                        )}
+                        <ReferenceLine
+                          y={snapshot.connectedRating}
+                          stroke="#d1d5db"
+                          strokeDasharray="3 3"
+                          label={{ value: `Start: ${snapshot.connectedRating}★`, position: "right", fontSize: 10, fill: "#9ca3af" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="rating"
+                          name="Avg Rating"
+                          stroke="#f59e0b"
+                          strokeWidth={2.5}
+                          dot={false}
+                          activeDot={{ r: 5, fill: "#f59e0b" }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t text-sm">
+                      <div className="flex items-center gap-3">
+                        <Award className="h-8 w-8 text-gray-300 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Rating at connection</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-gray-600">{snapshot.connectedRating}</p>
+                            <StarDisplay rating={snapshot.connectedRating} />
+                          </div>
+                        </div>
                       </div>
-                      <p className={`text-xs ${ratingImproved ? "text-green-600" : "text-red-500"}`}>
-                        {parseFloat(ratingChange) >= 0 ? "+" : ""}{ratingChange} since joining
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <Award className="h-8 w-8 text-yellow-400 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Current rating</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-yellow-600">{snapshot.currentRating}</p>
+                            <StarDisplay rating={snapshot.currentRating} />
+                          </div>
+                          <p className={`text-xs ${ratingImproved ? "text-green-600" : "text-red-500"}`}>
+                            {parseFloat(ratingChange) >= 0 ? "+" : ""}{ratingChange} since joining
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0" />
+      </Card>
     </div>
   );
 }
