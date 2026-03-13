@@ -850,6 +850,12 @@ export default function AdminReviews() {
           </CardContent>
         </Card>
 
+        {/* Review Analytics heading */}
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <h2 className="text-base font-semibold text-foreground">Review Analytics</h2>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -940,12 +946,6 @@ export default function AdminReviews() {
         {/* Analytics Section */}
         <div className="mb-6">
           <ReviewAnalyticsSection />
-        </div>
-
-        {/* Review Analytics heading directly above Review Requests */}
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="h-5 w-5 text-blue-600" />
-          <h2 className="text-base font-semibold text-foreground">Review Analytics</h2>
         </div>
 
         {/* Tabbed Review Requests Table */}
