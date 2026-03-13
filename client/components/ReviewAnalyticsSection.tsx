@@ -440,6 +440,7 @@ export function ReviewAnalyticsSection() {
                           strokeWidth={2.5}
                           dot={false}
                           activeDot={{ r: 5, fill: "#f59e0b" }}
+                          isAnimationActive={false}
                         />
                       </LineChart>
                     </ResponsiveContainer>
