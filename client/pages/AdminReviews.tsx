@@ -42,6 +42,7 @@ import {
   Calendar,
   X,
   BarChart3,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -345,6 +346,15 @@ export default function AdminReviews() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/admin/reviews/activity")}
+              className="gap-2 whitespace-nowrap w-full sm:w-auto"
+            >
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">Activity</span>
+              <span className="sm:hidden">Activity</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => navigate("/admin/reviews/analytics")}
