@@ -2023,13 +2023,6 @@ export default function Settings() {
                             desc: "HEIF Image (iPhone)",
                             platform: "apple",
                           },
-                          { ext: ".tiff", desc: "TIFF Image", platform: "all" },
-                          {
-                            ext: ".bmp",
-                            desc: "Bitmap Image",
-                            platform: "all",
-                          },
-                          { ext: ".svg", desc: "SVG Vector", platform: "all" },
                         ].map((format) => (
                           <div
                             key={format.ext}
