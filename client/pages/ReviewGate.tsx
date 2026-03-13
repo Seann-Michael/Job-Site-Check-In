@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { StarRating } from "@/components/StarRating";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Copy, CheckCircle, Star, MapPin } from "lucide-react";
+import { ExternalLink, Copy, CheckCircle, Star, MapPin, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 interface ReviewRequest {
@@ -27,6 +27,9 @@ interface ReviewRequest {
 
 export default function ReviewGate() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAdminPreview = location.pathname === "/review-demo";
   const [reviewRequest, setReviewRequest] = useState<ReviewRequest | null>(
     null,
   );
@@ -169,7 +172,24 @@ export default function ReviewGate() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {isAdminPreview && (
+        <div className="bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between text-sm sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 flex-shrink-0" />
+            <span className="font-semibold">Admin Preview</span>
+            <span className="opacity-80 hidden sm:inline">&mdash; this banner is only visible to you, not your customers</span>
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition-colors rounded px-3 py-1.5 font-medium"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Go Back
+          </button>
+        </div>
+      )}
+      <div className="p-4">
       <div className="max-w-xl mx-auto py-8">
         {/* Business Header */}
         <div className="text-center mb-8">
@@ -325,6 +345,7 @@ export default function ReviewGate() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
