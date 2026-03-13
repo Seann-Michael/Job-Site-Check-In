@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -54,7 +55,7 @@ interface ReviewRequest {
   customerName: string;
   customerPhone: string;
   projectName: string;
-  status: "sent" | "viewed" | "completed" | "expired";
+  status: "sent" | "viewed" | "completed" | "expired" | "scheduled";
   rating?: number;
   reviewText?: string;
   submittedAt?: string;
@@ -83,6 +84,7 @@ export default function AdminReviews() {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("current");
   const [sortBy, setSortBy] = useState("sentAt");
   const [showReviewRequest, setShowReviewRequest] = useState(false);
 
@@ -96,8 +98,35 @@ export default function AdminReviews() {
       localStorage.getItem("reviewSubmissions") || "[]",
     );
 
-    // Mock review requests data
+    // Mock review requests data (including scheduled)
     const mockRequests: ReviewRequest[] = [
+      {
+        id: "s1",
+        customerName: "Angela Torres",
+        customerPhone: "(555) 707-8080",
+        projectName: "Flooring Install",
+        status: "scheduled",
+        sentAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        linkClicked: false,
+      },
+      {
+        id: "s2",
+        customerName: "Brandon Lee",
+        customerPhone: "(555) 909-1010",
+        projectName: "Exterior Painting",
+        status: "scheduled",
+        sentAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        linkClicked: false,
+      },
+      {
+        id: "s3",
+        customerName: "Maria Gonzalez",
+        customerPhone: "(555) 111-2222",
+        projectName: "HVAC Service",
+        status: "scheduled",
+        sentAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        linkClicked: false,
+      },
       {
         id: "1",
         customerName: "John Smith",
@@ -262,8 +291,16 @@ export default function AdminReviews() {
     toast.success("Review text copied to clipboard!");
   };
 
+  const tabStatuses = {
+    current: ["sent", "viewed"],
+    past: ["completed", "expired"],
+    scheduled: ["scheduled"],
+  };
+
   const filteredRequests = reviewRequests
     .filter((request) => {
+      const allowedStatuses = tabStatuses[activeTab as keyof typeof tabStatuses] || [];
+      if (!allowedStatuses.includes(request.status)) return false;
       if (statusFilter !== "all" && request.status !== statusFilter) {
         return false;
       }
@@ -330,6 +367,8 @@ export default function AdminReviews() {
         );
       case "expired":
         return <Badge variant="destructive">Expired</Badge>;
+      case "scheduled":
+        return <Badge className="bg-sky-500">Scheduled</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -537,306 +576,290 @@ export default function AdminReviews() {
           </Card>
         </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* Tabbed Review Requests Table */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => {
+            setActiveTab(val);
+            setStatusFilter("all");
+            setSearchTerm("");
+          }}
+        >
+          {/* Tab bar + search row */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+            <TabsList>
+              <TabsTrigger value="current" className="gap-1.5">
+                Current
+                <Badge className="h-5 px-1.5 text-xs bg-blue-600 text-white ml-1">
+                  {reviewRequests.filter((r) => ["sent", "viewed"].includes(r.status)).length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="past" className="gap-1.5">
+                Past
+                <Badge className="h-5 px-1.5 text-xs bg-muted text-muted-foreground ml-1">
+                  {reviewRequests.filter((r) => ["completed", "expired"].includes(r.status)).length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="scheduled" className="gap-1.5">
+                Scheduled
+                <Badge className="h-5 px-1.5 text-xs bg-sky-600 text-white ml-1">
+                  {reviewRequests.filter((r) => r.status === "scheduled").length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Search + sort */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:ml-auto">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search customers, projects, or review text..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-9 w-full sm:w-52"
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="viewed">Viewed</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sentAt">Date Sent</SelectItem>
-                    <SelectItem value="rating">Rating</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sentAt">Date</SelectItem>
+                  <SelectItem value="customerName">Customer</SelectItem>
+                  <SelectItem value="rating">Rating</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Review Requests Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">
-              Review Requests
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto scrollbar-hide">
-              <Table className="min-w-[800px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() =>
-                        setSortBy(
-                          sortBy === "customerName"
-                            ? "customerName-desc"
-                            : "customerName",
-                        )
-                      }
-                    >
-                      Customer
-                      {sortBy.includes("customerName") && (
-                        <span className="ml-1">
-                          {sortBy.includes("desc") ? "↓" : "↑"}
-                        </span>
-                      )}
-                    </TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Project
-                    </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() =>
-                        setSortBy(
-                          sortBy === "status" ? "status-desc" : "status",
-                        )
-                      }
-                    >
-                      Status
-                      {sortBy.includes("status") && (
-                        <span className="ml-1">
-                          {sortBy.includes("desc") ? "↓" : "↑"}
-                        </span>
-                      )}
-                    </TableHead>
-                    <TableHead
-                      className="hidden md:table-cell cursor-pointer hover:bg-gray-50"
-                      onClick={() =>
-                        setSortBy(
-                          sortBy === "rating" ? "rating-desc" : "rating",
-                        )
-                      }
-                    >
-                      Rating
-                      {sortBy.includes("rating") && (
-                        <span className="ml-1">
-                          {sortBy.includes("desc") ? "↓" : "↑"}
-                        </span>
-                      )}
-                    </TableHead>
-                    <TableHead
-                      className="hidden lg:table-cell cursor-pointer hover:bg-gray-50"
-                      onClick={() =>
-                        setSortBy(
-                          sortBy === "sentAt" ? "sentAt-desc" : "sentAt",
-                        )
-                      }
-                    >
-                      Sent Date
-                      {sortBy.includes("sentAt") && (
-                        <span className="ml-1">
-                          {sortBy.includes("desc") ? "↓" : "↑"}
-                        </span>
-                      )}
-                    </TableHead>
-                    <TableHead className="hidden xl:table-cell">
-                      Review Text
-                    </TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRequests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate text-sm sm:text-base">
-                            {request.customerName}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {request.customerPhone}
-                          </p>
-                          <div className="sm:hidden mt-1 space-y-1">
-                            <div className="text-xs text-muted-foreground">
-                              {request.projectName}
-                            </div>
-                            <div className="md:hidden flex items-center gap-1">
-                              {request.rating ? (
-                                <>
-                                  <StarRating
-                                    rating={request.rating}
-                                    onRatingChange={() => {}}
-                                    readonly
-                                    size="sm"
-                                  />
-                                  <span className="text-xs">
-                                    {request.rating}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  No rating
-                                </span>
-                              )}
-                            </div>
-                            <div className="lg:hidden text-xs text-muted-foreground">
-                              {formatTableDate(request.sentAt)}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <p className="truncate text-sm">
-                          {request.projectName}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(request.status, request.linkClicked)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {request.rating ? (
-                          <div className="flex items-center gap-2">
-                            <StarRating
-                              rating={request.rating}
-                              onRatingChange={() => {}}
-                              readonly
-                              size="sm"
-                            />
-                            <span className="text-sm">{request.rating}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div className="text-sm">
-                          {formatTableDate(request.sentAt)}
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(request.sentAt).toLocaleTimeString()}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {request.reviewText ? (
-                          <div className="space-y-2 max-w-[200px]">
-                            <p className="text-sm line-clamp-2 break-words">
-                              {request.reviewText.length > 60
-                                ? `${request.reviewText.substring(0, 60)}...`
-                                : request.reviewText}
-                            </p>
-                            {request.reviewText.length > 60 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info(request.reviewText, {
-                                    duration: 10000,
-                                  })
-                                }
-                                className="h-6 px-2 text-xs"
-                              >
-                                Read More
-                              </Button>
+          {/* Shared table renderer */}
+          {(["current", "past", "scheduled"] as const).map((tab) => (
+            <TabsContent key={tab} value={tab} className="mt-0">
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto scrollbar-hide">
+                    <Table className="min-w-[700px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() =>
+                              setSortBy(sortBy === "customerName" ? "customerName-desc" : "customerName")
+                            }
+                          >
+                            Customer
+                            {sortBy.includes("customerName") && (
+                              <span className="ml-1">{sortBy.includes("desc") ? "↓" : "↑"}</span>
                             )}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">
-                            No review yet
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => copyReviewLink(request.id)}
-                            >
-                              <Copy className="h-4 w-4 mr-2" />
-                              Copy Link
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
+                          </TableHead>
+                          <TableHead className="hidden sm:table-cell">Project</TableHead>
+                          <TableHead
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() =>
+                              setSortBy(sortBy === "status" ? "status-desc" : "status")
+                            }
+                          >
+                            Status
+                            {sortBy.includes("status") && (
+                              <span className="ml-1">{sortBy.includes("desc") ? "↓" : "↑"}</span>
+                            )}
+                          </TableHead>
+                          {tab === "past" && (
+                            <TableHead
+                              className="hidden md:table-cell cursor-pointer hover:bg-muted/50"
                               onClick={() =>
-                                sendReviewRequest(
-                                  request.customerName,
-                                  request.projectName,
-                                )
+                                setSortBy(sortBy === "rating" ? "rating-desc" : "rating")
                               }
                             >
-                              <Send className="h-4 w-4 mr-2" />
-                              Resend Request
-                            </DropdownMenuItem>
-                            {request.status === "sent" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  cancelReviewRequest(
-                                    request.id,
-                                    request.customerName,
-                                  )
-                                }
-                                className="text-red-600 focus:text-red-600"
-                              >
-                                <X className="h-4 w-4 mr-2" />
-                                Cancel Request
-                              </DropdownMenuItem>
-                            )}
-                            {request.reviewText && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  copyReviewText(request.reviewText!)
-                                }
-                              >
-                                <Copy className="h-4 w-4 mr-2" />
-                                Copy Review Text
-                              </DropdownMenuItem>
-                            )}
-                            <div className="xl:hidden">
-                              {request.reviewText && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    toast.info(request.reviewText, {
-                                      duration: 10000,
-                                    })
-                                  }
-                                >
-                                  <MessageSquare className="h-4 w-4 mr-2" />
-                                  View Review
-                                </DropdownMenuItem>
+                              Rating
+                              {sortBy.includes("rating") && (
+                                <span className="ml-1">{sortBy.includes("desc") ? "↓" : "↑"}</span>
                               )}
-                            </div>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                            </TableHead>
+                          )}
+                          <TableHead
+                            className="hidden lg:table-cell cursor-pointer hover:bg-muted/50"
+                            onClick={() =>
+                              setSortBy(sortBy === "sentAt" ? "sentAt-desc" : "sentAt")
+                            }
+                          >
+                            {tab === "scheduled" ? "Scheduled For" : "Sent Date"}
+                            {sortBy.includes("sentAt") && (
+                              <span className="ml-1">{sortBy.includes("desc") ? "↓" : "↑"}</span>
+                            )}
+                          </TableHead>
+                          {tab === "past" && (
+                            <TableHead className="hidden xl:table-cell">Review Text</TableHead>
+                          )}
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRequests.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={tab === "past" ? 6 : 4}
+                              className="text-center py-12 text-muted-foreground"
+                            >
+                              {searchTerm
+                                ? "No results match your search."
+                                : tab === "current"
+                                ? "No active review requests."
+                                : tab === "past"
+                                ? "No past requests yet."
+                                : "No scheduled requests."}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredRequests.map((request) => (
+                            <TableRow key={request.id}>
+                              <TableCell>
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate text-sm">
+                                    {request.customerName}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {request.customerPhone}
+                                  </p>
+                                  <div className="sm:hidden mt-1 text-xs text-muted-foreground">
+                                    {request.projectName}
+                                  </div>
+                                  <div className="lg:hidden mt-0.5 text-xs text-muted-foreground">
+                                    {formatTableDate(request.sentAt)}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell">
+                                <p className="truncate text-sm">{request.projectName}</p>
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(request.status, request.linkClicked)}
+                              </TableCell>
+                              {tab === "past" && (
+                                <TableCell className="hidden md:table-cell">
+                                  {request.rating ? (
+                                    <div className="flex items-center gap-2">
+                                      <StarRating
+                                        rating={request.rating}
+                                        onRatingChange={() => {}}
+                                        readonly
+                                        size="sm"
+                                      />
+                                      <span className="text-sm">{request.rating}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                              )}
+                              <TableCell className="hidden lg:table-cell">
+                                <div className="text-sm">
+                                  {formatTableDate(request.sentAt)}
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(request.sentAt).toLocaleTimeString()}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              {tab === "past" && (
+                                <TableCell className="hidden xl:table-cell">
+                                  {request.reviewText ? (
+                                    <div className="space-y-1 max-w-[200px]">
+                                      <p className="text-sm line-clamp-2 break-words">
+                                        {request.reviewText.length > 60
+                                          ? `${request.reviewText.substring(0, 60)}...`
+                                          : request.reviewText}
+                                      </p>
+                                      {request.reviewText.length > 60 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            toast.info(request.reviewText, { duration: 10000 })
+                                          }
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          Read More
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">No review yet</span>
+                                  )}
+                                </TableCell>
+                              )}
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => copyReviewLink(request.id)}>
+                                      <Copy className="h-4 w-4 mr-2" />
+                                      Copy Link
+                                    </DropdownMenuItem>
+                                    {tab !== "scheduled" && (
+                                      <DropdownMenuItem
+                                        onClick={() => setShowReviewRequest(true)}
+                                      >
+                                        <Send className="h-4 w-4 mr-2" />
+                                        Resend Request
+                                      </DropdownMenuItem>
+                                    )}
+                                    {tab === "scheduled" && (
+                                      <DropdownMenuItem
+                                        onClick={() => setShowReviewRequest(true)}
+                                      >
+                                        <Send className="h-4 w-4 mr-2" />
+                                        Send Now
+                                      </DropdownMenuItem>
+                                    )}
+                                    {(request.status === "sent" || request.status === "scheduled") && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          cancelReviewRequest(request.id, request.customerName)
+                                        }
+                                        className="text-red-600 focus:text-red-600"
+                                      >
+                                        <X className="h-4 w-4 mr-2" />
+                                        Cancel Request
+                                      </DropdownMenuItem>
+                                    )}
+                                    {request.reviewText && (
+                                      <DropdownMenuItem
+                                        onClick={() => copyReviewText(request.reviewText!)}
+                                      >
+                                        <Copy className="h-4 w-4 mr-2" />
+                                        Copy Review Text
+                                      </DropdownMenuItem>
+                                    )}
+                                    {request.reviewText && (
+                                      <DropdownMenuItem
+                                        className="xl:hidden"
+                                        onClick={() =>
+                                          toast.info(request.reviewText, { duration: 10000 })
+                                        }
+                                      >
+                                        <MessageSquare className="h-4 w-4 mr-2" />
+                                        View Review
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+        </Tabs>
 
         {/* Review Request Dialog */}
         <ReviewRequest
