@@ -78,6 +78,15 @@ import {
   Copy,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { createCheckoutSession } from "@/lib/paymentService";
 
 // Comprehensive Types
 interface SettingsData {
@@ -414,6 +423,42 @@ export default function Settings() {
   );
   const [showTagForm, setShowTagForm] = useState(false);
   const [editingTag, setEditingTag] = useState<TagItem | null>(null);
+
+  // Upgrade dialog state
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<{
+    name: string;
+    price: number;
+    description: string;
+  } | null>(null);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const handleUpgradeClick = (name: string, price: number, description: string) => {
+    setSelectedUpgradePlan({ name, price, description });
+    setUpgradeDialogOpen(true);
+  };
+
+  const handleUpgradeConfirm = async () => {
+    if (!selectedUpgradePlan) return;
+    setIsUpgrading(true);
+    try {
+      const result = await createCheckoutSession({
+        provider: "stripe",
+        mode: "subscription",
+        amount: selectedUpgradePlan.price,
+      });
+      if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        toast.error(result?.message || "Checkout failed. Please check your Stripe configuration.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsUpgrading(false);
+      setUpgradeDialogOpen(false);
+    }
+  };
 
   // Safe data loading
   useEffect(() => {
@@ -4095,8 +4140,12 @@ export default function Settings() {
                             </li>
                           </ul>
 
-                          <Button className="w-full" variant="default">
-                            Upgrade
+                          <Button
+                            className="w-full"
+                            variant="default"
+                            onClick={() => handleUpgradeClick("Starter", 39, "Up to 5 users · Basic client management · Standard support")}
+                          >
+                            Upgrade to Starter
                           </Button>
                         </div>
                       </div>
@@ -4206,14 +4255,55 @@ export default function Settings() {
                             </li>
                           </ul>
 
-                          <Button className="w-full" variant="default">
-                            Upgrade
+                          <Button
+                            className="w-full"
+                            variant="default"
+                            onClick={() => handleUpgradeClick("Enterprise", 69, "Up to 50 users · White-label · 24/7 support · Dedicated account manager")}
+                          >
+                            Upgrade to Enterprise
                           </Button>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Upgrade Confirmation Dialog */}
+                <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Upgrade to {selectedUpgradePlan?.name}</DialogTitle>
+                      <DialogDescription>
+                        {selectedUpgradePlan?.description}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold">${selectedUpgradePlan?.price}</span>
+                        <span className="text-muted-foreground">/user/month</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        You'll be taken to a secure Stripe checkout to complete your upgrade. You can cancel anytime from this billing page.
+                      </p>
+                    </div>
+                    <DialogFooter className="gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setUpgradeDialogOpen(false)}
+                        disabled={isUpgrading}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleUpgradeConfirm}
+                        disabled={isUpgrading}
+                        className="gap-2"
+                      >
+                        {isUpgrading ? "Redirecting..." : "Proceed to Checkout"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 {/* Billing History */}
                 <Card>
