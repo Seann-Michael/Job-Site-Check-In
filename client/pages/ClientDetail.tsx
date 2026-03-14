@@ -553,8 +553,14 @@ export default function ClientDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <InlineField field="business_name" label="Business Name" value={client.business_name} icon={Building2} placeholder="Add business name" />
-                <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" />
-                <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" />
+                <div className="flex gap-4">
+                  <div className="flex-1 min-w-0">
+                    <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" />
+                  </div>
+                </div>
                 <InlineField field="phone" label="Phone" value={client.phone} icon={Phone} placeholder="Add phone number" />
                 <InlineField field="email" label="Email" value={client.email} icon={Mail} placeholder="Add email address" />
                 <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Add address" />
