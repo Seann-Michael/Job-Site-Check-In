@@ -1324,11 +1324,6 @@ export default function ProjectDetail() {
                 className="flex items-center gap-2 flex-shrink-0"
                 key="action-buttons"
               >
-                <Link to={`/project/${id}/edit`} key="edit-link">
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </Link>
                 <DropdownMenu key="actions-dropdown">
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
