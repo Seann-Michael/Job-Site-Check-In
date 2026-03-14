@@ -1736,7 +1736,7 @@ export default function ProjectDetail() {
                               return (
                                 <div
                                   key={`photo-${index}-${photoUrl.slice(-10)}`}
-                                  className={`group relative aspect-video cursor-pointer overflow-hidden rounded-lg bg-black shadow-sm hover:shadow-lg transition-shadow ${
+                                  className={`group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-muted shadow-sm hover:shadow-lg transition-shadow ${
                                     selectedPhotos.includes(index)
                                       ? "ring-2 ring-primary"
                                       : ""
@@ -1747,7 +1747,7 @@ export default function ProjectDetail() {
                                     <>
                                       <video
                                         src={photoUrl}
-                                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedPhoto(photoUrl);
@@ -1762,7 +1762,7 @@ export default function ProjectDetail() {
                                       <ImageWithFallback
                                         photo={photo}
                                         alt={`Photo ${index + 1}`}
-                                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedPhoto(photoUrl);
@@ -3047,47 +3047,46 @@ export default function ProjectDetail() {
         {selectedPhoto && (
           <div
             key="media-modal"
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4"
+            className="fixed inset-0 bg-black/90 flex items-center justify-center z-[200]"
             onClick={() => setSelectedPhoto(null)}
           >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
+              onClick={() => setSelectedPhoto(null)}
+            >
+              ×
+            </Button>
             <div
-              className="relative max-w-4xl max-h-[90vh] flex flex-col"
+              className="relative w-full h-full flex items-center justify-center p-10"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex-1 flex items-center justify-center overflow-hidden">
-                {(() => {
-                  // Find the selected media object to get its type
-                  const selectedMediaObj = project?.photos.find(
-                    (p) => getPhotoUrl(p) === selectedPhoto
-                  );
-                  const isVideo =
-                    typeof selectedMediaObj === "object" &&
-                    selectedMediaObj?.media_type === "video";
+              {(() => {
+                const selectedMediaObj = project?.photos.find(
+                  (p) => getPhotoUrl(p) === selectedPhoto
+                );
+                const isVideo =
+                  typeof selectedMediaObj === "object" &&
+                  selectedMediaObj?.media_type === "video";
 
-                  return isVideo ? (
-                    <video
-                      src={selectedPhoto}
-                      controls
-                      autoPlay
-                      className="max-w-full max-h-full object-contain rounded-lg"
-                    />
-                  ) : (
-                    <img
-                      src={selectedPhoto}
-                      alt="Full size photo"
-                      className="max-w-full max-h-full object-contain rounded-lg"
-                    />
-                  );
-                })()}
-              </div>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute top-4 right-4 z-10"
-                onClick={() => setSelectedPhoto(null)}
-              >
-                ×
-              </Button>
+                return isVideo ? (
+                  <video
+                    src={selectedPhoto}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                    style={{ maxHeight: "calc(100vh - 80px)" }}
+                  />
+                ) : (
+                  <img
+                    src={selectedPhoto}
+                    alt="Full size photo"
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                    style={{ maxHeight: "calc(100vh - 80px)" }}
+                  />
+                );
+              })()}
             </div>
           </div>
         )}
