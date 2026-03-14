@@ -44,8 +44,14 @@ class CompatibleDataService {
   async deleteBusiness(id: string) { return await dataService.deleteBusiness(id); }
   async createProject(project: any) { return await dataService.createProject(project); }
   async updateProject(id: string, updates: any) { return await dataService.updateProject(id, updates); }
+  async getProjectPhotos(projectId: string) {
+    return await dataService.getProjectPhotos(projectId);
+  }
   async uploadProjectPhoto(projectId: string, file: File, metadata: any) {
     return await dataService.uploadProjectPhoto(projectId, file, metadata);
+  }
+  async deleteProjectPhoto(id: string) {
+    return await dataService.deleteProjectPhoto(id);
   }
   async signIn(email: string, password: string) { return await dataService.signIn(email, password); }
   async signUp(email: string, password: string, name: string, role?: string) {

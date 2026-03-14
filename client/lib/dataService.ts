@@ -968,7 +968,7 @@ export class DataService {
     const filePath = `project-photos/${projectId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("project-files")
+      .from("media")
       .upload(filePath, file);
 
     if (uploadError) throw uploadError;
@@ -976,7 +976,7 @@ export class DataService {
     // Get public URL
     const {
       data: { publicUrl },
-    } = supabase.storage.from("project-files").getPublicUrl(filePath);
+    } = supabase.storage.from("media").getPublicUrl(filePath);
 
     // Create photo record
     const { data, error } = await supabase
@@ -1043,7 +1043,7 @@ export class DataService {
     const filePath = `project-documents/${projectId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("project-files")
+      .from("media")
       .upload(filePath, file);
 
     if (uploadError) throw uploadError;
@@ -1051,7 +1051,7 @@ export class DataService {
     // Get public URL
     const {
       data: { publicUrl },
-    } = supabase.storage.from("project-files").getPublicUrl(filePath);
+    } = supabase.storage.from("media").getPublicUrl(filePath);
 
     // Create document record
     const { data, error } = await supabase
