@@ -2948,7 +2948,7 @@ export default function ProjectDetail() {
         {selectedPhoto && (
           <div
             key="media-modal"
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4"
             onClick={() => setSelectedPhoto(null)}
           >
             <div
