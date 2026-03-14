@@ -219,6 +219,10 @@ export default function ProjectDetail() {
   const [editDescriptionValue, setEditDescriptionValue] = useState("");
   const [editingAddress, setEditingAddress] = useState(false);
   const [editAddressValue, setEditAddressValue] = useState("");
+  const [editingContact, setEditingContact] = useState(false);
+  const [editContactName, setEditContactName] = useState("");
+  const [editContactPhone, setEditContactPhone] = useState("");
+  const [editContactEmail, setEditContactEmail] = useState("");
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
@@ -1057,6 +1061,26 @@ export default function ProjectDetail() {
     }
   };
 
+  const saveContactEdit = async () => {
+    if (!project) return;
+    const existingContact = (project as any).client_contact || {};
+    const updatedContact = {
+      ...existingContact,
+      name: editContactName.trim(),
+      phone: editContactPhone.trim(),
+      email: editContactEmail.trim(),
+    };
+    try {
+      await dataService.updateProject(project.id, { client_contact: updatedContact });
+      setProject({ ...project, client_contact: updatedContact } as any);
+      setEditingContact(false);
+      toast.success("Customer details saved");
+    } catch (err) {
+      console.error("Failed to save contact:", err);
+      toast.error("Failed to save customer details");
+    }
+  };
+
   const addKeyword = async () => {
     if (!project || !newKeyword.trim()) return;
     const trimmed = newKeyword.trim();
@@ -1307,38 +1331,78 @@ export default function ProjectDetail() {
                     </div>
                   )}
                   {/* Customer contact info */}
-                  {(() => {
-                    const cc = (project as any).client_contact || {};
-                    const name = cc.name || cc.contact_name || "";
-                    const phone = cc.phone || cc.contact_phone || "";
-                    const email = cc.email || cc.contact_email || "";
-                    if (!name && !phone && !email) return null;
-                    return (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-                        {name && (
-                          <span className="text-sm font-medium text-foreground">{name}</span>
-                        )}
-                        {phone && (
-                          <a
-                            href={`tel:${phone}`}
-                            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Phone className="h-3 w-3" />
-                            {phone}
-                          </a>
-                        )}
-                        {email && (
-                          <a
-                            href={`mailto:${email}`}
-                            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Mail className="h-3 w-3" />
-                            {email}
-                          </a>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {editingContact ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Customer name"
+                        value={editContactName}
+                        onChange={(e) => setEditContactName(e.target.value)}
+                        className="border-b border-primary bg-transparent text-sm focus:outline-none w-32"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone"
+                        value={editContactPhone}
+                        onChange={(e) => setEditContactPhone(e.target.value)}
+                        className="border-b border-primary bg-transparent text-sm focus:outline-none w-32"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={editContactEmail}
+                        onChange={(e) => setEditContactEmail(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveContactEdit();
+                          if (e.key === "Escape") setEditingContact(false);
+                        }}
+                        className="border-b border-primary bg-transparent text-sm focus:outline-none w-40"
+                      />
+                      <Button size="sm" className="h-6 text-xs px-2" onClick={saveContactEdit}>Save</Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setEditingContact(false)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <div
+                      className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 group/contact cursor-pointer"
+                      onClick={() => {
+                        const cc = (project as any).client_contact || {};
+                        setEditContactName(cc.name || cc.contact_name || "");
+                        setEditContactPhone(cc.phone || cc.contact_phone || "");
+                        setEditContactEmail(cc.email || cc.contact_email || "");
+                        setEditingContact(true);
+                      }}
+                      title="Click to edit customer details"
+                    >
+                      {(() => {
+                        const cc = (project as any).client_contact || {};
+                        const name = cc.name || cc.contact_name || "";
+                        const phone = cc.phone || cc.contact_phone || "";
+                        const email = cc.email || cc.contact_email || "";
+                        const hasData = name || phone || email;
+                        return hasData ? (
+                          <>
+                            {name && <span className="text-sm font-medium text-foreground">{name}</span>}
+                            {phone && (
+                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Phone className="h-3 w-3" />{phone}
+                              </span>
+                            )}
+                            {email && (
+                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Mail className="h-3 w-3" />{email}
+                              </span>
+                            )}
+                            <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/contact:opacity-100 transition-opacity" />
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/60 italic group-hover/contact:text-muted-foreground transition-colors">
+                            + Add customer name, phone &amp; email
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
                   <div
                     className="flex items-center gap-2 text-muted-foreground mt-0.5"
                     key="address-display"
