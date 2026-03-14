@@ -7,23 +7,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Building2,
   MapPin,
   ChevronDown,
-  Plus,
   Check,
-  Star,
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { workspaceService } from "@/lib/workspaceService";
+import { supabase } from "@/lib/dataService";
 
 interface Company {
   id: string;
   name: string;
-  plan: string;
-  isActive: boolean;
-  isFavorite?: boolean;
 }
 
 interface CompanySelectorProps {
@@ -33,7 +28,7 @@ interface CompanySelectorProps {
 
 export function CompanySelector({ collapsed = false, className }: CompanySelectorProps) {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
@@ -48,148 +43,94 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
     }
   }, [isOpen]);
 
-  // Load companies from localStorage/API
+  // Load businesses scoped to the current workspace
   useEffect(() => {
-    const loadCompanies = () => {
+    const loadCompanies = async () => {
       try {
-        // Force clear old branding data and reset to Waypoint
-        localStorage.removeItem("user_companies");
-        localStorage.removeItem("selected_company_id");
-        localStorage.setItem("business_name", "Waypoint");
+        setIsLoading(true);
 
-        // Mock data for demonstration - replace with actual API call
-        const mockCompanies: Company[] = [
-          {
-            id: "1",
-            name: "Waypoint",
-            plan: "Pro",
-            isActive: true,
-            isFavorite: false,
-          },
-          {
-            id: "2",
-            name: "Fairfield Auto Repair",
-            plan: "Basic",
-            isActive: true,
-            isFavorite: true,
-          },
-          {
-            id: "3",
-            name: "Sunshine Dental",
-            plan: "Pro",
-            isActive: false,
-            isFavorite: false,
-          },
-          {
-            id: "4",
-            name: "Mike's Pizza Palace",
-            plan: "Pro",
-            isActive: true,
-            isFavorite: true,
-          },
-          {
-            id: "5",
-            name: "Green Thumb Landscaping",
-            plan: "Basic",
-            isActive: true,
-            isFavorite: false,
-          },
-        ];
+        // Wait for workspace to be initialized if not already
+        let state = workspaceService.getState();
+        if (!state.initialized) {
+          await workspaceService.initialize();
+          state = workspaceService.getState();
+        }
 
-        setCompanies(mockCompanies);
-        setSelectedCompany(mockCompanies[0].id);
+        const businessIds = state.businessIds;
+        const currentBusinessId = state.currentBusinessId;
 
-        // Save to localStorage with Waypoint as default
-        localStorage.setItem("user_companies", JSON.stringify(mockCompanies));
-        localStorage.setItem("selected_company_id", mockCompanies[0].id);
-        localStorage.setItem("business_name", mockCompanies[0].name);
+        if (businessIds.length === 0) {
+          setCompanies([]);
+          setSelectedCompanyId(null);
+          setIsLoading(false);
+          return;
+        }
 
-        // Dispatch event to update business name in layout immediately
-        window.dispatchEvent(new CustomEvent("businessNameChanged", {
-          detail: mockCompanies[0].name
+        // Fetch business details for these IDs from Supabase
+        const { data, error } = await supabase
+          .from("businesses")
+          .select("id, name")
+          .in("id", businessIds)
+          .order("name");
+
+        if (error) {
+          console.warn("[CompanySelector] failed to load businesses:", error.message);
+          setIsLoading(false);
+          return;
+        }
+
+        const loaded: Company[] = (data ?? []).map((b: { id: string; name: string }) => ({
+          id: b.id,
+          name: b.name,
         }));
-      } catch (error) {
-        console.error("Error loading companies:", error);
-        // Fallback to default
-        const defaultCompany: Company = {
-          id: "default",
-          name: "Waypoint",
-          plan: "Pro",
-          isActive: true,
-        };
-        setCompanies([defaultCompany]);
-        setSelectedCompany(defaultCompany.id);
+
+        setCompanies(loaded);
+        setSelectedCompanyId(currentBusinessId ?? loaded[0]?.id ?? null);
+
+        // Sync business name to localStorage for other components
+        const active = loaded.find((c) => c.id === (currentBusinessId ?? loaded[0]?.id));
+        if (active) {
+          localStorage.setItem("business_name", active.name);
+          window.dispatchEvent(new CustomEvent("businessNameChanged", { detail: active.name }));
+        }
+      } catch (err) {
+        console.warn("[CompanySelector] error loading companies:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadCompanies();
+
+    // Re-load when workspace state changes
+    const unsubscribe = workspaceService.subscribe((state) => {
+      if (!state.initialized) return;
+      // Trigger a reload when business list changes
+      loadCompanies();
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const handleCompanyChange = (companyId: string) => {
-    // Handle add new company option
-    if (companyId === "add-new") {
-      // TODO: Implement add new company functionality
-      console.log("Add new company clicked");
-      return;
-    }
-
-    setSelectedCompany(companyId);
-    localStorage.setItem("selected_company_id", companyId);
+  const handleCompanyChange = async (companyId: string) => {
+    setSelectedCompanyId(companyId);
     setIsOpen(false);
-    setSearchTerm(""); // Clear search when selecting
+    setSearchTerm("");
 
-    // Update business name for the layout
-    const selectedCompanyData = companies.find(c => c.id === companyId);
-    if (selectedCompanyData) {
-      localStorage.setItem("business_name", selectedCompanyData.name);
+    await workspaceService.switchBusiness(companyId);
 
-      // Dispatch event to update business name in layout
-      window.dispatchEvent(new CustomEvent("businessNameChanged", {
-        detail: selectedCompanyData.name
-      }));
+    const selected = companies.find((c) => c.id === companyId);
+    if (selected) {
+      localStorage.setItem("business_name", selected.name);
+      window.dispatchEvent(new CustomEvent("businessNameChanged", { detail: selected.name }));
     }
   };
 
-  const toggleFavorite = (companyId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCompanies(prev =>
-      prev.map(company =>
-        company.id === companyId
-          ? { ...company, isFavorite: !company.isFavorite }
-          : company
-      )
-    );
+  const filteredCompanies = companies.filter((c) =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    // Save favorites to localStorage
-    const updatedCompanies = companies.map(company =>
-      company.id === companyId
-        ? { ...company, isFavorite: !company.isFavorite }
-        : company
-    );
-    localStorage.setItem("user_companies", JSON.stringify(updatedCompanies));
-  };
-
-  // Filter and sort companies
-  const getFilteredAndSortedCompanies = () => {
-    let filtered = companies.filter(company =>
-      company.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Sort favorites first, then by name
-    return filtered.sort((a, b) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  };
-
-  const getSelectedCompany = () => {
-    return companies.find(c => c.id === selectedCompany);
-  };
-
-  const selectedCompanyData = getSelectedCompany();
+  const selectedCompany = companies.find((c) => c.id === selectedCompanyId);
 
   if (isLoading) {
     return (
@@ -214,12 +155,11 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
 
   return (
     <div className={cn("p-4 border-b space-y-3", className)}>
-      {/* Company Selector */}
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Active Company
         </div>
-        
+
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -231,7 +171,7 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
               <div className="flex items-center justify-between w-full">
                 <div className="flex-1 text-left">
                   <div className="font-medium text-sm truncate">
-                    {selectedCompanyData?.name || "Select Company"}
+                    {selectedCompany?.name || "Select Company"}
                   </div>
                 </div>
                 <div className="flex items-center">
@@ -240,8 +180,9 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
               </div>
             </Button>
           </PopoverTrigger>
+
           <PopoverContent className="w-full p-0" align="start">
-            {/* Search Input */}
+            {/* Search */}
             <div className="p-2 border-b">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -256,63 +197,31 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
               </div>
             </div>
 
-            {/* Filtered Companies */}
             <div className="max-h-[200px] overflow-y-auto">
-              {getFilteredAndSortedCompanies().map((company) => (
+              {filteredCompanies.length === 0 && (
+                <div className="p-4 text-center text-muted-foreground text-sm">
+                  {searchTerm ? `No companies found matching "${searchTerm}"` : "No companies available"}
+                </div>
+              )}
+
+              {filteredCompanies.map((company) => (
                 <div
                   key={company.id}
                   className="flex items-center justify-between w-full p-2 hover:bg-muted cursor-pointer"
                   onClick={() => handleCompanyChange(company.id)}
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-sm">{company.name}</span>
-                      {company.id === selectedCompany && (
-                        <Check className="h-3 w-3 text-primary" />
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className="h-6 w-6 flex items-center justify-center cursor-pointer hover:bg-muted/50 rounded"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(company.id, e);
-                    }}
-                  >
-                    <Star
-                      className={cn(
-                        "h-3 w-3",
-                        company.isFavorite
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted-foreground hover:text-yellow-400"
-                      )}
-                    />
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="font-medium text-sm">{company.name}</span>
+                    {company.id === selectedCompanyId && (
+                      <Check className="h-3 w-3 text-primary" />
+                    )}
                   </div>
                 </div>
               ))}
-
-              {/* No Results Message */}
-              {getFilteredAndSortedCompanies().length === 0 && searchTerm && (
-                <div className="p-4 text-center text-muted-foreground text-sm">
-                  No companies found matching "{searchTerm}"
-                </div>
-              )}
-
-              {/* Add New Company Option */}
-              <div
-                className="flex items-center space-x-2 w-full p-2 hover:bg-muted cursor-pointer border-t"
-                onClick={() => handleCompanyChange("add-new")}
-              >
-                <div className="flex h-6 w-6 items-center justify-center rounded bg-muted">
-                  <Plus className="h-3 w-3 text-muted-foreground" />
-                </div>
-                <span className="text-muted-foreground text-sm">Add New Company</span>
-              </div>
             </div>
           </PopoverContent>
         </Popover>
       </div>
-
     </div>
   );
 }
