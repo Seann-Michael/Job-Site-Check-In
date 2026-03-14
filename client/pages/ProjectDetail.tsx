@@ -211,6 +211,13 @@ export default function ProjectDetail() {
   const [showAddKeyword, setShowAddKeyword] = useState(false);
   const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
   const [renameDocValue, setRenameDocValue] = useState("");
+  // Inline field editing
+  const [editingName, setEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editDescriptionValue, setEditDescriptionValue] = useState("");
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [editAddressValue, setEditAddressValue] = useState("");
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
@@ -243,9 +250,12 @@ export default function ProjectDetail() {
             _dbId: media.id,
           }));
 
+          // Extract address from client_contact (where EditProject stores it)
+          const clientContact = (foundProject as any).client_contact || {};
           // Ensure all required arrays exist
           const projectWithDefaults = {
             ...foundProject,
+            address: foundProject.address || clientContact.address || foundProject.metadata?.address || "",
             notes: foundProject.notes || [],
             activityLog: foundProject.activityLog || [],
             tasks: foundProject.tasks || [],
@@ -253,7 +263,7 @@ export default function ProjectDetail() {
             keywords: foundProject.metadata?.keywords || foundProject.keywords || [],
             photos: convertedPhotos.length > 0 ? convertedPhotos : [],
             documents: foundProject.documents || [],
-            additionalPhones: foundProject.additionalPhones || [],
+            additionalPhones: clientContact.additional_phones || foundProject.additionalPhones || [],
           };
           setProject(projectWithDefaults);
         }
@@ -1030,6 +1040,28 @@ export default function ProjectDetail() {
     }
   };
 
+  const saveFieldEdit = async (field: "name" | "description" | "address", value: string) => {
+    if (!project) return;
+    const trimmed = value.trim();
+    setProject({ ...project, [field]: trimmed });
+    try {
+      if (field === "name") {
+        await dataService.updateProject(project.id, { name: trimmed });
+      } else if (field === "description") {
+        await dataService.updateProject(project.id, { description: trimmed });
+      } else if (field === "address") {
+        const existingContact = (project as any).client_contact || {};
+        await dataService.updateProject(project.id, {
+          client_contact: { ...existingContact, address: trimmed },
+        });
+      }
+      toast.success("Saved");
+    } catch (err) {
+      console.error("Failed to save field:", err);
+      toast.error("Failed to save");
+    }
+  };
+
   const addKeyword = async () => {
     if (!project || !newKeyword.trim()) return;
     const trimmed = newKeyword.trim();
@@ -1246,9 +1278,39 @@ export default function ProjectDetail() {
                   </Button>
                 </Link>
                 <div className="flex-1 min-w-0" key="title-section">
-                  <h1 className="text-xl sm:text-2xl font-bold truncate">
-                    {project.name}
-                  </h1>
+                  {editingName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editNameValue}
+                        onChange={(e) => setEditNameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            saveFieldEdit("name", editNameValue);
+                            setEditingName(false);
+                          }
+                          if (e.key === "Escape") setEditingName(false);
+                        }}
+                        className="text-xl sm:text-2xl font-bold border-b-2 border-primary bg-transparent focus:outline-none w-full"
+                      />
+                      <Button size="sm" onClick={() => { saveFieldEdit("name", editNameValue); setEditingName(false); }}>Save</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group/name">
+                      <h1 className="text-xl sm:text-2xl font-bold truncate">
+                        {project.name}
+                      </h1>
+                      <button
+                        onClick={() => { setEditNameValue(project.name); setEditingName(true); }}
+                        className="opacity-0 group-hover/name:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        title="Edit project name"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                   <div
                     className="flex items-center gap-2 text-muted-foreground mt-1"
                     key="address-display"
@@ -1399,13 +1461,41 @@ export default function ProjectDetail() {
                   <div className="space-y-6" key="overview-tab-content">
                     {/* Project Description */}
                     <Card>
-                      <CardHeader>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle>Project Description</CardTitle>
+                        {!editingDescription && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => { setEditDescriptionValue(project.description || ""); setEditingDescription(true); }}
+                            title="Edit description"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                       </CardHeader>
                       <CardContent>
-                        <p className="text-muted-foreground">
-                          {project.description || "No description provided"}
-                        </p>
+                        {editingDescription ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              autoFocus
+                              value={editDescriptionValue}
+                              onChange={(e) => setEditDescriptionValue(e.target.value)}
+                              rows={4}
+                              className="w-full"
+                              placeholder="Project description…"
+                            />
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => { saveFieldEdit("description", editDescriptionValue); setEditingDescription(false); }}>Save</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditingDescription(false)}>Cancel</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            {project.description || "No description provided"}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -1701,14 +1791,45 @@ export default function ProjectDetail() {
 
                     {/* Google Map Section */}
                     <Card>
-                      <CardHeader>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="flex items-center gap-2">
                           <MapPin className="h-5 w-5" />
                           Project Location
                         </CardTitle>
+                        {!editingAddress && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => { setEditAddressValue(project.address || ""); setEditingAddress(true); }}
+                            title="Edit address"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
+                          {editingAddress ? (
+                            <div className="space-y-2">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editAddressValue}
+                                onChange={(e) => setEditAddressValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") { saveFieldEdit("address", editAddressValue); setEditingAddress(false); }
+                                  if (e.key === "Escape") setEditingAddress(false);
+                                }}
+                                placeholder="Enter address…"
+                                className="w-full text-sm border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={() => { saveFieldEdit("address", editAddressValue); setEditingAddress(false); }}>Save</Button>
+                                <Button size="sm" variant="ghost" onClick={() => setEditingAddress(false)}>Cancel</Button>
+                              </div>
+                            </div>
+                          ) : (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <MapPin className="h-4 w-4" />
                             <a
@@ -1720,6 +1841,7 @@ export default function ProjectDetail() {
                               {project.address}
                             </a>
                           </div>
+                          )}
                           {project.gpsLat && project.gpsLng && (
                             <div className="text-sm text-muted-foreground">
                               <span key="gps-label" className="font-medium">
