@@ -784,7 +784,7 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const VALID_PROJECT_COLUMNS = new Set([
-      'business_id', 'name', 'description', 'type', 'status', 'priority',
+      'business_id', 'client_id', 'name', 'description', 'type', 'status', 'priority',
       'assigned_to', 'client_contact', 'objectives', 'deliverables',
       'timeline', 'budget', 'seo_targets', 'competitors', 'progress',
       'metadata', 'started_at', 'completed_at', 'due_date', 'materials', 'tasks',
@@ -823,7 +823,7 @@ export class DataService {
       // Only send columns that actually exist in the projects table.
       // Strip out any frontend-only or camelCase fields that Supabase would reject.
       const VALID_PROJECT_COLUMNS = new Set([
-        'business_id', 'name', 'description', 'type', 'status', 'priority',
+        'business_id', 'client_id', 'name', 'description', 'type', 'status', 'priority',
         'assigned_to', 'client_contact', 'objectives', 'deliverables',
         'timeline', 'budget', 'seo_targets', 'competitors', 'progress',
         'metadata', 'started_at', 'completed_at', 'due_date', 'materials', 'tasks',

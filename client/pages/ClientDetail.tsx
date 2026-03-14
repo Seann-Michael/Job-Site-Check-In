@@ -27,7 +27,22 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/lib/dataService";
+import { supabase, dataService } from "@/lib/dataService";
+import { workspaceService } from "@/lib/workspaceService";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Client {
   id: string;
@@ -97,6 +112,10 @@ export default function ClientDetail() {
   const [documents, setDocuments] = useState<Document[]>([]);
 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showNewJobDialog, setShowNewJobDialog] = useState(false);
+  const [newJobName, setNewJobName] = useState("");
+  const [newJobType, setNewJobType] = useState("residential");
+  const [creatingJob, setCreatingJob] = useState(false);
 
   const loadClient = async () => {
     if (!id) return;
@@ -183,6 +202,33 @@ export default function ClientDetail() {
   };
 
   const cancelEdit = () => setEditingField(null);
+
+  const createJob = async () => {
+    if (!newJobName.trim()) {
+      toast.error("Job name is required");
+      return;
+    }
+    setCreatingJob(true);
+    try {
+      const businessId = workspaceService.getCurrentBusinessId();
+      const job = await dataService.createProject({
+        name: newJobName.trim(),
+        type: newJobType,
+        status: "draft",
+        business_id: businessId || undefined,
+        client_id: id,
+      } as any);
+      toast.success("Job created and assigned to this client");
+      setShowNewJobDialog(false);
+      setNewJobName("");
+      navigate(`/job/${job.id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create job");
+    } finally {
+      setCreatingJob(false);
+    }
+  };
 
   const getSupabaseUrl = (path: string) => {
     const base = import.meta.env.VITE_SUPABASE_URL;
@@ -299,7 +345,7 @@ export default function ClientDetail() {
             <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base flex-shrink-0">
               {initials(client.name)}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               {editingField === "name" ? (
                 <div className="flex items-center gap-2">
                   <Input
@@ -328,6 +374,14 @@ export default function ClientDetail() {
                 Client since {new Date(client.created_at).toLocaleDateString()}
               </p>
             </div>
+            <Button
+              onClick={() => setShowNewJobDialog(true)}
+              size="sm"
+              className="gap-2 flex-shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              New Job
+            </Button>
           </div>
         </div>
 
@@ -423,15 +477,30 @@ export default function ClientDetail() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">Jobs / Projects</CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setShowNewJobDialog(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Job
+                </Button>
               </CardHeader>
               <CardContent>
                 {projects.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
                     <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
                     <p>No jobs linked to this client yet</p>
-                    <p className="text-xs mt-1">
-                      Link this client when creating a project
-                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 gap-2"
+                      onClick={() => setShowNewJobDialog(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create first job
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -601,6 +670,63 @@ export default function ClientDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* New Job Dialog */}
+      <Dialog open={showNewJobDialog} onOpenChange={setShowNewJobDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Job for {client?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>Job Name *</Label>
+              <Input
+                autoFocus
+                placeholder="e.g. Roof replacement, Kitchen remodel…"
+                value={newJobName}
+                onChange={(e) => setNewJobName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createJob();
+                  if (e.key === "Escape") setShowNewJobDialog(false);
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Job Type</Label>
+              <Select value={newJobType} onValueChange={setNewJobType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="emergency">Emergency</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="inspection">Inspection</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This job will be automatically assigned to{" "}
+              <span className="font-medium">{client?.name}</span>. You can fill
+              in the full details after creation.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewJobDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={createJob} disabled={creatingJob || !newJobName.trim()}>
+              {creatingJob ? "Creating…" : "Create Job"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Photo lightbox */}
       {selectedPhoto && (
