@@ -471,7 +471,7 @@ export default function Settings() {
 
   // Keyword state
   const [showKeywordForm, setShowKeywordForm] = useState(false);
-  const [newKeyword, setNewKeyword] = useState({ keyword: "", category: "primary" as KeywordItem["category"], volume: "", notes: "" });
+  const [newKeyword, setNewKeyword] = useState({ keyword: "", category: "general" as KeywordItem["category"], notes: "" });
   const [keywordSearch, setKeywordSearch] = useState("");
   const [keywordCategoryFilter, setKeywordCategoryFilter] = useState<string>("all");
 
@@ -660,11 +660,10 @@ export default function Settings() {
       id: Date.now().toString(),
       keyword: newKeyword.keyword.trim(),
       category: newKeyword.category,
-      volume: newKeyword.volume.trim() || undefined,
       notes: newKeyword.notes.trim() || undefined,
     };
     updateSetting("seoKeywords", [...(settings.seoKeywords || []), item]);
-    setNewKeyword({ keyword: "", category: "primary", volume: "", notes: "" });
+    setNewKeyword({ keyword: "", category: "general", notes: "" });
     setShowKeywordForm(false);
     toast.success("Keyword added");
   };
@@ -1991,9 +1990,9 @@ export default function Settings() {
                         </div>
                         <div>
                           <p className="text-2xl font-bold">
-                            {(settings.seoKeywords || []).filter((k) => k.category === "primary").length}
+                            {(settings.seoKeywords || []).filter((k) => k.category === "general").length}
                           </p>
-                          <p className="text-sm text-muted-foreground">Primary Keywords</p>
+                          <p className="text-sm text-muted-foreground">General Keywords</p>
                         </div>
                       </div>
                     </CardContent>
@@ -2020,8 +2019,8 @@ export default function Settings() {
                   <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <CardTitle>SEO Keywords</CardTitle>
-                        <CardDescription>Manage the keywords used across your review gate, AI prompts, and SEO strategy</CardDescription>
+                        <CardTitle>Keywords</CardTitle>
+                        <CardDescription>Manage keywords associated with your business</CardDescription>
                       </div>
                       <Button size="sm" onClick={() => setShowKeywordForm(!showKeywordForm)} className="gap-2 w-full sm:w-auto">
                         <Plus className="h-4 w-4" />
@@ -2059,20 +2058,10 @@ export default function Settings() {
                             </select>
                           </div>
                           <div>
-                            <Label htmlFor="kw-volume">Search Volume (optional)</Label>
-                            <Input
-                              id="kw-volume"
-                              placeholder="e.g. 1.2K"
-                              value={newKeyword.volume}
-                              onChange={(e) => setNewKeyword((p) => ({ ...p, volume: e.target.value }))}
-                              className="mt-1"
-                            />
-                          </div>
-                          <div>
                             <Label htmlFor="kw-notes">Notes (optional)</Label>
                             <Input
                               id="kw-notes"
-                              placeholder="e.g. High intent buyer keyword"
+                              placeholder="e.g. Used in welcome emails"
                               value={newKeyword.notes}
                               onChange={(e) => setNewKeyword((p) => ({ ...p, notes: e.target.value }))}
                               className="mt-1"
@@ -2081,7 +2070,7 @@ export default function Settings() {
                         </div>
                         <div className="flex gap-2 pt-1">
                           <Button size="sm" onClick={addKeyword}>Save Keyword</Button>
-                          <Button size="sm" variant="outline" onClick={() => { setShowKeywordForm(false); setNewKeyword({ keyword: "", category: "primary", volume: "", notes: "" }); }}>
+                          <Button size="sm" variant="outline" onClick={() => { setShowKeywordForm(false); setNewKeyword({ keyword: "", category: "general", notes: "" }); }}>
                             Cancel
                           </Button>
                         </div>
@@ -2161,7 +2150,7 @@ export default function Settings() {
                     {/* Export row */}
                     {(settings.seoKeywords || []).length > 0 && (
                       <div className="pt-2 border-t">
-                        <p className="text-xs text-muted-foreground mb-1 font-medium">Comma-separated export (for review gate &amp; AI prompts)</p>
+                        <p className="text-xs text-muted-foreground mb-1 font-medium">All keywords (comma-separated)</p>
                         <div className="flex gap-2">
                           <Input
                             readOnly
