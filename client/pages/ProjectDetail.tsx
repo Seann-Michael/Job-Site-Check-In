@@ -158,6 +158,7 @@ interface Project {
   mobilePhone?: string;
   additionalPhones?: string[];
   keywords: string[];
+  metadata?: any;
   photos: TaggedPhoto[] | string[];
   videos?: TaggedPhoto[];
   documents: ProjectDocument[];
@@ -206,6 +207,8 @@ export default function ProjectDetail() {
     dueTime: "",
   });
   const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [newKeyword, setNewKeyword] = useState("");
+  const [showAddKeyword, setShowAddKeyword] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
@@ -245,7 +248,7 @@ export default function ProjectDetail() {
             activityLog: foundProject.activityLog || [],
             tasks: foundProject.tasks || [],
             checklist: foundProject.checklist || [],
-            keywords: foundProject.keywords || [],
+            keywords: foundProject.metadata?.keywords || foundProject.keywords || [],
             photos: convertedPhotos.length > 0 ? convertedPhotos : [],
             documents: foundProject.documents || [],
             additionalPhones: foundProject.additionalPhones || [],
@@ -974,6 +977,49 @@ export default function ProjectDetail() {
     setMentionQuery("");
   };
 
+  const addKeyword = async () => {
+    if (!project || !newKeyword.trim()) return;
+    const trimmed = newKeyword.trim();
+    if (project.keywords.includes(trimmed)) {
+      toast.error("Keyword already exists");
+      return;
+    }
+    const updatedKeywords = [...project.keywords, trimmed];
+    const updatedProject = {
+      ...project,
+      keywords: updatedKeywords,
+      metadata: { ...(project.metadata || {}), keywords: updatedKeywords },
+    };
+    setProject(updatedProject);
+    setNewKeyword("");
+    setShowAddKeyword(false);
+    try {
+      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      toast.success(`Keyword "${trimmed}" added`);
+    } catch (error) {
+      console.error("Error saving keyword:", error);
+      toast.error("Failed to save keyword");
+    }
+  };
+
+  const removeKeyword = async (keyword: string) => {
+    if (!project) return;
+    const updatedKeywords = project.keywords.filter((k) => k !== keyword);
+    const updatedProject = {
+      ...project,
+      keywords: updatedKeywords,
+      metadata: { ...(project.metadata || {}), keywords: updatedKeywords },
+    };
+    setProject(updatedProject);
+    try {
+      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      toast.success(`Keyword "${keyword}" removed`);
+    } catch (error) {
+      console.error("Error removing keyword:", error);
+      toast.error("Failed to remove keyword");
+    }
+  };
+
   const updateProject = async (updatedProject: Project) => {
     try {
       await dataService.updateProject(updatedProject.id, updatedProject);
@@ -1332,10 +1378,7 @@ export default function ProjectDetail() {
                                   className="ml-1 hover:text-destructive"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Add remove keyword functionality here
-                                    toast.success(
-                                      "Keyword removal functionality coming soon",
-                                    );
+                                    removeKeyword(keyword);
                                   }}
                                 >
                                   ×
@@ -1347,19 +1390,47 @@ export default function ProjectDetail() {
                               No keywords added
                             </span>
                           )}
-                          {/* Add keyword button */}
-                          <Badge
-                            key="add-keyword-button"
-                            variant="outline"
-                            className="cursor-pointer hover:bg-muted"
-                            onClick={() =>
-                              toast.success(
-                                "Add keyword functionality coming soon",
-                              )
-                            }
-                          >
-                            + Add Tag
-                          </Badge>
+                          {/* Add keyword inline input */}
+                          {showAddKeyword ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={newKeyword}
+                                onChange={(e) => setNewKeyword(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") addKeyword();
+                                  if (e.key === "Escape") {
+                                    setShowAddKeyword(false);
+                                    setNewKeyword("");
+                                  }
+                                }}
+                                placeholder="New keyword…"
+                                className="text-sm border rounded px-2 py-0.5 w-32 focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                              <button
+                                onClick={addKeyword}
+                                className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => { setShowAddKeyword(false); setNewKeyword(""); }}
+                                className="text-xs px-2 py-0.5 rounded hover:bg-muted"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <Badge
+                              key="add-keyword-button"
+                              variant="outline"
+                              className="cursor-pointer hover:bg-muted"
+                              onClick={() => setShowAddKeyword(true)}
+                            >
+                              + Add Keyword
+                            </Badge>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
