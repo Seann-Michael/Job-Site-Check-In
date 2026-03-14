@@ -302,11 +302,16 @@ const navigationTabs = [
 ];
 
 // Safe Default Settings
+function generateAccountId(): string {
+  const digits = Math.floor(100000000 + Math.random() * 900000000).toString();
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}`;
+}
+
 const createDefaultSettings = (): SettingsData => ({
   // Business Info
   businessName: "Joe's Pizza",
   businessTypes: ["restaurant"], // Changed to array
-  subAccountId: "123456789", // 9-digit Business Account ID
+  subAccountId: generateAccountId(), // Auto-generated unique Business Account ID
   businessLogo: "",
   firstName: "Joe", // Split contact name
   lastName: "Smith",
@@ -520,6 +525,11 @@ export default function Settings() {
           const parsed = JSON.parse(saved);
           // Merge with defaults to ensure all fields exist
           const loadedSettings = { ...createDefaultSettings(), ...parsed };
+          // Ensure subAccountId is formatted as XXX-XXX-XXX
+          if (loadedSettings.subAccountId && !loadedSettings.subAccountId.includes("-")) {
+            const d = loadedSettings.subAccountId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0");
+            loadedSettings.subAccountId = `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6, 9)}`;
+          }
           setSettings(loadedSettings);
           // Also save business name to separate localStorage key
           localStorage.setItem(
@@ -969,20 +979,13 @@ export default function Settings() {
                         <Input
                           id="subAccountId"
                           value={settings.subAccountId || ""}
-                          onChange={(e) => {
-                            // Only allow 9 digits
-                            const value = e.target.value
-                              .replace(/\D/g, "")
-                              .slice(0, 9);
-                            updateSetting("subAccountId", value);
-                          }}
-                          placeholder="123456789"
-                          className="font-mono"
-                          maxLength={9}
+                          readOnly
+                          placeholder="XXX-XXX-XXX"
+                          className="font-mono bg-muted cursor-default"
                         />
                         <div className="flex items-center justify-between mt-1">
                           <p className="text-xs text-muted-foreground">
-                            9-digit ID that appears in the business selector
+                            Unique auto-generated ID for this business account
                           </p>
                           {settings.subAccountId && (
                             <Button
