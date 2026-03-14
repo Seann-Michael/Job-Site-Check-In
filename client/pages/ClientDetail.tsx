@@ -219,16 +219,30 @@ export default function ClientDetail() {
 
   const cancelEdit = () => setEditingField(null);
 
+  const getOrCreateDefaultJob = async (): Promise<string> => {
+    // Use existing selected/first job if available
+    const existing = selectedJobForUpload || projects[0]?.id;
+    if (existing) return existing;
+    // No jobs — auto-create a default "Client Media" job for this client
+    const businessId = workspaceService.getCurrentBusinessId();
+    const job = await dataService.createProject({
+      name: `${client?.name || "Client"} — General Media`,
+      type: "other",
+      status: "active",
+      business_id: businessId || undefined,
+      client_id: id,
+    } as any);
+    // Refresh the projects list so the new job shows up
+    setProjects((prev) => [job as any, ...prev]);
+    return job.id;
+  };
+
   const handleMediaFilesReady = async (files: any[]) => {
     if (!files.length) return;
-    const jobId = selectedJobForUpload || projects[0]?.id;
-    if (!jobId) {
-      toast.error("Please link a job to this client before uploading media");
-      return;
-    }
     setUploadingMedia(true);
     let uploaded = 0;
     try {
+      const jobId = await getOrCreateDefaultJob();
       for (const fileData of files) {
         try {
           const actualFile = fileData.file || fileData;
@@ -589,16 +603,10 @@ export default function ClientDetail() {
                 }}
                 className="gap-2"
                 size="sm"
-                disabled={projects.length === 0}
               >
                 <Upload className="h-4 w-4" />
                 Add Media
               </Button>
-              {projects.length === 0 && (
-                <p className="text-xs text-muted-foreground self-center ml-3">
-                  Create a job first to upload media
-                </p>
-              )}
             </div>
 
             {/* Photos */}
@@ -853,8 +861,12 @@ export default function ClientDetail() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Job selector when client has multiple jobs */}
-          {projects.length > 1 && (
+          {/* Job selector */}
+          {projects.length === 0 ? (
+            <p className="text-xs text-muted-foreground pb-2 border-b">
+              This client has no jobs yet. A <span className="font-medium">General Media</span> job will be created automatically to store uploaded files.
+            </p>
+          ) : projects.length > 1 ? (
             <div className="space-y-1 pb-2 border-b">
               <Label className="text-sm">Attach to job</Label>
               <Select
@@ -876,7 +888,7 @@ export default function ClientDetail() {
                 Media will be stored under the selected job
               </p>
             </div>
-          )}
+          ) : null}
 
           {uploadingMedia ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
