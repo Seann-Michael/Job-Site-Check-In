@@ -1362,47 +1362,54 @@ export default function ProjectDetail() {
                       <Button size="sm" className="h-6 text-xs px-2" onClick={saveContactEdit}>Save</Button>
                       <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setEditingContact(false)}>Cancel</Button>
                     </div>
-                  ) : (
-                    <div
-                      className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 group/contact cursor-pointer"
-                      onClick={() => {
-                        const cc = (project as any).client_contact || {};
-                        setEditContactName(cc.name || cc.contact_name || "");
-                        setEditContactPhone(cc.phone || cc.contact_phone || "");
-                        setEditContactEmail(cc.email || cc.contact_email || "");
+                  ) : (() => {
+                      const cc = (project as any).client_contact || {};
+                      const name = cc.name || cc.contact_name || "";
+                      const phone = cc.phone || cc.contact_phone || "";
+                      const email = cc.email || cc.contact_email || "";
+                      const hasData = name || phone || email;
+                      const openEdit = () => {
+                        setEditContactName(name);
+                        setEditContactPhone(phone);
+                        setEditContactEmail(email);
                         setEditingContact(true);
-                      }}
-                      title="Click to edit customer details"
-                    >
-                      {(() => {
-                        const cc = (project as any).client_contact || {};
-                        const name = cc.name || cc.contact_name || "";
-                        const phone = cc.phone || cc.contact_phone || "";
-                        const email = cc.email || cc.contact_email || "";
-                        const hasData = name || phone || email;
-                        return hasData ? (
-                          <>
-                            {name && <span className="text-sm font-medium text-foreground">{name}</span>}
-                            {phone && (
-                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Phone className="h-3 w-3" />{phone}
-                              </span>
-                            )}
-                            {email && (
-                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Mail className="h-3 w-3" />{email}
-                              </span>
-                            )}
-                            <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/contact:opacity-100 transition-opacity" />
-                          </>
-                        ) : (
-                          <span className="text-sm text-muted-foreground/60 italic group-hover/contact:text-muted-foreground transition-colors">
-                            + Add customer name, phone &amp; email
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  )}
+                      };
+                      return hasData ? (
+                        <div className="flex flex-col gap-0.5 mt-1 group/contact">
+                          {name && (
+                            <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                              <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              <span>{name}</span>
+                            </div>
+                          )}
+                          {phone && (
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <Phone className="h-3 w-3 flex-shrink-0" />
+                              <a href={`tel:${phone}`} className="hover:text-foreground transition-colors" onClick={(e) => e.stopPropagation()}>{phone}</a>
+                            </div>
+                          )}
+                          {email && (
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <Mail className="h-3 w-3 flex-shrink-0" />
+                              <a href={`mailto:${email}`} className="hover:text-foreground transition-colors" onClick={(e) => e.stopPropagation()}>{email}</a>
+                            </div>
+                          )}
+                          <button
+                            onClick={openEdit}
+                            className="self-start mt-0.5 opacity-0 group-hover/contact:opacity-100 transition-opacity text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+                          >
+                            <Edit className="h-3 w-3" /> Edit
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={openEdit}
+                          className="mt-1 text-sm text-muted-foreground/60 italic hover:text-muted-foreground transition-colors text-left"
+                        >
+                          + Add customer name, phone &amp; email
+                        </button>
+                      );
+                    })()}
                   <div
                     className="flex items-center gap-2 text-muted-foreground mt-0.5"
                     key="address-display"
