@@ -24,6 +24,7 @@ import {
   GitBranch,
   AlertCircle,
   CheckCircle,
+  Briefcase,
 } from "lucide-react";
 
 interface WorkflowStep {
@@ -96,6 +97,25 @@ const availableApps = [
         id: "tag_removed",
         name: "Tag Removed",
         description: "When tag is removed from contact",
+      },
+    ],
+  },
+  {
+    type: "trigger",
+    app: "jobs",
+    name: "Jobs",
+    icon: Briefcase,
+    color: "bg-teal-500",
+    actions: [
+      {
+        id: "job_created",
+        name: "Job Created",
+        description: "When a new job is created",
+      },
+      {
+        id: "job_completed",
+        name: "Job Completed",
+        description: "When a job is completed",
       },
     ],
   },
@@ -820,6 +840,58 @@ function StepConfigForm({
                 onChange={(e) =>
                   updateConfig("include_image", e.target.checked)
                 }
+              />
+            </div>
+          </div>
+        );
+
+      case "jobs_job_created":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="job_type">Job Type (Optional)</Label>
+              <Input
+                id="job_type"
+                value={config.job_type || ""}
+                onChange={(e) => updateConfig("job_type", e.target.value)}
+                placeholder="e.g., SEO, Maintenance, Cleaning"
+              />
+            </div>
+            <div>
+              <Label htmlFor="job_priority">Priority Level (Optional)</Label>
+              <Input
+                id="job_priority"
+                value={config.job_priority || ""}
+                onChange={(e) => updateConfig("job_priority", e.target.value)}
+                placeholder="e.g., High, Medium, Low"
+              />
+            </div>
+          </div>
+        );
+
+      case "jobs_job_completed":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="completion_notification">
+                Send Notification
+              </Label>
+              <Input
+                id="completion_notification"
+                type="checkbox"
+                checked={config.send_notification || false}
+                onChange={(e) =>
+                  updateConfig("send_notification", e.target.checked)
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="follow_up_action">Follow-up Action (Optional)</Label>
+              <Input
+                id="follow_up_action"
+                value={config.follow_up_action || ""}
+                onChange={(e) => updateConfig("follow_up_action", e.target.value)}
+                placeholder="e.g., Send invoice, Request review"
               />
             </div>
           </div>
