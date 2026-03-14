@@ -190,21 +190,6 @@ export function ProjectCard({
               )}
             </div>
 
-            {/* Progress indicator for ongoing projects */}
-            {project.progress && typeof project.progress === 'object' && project.progress.percentage && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">{project.progress.percentage}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all"
-                    style={{ width: `${project.progress.percentage}%` }}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Keywords preview */}
             {project.seo_targets?.target_keywords && project.seo_targets.target_keywords.length > 0 && (
@@ -225,15 +210,6 @@ export function ProjectCard({
               </div>
             )}
 
-            {/* Budget info */}
-            {project.budget && typeof project.budget === 'object' && (
-              <div className="flex justify-between text-sm pt-2 border-t">
-                <span className="text-muted-foreground">Budget:</span>
-                <span className="font-medium">
-                  ${project.budget.spent?.toLocaleString() || 0} / ${project.budget.total?.toLocaleString() || 0}
-                </span>
-              </div>
-            )}
 
             {/* Action buttons (show on hover) */}
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-2">
