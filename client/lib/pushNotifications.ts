@@ -236,7 +236,7 @@ class PushNotificationService {
       title: "Local SEO Ranker",
       body: "Push notifications are working! 🎉",
       tag: "test-notification",
-      data: { url: "/admin/projects" },
+      data: { url: "/admin/jobs" },
     });
   }
 
@@ -353,9 +353,9 @@ export const NotificationTemplates = {
     body: `"${projectName}" is due in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`,
     tag: "deadline-reminder",
     requireInteraction: true,
-    data: { type: "deadline", url: "/admin/projects" },
+    data: { type: "deadline", url: "/admin/jobs" },
     actions: [
-      { action: "view", title: "View Project" },
+      { action: "view", title: "View Job" },
       { action: "snooze", title: "Remind Later" },
     ],
   }),
@@ -379,7 +379,7 @@ export const NotificationTemplates = {
     body: `"${taskName}" has been assigned to you by ${assignedBy}`,
     tag: "task-assigned",
     requireInteraction: true,
-    data: { type: "task", url: "/admin/projects" },
+    data: { type: "task", url: "/admin/jobs" },
     actions: [
       { action: "view", title: "View Task" },
       { action: "accept", title: "Accept" },

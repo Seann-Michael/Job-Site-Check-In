@@ -434,7 +434,7 @@ export function useProtectedRoute(
       });
 
       toast.error("You don't have permission to access this page");
-      window.location.href = "/admin/projects";
+      window.location.href = "/admin/jobs";
       return;
     }
 
@@ -447,7 +447,7 @@ export function useProtectedRoute(
       });
 
       toast.error("You don't have the required role to access this page");
-      window.location.href = "/admin/projects";
+      window.location.href = "/admin/jobs";
       return;
     }
   }, [auth.isAuthenticated, auth.isLoading, requiredPermission, requiredRole]);

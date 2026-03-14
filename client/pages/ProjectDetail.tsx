@@ -344,8 +344,8 @@ export default function ProjectDetail() {
       if (id) {
         try {
           await dataService.deleteProject(id);
-          toast.success("Project deleted successfully");
-          navigate("/admin/projects");
+          toast.success("Job deleted successfully");
+          navigate("/admin/jobs");
         } catch (error) {
           console.error("Error deleting project:", error);
           toast.error("Failed to delete project");
@@ -1137,7 +1137,7 @@ export default function ProjectDetail() {
   };
 
   const shareProject = () => {
-    const publicUrl = `${window.location.origin}/public/project/${project?.id}`;
+    const publicUrl = `${window.location.origin}/public/job/${project?.id}`;
     navigator.clipboard.writeText(publicUrl);
     addActivityLogEntry("project_shared", "Project link shared");
     toast.success("Public project link copied to clipboard");
@@ -1258,18 +1258,18 @@ export default function ProjectDetail() {
       <AppLayout>
         <div className="container px-4 py-6 max-w-full overflow-x-hidden">
           <div className="flex items-center gap-4 mb-6">
-            <Link to="/admin/projects">
+            <Link to="/admin/jobs">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold">Project Not Found</h1>
+            <h1 className="text-2xl font-bold">Job Not Found</h1>
           </div>
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">Project not found</p>
-              <Link to="/admin/projects">
-                <Button className="mt-4">Back to Projects</Button>
+              <p className="text-muted-foreground">Job not found</p>
+              <Link to="/admin/jobs">
+                <Button className="mt-4">Back to Jobs</Button>
               </Link>
             </CardContent>
           </Card>
@@ -1291,7 +1291,7 @@ export default function ProjectDetail() {
               key="header-nav"
             >
               <div className="flex items-center gap-4 flex-1">
-                <Link to="/admin/projects" key="back-link">
+                <Link to="/admin/jobs" key="back-link">
                   <Button variant="ghost" size="icon">
                     <ArrowLeft className="h-5 w-5" />
                   </Button>

@@ -228,7 +228,7 @@ export default function AdminAddProject() {
 
   const enhanceDescription = async () => {
     if (!formData.name) {
-      toast.error("Please enter a project name first");
+      toast.error("Please enter a job name first");
       return;
     }
 
@@ -437,8 +437,8 @@ export default function AdminAddProject() {
         }
       }
 
-      toast.success("Project created successfully!");
-      navigate(`/project/${project.id}`);
+      toast.success("Job created successfully!");
+      navigate(`/job/${project.id}`);
     } catch (error) {
       console.error("Error creating project:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to create project. Please try again.";
@@ -450,10 +450,10 @@ export default function AdminAddProject() {
 
   return (
     <AppLayout
-      title="Add New Home Services Project"
+      title="Add New Home Services Job"
       breadcrumbs={[
-        { label: "Projects", href: "/admin/projects" },
-        { label: "Add Project", href: "/admin/add-project" },
+        { label: "Jobs", href: "/admin/jobs" },
+        { label: "Add Job", href: "/admin/add-job" },
       ]}
     >
       <div className="max-w-4xl mx-auto space-y-6">
@@ -749,7 +749,7 @@ export default function AdminAddProject() {
 
           {/* Submit Buttons */}
           <div className="flex gap-4 justify-end">
-            <Link to="/admin/projects">
+            <Link to="/admin/jobs">
               <Button type="button" variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Cancel
@@ -757,7 +757,7 @@ export default function AdminAddProject() {
             </Link>
             <Button type="submit" disabled={isSubmitting}>
               <Save className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Creating..." : "Create Project"}
+              {isSubmitting ? "Creating..." : "Create Job"}
             </Button>
           </div>
         </form>

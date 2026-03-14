@@ -96,19 +96,19 @@ function getPageConfig(pathname: string): PageConfig | null {
   };
 
   switch (true) {
-    case pathname === "/admin/projects":
+    case pathname === "/admin/jobs":
       return {
-        title: "Projects",
-        subtitle: "Manage your construction projects",
+        title: "Jobs",
+        subtitle: "Manage your jobs",
         icon: Target,
         primaryAction: {
-          label: "New Project",
+          label: "New Job",
           icon: Plus,
-          href: "/admin/add-project",
+          href: "/admin/add-job",
         },
         secondaryActions: [
           { label: "Export Data", icon: Download, onClick: () => {} },
-          { label: "Filter Projects", icon: Filter, onClick: () => {} },
+          { label: "Filter Jobs", icon: Filter, onClick: () => {} },
           { label: "Refresh", icon: RefreshCw, onClick: () => {} },
         ],
         quickStats: [
@@ -125,8 +125,8 @@ function getPageConfig(pathname: string): PageConfig | null {
           },
         ],
         breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
-          { label: "Projects" },
+          { label: "Dashboard", href: "/admin/jobs" },
+          { label: "Jobs" },
         ],
       };
 
@@ -151,8 +151,8 @@ function getPageConfig(pathname: string): PageConfig | null {
           { label: "Outstanding", value: "$45K", color: "warning" },
         ],
         breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
-          { label: "Project Value" },
+          { label: "Dashboard", href: "/admin/jobs" },
+          { label: "Job Value" },
         ],
       };
 
@@ -170,7 +170,7 @@ function getPageConfig(pathname: string): PageConfig | null {
           },
         ],
         breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
+          { label: "Dashboard", href: "/admin/jobs" },
           { label: "Settings" },
         ],
       };
@@ -190,7 +190,7 @@ function getPageConfig(pathname: string): PageConfig | null {
           { label: "Report Settings", icon: Settings, onClick: () => {} },
         ],
         breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
+          { label: "Dashboard", href: "/admin/jobs" },
           { label: "Reports" },
         ],
       };
@@ -210,7 +210,7 @@ function getPageConfig(pathname: string): PageConfig | null {
           { label: "Download All", icon: Download, onClick: () => {} },
         ],
         breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
+          { label: "Dashboard", href: "/admin/jobs" },
           { label: "Gallery" },
         ],
       };
@@ -230,7 +230,7 @@ function getPageConfig(pathname: string): PageConfig | null {
           { label: "Export Reviews", icon: Download, onClick: () => {} },
         ],
         breadcrumbs: [
-          { label: "Dashboard", href: "/admin/projects" },
+          { label: "Dashboard", href: "/admin/jobs" },
           { label: "Reviews" },
         ],
       };

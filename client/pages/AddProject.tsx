@@ -213,7 +213,7 @@ export default function AddProject() {
 
   const enhanceDescription = async () => {
     if (!formData.name) {
-      toast.error("Please enter a project name first");
+      toast.error("Please enter a job name first");
       return;
     }
 
@@ -235,7 +235,7 @@ export default function AddProject() {
 
   const generateKeywordSuggestions = () => {
     if (!formData.name || !formData.city) {
-      toast.error("Please enter project name and city for keyword suggestions");
+      toast.error("Please enter job name and city for keyword suggestions");
       return;
     }
 
@@ -329,7 +329,7 @@ export default function AddProject() {
     e.preventDefault();
     
     if (!selectedBusinessId) {
-      toast.error("Please select a business for this project");
+      toast.error("Please select a business for this job");
       return;
     }
 
@@ -417,11 +417,11 @@ export default function AddProject() {
         }
       }
 
-      toast.success("Project created successfully!");
-      navigate(`/project/${project.id}`);
+      toast.success("Job created successfully!");
+      navigate(`/job/${project.id}`);
     } catch (error) {
       console.error("Error creating project:", error);
-      toast.error("Failed to create project. Please try again.");
+      toast.error("Failed to create job. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -429,10 +429,10 @@ export default function AddProject() {
 
   return (
     <AppLayout
-      title="Add New Project"
+      title="Add New Job"
       breadcrumbs={[
-        { label: "Projects", href: "/" },
-        { label: "Add Project", href: "/add-project" },
+        { label: "Jobs", href: "/" },
+        { label: "Add Job", href: "/add-job" },
       ]}
     >
       <div className="max-w-4xl mx-auto space-y-6">
@@ -885,7 +885,7 @@ export default function AddProject() {
 
           {/* Submit Buttons */}
           <div className="flex gap-4 justify-end">
-            <Link to="/admin/projects">
+            <Link to="/admin/jobs">
               <Button type="button" variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Cancel
@@ -893,7 +893,7 @@ export default function AddProject() {
             </Link>
             <Button type="submit" disabled={isSubmitting || !selectedBusinessId}>
               <Save className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Creating..." : "Create Project"}
+              {isSubmitting ? "Creating..." : "Create Job"}
             </Button>
           </div>
         </form>

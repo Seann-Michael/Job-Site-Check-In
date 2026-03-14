@@ -148,13 +148,13 @@ export function AppLayout({
   // Navigation items with conditional visibility
   const sidebarItems = [
     {
-      id: "projects",
-      label: "Projects",
-      href: "/admin/projects",
+      id: "jobs",
+      label: "Jobs",
+      href: "/admin/jobs",
       icon: FolderOpen,
       active:
-        location.pathname === "/admin/projects" ||
-        location.pathname.startsWith("/project"),
+        location.pathname === "/admin/jobs" ||
+        location.pathname.startsWith("/job"),
       comingSoon: false,
     },
     {

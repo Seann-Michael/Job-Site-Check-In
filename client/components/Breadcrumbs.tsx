@@ -19,7 +19,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   // Auto-generate breadcrumbs from URL if not provided
   const generateBreadcrumbs = (): BreadcrumbItem[] => {
     const pathSegments = location.pathname.split("/").filter(Boolean);
-    const breadcrumbs: BreadcrumbItem[] = [{ label: "Home", href: "/admin/projects" }];
+    const breadcrumbs: BreadcrumbItem[] = [{ label: "Home", href: "/admin/jobs" }];
 
     let currentPath = "";
     pathSegments.forEach((segment, index) => {
@@ -35,7 +35,8 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
         "agency-admin": "Agency Admin",
         "admin-users": "Admin Users",
         "business-owners": "Business Owners",
-        "add-project": "Add Project",
+        "add-job": "Add Job",
+        "admin/jobs": "Jobs",
       };
 
       if (labelMap[segment]) {

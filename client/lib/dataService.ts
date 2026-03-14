@@ -685,7 +685,7 @@ export class DataService {
       const limit = parseInt(filters.limit || '20');
       const offset = (page - 1) * limit;
 
-      let query = supabase.from("projects").select("*", { count: 'exact' });
+      let query = supabase.from("jobs").select("*", { count: 'exact' });
 
       if (businessId) {
         // Specific business requested by caller
@@ -764,7 +764,7 @@ export class DataService {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from("projects")
+        .from("jobs")
         .select("*")
         .eq("id", id)
         .single();
@@ -795,7 +795,7 @@ export class DataService {
     );
 
     const { data, error } = await supabase
-      .from("projects")
+      .from("jobs")
       .insert({
         ...safeProject,
         status: project.status || "draft",
@@ -835,12 +835,12 @@ export class DataService {
 
       if (Object.keys(safeUpdates).length === 0) {
         // Nothing valid to update — fetch and return current record
-        const { data: current } = await supabase.from('projects').select('*').eq('id', id).single();
+        const { data: current } = await supabase.from('jobs').select('*').eq('id', id).single();
         return current as Project;
       }
 
       const { data, error } = await supabase
-        .from("projects")
+        .from("jobs")
         .update(safeUpdates)
         .eq("id", id)
         .select()
@@ -865,7 +865,7 @@ export class DataService {
     try {
       this.checkSupabaseConfig();
 
-      const { error } = await supabase.from("projects").delete().eq("id", id);
+      const { error } = await supabase.from("jobs").delete().eq("id", id);
 
       if (error) {
         console.error("Supabase delete error:", error);

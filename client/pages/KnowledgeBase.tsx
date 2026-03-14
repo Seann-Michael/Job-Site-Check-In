@@ -273,8 +273,8 @@ This guide will walk you through your first login experience and help you naviga
 
 After logging in, you'll be taken to your dashboard:
 
-### Business Owner Dashboard (/admin/projects)
-- **Projects**: View and manage all your business projects
+### Business Owner Dashboard (/admin/jobs)
+- **Jobs**: View and manage all your business jobs
 - **Gallery**: Manage photos and media for your listings
 - **Settings**: Configure your business preferences
 - **Support**: Get help when you need it
@@ -324,8 +324,8 @@ Projects in GMB Booster help you track improvements, updates, and changes to you
 
 ## Creating a New Project
 
-1. **Navigate to Projects**: Go to /admin/projects
-2. **Click "New Project"**: Use the button in the sidebar or header
+1. **Navigate to Jobs**: Go to /admin/jobs
+2. **Click "New Job"**: Use the button in the sidebar or header
 3. **Fill Project Details**:
    - **Project Name**: Give your project a descriptive name
    - **Description**: Explain what this project involves

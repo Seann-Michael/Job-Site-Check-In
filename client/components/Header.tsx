@@ -28,7 +28,7 @@ import { toast } from "sonner";
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
-  const isAddProject = location.pathname === "/admin/add-project";
+  const isAddProject = location.pathname === "/admin/add-job";
   const isSettings = location.pathname === "/admin/settings";
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,7 +60,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
-        <Link to="/admin/projects" className="flex items-center space-x-2">
+        <Link to="/admin/jobs" className="flex items-center space-x-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <Camera className="h-5 w-5 text-primary-foreground" />
           </div>
@@ -84,10 +84,10 @@ export function Header() {
           )}
 
           {!isAddProject && !isSettings && !isImpersonated && (
-            <Link to="/admin/add-project">
+            <Link to="/admin/add-job">
               <Button size="sm" className="gap-2">
                 <Plus className="h-4 w-4" />
-                Add Project
+                Add Job
               </Button>
             </Link>
           )}
@@ -97,7 +97,7 @@ export function Header() {
             {showSearch && (
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-64">
                 <Input
-                  placeholder="Search projects, photos..."
+                  placeholder="Search jobs, photos..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pr-10"

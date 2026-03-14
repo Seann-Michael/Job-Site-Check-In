@@ -232,7 +232,7 @@ export default function BusinessManagement() {
       };
 
       localStorage.setItem("auth_user", JSON.stringify(impersonatedUser));
-      navigate("/admin/projects", { replace: true });
+      navigate("/admin/jobs", { replace: true });
     }
   };
 

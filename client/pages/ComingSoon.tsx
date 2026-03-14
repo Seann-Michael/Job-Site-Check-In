@@ -110,7 +110,7 @@ function ComingSoon() {
                   <ArrowLeft className="h-4 w-4" />
                   Go Back
                 </Button>
-                <Link to="/admin/projects">
+                <Link to="/admin/jobs">
                   <Button variant="outline" className="gap-2">
                     <span>Return to Dashboard</span>
                   </Button>

@@ -31,7 +31,7 @@ export function ProjectCard({
     const newStarred = !isStarred;
     setIsStarred(newStarred);
     onToggleStar?.(newStarred);
-    toast.success(newStarred ? "Project starred" : "Project unstarred");
+    toast.success(newStarred ? "Job starred" : "Job unstarred");
   };
 
   const getStatusColor = (status: string) => {
@@ -111,7 +111,7 @@ export function ProjectCard({
 
   return (
     <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-primary/20">
-      <Link to={`/project/${project.id}`} className="block">
+      <Link to={`/job/${project.id}`} className="block">
         <CardContent className="p-0">
           {/* Header with project image/placeholder */}
           <div className="relative h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center overflow-hidden">

@@ -70,7 +70,7 @@ export default function Clients() {
 
       // Fetch project counts per client
       const { data: projectCounts } = await supabase
-        .from("projects")
+        .from("jobs")
         .select("client_id")
         .not("client_id", "is", null);
 

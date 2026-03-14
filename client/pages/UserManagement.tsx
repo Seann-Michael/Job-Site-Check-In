@@ -304,7 +304,7 @@ export default function UserManagement() {
       };
 
       localStorage.setItem("auth_user", JSON.stringify(impersonatedUser));
-      navigate("/admin/projects", { replace: true });
+      navigate("/admin/jobs", { replace: true });
     }
   };
 

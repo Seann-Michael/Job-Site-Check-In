@@ -112,7 +112,7 @@ export default function ClientDetail() {
 
       // Load linked projects
       const { data: projectData } = await supabase
-        .from("projects")
+        .from("jobs")
         .select("id, name, status, type, created_at")
         .eq("client_id", id)
         .order("created_at", { ascending: false });
@@ -439,7 +439,7 @@ export default function ClientDetail() {
                       <div
                         key={project.id}
                         className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/project/${project.id}`)}
+                        onClick={() => navigate(`/job/${project.id}`)}
                       >
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{project.name}</p>

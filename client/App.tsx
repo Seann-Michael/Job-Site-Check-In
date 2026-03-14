@@ -135,7 +135,7 @@ const App = () => (
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
-                <Route path="/public/project/:id" element={<PublicProject />} />
+                <Route path="/public/job/:id" element={<PublicProject />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
                 <Route
@@ -272,7 +272,7 @@ const App = () => (
 
                 {/* Protected routes */}
                 <Route
-                  path="/admin/projects"
+                  path="/admin/jobs"
                   element={
                     <ProtectedRoute>
                       <Index />
@@ -280,7 +280,7 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/add-project"
+                  path="/admin/add-job"
                   element={
                     <ProtectedRoute>
                       <AdminAddProject />
@@ -296,7 +296,7 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/project/:id"
+                  path="/job/:id"
                   element={
                     <ProtectedRoute>
                       <ProjectDetail />
@@ -641,23 +641,23 @@ const App = () => (
                 {/* Legacy/manual route redirects */}
                 <Route
                   path="/"
-                  element={<Navigate to="/admin/projects" replace />}
+                  element={<Navigate to="/admin/jobs" replace />}
                 />
                 <Route
                   path="/dashboard"
-                  element={<Navigate to="/admin/projects" replace />}
+                  element={<Navigate to="/admin/jobs" replace />}
                 />
                 <Route
                   path="/admin"
-                  element={<Navigate to="/admin/projects" replace />}
+                  element={<Navigate to="/admin/jobs" replace />}
                 />
                 <Route
                   path="/admin/dashboard"
-                  element={<Navigate to="/admin/projects" replace />}
+                  element={<Navigate to="/admin/jobs" replace />}
                 />
                 <Route
-                  path="/add-project"
-                  element={<Navigate to="/admin/add-project" replace />}
+                  path="/add-job"
+                  element={<Navigate to="/admin/add-job" replace />}
                 />
                 <Route
                   path="/gallery"
@@ -683,7 +683,7 @@ const App = () => (
                 {/* Builder.io compatibility routes (URLs without separators) */}
                 <Route
                   path="/AddProject"
-                  element={<Navigate to="/admin/add-project" replace />}
+                  element={<Navigate to="/admin/add-job" replace />}
                 />
 
                 {/* Auth and Public Routes */}
@@ -719,7 +719,7 @@ const App = () => (
                 />
                 <Route
                   path="/AdminProjects"
-                  element={<Navigate to="/admin/projects" replace />}
+                  element={<Navigate to="/admin/jobs" replace />}
                 />
                 <Route
                   path="/AdminGallery"

@@ -51,10 +51,10 @@ export function QuickActionBar() {
     // Create Actions
     {
       id: "new-project",
-      label: "New Project",
+      label: "New Job",
       icon: Plus,
-      href: "/admin/add-project",
-      description: "Create a new project quickly",
+      href: "/admin/add-job",
+      description: "Create a new job quickly",
       category: "create",
       hotkey: "Ctrl+N",
     },
@@ -62,7 +62,7 @@ export function QuickActionBar() {
       id: "new-lead",
       label: "Add Lead",
       icon: Users,
-      href: "/admin/add-project",
+      href: "/admin/add-job",
       description: "Add a new lead to your pipeline",
       category: "create",
       hotkey: "Ctrl+L",
@@ -73,8 +73,8 @@ export function QuickActionBar() {
       id: "leads-pipeline",
       label: "Pipeline",
       icon: Target,
-      href: "/admin/projects",
-      description: "View your sales pipeline",
+      href: "/admin/jobs",
+      description: "View your jobs pipeline",
       category: "view",
     },
     {
@@ -157,7 +157,7 @@ export function QuickActionBar() {
 
   // Don't show on certain pages where it might interfere
   if (
-    location.pathname.includes("/add-project") ||
+    location.pathname.includes("/add-job") ||
     location.pathname.includes("/edit")
   ) {
     return null;

@@ -87,7 +87,7 @@ const mockErrorLogs: ErrorLog[] = [
     userId: "user_456",
     userAgent:
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
-    url: "/admin/projects/proj_abc123",
+    url: "/admin/jobs/proj_abc123",
     count: 45,
     resolved: true,
   },
@@ -126,7 +126,7 @@ const mockErrorLogs: ErrorLog[] = [
     message: "Session expired - user redirected to login",
     userId: "user_654",
     userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-    url: "/admin/projects",
+    url: "/admin/jobs",
     count: 156,
     resolved: false,
   },

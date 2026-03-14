@@ -104,7 +104,7 @@ export default function Index() {
         });
       } catch (error) {
         console.error("Error loading data:", error);
-        toast.error("Failed to load projects. Please check your connection.");
+        toast.error("Failed to load jobs. Please check your connection.");
       } finally {
         setIsLoading(false);
       }
@@ -201,11 +201,11 @@ export default function Index() {
     try {
       await dataService.deleteProject(id);
       setProjects(prev => prev.filter(p => p.id !== id));
-      toast.success("Project deleted successfully");
+      toast.success("Job deleted successfully");
       track("project_deleted", { projectId: id });
     } catch (error) {
       console.error("Error deleting project:", error);
-      toast.error("Failed to delete project");
+      toast.error("Failed to delete job");
     }
   }, [track]);
 
@@ -238,8 +238,8 @@ export default function Index() {
   if (isLoading) {
     return (
       <AppLayout
-        title="Projects"
-        breadcrumbs={[{ label: "Projects", href: "/" }]}
+        title="Jobs"
+        breadcrumbs={[{ label: "Jobs", href: "/" }]}
       >
         <ProjectGridSkeleton />
       </AppLayout>
@@ -248,8 +248,8 @@ export default function Index() {
 
   return (
     <AppLayout
-      title="Projects"
-      breadcrumbs={[{ label: "Projects", href: "/" }]}
+      title="Jobs"
+      breadcrumbs={[{ label: "Jobs", href: "/" }]}
     >
       <div className="container mx-auto p-6 space-y-6">
         <EnhancedBroadcastAlert />
@@ -258,7 +258,7 @@ export default function Index() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
@@ -266,7 +266,7 @@ export default function Index() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.active}</div>
@@ -295,7 +295,7 @@ export default function Index() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search projects..."
+              placeholder="Search jobs..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
@@ -327,9 +327,9 @@ export default function Index() {
             </Button>
             
             <Button asChild>
-              <Link to="/add-project">
+              <Link to="/add-job">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Project
+                Add Job
               </Link>
             </Button>
           </div>
@@ -347,7 +347,7 @@ export default function Index() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Projects</SelectItem>
+                      <SelectItem value="all">All Jobs</SelectItem>
                       <SelectItem value="my-projects">My Projects</SelectItem>
                       <SelectItem value="starred">Starred</SelectItem>
                       <SelectItem value="archived">Archived</SelectItem>
@@ -399,16 +399,16 @@ export default function Index() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No projects found</h3>
+              <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
               <p className="text-muted-foreground mb-4">
                 {projects.length === 0
-                  ? "Get started by creating your first project"
+                  ? "Get started by creating your first job"
                   : "Try adjusting your search or filters"}
               </p>
               <Button asChild>
-                <Link to="/add-project">
+                <Link to="/add-job">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Project
+                  Add Job
                 </Link>
               </Button>
             </CardContent>
@@ -434,7 +434,7 @@ export default function Index() {
                   variant="outline"
                   onClick={() => setShowAllProjects(true)}
                 >
-                  Show {filteredProjects.length - displayedProjects.length} More Projects
+                  Show {filteredProjects.length - displayedProjects.length} More Jobs
                 </Button>
               </div>
             )}

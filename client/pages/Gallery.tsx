@@ -513,7 +513,7 @@ export default function Gallery() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Projects</Label>
+                  <Label>Jobs</Label>
                   <Select
                     value={filters.selectedProject}
                     onValueChange={(value) =>
@@ -524,7 +524,7 @@ export default function Gallery() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Projects</SelectItem>
+                      <SelectItem value="all">All Jobs</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
@@ -702,12 +702,12 @@ export default function Gallery() {
               </h3>
               <p className="text-muted-foreground mb-6">
                 {photos.length === 0
-                  ? "Start adding photos to your projects to see them here"
+                  ? "Start adding photos to your jobs to see them here"
                   : "Try adjusting your filters to see more results"}
               </p>
               {photos.length === 0 ? (
-                <Link to="/admin/add-project">
-                  <Button>Create First Project</Button>
+                <Link to="/admin/add-job">
+                  <Button>Create First Job</Button>
                 </Link>
               ) : (
                 <Button onClick={clearFilters}>Clear Filters</Button>
@@ -831,7 +831,7 @@ export default function Gallery() {
                             }`}
                           >
                             <Link
-                              to={`/project/${photo.projectId}`}
+                              to={`/job/${photo.projectId}`}
                               className="block hover:text-primary transition-colors"
                             >
                               <h3

@@ -86,7 +86,7 @@ export default function Login() {
         );
 
         toast.success("Login successful!");
-        navigate("/admin/projects");
+        navigate("/admin/jobs");
       } else {
         setErrors({ general: "Invalid email or password" });
       }

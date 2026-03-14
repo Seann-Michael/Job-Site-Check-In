@@ -85,7 +85,7 @@ export function SmartSearch({
         },
       ],
       quickActions: [
-        { label: "New Project", href: "/admin/add-project", icon: Plus },
+        { label: "New Job", href: "/admin/add-job", icon: Plus },
         {
           label: "Revenue Report",
           href: "/admin/project-value?tab=analytics",
@@ -93,7 +93,7 @@ export function SmartSearch({
         },
       ],
       pages: [
-        { label: "Projects", href: "/admin/projects", icon: FolderOpen },
+        { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
         {
           label: "Project Value",
           href: "/admin/project-value",
@@ -147,7 +147,7 @@ export function SmartSearch({
           subtitle: `${project.client} • ${project.status} • ${project.value}`,
           type: "project",
           icon: FolderOpen,
-          href: `/project/${project.id}`,
+          href: `/job/${project.id}`,
           metadata: project,
         });
       }
@@ -197,7 +197,7 @@ export function SmartSearch({
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "project":
-        return "Projects";
+        return "Jobs";
       case "contact":
         return "Contacts";
       case "action":
@@ -356,7 +356,7 @@ export function HeaderSearch() {
         },
       ],
       pages: [
-        { label: "Projects", href: "/admin/projects", icon: FolderOpen },
+        { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
         { label: "Gallery", href: "/admin/gallery", icon: Camera },
         { label: "Reviews", href: "/admin/reviews", icon: Star },
         { label: "Settings", href: "/admin/settings", icon: Settings },
@@ -387,7 +387,7 @@ export function HeaderSearch() {
           subtitle: `${project.client} • ${project.status}`,
           type: "project",
           icon: FolderOpen,
-          href: `/project/${project.id}`,
+          href: `/job/${project.id}`,
         });
       }
     });

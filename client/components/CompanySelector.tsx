@@ -112,8 +112,8 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
 
     await workspaceService.switchBusiness(companyId);
 
-    // Navigate to projects page so the user sees data for the new company
-    navigate("/admin/projects");
+    // Navigate to jobs page so the user sees data for the new company
+    navigate("/admin/jobs");
 
     const selected = companies.find((c) => c.id === companyId);
     if (selected) {
