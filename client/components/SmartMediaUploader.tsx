@@ -143,16 +143,13 @@ export function SmartMediaUploader({
   // Generate preview for files
   const generatePreview = useCallback((file: File): Promise<string | null> => {
     return new Promise((resolve) => {
-      // Detect file type from MIME type or extension (macOS fix)
+      // Priority: Extension > MIME type (macOS fix - ignore file.type)
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
       const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
-      const isVideo =
-        file.type.startsWith("video/") || videoExtensions.includes(fileExtension);
-      const isImage =
-        file.type.startsWith("image/") ||
-        ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"].includes(
-          fileExtension
-        );
+      const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
+
+      const isVideo = videoExtensions.includes(fileExtension);
+      const isImage = !isVideo && imageExtensions.includes(fileExtension);
 
       if (isImage) {
         const reader = new FileReader();
@@ -258,26 +255,26 @@ export function SmartMediaUploader({
           suggestedTags.push("exterior", "landscaping", "outdoor");
       }
 
-      // Determine file type from MIME type or extension (macOS fix)
+      // Determine file type from extension FIRST (macOS fix - ignore unreliable file.type)
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
       const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
-      const isVideo =
-        file.type.startsWith("video/") || videoExtensions.includes(fileExtension);
-      const isImage =
-        file.type.startsWith("image/") ||
-        ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"].includes(
-          fileExtension
-        );
+      const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
+
+      // Priority: Extension > MIME type (macOS reports video as image/jpeg)
+      const isVideo = videoExtensions.includes(fileExtension);
+      const isImage = !isVideo && imageExtensions.includes(fileExtension);
 
       console.log(
-        `[File Detection] ${file.name} - MIME: ${file.type || "empty"} - Extension: ${fileExtension} - Is Video: ${isVideo} - Is Image: ${isImage}`
+        `[generateMetadata] ${file.name} - Extension: ${fileExtension} - Reported MIME: ${file.type} - Detected As: ${
+          isVideo ? "VIDEO" : isImage ? "IMAGE" : "DOCUMENT"
+        }`
       );
 
       // Add file type suggestions
-      if (isImage) {
-        suggestedTags.push("photo", "before", "progress");
-      } else if (isVideo) {
+      if (isVideo) {
         suggestedTags.push("video", "walkthrough", "demonstration");
+      } else if (isImage) {
+        suggestedTags.push("photo", "before", "progress");
       }
 
       return {
@@ -326,37 +323,35 @@ export function SmartMediaUploader({
   // Validate file
   const validateFile = useCallback(
     (file: File): { valid: boolean; error?: string } => {
-      // Check MIME type and file extension (macOS fix for empty MIME types)
+      // Priority: Extension > MIME type (macOS fix)
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-      let isValidType = acceptedTypes.some((type) => {
-        if (type.endsWith("/*")) {
-          const baseType = type.slice(0, -1);
-          // Check both MIME type and extension
-          if (file.type.startsWith(baseType)) return true;
-          // Fallback: check extension
-          if (baseType === "image/") {
-            return ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"].includes(
-              fileExtension
-            );
-          }
-          if (baseType === "video/") {
-            return ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"].includes(
-              fileExtension
-            );
-          }
-        }
-        return file.type === type;
-      });
+      const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
+      const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
+
+      // Check if extension matches accepted types first
+      const isVideo = videoExtensions.includes(fileExtension);
+      const isImage = imageExtensions.includes(fileExtension);
+
+      let isValidType = false;
+      for (const type of acceptedTypes) {
+        if (type === "image/*" && isImage) isValidType = true;
+        if (type === "video/*" && isVideo) isValidType = true;
+        if (type === file.type) isValidType = true;
+      }
 
       if (!isValidType) {
         console.warn(
-          `File validation failed: ${file.name} - MIME: ${file.type || "empty"} - Extension: ${fileExtension}`
+          `[validateFile] REJECTED: ${file.name} - Extension: ${fileExtension} - Reported MIME: ${file.type}`
         );
         return {
           valid: false,
           error: `File type not supported. Accepted: ${acceptedTypes.join(", ")}`,
         };
       }
+
+      console.log(
+        `[validateFile] ACCEPTED: ${file.name} - Extension: ${fileExtension} - Reported MIME: ${file.type}`
+      );
 
       const fileSizeMB = file.size / (1024 * 1024);
       if (fileSizeMB > maxFileSize) {
@@ -383,6 +378,12 @@ export function SmartMediaUploader({
       }
 
       for (const file of filesArray) {
+        // Debug: Log raw file information
+        const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+        console.log(
+          `[processFiles] File: ${file.name}, Extension: ${fileExtension}, Reported Type: ${file.type}`
+        );
+
         const validation = validateFile(file);
         const id = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const metadata = generateMetadata(file);
@@ -614,20 +615,17 @@ export function SmartMediaUploader({
     setFiles((prev) => prev.filter((file) => file.id !== id));
   }, []);
 
-  // Get file icon based on type (MIME or extension - macOS fix)
+  // Get file icon (extension-first for macOS compatibility)
   const getFileIcon = useCallback((file: File) => {
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
     const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
-    const isVideo =
-      file.type.startsWith("video/") || videoExtensions.includes(fileExtension);
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
 
-    if (file.type.startsWith("image/") ||
-      ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"].includes(
-        fileExtension
-      )) {
-      return <Image className="h-4 w-4" />;
-    } else if (isVideo) {
+    // Priority: Extension > MIME type
+    if (videoExtensions.includes(fileExtension)) {
       return <Video className="h-4 w-4" />;
+    } else if (imageExtensions.includes(fileExtension)) {
+      return <Image className="h-4 w-4" />;
     }
     return <File className="h-4 w-4" />;
   }, []);
