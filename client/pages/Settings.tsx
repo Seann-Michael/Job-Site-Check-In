@@ -39,6 +39,7 @@ import {
   Globe,
   Bot,
   Tag,
+  MapPin,
   Image,
   Bell,
   DollarSign,
@@ -76,6 +77,9 @@ import {
   Palette,
   Archive,
   Copy,
+  Hash,
+  TrendingUp,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -145,6 +149,9 @@ interface SettingsData {
 
   // Tags
   businessTags: TagItem[];
+
+  // Keywords
+  seoKeywords: KeywordItem[];
 
   // Media Settings
   allowedImageTypes: string[];
@@ -237,6 +244,14 @@ interface TagItem {
   color: string;
 }
 
+interface KeywordItem {
+  id: string;
+  keyword: string;
+  category: "primary" | "secondary" | "location" | "service" | "brand";
+  volume?: string;
+  notes?: string;
+}
+
 interface UserItem {
   id: string;
   name: string;
@@ -262,12 +277,21 @@ interface InvoiceItem {
   downloadUrl: string;
 }
 
+const KEYWORD_CATEGORIES: { value: KeywordItem["category"]; label: string; color: string }[] = [
+  { value: "primary",   label: "Primary",  color: "bg-blue-100 text-blue-800" },
+  { value: "secondary", label: "Secondary", color: "bg-purple-100 text-purple-800" },
+  { value: "location",  label: "Location",  color: "bg-green-100 text-green-800" },
+  { value: "service",   label: "Service",   color: "bg-orange-100 text-orange-800" },
+  { value: "brand",     label: "Brand",     color: "bg-pink-100 text-pink-800" },
+];
+
 // Navigation Tabs
 const navigationTabs = [
   { id: "general", label: "General", icon: Building2 },
   { id: "project", label: "Project Settings", icon: SettingsIcon },
   { id: "integrations", label: "Integrations", icon: Globe },
   { id: "ai", label: "AI Assistant", icon: Bot },
+  { id: "keywords", label: "Keywords", icon: Hash },
   { id: "tags", label: "Tags", icon: Tag },
   { id: "media", label: "Media Settings", icon: Image },
   { id: "reviews", label: "Review Settings", icon: Star },
@@ -334,6 +358,13 @@ const createDefaultSettings = (): SettingsData => ({
     { id: "1", name: "Pizza", color: "#ef4444" },
     { id: "2", name: "Italian", color: "#3b82f6" },
     { id: "3", name: "Delivery", color: "#10b981" },
+  ],
+
+  // Keywords
+  seoKeywords: [
+    { id: "kw1", keyword: "local pizza delivery", category: "primary", volume: "1.2K" },
+    { id: "kw2", keyword: "Italian restaurant near me", category: "location", volume: "880" },
+    { id: "kw3", keyword: "best pizza Springfield", category: "location", volume: "320" },
   ],
 
   // Media Settings
@@ -437,6 +468,12 @@ export default function Settings() {
   );
   const [showTagForm, setShowTagForm] = useState(false);
   const [editingTag, setEditingTag] = useState<TagItem | null>(null);
+
+  // Keyword state
+  const [showKeywordForm, setShowKeywordForm] = useState(false);
+  const [newKeyword, setNewKeyword] = useState({ keyword: "", category: "primary" as KeywordItem["category"], volume: "", notes: "" });
+  const [keywordSearch, setKeywordSearch] = useState("");
+  const [keywordCategoryFilter, setKeywordCategoryFilter] = useState<string>("all");
 
   // Upgrade dialog state
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
@@ -604,6 +641,37 @@ export default function Settings() {
     } catch (error) {
       toast.error("Failed to delete tag");
     }
+  };
+
+  // Keyword CRUD
+  const addKeyword = () => {
+    if (!newKeyword.keyword.trim()) {
+      toast.error("Keyword cannot be empty");
+      return;
+    }
+    const existing = (settings.seoKeywords || []).find(
+      (k) => k.keyword.toLowerCase() === newKeyword.keyword.trim().toLowerCase()
+    );
+    if (existing) {
+      toast.error("This keyword already exists");
+      return;
+    }
+    const item: KeywordItem = {
+      id: Date.now().toString(),
+      keyword: newKeyword.keyword.trim(),
+      category: newKeyword.category,
+      volume: newKeyword.volume.trim() || undefined,
+      notes: newKeyword.notes.trim() || undefined,
+    };
+    updateSetting("seoKeywords", [...(settings.seoKeywords || []), item]);
+    setNewKeyword({ keyword: "", category: "primary", volume: "", notes: "" });
+    setShowKeywordForm(false);
+    toast.success("Keyword added");
+  };
+
+  const deleteKeyword = (id: string) => {
+    updateSetting("seoKeywords", (settings.seoKeywords || []).filter((k) => k.id !== id));
+    toast.success("Keyword removed");
   };
 
   const addAiVariable = (variable: string) => {
@@ -1892,6 +1960,227 @@ export default function Settings() {
                         </Button>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Keywords */}
+            {activeTab === "keywords" && (
+              <div className="space-y-6">
+                {/* Summary cards */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                          <Hash className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{(settings.seoKeywords || []).length}</p>
+                          <p className="text-sm text-muted-foreground">Total Keywords</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                          <TrendingUp className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">
+                            {(settings.seoKeywords || []).filter((k) => k.category === "primary").length}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Primary Keywords</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                          <MapPin className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">
+                            {(settings.seoKeywords || []).filter((k) => k.category === "location").length}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Location Keywords</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Keyword list */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <CardTitle>SEO Keywords</CardTitle>
+                        <CardDescription>Manage the keywords used across your review gate, AI prompts, and SEO strategy</CardDescription>
+                      </div>
+                      <Button size="sm" onClick={() => setShowKeywordForm(!showKeywordForm)} className="gap-2 w-full sm:w-auto">
+                        <Plus className="h-4 w-4" />
+                        Add Keyword
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Add keyword inline form */}
+                    {showKeywordForm && (
+                      <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                        <h4 className="font-medium text-sm">New Keyword</h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label htmlFor="kw-keyword">Keyword</Label>
+                            <Input
+                              id="kw-keyword"
+                              placeholder="e.g. kitchen renovation Springfield"
+                              value={newKeyword.keyword}
+                              onChange={(e) => setNewKeyword((p) => ({ ...p, keyword: e.target.value }))}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="kw-category">Category</Label>
+                            <select
+                              id="kw-category"
+                              value={newKeyword.category}
+                              onChange={(e) => setNewKeyword((p) => ({ ...p, category: e.target.value as KeywordItem["category"] }))}
+                              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              {KEYWORD_CATEGORIES.map((c) => (
+                                <option key={c.value} value={c.value}>{c.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <Label htmlFor="kw-volume">Search Volume (optional)</Label>
+                            <Input
+                              id="kw-volume"
+                              placeholder="e.g. 1.2K"
+                              value={newKeyword.volume}
+                              onChange={(e) => setNewKeyword((p) => ({ ...p, volume: e.target.value }))}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="kw-notes">Notes (optional)</Label>
+                            <Input
+                              id="kw-notes"
+                              placeholder="e.g. High intent buyer keyword"
+                              value={newKeyword.notes}
+                              onChange={(e) => setNewKeyword((p) => ({ ...p, notes: e.target.value }))}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <Button size="sm" onClick={addKeyword}>Save Keyword</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setShowKeywordForm(false); setNewKeyword({ keyword: "", category: "primary", volume: "", notes: "" }); }}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Filter bar */}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        placeholder="Search keywords..."
+                        value={keywordSearch}
+                        onChange={(e) => setKeywordSearch(e.target.value)}
+                        className="sm:max-w-xs"
+                      />
+                      <select
+                        value={keywordCategoryFilter}
+                        onChange={(e) => setKeywordCategoryFilter(e.target.value)}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="all">All categories</option>
+                        {KEYWORD_CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Keyword rows */}
+                    <div className="space-y-2">
+                      {(settings.seoKeywords || [])
+                        .filter((k) =>
+                          (keywordCategoryFilter === "all" || k.category === keywordCategoryFilter) &&
+                          (keywordSearch === "" || k.keyword.toLowerCase().includes(keywordSearch.toLowerCase()))
+                        )
+                        .map((k) => {
+                          const cat = KEYWORD_CATEGORIES.find((c) => c.value === k.category);
+                          return (
+                            <div key={k.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Hash className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">{k.keyword}</p>
+                                  {k.notes && <p className="text-xs text-muted-foreground truncate">{k.notes}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                {k.volume && (
+                                  <span className="text-xs text-muted-foreground hidden sm:inline">{k.volume}/mo</span>
+                                )}
+                                {cat && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.color}`}>
+                                    {cat.label}
+                                  </span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteKeyword(k.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {(settings.seoKeywords || []).filter((k) =>
+                        (keywordCategoryFilter === "all" || k.category === keywordCategoryFilter) &&
+                        (keywordSearch === "" || k.keyword.toLowerCase().includes(keywordSearch.toLowerCase()))
+                      ).length === 0 && (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Hash className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                          <p className="text-sm">No keywords found</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Export row */}
+                    {(settings.seoKeywords || []).length > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground mb-1 font-medium">Comma-separated export (for review gate &amp; AI prompts)</p>
+                        <div className="flex gap-2">
+                          <Input
+                            readOnly
+                            value={(settings.seoKeywords || []).map((k) => k.keyword).join(", ")}
+                            className="text-xs text-muted-foreground font-mono"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText((settings.seoKeywords || []).map((k) => k.keyword).join(", "));
+                              toast.success("Copied to clipboard");
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
