@@ -87,6 +87,7 @@ interface TaggedPhoto {
   _dbId?: string;
   media_type?: "image" | "video" | "document";
   mime_type?: string;
+  file_size?: number;
 }
 
 interface ProjectDocument {
@@ -230,6 +231,7 @@ export default function ProjectDetail() {
             isPrimary: media.is_featured,
             media_type: media.media_type || "image",
             mime_type: media.mime_type,
+            file_size: media.file_size,
             // Keep reference to DB media ID for deletion
             _dbId: media.id,
           }));
@@ -406,6 +408,7 @@ export default function ProjectDetail() {
             isPrimary: uploadedMedia.is_featured,
             media_type: uploadedMedia.media_type || "image",
             mime_type: uploadedMedia.mime_type,
+            file_size: uploadedMedia.file_size,
             _dbId: uploadedMedia.id,
           });
           uploadedCount++;
@@ -508,6 +511,7 @@ export default function ProjectDetail() {
             isPrimary: uploadedMedia.is_featured,
             media_type: uploadedMedia.media_type || "image",
             mime_type: uploadedMedia.mime_type,
+            file_size: uploadedMedia.file_size,
             _dbId: uploadedMedia.id,
           });
           uploadedCount++;
@@ -2566,11 +2570,20 @@ export default function ProjectDetail() {
                         Media Storage
                       </span>
                       <span className="font-medium">
-                        {(
-                          (project.photos.length +
-                            (project.videos?.length || 0)) *
-                          2.5
-                        ).toFixed(1)}{" "}
+                        {(() => {
+                          // Calculate total media storage size from actual file sizes
+                          let totalBytes = 0;
+                          if (project.photos && Array.isArray(project.photos)) {
+                            project.photos.forEach((photo: any) => {
+                              // Handle both string URLs and object formats
+                              if (typeof photo === "object" && photo.file_size) {
+                                totalBytes += photo.file_size;
+                              }
+                            });
+                          }
+                          const totalMB = totalBytes / (1024 * 1024);
+                          return totalMB.toFixed(2);
+                        })()}{" "}
                         MB
                       </span>
                     </div>
