@@ -886,6 +886,7 @@ export default function WorkflowBuilder() {
                 <StepConfigForm
                   step={editingStep}
                   onSave={saveStepConfig}
+                  workflowId={workflowId}
                   onCancel={() => {
                     setShowStepConfig(false);
                     setEditingStep(null);
@@ -1243,10 +1244,12 @@ function StepConfigForm({
   step,
   onSave,
   onCancel,
+  workflowId,
 }: {
   step: WorkflowStep;
   onSave: (config: Record<string, any>) => void;
   onCancel: () => void;
+  workflowId?: string | null;
 }) {
   const [config, setConfig] = useState(step.config);
 
@@ -1310,13 +1313,51 @@ function StepConfigForm({
           </div>
         );
 
-      case "webhook_receive":
+      case "webhook_receive": {
+        const inboundUrl = workflowId
+          ? `${window.location.origin}/api/workflows/webhook/${workflowId}`
+          : null;
         return (
-          <WebhookPayloadMapper
-            config={config}
-            updateConfig={updateConfig}
-          />
+          <div className="space-y-4">
+            {inboundUrl ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-4">
+                <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-2 uppercase tracking-wide">
+                  Your Inbound Webhook URL
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-400 mb-3">
+                  Paste this URL into the external system (e.g. Zapier, Make, Stripe) to send data to this workflow.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-white dark:bg-black/30 border border-blue-200 dark:border-blue-700 rounded px-3 py-2 break-all select-all">
+                    {inboundUrl}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0 gap-1.5 border-blue-300 hover:bg-blue-100"
+                    onClick={() => {
+                      navigator.clipboard.writeText(inboundUrl);
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-4">
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  Save the workflow first to generate your webhook URL.
+                </p>
+              </div>
+            )}
+            <WebhookPayloadMapper
+              config={config}
+              updateConfig={updateConfig}
+            />
+          </div>
         );
+      }
 
       case "webhook_send_webhook":
         return (
