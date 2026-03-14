@@ -1097,6 +1097,33 @@ export class DataService {
     if (error) throw error;
   }
 
+  /** Batch fetch featured media for multiple projects. Returns a map of projectId -> file_path */
+  async getFeaturedMediaForProjects(projectIds: string[]): Promise<Record<string, string>> {
+    if (!projectIds.length) return {};
+    try {
+      this.checkSupabaseConfig();
+      const { data, error } = await supabase
+        .from("project_media")
+        .select("project_id, file_path")
+        .in("project_id", projectIds)
+        .eq("is_featured", true)
+        .eq("media_type", "image");
+
+      if (error) throw error;
+
+      const map: Record<string, string> = {};
+      for (const row of data || []) {
+        if (row.project_id && row.file_path && !map[row.project_id]) {
+          map[row.project_id] = row.file_path;
+        }
+      }
+      return map;
+    } catch (error) {
+      console.error("Error fetching featured media for projects:", error);
+      return {};
+    }
+  }
+
   // Project Document methods
   async getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
     try {

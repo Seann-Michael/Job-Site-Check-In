@@ -10,6 +10,7 @@ import { ImageWithFallback } from "@/components/ImageWithFallback";
 
 interface ProjectCardProps {
   project: Project;
+  primaryPhotoUrl?: string;
   onDelete?: () => void;
   onMarkIncomplete?: () => void;
   onToggleStar?: (starred: boolean) => void;
@@ -17,6 +18,7 @@ interface ProjectCardProps {
 
 export function ProjectCard({
   project,
+  primaryPhotoUrl,
   onDelete,
   onMarkIncomplete,
   onToggleStar,
@@ -112,15 +114,32 @@ export function ProjectCard({
       <Link to={`/project/${project.id}`} className="block">
         <CardContent className="p-0">
           {/* Header with project image/placeholder */}
-          <div className="relative h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20" />
-            <div className="relative z-10 text-center">
+          <div className="relative h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center overflow-hidden">
+            {primaryPhotoUrl ? (
+              <img
+                src={primaryPhotoUrl}
+                alt={project.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20" />
+            )}
+            <div className="relative z-10 text-center" style={{ display: primaryPhotoUrl ? 'none' : undefined }}>
               <Building2 className="w-8 h-8 mx-auto mb-2 text-primary/60" />
               <Badge variant="secondary" className="text-xs">
                 {getTypeLabel(project.type)}
               </Badge>
             </div>
-            
+
+            {/* Type badge overlay when photo is shown */}
+            {primaryPhotoUrl && (
+              <div className="absolute bottom-2 left-2 z-10">
+                <Badge variant="secondary" className="text-xs bg-black/50 text-white border-0">
+                  {getTypeLabel(project.type)}
+                </Badge>
+              </div>
+            )}
+
             {/* Star button */}
             <Button
               variant="ghost"
@@ -128,10 +147,10 @@ export function ProjectCard({
               className="absolute top-2 right-2 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={handleStarClick}
             >
-              <Star 
+              <Star
                 className={`h-4 w-4 ${
-                  isStarred 
-                    ? 'fill-yellow-400 text-yellow-400' 
+                  isStarred
+                    ? 'fill-yellow-400 text-yellow-400'
                     : 'text-muted-foreground hover:text-yellow-400'
                 }`}
               />

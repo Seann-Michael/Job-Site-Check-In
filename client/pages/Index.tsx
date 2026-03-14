@@ -30,6 +30,7 @@ export default function Index() {
   const currentUser = getCurrentUser();
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [primaryPhotos, setPrimaryPhotos] = useState<Record<string, string>>({});
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,6 +89,14 @@ export default function Index() {
         const allProjects = await dataService.getProjects();
         setProjects(allProjects);
         setFilteredProjects(allProjects);
+
+        // Fetch primary (featured) photos for all projects in one batch query
+        if (allProjects.length > 0) {
+          const photosMap = await dataService.getFeaturedMediaForProjects(
+            allProjects.map((p) => p.id)
+          );
+          setPrimaryPhotos(photosMap);
+        }
 
         track("data_loaded", {
           businessCount: businessData.length,
@@ -412,6 +421,7 @@ export default function Index() {
                 <ProjectCard
                   key={project.id}
                   project={project}
+                  primaryPhotoUrl={primaryPhotos[project.id]}
                   onDelete={() => handleDeleteProject(project.id)}
                 />
               ))}

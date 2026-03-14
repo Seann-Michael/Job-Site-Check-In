@@ -62,6 +62,9 @@ class CompatibleDataService {
   async clearFeaturedMedia(mediaId: string) {
     return await dataService.clearFeaturedMedia(mediaId);
   }
+  async getFeaturedMediaForProjects(projectIds: string[]): Promise<Record<string, string>> {
+    return await dataService.getFeaturedMediaForProjects(projectIds);
+  }
   async signIn(email: string, password: string) { return await dataService.signIn(email, password); }
   async signUp(email: string, password: string, name: string, role?: string) {
     return await dataService.signUp(email, password, name, role);
