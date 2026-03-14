@@ -39,9 +39,9 @@ const [notifications, setNotifications] = useState<Notification[]>([]);
 ```typescript
 const sidebarItems = [
   {
-    id: "projects",
-    label: "Projects",
-    href: "/admin/projects",
+    id: "jobs",
+    label: "Jobs",
+    href: "/admin/jobs",
     icon: FolderIcon,
   },
   { id: "gallery", label: "Gallery", href: "/admin/gallery", icon: ImageIcon },

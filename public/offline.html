@@ -193,7 +193,7 @@
                 statusElement.textContent = '✅ Connected! Redirecting...';
                 statusElement.className = 'online';
                 setTimeout(() => {
-                    window.location.href = '/admin/projects';
+                    window.location.href = '/admin/jobs';
                 }, 1000);
             } else {
                 statusElement.textContent = '⚠️ No internet connection detected';
@@ -224,7 +224,7 @@
                     statusElement.textContent = '✅ Connected! Redirecting...';
                     statusElement.className = 'online';
                     setTimeout(() => {
-                        window.location.href = '/admin/projects';
+                        window.location.href = '/admin/jobs';
                     }, 1000);
                 })
                 .catch(() => {
@@ -236,7 +236,7 @@
         function goToCachedProjects() {
             // Try to navigate to cached projects
             if ('serviceWorker' in navigator) {
-                window.location.href = '/admin/projects';
+                window.location.href = '/admin/jobs';
             } else {
                 alert('Cached projects are not available. Service worker is not supported.');
             }

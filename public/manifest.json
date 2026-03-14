@@ -2,7 +2,7 @@
   "name": "Local SEO Ranker - Advanced SEO Management Platform",
   "short_name": "Local SEO Ranker",
   "description": "Professional SEO management system with advanced analytics, agency tools, real-time chat, offline support, and automated backup features.",
-  "start_url": "/admin/projects",
+  "start_url": "/admin/jobs",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
@@ -118,10 +118,10 @@
       ]
     },
     {
-      "name": "Add Project",
+      "name": "Add Job",
       "short_name": "Add",
-      "description": "Create a new SEO project",
-      "url": "/admin/add-project",
+      "description": "Create a new job",
+      "url": "/admin/add-job",
       "icons": [
         {
           "src": "/icon-192x192.png",

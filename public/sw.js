@@ -14,7 +14,7 @@ const CACHE_CONFIG = {
 // Files to cache immediately
 const STATIC_ASSETS = [
   "/",
-  "/admin/projects",
+  "/admin/jobs",
   "/admin/gallery",
   "/admin/settings",
   "/agency/admin/dashboard",
@@ -280,7 +280,7 @@ self.addEventListener("push", (event) => {
     vibrate: [200, 100, 200],
     requireInteraction: true,
     data: {
-      url: notificationData.url || "/admin/projects",
+      url: notificationData.url || "/admin/jobs",
       timestamp: Date.now(),
       ...notificationData.data
     },
@@ -312,7 +312,7 @@ self.addEventListener("notificationclick", (event) => {
     return;
   }
 
-  const urlToOpen = event.notification.data?.url || "/admin/projects";
+  const urlToOpen = event.notification.data?.url || "/admin/jobs";
 
   event.waitUntil(
     clients.matchAll({ type: "window" }).then(clientList => {

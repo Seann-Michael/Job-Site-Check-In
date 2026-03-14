@@ -123,10 +123,10 @@ User Input → Client Validation → API Request → Business Logic → Database
 /signin, /signup, /forgot-password
 
 // Protected Routes (Business Owner)
-/admin/projects, /admin/gallery, /admin/settings, /admin/reports
+/admin/jobs, /admin/gallery, /admin/settings, /admin/reports
 
 // Agency Routes
-/agency/admin/dashboard, /agency/admin/clients, /agency/admin/projects
+/agency/admin/dashboard, /agency/admin/clients, /agency/admin/jobs
 
 // Super Admin Routes
 /super-admin/businesses, /super-admin/analytics, /super-admin/settings

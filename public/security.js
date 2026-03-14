@@ -28,7 +28,7 @@
     if (suspicious) {
       console.warn("Potential XSS attempt detected");
       // Redirect to safe page
-      window.location.href = "/admin/projects";
+      window.location.href = "/admin/jobs";
       return true;
     }
 
