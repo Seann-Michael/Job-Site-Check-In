@@ -977,12 +977,24 @@ export class DataService {
       throw new Error("Invalid file object provided for upload");
     }
 
-    // Determine media type based on MIME type
+    // Determine media type based on MIME type or file extension
     let mediaType: "image" | "video" | "document" = "document";
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+    const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
+
     if (file.type && file.type.startsWith("image/")) {
       mediaType = "image";
     } else if (file.type && file.type.startsWith("video/")) {
       mediaType = "video";
+    } else if (videoExtensions.includes(fileExtension)) {
+      // Fallback: check file extension for video
+      mediaType = "video";
+      console.log(`Video detected by extension: ${fileExtension}`);
+    } else if (imageExtensions.includes(fileExtension)) {
+      // Fallback: check file extension for image
+      mediaType = "image";
+      console.log(`Image detected by extension: ${fileExtension}`);
     }
 
     // Upload file to Supabase storage

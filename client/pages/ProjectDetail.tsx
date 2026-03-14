@@ -387,6 +387,10 @@ export default function ProjectDetail() {
           // Extract the actual File object from FileWithMetadata
           const actualFile = fileWithMetadata.file || fileWithMetadata;
 
+          // Debug logging for video detection
+          const fileExt = actualFile.name?.split(".").pop()?.toLowerCase() || "";
+          console.log(`[Media Upload] File: ${actualFile.name}, Type: ${actualFile.type}, Extension: ${fileExt}`);
+
           // Parse tags - SmartMediaUploader provides tags as a string
           const tagsArray = typeof fileWithMetadata.tags === "string"
             ? fileWithMetadata.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
@@ -398,6 +402,8 @@ export default function ProjectDetail() {
             category: "progress",
             description: fileWithMetadata.description || "",
           });
+
+          console.log(`[Media Upload] Successfully uploaded as ${uploadedMedia.media_type}: ${uploadedMedia.original_name}`);
 
           // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
