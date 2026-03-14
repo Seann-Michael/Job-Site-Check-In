@@ -19,6 +19,12 @@ import {
   handleTwilioStatus,
   handleSendReviewRequest
 } from "./routes/twilio";
+import {
+  handleRegisterWebhook,
+  handleGenerateWebhookUrl,
+  handleWorkflowWebhook,
+  handleGetWebhookDeliveries,
+} from "./routes/workflows";
 
 export function createServer() {
   const app = express();
@@ -55,6 +61,12 @@ export function createServer() {
   app.post("/api/webhooks/twilio", handleTwilioWebhook);
   app.get("/api/twilio/test", handleTwilioTest);
   app.get("/api/twilio/status", handleTwilioStatus);
+
+  // Workflow Routes
+  app.post("/api/webhooks/register", handleRegisterWebhook);
+  app.post("/api/workflows/webhook-url", handleGenerateWebhookUrl);
+  app.post("/api/workflows/webhook/:workflowId", handleWorkflowWebhook);
+  app.get("/api/workflows/deliveries/:executionId", handleGetWebhookDeliveries);
 
   return app;
 }

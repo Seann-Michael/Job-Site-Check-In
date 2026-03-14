@@ -1260,6 +1260,173 @@ export class DataService {
       return null;
     }
   }
+
+  // Workflow methods
+  async createWorkflow(businessId: string, name: string, steps: any[], description?: string) {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from("workflows")
+        .insert({
+          business_id: businessId,
+          name,
+          description,
+          steps,
+          is_active: true,
+          is_published: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error creating workflow:", error);
+      throw error;
+    }
+  }
+
+  async updateWorkflow(workflowId: string, updates: Record<string, any>) {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from("workflows")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", workflowId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error updating workflow:", error);
+      throw error;
+    }
+  }
+
+  async publishWorkflow(workflowId: string) {
+    return this.updateWorkflow(workflowId, { is_published: true });
+  }
+
+  async getWorkflows(businessId: string) {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("business_id", businessId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching workflows:", error);
+      return [];
+    }
+  }
+
+  async getWorkflow(workflowId: string) {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("id", workflowId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error fetching workflow:", error);
+      return null;
+    }
+  }
+
+  async deleteWorkflow(workflowId: string) {
+    try {
+      this.checkSupabaseConfig();
+
+      const { error } = await supabase
+        .from("workflows")
+        .delete()
+        .eq("id", workflowId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("Error deleting workflow:", error);
+      throw error;
+    }
+  }
+
+  // Webhook URL generation
+  async generateWebhookUrl(workflowId: string, businessId: string) {
+    try {
+      const response = await fetch("/api/workflows/webhook-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-business-id": businessId,
+        },
+        body: JSON.stringify({ workflowId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate webhook URL: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error generating webhook URL:", error);
+      throw error;
+    }
+  }
+
+  // Get workflow executions
+  async getWorkflowExecutions(workflowId: string) {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from("workflow_executions")
+        .select("*")
+        .eq("workflow_id", workflowId)
+        .order("started_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching workflow executions:", error);
+      return [];
+    }
+  }
+
+  // Get webhook deliveries for an execution
+  async getWebhookDeliveries(executionId: string, businessId: string) {
+    try {
+      const response = await fetch(`/api/workflows/deliveries/${executionId}`, {
+        headers: {
+          "x-business-id": businessId,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch deliveries: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching webhook deliveries:", error);
+      return { success: false, deliveries: [] };
+    }
+  }
 }
 
 // Export singleton instance

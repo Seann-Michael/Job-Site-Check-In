@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { dataService } from "@/lib/dataService";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Plus,
@@ -299,9 +302,12 @@ const availableApps = [
 export default function WorkflowBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [workflowName, setWorkflowName] = useState(
     id ? `Workflow ${id}` : "New Workflow",
   );
+  const [workflowDescription, setWorkflowDescription] = useState("");
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [showAppSelector, setShowAppSelector] = useState(false);
   const [selectorType, setSelectorType] = useState<"trigger" | "action">(
@@ -309,6 +315,35 @@ export default function WorkflowBuilder() {
   );
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
   const [showStepConfig, setShowStepConfig] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [workflowId, setWorkflowId] = useState(id || null);
+  const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+
+  // Load workflow if editing existing one
+  useEffect(() => {
+    if (id) {
+      loadWorkflow(id);
+    }
+  }, [id]);
+
+  const loadWorkflow = async (workflowId: string) => {
+    try {
+      const workflow = await dataService.getWorkflow(workflowId);
+      if (workflow) {
+        setWorkflowName(workflow.name as string);
+        setWorkflowDescription((workflow.description || "") as string);
+        setSteps((workflow.steps || []) as WorkflowStep[]);
+      }
+    } catch (error) {
+      console.error("Error loading workflow:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load workflow",
+        variant: "destructive",
+      });
+    }
+  };
 
   const addStep = (app: any, actionData: any) => {
     const newStep: WorkflowStep = {
@@ -370,6 +405,98 @@ export default function WorkflowBuilder() {
   const canAddTrigger = steps.filter((s) => s.type === "trigger").length === 0;
   const hasTrigger = steps.some((s) => s.type === "trigger");
 
+  const saveWorkflow = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save workflows",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      if (workflowId) {
+        // Update existing workflow
+        await dataService.updateWorkflow(workflowId, {
+          name: workflowName,
+          description: workflowDescription,
+          steps,
+        });
+        toast({
+          title: "Success",
+          description: "Workflow updated successfully",
+        });
+      } else {
+        // Create new workflow
+        const workflow = await dataService.createWorkflow(
+          user.id,
+          workflowName,
+          steps,
+          workflowDescription,
+        );
+        setWorkflowId(workflow.id as string);
+        toast({
+          title: "Success",
+          description: "Workflow created successfully",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving workflow:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save workflow",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const publishWorkflow = async () => {
+    if (!user || !workflowId) {
+      toast({
+        title: "Error",
+        description: "Save workflow before publishing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsPublishing(true);
+      await dataService.publishWorkflow(workflowId);
+
+      // Generate webhook URL if there's a webhook trigger
+      const webhookTrigger = steps.find(
+        (s) => s.type === "trigger" && s.app === "webhook",
+      );
+      if (webhookTrigger) {
+        const urlData = await dataService.generateWebhookUrl(
+          workflowId,
+          user.id,
+        );
+        setWebhookUrl(urlData.webhookUrl as string);
+      }
+
+      toast({
+        title: "Success",
+        description: "Workflow published successfully",
+      });
+    } catch (error) {
+      console.error("Error publishing workflow:", error);
+      toast({
+        title: "Error",
+        description: "Failed to publish workflow",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="p-6 max-w-4xl mx-auto">
@@ -391,20 +518,29 @@ export default function WorkflowBuilder() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={saveWorkflow}
+              disabled={isSaving}
+            >
               <Save className="mr-2 h-4 w-4" />
-              Save Draft
+              {isSaving ? "Saving..." : "Save Draft"}
             </Button>
-            <Button size="sm" disabled={!hasTrigger}>
+            <Button
+              size="sm"
+              disabled={!hasTrigger || isPublishing}
+              onClick={publishWorkflow}
+            >
               <Play className="mr-2 h-4 w-4" />
-              Publish
+              {isPublishing ? "Publishing..." : "Publish"}
             </Button>
           </div>
         </div>
 
         {/* Workflow Name */}
         <Card className="mb-6">
-          <CardContent className="p-4">
+          <CardContent className="p-4 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="workflow-name">Workflow Name</Label>
               <Input
@@ -415,6 +551,44 @@ export default function WorkflowBuilder() {
                 className="text-lg font-medium"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="workflow-description">Description</Label>
+              <Input
+                id="workflow-description"
+                value={workflowDescription}
+                onChange={(e) => setWorkflowDescription(e.target.value)}
+                placeholder="What does this workflow do?"
+              />
+            </div>
+            {workflowId && (
+              <div className="text-xs text-muted-foreground">
+                Workflow ID: {workflowId}
+              </div>
+            )}
+            {webhookUrl && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-blue-900 mb-2">
+                  Webhook URL
+                </p>
+                <code className="text-xs bg-white p-2 rounded block break-all border border-blue-200">
+                  {webhookUrl}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(webhookUrl);
+                    toast({
+                      title: "Copied",
+                      description: "Webhook URL copied to clipboard",
+                    });
+                  }}
+                >
+                  Copy URL
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
