@@ -19,10 +19,8 @@ import {
   ArrowLeft,
   Save,
   Sparkles,
-  Lightbulb,
   Plus,
   Trash2,
-  Building2,
   Home,
   Wrench,
   Palette,
@@ -71,6 +69,7 @@ export default function AdminAddProject() {
   const [photos, setPhotos] = useState<EnhancedPhoto[]>([]);
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
+  const [budgetDisplay, setBudgetDisplay] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -312,13 +311,31 @@ export default function AdminAddProject() {
     setFormData((prev) => ({ ...prev, additionalPhones: newPhones }));
   };
 
+  const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^0-9.]/g, "");
+    handleInputChange("budget", raw);
+    setBudgetDisplay(e.target.value);
+  };
+
+  const handleBudgetFocus = () => {
+    setBudgetDisplay(formData.budget);
+  };
+
+  const handleBudgetBlur = () => {
+    if (formData.budget) {
+      const num = parseFloat(formData.budget);
+      if (!isNaN(num)) {
+        setBudgetDisplay(
+          "$" + num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+        );
+      }
+    } else {
+      setBudgetDisplay("");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!selectedBusinessId) {
-      toast.error("Please select a business for this project");
-      return;
-    }
 
     if (!formData.name || !formData.description) {
       toast.error("Please fill in the required fields");
@@ -441,38 +458,6 @@ export default function AdminAddProject() {
     >
       <div className="max-w-4xl mx-auto space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Business Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Business Selection
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="business">Select Business *</Label>
-                <Select value={selectedBusinessId} onValueChange={setSelectedBusinessId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a business for this project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {businesses.map((business) => (
-                      <SelectItem key={business.id} value={business.id}>
-                        {business.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {businesses.length === 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    No businesses found. <Link to="/super-admin/businesses" className="text-primary hover:underline">Go to business management</Link>.
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Project Details */}
           <Card>
             <CardHeader>
@@ -527,28 +512,15 @@ export default function AdminAddProject() {
                 </div>
 
                 <div>
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <Label htmlFor="budget">Project Budget (USD)</Label>
+                  <Label htmlFor="budget">Project Cost</Label>
                   <Input
                     id="budget"
-                    type="number"
-                    value={formData.budget}
-                    onChange={(e) => handleInputChange("budget", e.target.value)}
-                    placeholder="25000"
+                    type="text"
+                    value={budgetDisplay}
+                    onChange={handleBudgetChange}
+                    onFocus={handleBudgetFocus}
+                    onBlur={handleBudgetBlur}
+                    placeholder="Enter amount"
                   />
                 </div>
               </div>
@@ -649,79 +621,13 @@ export default function AdminAddProject() {
             </CardContent>
           </Card>
 
-          {/* Project Materials */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Materials & Tasks</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Required Materials</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addMaterial}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Material
-                  </Button>
-                </div>
-                {formData.materials.map((material, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <Input
-                      value={material}
-                      onChange={(e) => updateMaterial(index, e.target.value)}
-                      placeholder="Enter material or supply needed"
-                    />
-                    {formData.materials.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeMaterial(index)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Project Tasks</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addTask}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Task
-                  </Button>
-                </div>
-                {formData.tasks.map((task, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <Input
-                      value={task}
-                      onChange={(e) => updateTask(index, e.target.value)}
-                      placeholder="Enter task or work item"
-                    />
-                    {formData.tasks.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeTask(index)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Timeline */}
           <Card>
             <CardHeader>
               <CardTitle>Project Timeline</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="startDate">Start Date</Label>
                   <Input
@@ -729,16 +635,6 @@ export default function AdminAddProject() {
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => handleInputChange("startDate", e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="dueDate">Due Date</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => handleInputChange("dueDate", e.target.value)}
                   />
                 </div>
 
@@ -836,29 +732,6 @@ export default function AdminAddProject() {
             </CardContent>
           </Card>
 
-          {/* Project Photos */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Photos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* <ModernPhotoCapture
-                photos={photos}
-                onPhotosChange={handlePhotosUpdate}
-                projectInfo={{
-                  id: generateProjectId(),
-                  name: formData.name,
-                  address: `${formData.streetAddress}, ${formData.city}, ${formData.state}`,
-                  customerName: formData.customerName,
-                  keywords: [formData.type, formData.name],
-                }}
-              /> */}
-              <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                <p className="text-gray-500">Photo capture feature coming soon for home services projects</p>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Additional Notes */}
           <Card>
             <CardHeader>
@@ -882,7 +755,7 @@ export default function AdminAddProject() {
                 Cancel
               </Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting || !selectedBusinessId}>
+            <Button type="submit" disabled={isSubmitting}>
               <Save className="mr-2 h-4 w-4" />
               {isSubmitting ? "Creating..." : "Create Project"}
             </Button>
