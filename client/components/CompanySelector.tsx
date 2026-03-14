@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Popover,
   PopoverContent,
@@ -27,6 +28,7 @@ interface CompanySelectorProps {
 }
 
 export function CompanySelector({ collapsed = false, className }: CompanySelectorProps) {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,6 +120,9 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
     setSearchTerm("");
 
     await workspaceService.switchBusiness(companyId);
+
+    // Navigate to projects page so the user sees data for the new company
+    navigate("/admin/projects");
 
     const selected = companies.find((c) => c.id === companyId);
     if (selected) {

@@ -23,6 +23,7 @@ import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 import { Project, User, Business } from "@/lib/dataService";
+import { workspaceService } from "@/lib/workspaceService";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -64,31 +65,30 @@ export default function Index() {
     // TODO: Move analytics to component mount or user interaction handlers
   }, [currentUser?.role, currentUser?.isImpersonated, navigate]);
 
+  // Track which business is currently active so we can reload when it changes
+  const [activeBusinessId, setActiveBusinessId] = useState<string | null>(
+    () => workspaceService.getCurrentBusinessId()
+  );
+
   useEffect(() => {
     // Load data from backend
     const loadData = async () => {
       try {
-        console.log("Loading data from backend...");
         setIsLoading(true);
 
         // Load businesses first
         const businessData = await dataService.getBusinesses();
         setBusinesses(businessData);
-        console.log("Loaded businesses:", businessData.length);
 
         // Load users
         const userData = await dataService.getUsers();
         setUsers(userData);
-        console.log("Loaded users:", userData.length);
 
-        // Load all projects
+        // Load projects — scoped to the currently selected business
         const allProjects = await dataService.getProjects();
-
         setProjects(allProjects);
         setFilteredProjects(allProjects);
-        console.log("Loaded projects:", allProjects.length);
 
-        // Track successful data load
         track("data_loaded", {
           businessCount: businessData.length,
           projectCount: allProjects.length,
@@ -102,7 +102,17 @@ export default function Index() {
     };
 
     loadData();
-  }, []); // Remove showAllProjects dependency - data loading shouldn't depend on display preference
+  }, [activeBusinessId]); // Reload whenever the active business changes
+
+  // Subscribe to workspace changes — update activeBusinessId when the user switches company
+  useEffect(() => {
+    const unsubscribe = workspaceService.subscribe((state) => {
+      if (state.initialized && state.currentBusinessId !== activeBusinessId) {
+        setActiveBusinessId(state.currentBusinessId);
+      }
+    });
+    return () => unsubscribe();
+  }, [activeBusinessId]);
 
   // Apply filters and search to projects
   useEffect(() => {

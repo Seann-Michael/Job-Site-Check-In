@@ -683,24 +683,30 @@ export class DataService {
       let query = supabase.from("projects").select("*", { count: 'exact' });
 
       if (businessId) {
-        // Specific business requested
+        // Specific business requested by caller
         query = query.eq("business_id", businessId);
       } else {
-        // Scope to the current workspace's businesses
-        const wsBusinessIds = workspaceService.getBusinessIds();
-        if (wsBusinessIds.length > 0) {
-          query = query.in("business_id", wsBusinessIds);
+        // Prefer the currently selected business in the workspace
+        const currentBizId = workspaceService.getCurrentBusinessId();
+        if (currentBizId) {
+          query = query.eq("business_id", currentBizId);
         } else {
-          // Workspace not initialized yet — scope to owner via sub-select
-          const userId = workspaceService.getUserId();
-          if (userId) {
-            const { data: bizRows } = await supabase
-              .from("businesses")
-              .select("id")
-              .eq("owner_id", userId);
-            const ids = (bizRows ?? []).map((b: { id: string }) => b.id);
-            if (ids.length > 0) {
-              query = query.in("business_id", ids);
+          // Fall back to all businesses the user owns
+          const wsBusinessIds = workspaceService.getBusinessIds();
+          if (wsBusinessIds.length > 0) {
+            query = query.in("business_id", wsBusinessIds);
+          } else {
+            // Workspace not initialized yet — scope via sub-select
+            const userId = workspaceService.getUserId();
+            if (userId) {
+              const { data: bizRows } = await supabase
+                .from("businesses")
+                .select("id")
+                .eq("owner_id", userId);
+              const ids = (bizRows ?? []).map((b: { id: string }) => b.id);
+              if (ids.length > 0) {
+                query = query.in("business_id", ids);
+              }
             }
           }
         }
