@@ -66,12 +66,40 @@ import {
   UserCheck,
   Lightbulb,
   Share2,
+  Moon,
+  Sun,
 } from "lucide-react";
-import React, { useState, useEffect, ReactNode } from "react";
+import React, { useState, useEffect, ReactNode, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentUser, signOut } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.classList.contains("dark")
+  );
+
+  const toggle = useCallback(() => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    try {
+      localStorage.setItem("theme", next ? "dark" : "light");
+    } catch {}
+  }, [isDark]);
+
+  return (
+    <button
+      onClick={toggle}
+      className="h-10 w-10 rounded-md hover:bg-muted/80 text-foreground transition-colors flex items-center justify-center"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+}
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -699,6 +727,9 @@ export function AppLayout({
                 <div className="ml-auto flex items-center space-x-2">
                   {/* Search */}
                   <HeaderSearch />
+
+                  {/* Dark Mode Toggle */}
+                  <DarkModeToggle />
 
                   {/* Notifications */}
                   <NotificationDropdown />
