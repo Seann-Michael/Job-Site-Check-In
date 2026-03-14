@@ -209,6 +209,8 @@ export default function ProjectDetail() {
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
   const [showAddKeyword, setShowAddKeyword] = useState(false);
+  const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
+  const [renameDocValue, setRenameDocValue] = useState("");
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
@@ -975,6 +977,57 @@ export default function ProjectDetail() {
     setNewNote(`${beforeMention}@${user.name} ${afterMention}`);
     setShowMentionDropdown(false);
     setMentionQuery("");
+  };
+
+  const startRenameDoc = (doc: ProjectDocument) => {
+    setRenamingDocId(doc.id);
+    setRenameDocValue(doc.name);
+  };
+
+  const saveRenameDoc = async () => {
+    if (!project || !renamingDocId || !renameDocValue.trim()) return;
+    const newName = renameDocValue.trim();
+    const updatedDocs = project.documents.map((d) =>
+      d.id === renamingDocId ? { ...d, name: newName } : d
+    );
+    const updatedProject = {
+      ...project,
+      documents: updatedDocs,
+      metadata: { ...(project.metadata || {}), documents: updatedDocs },
+    };
+    setProject(updatedProject);
+    setRenamingDocId(null);
+    setRenameDocValue("");
+    try {
+      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      toast.success("Document renamed");
+    } catch (error) {
+      console.error("Error renaming document:", error);
+      toast.error("Failed to rename document");
+    }
+  };
+
+  const cancelRenameDoc = () => {
+    setRenamingDocId(null);
+    setRenameDocValue("");
+  };
+
+  const deleteDocument = async (docId: string) => {
+    if (!project || !confirm("Are you sure you want to delete this document?")) return;
+    const updatedDocs = project.documents.filter((d) => d.id !== docId);
+    const updatedProject = {
+      ...project,
+      documents: updatedDocs,
+      metadata: { ...(project.metadata || {}), documents: updatedDocs },
+    };
+    setProject(updatedProject);
+    try {
+      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      toast.success("Document deleted");
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast.error("Failed to delete document");
+    }
   };
 
   const addKeyword = async () => {
@@ -2322,8 +2375,36 @@ export default function ProjectDetail() {
                               <div className="flex items-center gap-3">
                                 <FileText className="h-8 w-8 text-muted-foreground" />
                                 <div>
-                                  <p className="font-medium">{doc.name}</p>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  {renamingDocId === doc.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        autoFocus
+                                        type="text"
+                                        value={renameDocValue}
+                                        onChange={(e) => setRenameDocValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") saveRenameDoc();
+                                          if (e.key === "Escape") cancelRenameDoc();
+                                        }}
+                                        className="text-sm border rounded px-2 py-0.5 w-48 focus:outline-none focus:ring-1 focus:ring-primary"
+                                      />
+                                      <button
+                                        onClick={saveRenameDoc}
+                                        className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={cancelRenameDoc}
+                                        className="text-xs px-2 py-0.5 rounded hover:bg-muted"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <p className="font-medium">{doc.name}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground" style={{ display: renamingDocId === doc.id ? 'none' : undefined }}>
                                     <span>
                                       Uploaded on{" "}
                                       {new Date(
@@ -2366,25 +2447,13 @@ export default function ProjectDetail() {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem
-                                      onClick={() =>
-                                        toast.success(
-                                          "Edit document functionality coming soon",
-                                        )
-                                      }
+                                      onClick={() => startRenameDoc(doc)}
                                     >
                                       <Edit className="h-4 w-4 mr-2" />
                                       Rename
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                      onClick={() => {
-                                        if (
-                                          confirm(
-                                            "Are you sure you want to delete this document?",
-                                          )
-                                        ) {
-                                          toast.success("Document deleted");
-                                        }
-                                      }}
+                                      onClick={() => deleteDocument(doc.id)}
                                       className="text-destructive focus:text-destructive"
                                     >
                                       <Trash2 className="h-4 w-4 mr-2" />
