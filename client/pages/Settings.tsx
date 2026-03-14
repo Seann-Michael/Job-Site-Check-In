@@ -159,8 +159,15 @@ interface SettingsData {
   reviewSmsTemplate: string;
   minimumProjectValue: number;
   reviewAiPrompt: string;
+  reviewGateLogoUrl: string;
+  reviewGateHeading: string;
   reviewGateTitle: string;
   reviewGateDescription: string;
+  reviewGateThreshold: number;
+  reviewGateGoogleUrl: string;
+  reviewGateSeoKeywords: string;
+  reviewGateButtonText: string;
+  reviewGateThankYouMessage: string;
   reviewGateVideoUrl: string;
 
   // Notifications
@@ -344,8 +351,15 @@ const createDefaultSettings = (): SettingsData => ({
     "Hi {CUSTOMER_NAME}! How was your experience with {BUSINESS_NAME}? Leave a review: {REVIEW_LINK}",
   minimumProjectValue: 500,
   reviewAiPrompt: "",
+  reviewGateLogoUrl: "",
+  reviewGateHeading: "",
   reviewGateTitle: "",
   reviewGateDescription: "",
+  reviewGateThreshold: 4,
+  reviewGateGoogleUrl: "",
+  reviewGateSeoKeywords: "",
+  reviewGateButtonText: "",
+  reviewGateThankYouMessage: "",
   reviewGateVideoUrl: "",
 
   // Notifications
@@ -3359,8 +3373,42 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Business Logo */}
                     <div>
-                      <Label htmlFor="reviewGateTitle">Title</Label>
+                      <Label htmlFor="reviewGateLogoUrl">Business Logo URL</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          id="reviewGateLogoUrl"
+                          value={settings.reviewGateLogoUrl || ""}
+                          onChange={(e) => updateSetting("reviewGateLogoUrl", e.target.value)}
+                          placeholder="https://yourdomain.com/logo.png"
+                        />
+                        {settings.reviewGateLogoUrl && (
+                          <img
+                            src={settings.reviewGateLogoUrl}
+                            alt="Logo preview"
+                            className="h-9 w-9 rounded object-contain border flex-shrink-0"
+                          />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Displayed at the top of the review page your customers see</p>
+                    </div>
+
+                    {/* Heading */}
+                    <div>
+                      <Label htmlFor="reviewGateHeading">Heading</Label>
+                      <Input
+                        id="reviewGateHeading"
+                        value={settings.reviewGateHeading || ""}
+                        onChange={(e) => updateSetting("reviewGateHeading", e.target.value)}
+                        placeholder="How did we do?"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Large headline shown above the star rating</p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="reviewGateTitle">Subheading / Title</Label>
                       <Input
                         id="reviewGateTitle"
                         value={settings.reviewGateTitle || ""}
@@ -3427,6 +3475,97 @@ export default function Settings() {
                           </p>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Star Threshold */}
+                    <div>
+                      <Label htmlFor="reviewGateThreshold">
+                        Positive Review Threshold (stars)
+                      </Label>
+                      <div className="flex items-center gap-3 mt-1">
+                        <Input
+                          id="reviewGateThreshold"
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={settings.reviewGateThreshold ?? 4}
+                          onChange={(e) =>
+                            updateSetting(
+                              "reviewGateThreshold",
+                              Math.min(5, Math.max(1, Number(e.target.value))),
+                            )
+                          }
+                          className="w-24"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Customers who rate {settings.reviewGateThreshold ?? 4}★ or higher are redirected to Google
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Google Review URL */}
+                    <div>
+                      <Label htmlFor="reviewGateGoogleUrl">Google Review URL</Label>
+                      <Input
+                        id="reviewGateGoogleUrl"
+                        value={settings.reviewGateGoogleUrl || ""}
+                        onChange={(e) =>
+                          updateSetting("reviewGateGoogleUrl", e.target.value)
+                        }
+                        placeholder="https://g.page/r/your-business/review"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Where high-rated customers are sent to leave their public review
+                      </p>
+                    </div>
+
+                    {/* SEO Keywords */}
+                    <div>
+                      <Label htmlFor="reviewGateSeoKeywords">SEO Keywords</Label>
+                      <Input
+                        id="reviewGateSeoKeywords"
+                        value={settings.reviewGateSeoKeywords || ""}
+                        onChange={(e) =>
+                          updateSetting("reviewGateSeoKeywords", e.target.value)
+                        }
+                        placeholder="kitchen renovation, custom cabinets, Springfield contractor"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Comma-separated keywords the AI uses when enhancing customer reviews
+                      </p>
+                    </div>
+
+                    {/* Submit Button Text */}
+                    <div>
+                      <Label htmlFor="reviewGateButtonText">Submit Button Text</Label>
+                      <Input
+                        id="reviewGateButtonText"
+                        value={settings.reviewGateButtonText || ""}
+                        onChange={(e) =>
+                          updateSetting("reviewGateButtonText", e.target.value)
+                        }
+                        placeholder="Submit My Review"
+                        className="mt-1"
+                      />
+                    </div>
+
+                    {/* Thank You Message */}
+                    <div>
+                      <Label htmlFor="reviewGateThankYouMessage">Thank You Message</Label>
+                      <Textarea
+                        id="reviewGateThankYouMessage"
+                        value={settings.reviewGateThankYouMessage || ""}
+                        onChange={(e) =>
+                          updateSetting("reviewGateThankYouMessage", e.target.value)
+                        }
+                        placeholder="Thank you for your feedback! We truly appreciate it."
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Shown to customers after they submit a low-star rating (kept internal)
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

@@ -40,36 +40,60 @@ export default function ReviewGate() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [redirectToGoogle, setRedirectToGoogle] = useState(false);
+  const [gateSettings, setGateSettings] = useState<{
+    heading: string;
+    thankYouMessage: string;
+    buttonText: string;
+  }>({
+    heading: "How did we do?",
+    thankYouMessage: "",
+    buttonText: "Submit My Review",
+  });
 
   useEffect(() => {
     const loadReviewRequest = () => {
-      const mockRequest: ReviewRequest = {
+      // Load saved business settings from localStorage (set in Settings page)
+      let saved: Record<string, any> = {};
+      try {
+        const raw = localStorage.getItem("business_settings");
+        if (raw) saved = JSON.parse(raw);
+      } catch {
+        // ignore parse errors
+      }
+
+      const keywords = saved.reviewGateSeoKeywords
+        ? saved.reviewGateSeoKeywords
+            .split(",")
+            .map((k: string) => k.trim())
+            .filter(Boolean)
+        : ["kitchen renovation", "custom cabinets", "home remodeling", "Springfield contractor"];
+
+      const request: ReviewRequest = {
         id: id || "demo",
-        businessName: "Smith Construction LLC",
-        businessLogo: undefined,
-        businessAddress: "123 Main St, Springfield, IL 62701",
+        businessName: saved.businessName || "Smith Construction LLC",
+        businessLogo: saved.reviewGateLogoUrl || saved.businessLogo || undefined,
+        businessAddress: [saved.address, saved.city, saved.state].filter(Boolean).join(", ") || "123 Main St, Springfield, IL 62701",
         customerName: "John",
         projectName: "Kitchen Renovation",
-        projectDescription:
-          "Complete kitchen remodel with custom cabinets and granite countertops",
-        threshold: 4,
-        googleReviewUrl: "https://g.page/r/CdWWUaI_IBAoEBM/review",
-        seoKeywords: [
-          "kitchen renovation",
-          "custom cabinets",
-          "home remodeling",
-          "Springfield contractor",
-        ],
-        businessCity: "Springfield",
-        businessState: "Illinois",
-        serviceCategory: "Home Renovation",
-        businessOwnerVideo:
-          "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4",
+        projectDescription: "Complete kitchen remodel with custom cabinets and granite countertops",
+        threshold: saved.reviewGateThreshold ?? 4,
+        googleReviewUrl: saved.reviewGateGoogleUrl || saved.googleBusinessUrl || "https://g.page/r/CdWWUaI_IBAoEBM/review",
+        seoKeywords: keywords,
+        businessCity: saved.city || "Springfield",
+        businessState: saved.state || "Illinois",
+        serviceCategory: (saved.businessTypes?.[0]) || "Home Renovation",
+        businessOwnerVideo: saved.reviewGateVideoUrl || undefined,
       };
 
-      // Force set the review request immediately
+      // Load copy/text settings
+      setGateSettings({
+        heading: saved.reviewGateHeading || "How did we do?",
+        thankYouMessage: saved.reviewGateThankYouMessage || "",
+        buttonText: saved.reviewGateButtonText || "Submit My Review",
+      });
+
       setTimeout(() => {
-        setReviewRequest(mockRequest);
+        setReviewRequest(request);
       }, 100);
     };
 
@@ -216,7 +240,7 @@ export default function ReviewGate() {
 
         {/* Main Question Heading */}
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-blue-900">How did we do?</h2>
+          <h2 className="text-3xl font-bold text-blue-900">{gateSettings.heading}</h2>
         </div>
 
         {/* Business Owner Video */}
