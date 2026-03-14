@@ -382,46 +382,43 @@ export default function ProjectDetail() {
       const newPhotos: TaggedPhoto[] = [];
       let uploadedCount = 0;
 
+      // Determine if there's already a primary photo among existing photos
+      const existingHasPrimary = (project.photos || []).some(
+        (p: any) => (typeof p === "object" ? p.isPrimary : false)
+      );
+
       for (const fileWithMetadata of files) {
         try {
           // Extract the actual File object from FileWithMetadata
           const actualFile = fileWithMetadata.file || fileWithMetadata;
-
-          // Debug logging for video detection
-          const fileExt = actualFile.name?.split(".").pop()?.toLowerCase() || "";
-          console.log(`[Media Upload] ===== START =====`);
-          console.log(`[Media Upload] fileWithMetadata keys:`, Object.keys(fileWithMetadata));
-          console.log(`[Media Upload] fileWithMetadata.file:`, fileWithMetadata.file);
-          console.log(`[Media Upload] actualFile:`, actualFile);
-          console.log(`[Media Upload] actualFile.name:`, actualFile.name);
-          console.log(`[Media Upload] actualFile.size:`, actualFile.size);
-          console.log(`[Media Upload] actualFile.type:`, actualFile.type);
-          console.log(`[Media Upload] Extension: ${fileExt}`);
-          console.log(`[Media Upload] Is actualFile a File?`, actualFile instanceof File);
-          console.log(`[Media Upload] Is actualFile a Blob?`, actualFile instanceof Blob);
-          console.log(`[Media Upload] ===== END =====`);
 
           // Parse tags - SmartMediaUploader provides tags as a string
           const tagsArray = typeof fileWithMetadata.tags === "string"
             ? fileWithMetadata.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
             : fileWithMetadata.tags || [];
 
+          // First uploaded photo becomes primary if no primary exists yet
+          const shouldBePrimary = !existingHasPrimary && newPhotos.length === 0;
+
           // Upload to Supabase
           const uploadedMedia = await dataService.uploadProjectPhoto(project.id, actualFile, {
             tags: tagsArray,
             category: "progress",
             description: fileWithMetadata.description || "",
+            is_featured: shouldBePrimary,
           });
 
-          console.log(`[Media Upload] Successfully uploaded as ${uploadedMedia.media_type}: ${uploadedMedia.original_name}`);
+          // If this should be primary, set it as featured in DB
+          if (shouldBePrimary && uploadedMedia.id) {
+            await dataService.setFeaturedMedia(project.id, uploadedMedia.id);
+          }
 
-          // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
             url: uploadedMedia.file_path,
             tags: tagsArray,
             uploadedAt: uploadedMedia.created_at,
             uploadedBy: uploadedMedia.uploaded_by || "Unknown",
-            isPrimary: uploadedMedia.is_featured,
+            isPrimary: shouldBePrimary,
             media_type: uploadedMedia.media_type || "image",
             mime_type: uploadedMedia.mime_type,
             file_size: uploadedMedia.file_size,
@@ -511,12 +508,22 @@ export default function ProjectDetail() {
       const newPhotos: TaggedPhoto[] = [];
       let uploadedCount = 0;
 
+      const existingHasPrimary = (project.photos || []).some(
+        (p: any) => (typeof p === "object" ? p.isPrimary : false)
+      );
+
       for (const file of Array.from(files)) {
         try {
+          const shouldBePrimary = !existingHasPrimary && newPhotos.length === 0;
+
           // Upload to Supabase (accepts both images and videos)
           const uploadedMedia = await dataService.uploadProjectPhoto(project.id, file, {
             category: "progress",
           });
+
+          if (shouldBePrimary && uploadedMedia.id) {
+            await dataService.setFeaturedMedia(project.id, uploadedMedia.id);
+          }
 
           // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
@@ -524,7 +531,7 @@ export default function ProjectDetail() {
             tags: [],
             uploadedAt: uploadedMedia.created_at,
             uploadedBy: uploadedMedia.uploaded_by || "Unknown",
-            isPrimary: uploadedMedia.is_featured,
+            isPrimary: shouldBePrimary,
             media_type: uploadedMedia.media_type || "image",
             mime_type: uploadedMedia.mime_type,
             file_size: uploadedMedia.file_size,
@@ -1009,51 +1016,44 @@ export default function ProjectDetail() {
     }
   };
 
-  const handlePhotoToggleFavorite = (photo: any) => {
+  const handlePhotoToggleFavorite = async (photo: any) => {
     if (!project) return;
 
     try {
       const photoUrl = typeof photo === "string" ? photo : photo.url;
-      const updatedPhotos = project.photos.map((p: any) => {
-        if ((typeof p === "string" ? p : p.url) === photoUrl) {
-          if (typeof p === "object") {
-            return { ...p, isPrimary: !p.isPrimary };
-          }
-          // Convert string to object with isPrimary
-          return {
-            url: p,
-            isPrimary: true,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: "Current User",
-            tags: [],
-          };
-        }
-        return p;
-      });
-
-      const updatedProject = {
-        ...project,
-        photos: updatedPhotos,
-      };
-
-      updateProject(updatedProject);
-
-      const photoObj = updatedPhotos.find(
+      const photoObj = project.photos.find(
         (p: any) => (typeof p === "string" ? p : p.url) === photoUrl,
-      );
-      const isFavorite =
-        typeof photoObj === "object" ? photoObj.isPrimary : false;
+      ) as any;
+      const currentIsPrimary = typeof photoObj === "object" ? !!photoObj.isPrimary : false;
+      const dbId = typeof photoObj === "object" ? photoObj._dbId : null;
 
-      addActivityLogEntry(
-        isFavorite ? "photo_favorited" : "photo_unfavorited",
-        `Photo ${isFavorite ? "added to" : "removed from"} favorites`,
-      );
-      toast.success(
-        isFavorite ? "Added to favorites" : "Removed from favorites",
-      );
+      if (currentIsPrimary) {
+        // Unstar: just clear this one
+        if (dbId) await dataService.clearFeaturedMedia(dbId);
+        const updatedPhotos = project.photos.map((p: any) =>
+          (typeof p === "string" ? p : p.url) === photoUrl
+            ? { ...p, isPrimary: false }
+            : p
+        );
+        setProject({ ...project, photos: updatedPhotos });
+        addActivityLogEntry("photo_unfavorited", "Photo removed from primary");
+        toast.success("Removed as primary photo");
+      } else {
+        // Star: set this as the only primary, clear all others
+        if (dbId) await dataService.setFeaturedMedia(project.id, dbId);
+        const updatedPhotos = project.photos.map((p: any) => {
+          const url = typeof p === "string" ? p : p.url;
+          return typeof p === "object"
+            ? { ...p, isPrimary: url === photoUrl }
+            : p;
+        });
+        setProject({ ...project, photos: updatedPhotos });
+        addActivityLogEntry("photo_favorited", "Photo set as primary");
+        toast.success("Set as primary photo");
+      }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      toast.error("Failed to update favorite status");
+      toast.error("Failed to update primary photo");
     }
   };
 

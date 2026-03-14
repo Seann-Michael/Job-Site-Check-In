@@ -53,6 +53,15 @@ class CompatibleDataService {
   async deleteProjectPhoto(id: string) {
     return await dataService.deleteProjectPhoto(id);
   }
+  async updateProjectMedia(id: string, updates: any) {
+    return await dataService.updateProjectMedia(id, updates);
+  }
+  async setFeaturedMedia(projectId: string, mediaId: string) {
+    return await dataService.setFeaturedMedia(projectId, mediaId);
+  }
+  async clearFeaturedMedia(mediaId: string) {
+    return await dataService.clearFeaturedMedia(mediaId);
+  }
   async signIn(email: string, password: string) { return await dataService.signIn(email, password); }
   async signUp(email: string, password: string, name: string, role?: string) {
     return await dataService.signUp(email, password, name, role);

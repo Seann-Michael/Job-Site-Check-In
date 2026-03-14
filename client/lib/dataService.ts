@@ -1061,6 +1061,42 @@ export class DataService {
     return this.deleteProjectMedia(id);
   }
 
+  async updateProjectMedia(id: string, updates: Partial<ProjectMedia>): Promise<void> {
+    this.checkSupabaseConfig();
+    const { error } = await supabase
+      .from("project_media")
+      .update(updates)
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  /** Set one media record as the primary/featured photo and clear is_featured on all others in the project */
+  async setFeaturedMedia(projectId: string, mediaId: string): Promise<void> {
+    this.checkSupabaseConfig();
+    // Clear all featured flags for this project first
+    const { error: clearError } = await supabase
+      .from("project_media")
+      .update({ is_featured: false })
+      .eq("project_id", projectId);
+    if (clearError) throw clearError;
+    // Set the target as featured
+    const { error: setError } = await supabase
+      .from("project_media")
+      .update({ is_featured: true })
+      .eq("id", mediaId);
+    if (setError) throw setError;
+  }
+
+  /** Clear the featured flag for a specific media record */
+  async clearFeaturedMedia(mediaId: string): Promise<void> {
+    this.checkSupabaseConfig();
+    const { error } = await supabase
+      .from("project_media")
+      .update({ is_featured: false })
+      .eq("id", mediaId);
+    if (error) throw error;
+  }
+
   // Project Document methods
   async getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
     try {
