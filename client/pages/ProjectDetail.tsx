@@ -1892,7 +1892,7 @@ export default function ProjectDetail() {
                                 <div className="flex items-start gap-3 flex-1">
                                   <input
                                     type="checkbox"
-                                    checked={task.completed}
+                                    checked={!!task.completed}
                                     onChange={() => toggleTask(task.id)}
                                     className="rounded mt-1"
                                   />
@@ -2106,7 +2106,7 @@ export default function ProjectDetail() {
                                 <div className="flex items-start gap-3 flex-1">
                                   <input
                                     type="checkbox"
-                                    checked={item.completed}
+                                    checked={!!item.completed}
                                     onChange={() =>
                                       toggleChecklistItem(item.id)
                                     }
