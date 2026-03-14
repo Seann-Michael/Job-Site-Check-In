@@ -374,14 +374,6 @@ export default function ClientDetail() {
                 Client since {new Date(client.created_at).toLocaleDateString()}
               </p>
             </div>
-            <Button
-              onClick={() => setShowNewJobDialog(true)}
-              size="sm"
-              className="gap-2 flex-shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              New Job
-            </Button>
           </div>
         </div>
 
