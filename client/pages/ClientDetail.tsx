@@ -409,49 +409,53 @@ export default function ClientDetail() {
   }) => {
     const isEditing = editingField === field;
     return (
-      <div className="group">
-        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-        {isEditing ? (
-          <div className="flex items-start gap-2">
-            {multiline ? (
-              <Textarea
-                autoFocus
-                rows={3}
-                value={fieldValue}
-                onChange={(e) => setFieldValue(e.target.value)}
-                className="text-sm"
-              />
-            ) : (
-              <Input
-                autoFocus
-                value={fieldValue}
-                onChange={(e) => setFieldValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveField();
-                  if (e.key === "Escape") cancelEdit();
-                }}
-                className="text-sm h-8"
-              />
-            )}
-            <Button size="sm" className="h-8 px-2" onClick={saveField}>
-              <Save className="h-3.5 w-3.5" />
-            </Button>
-            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={cancelEdit}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        ) : (
-          <div
-            className="flex items-center gap-2 cursor-pointer group/field"
-            onClick={() => startEdit(field, value || "")}
-          >
-            <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground/50 italic"}`}>
-              {value || placeholder || `Add ${label.toLowerCase()}`}
-            </span>
-            <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/field:opacity-100 transition-opacity" />
-          </div>
-        )}
+      <div className="flex items-start gap-3 group">
+        {/* Fixed-width label on the left */}
+        <span className="text-sm text-muted-foreground w-28 flex-shrink-0 pt-1.5">{label}</span>
+        {/* Field */}
+        <div className="flex-1 min-w-0">
+          {isEditing ? (
+            <div className="flex items-start gap-2">
+              {multiline ? (
+                <Textarea
+                  autoFocus
+                  rows={3}
+                  value={fieldValue}
+                  onChange={(e) => setFieldValue(e.target.value)}
+                  className="text-sm"
+                />
+              ) : (
+                <Input
+                  autoFocus
+                  value={fieldValue}
+                  onChange={(e) => setFieldValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveField();
+                    if (e.key === "Escape") cancelEdit();
+                  }}
+                  className="text-sm h-8"
+                />
+              )}
+              <Button size="sm" className="h-8 px-2" onClick={saveField}>
+                <Save className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 px-2" onClick={cancelEdit}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-2 cursor-pointer group/field"
+              onClick={() => startEdit(field, value || "")}
+            >
+              <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground/50 italic"}`}>
+                {value || placeholder || `Add ${label.toLowerCase()}`}
+              </span>
+              <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/field:opacity-100 transition-opacity" />
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -549,10 +553,8 @@ export default function ClientDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <InlineField field="business_name" label="Business Name" value={client.business_name} icon={Building2} placeholder="Add business name" />
-                <div className="grid grid-cols-2 gap-4">
-                  <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" />
-                  <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" />
-                </div>
+                <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" />
+                <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" />
                 <InlineField field="phone" label="Phone" value={client.phone} icon={Phone} placeholder="Add phone number" />
                 <InlineField field="email" label="Email" value={client.email} icon={Mail} placeholder="Add email address" />
                 <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Add address" />
