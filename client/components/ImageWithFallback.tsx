@@ -14,13 +14,16 @@ export function ImageWithFallback({ photo, alt, className, onClick }: ImageWithF
   const [error, setError] = useState(false);
   const [attemptedUrls, setAttemptedUrls] = useState<string[]>([]);
 
+  // Derive the URL string so the effect only re-runs when the URL itself changes,
+  // not when the photo object reference changes (e.g. after a state update).
+  const primaryUrl = getImageUrlWithFallback(photo);
+
   useEffect(() => {
-    const primaryUrl = getImageUrlWithFallback(photo);
     setCurrentUrl(primaryUrl);
     setIsLoading(true);
     setError(false);
     setAttemptedUrls([]);
-  }, [photo]);
+  }, [primaryUrl]);
 
   const handleImageError = () => {
     const fallbacks = getImageFallbacks(photo);

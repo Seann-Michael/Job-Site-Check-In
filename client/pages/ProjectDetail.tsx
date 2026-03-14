@@ -1441,8 +1441,8 @@ export default function ProjectDetail() {
                                     </>
                                   )}
 
-                                  {/* Selection checkbox */}
-                                  <div className="absolute top-2 left-2">
+                                  {/* Top-left controls: checkbox + star */}
+                                  <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
                                     <Checkbox
                                       checked={selectedPhotos.includes(index)}
                                       onCheckedChange={() =>
@@ -1451,34 +1451,32 @@ export default function ProjectDetail() {
                                       className="bg-white/80 border-white"
                                       onClick={(e) => e.stopPropagation()}
                                     />
-                                  </div>
-
-                                  {/* Star / Primary badge */}
-                                  {(() => {
-                                    const isPrimary = typeof photo === "object" ? !!photo.isPrimary : false;
-                                    return (
-                                      <button
-                                        className={`absolute bottom-2 right-2 z-10 rounded-full p-1 transition-all ${
-                                          isPrimary
-                                            ? "opacity-100 bg-black/40"
-                                            : "opacity-0 group-hover:opacity-100 bg-black/40"
-                                        }`}
-                                        title={isPrimary ? "Primary photo – click to unset" : "Set as primary photo"}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handlePhotoToggleFavorite(photo);
-                                        }}
-                                      >
-                                        <Star
-                                          className={`h-4 w-4 transition-colors ${
+                                    {(() => {
+                                      const isPrimary = typeof photo === "object" ? !!photo.isPrimary : false;
+                                      return (
+                                        <button
+                                          className={`rounded-full p-0.5 transition-all ${
                                             isPrimary
-                                              ? "fill-yellow-400 text-yellow-400"
-                                              : "text-white"
+                                              ? "opacity-100 bg-black/40"
+                                              : "opacity-0 group-hover:opacity-100 bg-black/40"
                                           }`}
-                                        />
-                                      </button>
-                                    );
-                                  })()}
+                                          title={isPrimary ? "Primary photo – click to unset" : "Set as primary photo"}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePhotoToggleFavorite(photo);
+                                          }}
+                                        >
+                                          <Star
+                                            className={`h-4 w-4 transition-colors ${
+                                              isPrimary
+                                                ? "fill-yellow-400 text-yellow-400"
+                                                : "text-white"
+                                            }`}
+                                          />
+                                        </button>
+                                      );
+                                    })()}
+                                  </div>
 
                                   {/* Primary badge label */}
                                   {typeof photo === "object" && photo.isPrimary && (
