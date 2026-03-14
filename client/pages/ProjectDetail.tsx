@@ -256,7 +256,7 @@ export default function ProjectDetail() {
           const projectWithDefaults = {
             ...foundProject,
             address: foundProject.address || clientContact.address || foundProject.metadata?.address || "",
-            notes: foundProject.notes || [],
+            notes: foundProject.metadata?.notes || foundProject.notes || [],
             activityLog: foundProject.activityLog || [],
             tasks: foundProject.tasks || [],
             checklist: foundProject.checklist || [],
@@ -645,7 +645,7 @@ export default function ProjectDetail() {
   };
 
   // Note Management Functions
-  const addNote = () => {
+  const addNote = async () => {
     if (!project || !newNote.trim()) return;
 
     const note: ProjectNote = {
@@ -655,30 +655,24 @@ export default function ProjectDetail() {
       createdBy: getCurrentUser().name,
     };
 
-    const user = getCurrentUser();
-    const entry: ActivityLogEntry = {
-      id: Date.now().toString(),
-      type: "note_added",
-      description: "Added project note",
-      timestamp: new Date().toISOString(),
-      userId: user.id,
-      userName: user.name,
-      platform: user.platform,
-    };
+    const updatedNotes = [note, ...(project.notes || [])];
 
-    const updatedProject = {
-      ...project,
-      notes: [note, ...(project.notes || [])],
-      activityLog: [entry, ...(project.activityLog || [])],
-    };
-
-    updateProject(updatedProject);
-    setNewNote("");
-    setShowAddNote(false);
-    toast.success("Note added successfully");
+    try {
+      const existingMetadata = (project as any).metadata || {};
+      await dataService.updateProject(project.id, {
+        metadata: { ...existingMetadata, notes: updatedNotes },
+      } as any);
+      setProject({ ...project, notes: updatedNotes });
+      setNewNote("");
+      setShowAddNote(false);
+      toast.success("Note added successfully");
+    } catch (error) {
+      console.error("Error saving note:", error);
+      toast.error("Failed to save note");
+    }
   };
 
-  const editNote = (noteId: string, newContent: string) => {
+  const editNote = async (noteId: string, newContent: string) => {
     if (!project || !project.notes || !newContent.trim()) return;
 
     const updatedNotes = project.notes.map((note) =>
@@ -687,13 +681,21 @@ export default function ProjectDetail() {
         : note,
     );
 
-    updateProject({ ...project, notes: updatedNotes });
-    addActivityLogEntry("note_edited", "Project note edited");
-    setEditingNote(null);
-    toast.success("Note updated successfully");
+    try {
+      const existingMetadata = (project as any).metadata || {};
+      await dataService.updateProject(project.id, {
+        metadata: { ...existingMetadata, notes: updatedNotes },
+      } as any);
+      setProject({ ...project, notes: updatedNotes });
+      setEditingNote(null);
+      toast.success("Note updated successfully");
+    } catch (error) {
+      console.error("Error updating note:", error);
+      toast.error("Failed to update note");
+    }
   };
 
-  const deleteNote = (noteId: string) => {
+  const deleteNote = async (noteId: string) => {
     if (
       !project ||
       !project.notes ||
@@ -703,25 +705,17 @@ export default function ProjectDetail() {
 
     const updatedNotes = project.notes.filter((note) => note.id !== noteId);
 
-    const user = getCurrentUser();
-    const entry: ActivityLogEntry = {
-      id: Date.now().toString(),
-      type: "note_deleted",
-      description: "Project note deleted",
-      timestamp: new Date().toISOString(),
-      userId: user.id,
-      userName: user.name,
-      platform: user.platform,
-    };
-
-    const updatedProject = {
-      ...project,
-      notes: updatedNotes,
-      activityLog: [entry, ...(project.activityLog || [])],
-    };
-
-    updateProject(updatedProject);
-    toast.success("Note deleted successfully");
+    try {
+      const existingMetadata = (project as any).metadata || {};
+      await dataService.updateProject(project.id, {
+        metadata: { ...existingMetadata, notes: updatedNotes },
+      } as any);
+      setProject({ ...project, notes: updatedNotes });
+      toast.success("Note deleted successfully");
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      toast.error("Failed to delete note");
+    }
   };
 
   // Task Management Functions
