@@ -85,6 +85,8 @@ interface TaggedPhoto {
   uploadedBy: string;
   isPrimary?: boolean;
   _dbId?: string;
+  media_type?: "image" | "video" | "document";
+  mime_type?: string;
 }
 
 interface ProjectDocument {
@@ -216,18 +218,20 @@ export default function ProjectDetail() {
         const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id);
         if (foundProject) {
-          // Load photos from database
-          const dbPhotos = await dataService.getProjectPhotos(foundProject.id);
+          // Load media from database
+          const dbMedia = await dataService.getProjectPhotos(foundProject.id);
 
-          // Convert ProjectPhoto objects to TaggedPhoto format
-          const convertedPhotos: TaggedPhoto[] = dbPhotos.map((photo: any) => ({
-            url: photo.file_path,
-            tags: photo.metadata?.tags || [],
-            uploadedAt: photo.created_at,
-            uploadedBy: photo.uploaded_by || "Unknown",
-            isPrimary: photo.is_featured,
-            // Keep reference to DB photo ID for deletion
-            _dbId: photo.id,
+          // Convert ProjectMedia objects to TaggedPhoto format
+          const convertedPhotos: TaggedPhoto[] = dbMedia.map((media: any) => ({
+            url: media.file_path,
+            tags: media.metadata?.tags || [],
+            uploadedAt: media.created_at,
+            uploadedBy: media.uploaded_by || "Unknown",
+            isPrimary: media.is_featured,
+            media_type: media.media_type || "image",
+            mime_type: media.mime_type,
+            // Keep reference to DB media ID for deletion
+            _dbId: media.id,
           }));
 
           // Ensure all required arrays exist
@@ -379,19 +383,21 @@ export default function ProjectDetail() {
       for (const file of files) {
         try {
           // Upload to Supabase
-          const uploadedPhoto = await dataService.uploadProjectPhoto(project.id, file, {
+          const uploadedMedia = await dataService.uploadProjectPhoto(project.id, file, {
             tags: file.tags || [],
             category: "progress",
           });
 
-          // Convert returned ProjectPhoto to TaggedPhoto
+          // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
-            url: uploadedPhoto.file_path,
+            url: uploadedMedia.file_path,
             tags: file.tags || [],
-            uploadedAt: uploadedPhoto.created_at,
-            uploadedBy: uploadedPhoto.uploaded_by || "Unknown",
-            isPrimary: uploadedPhoto.is_featured,
-            _dbId: uploadedPhoto.id,
+            uploadedAt: uploadedMedia.created_at,
+            uploadedBy: uploadedMedia.uploaded_by || "Unknown",
+            isPrimary: uploadedMedia.is_featured,
+            media_type: uploadedMedia.media_type || "image",
+            mime_type: uploadedMedia.mime_type,
+            _dbId: uploadedMedia.id,
           });
           uploadedCount++;
         } catch (uploadError) {
@@ -477,22 +483,22 @@ export default function ProjectDetail() {
       let uploadedCount = 0;
 
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) continue;
-
         try {
-          // Upload to Supabase
-          const uploadedPhoto = await dataService.uploadProjectPhoto(project.id, file, {
+          // Upload to Supabase (accepts both images and videos)
+          const uploadedMedia = await dataService.uploadProjectPhoto(project.id, file, {
             category: "progress",
           });
 
-          // Convert returned ProjectPhoto to TaggedPhoto
+          // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
-            url: uploadedPhoto.file_path,
+            url: uploadedMedia.file_path,
             tags: [],
-            uploadedAt: uploadedPhoto.created_at,
-            uploadedBy: uploadedPhoto.uploaded_by || "Unknown",
-            isPrimary: uploadedPhoto.is_featured,
-            _dbId: uploadedPhoto.id,
+            uploadedAt: uploadedMedia.created_at,
+            uploadedBy: uploadedMedia.uploaded_by || "Unknown",
+            isPrimary: uploadedMedia.is_featured,
+            media_type: uploadedMedia.media_type || "image",
+            mime_type: uploadedMedia.mime_type,
+            _dbId: uploadedMedia.id,
           });
           uploadedCount++;
         } catch (uploadError) {
@@ -1365,6 +1371,7 @@ export default function ProjectDetail() {
                             {project.photos.map((photo, index) => {
                               const photoUrl = getPhotoUrl(photo);
                               const photoTags = getPhotoTags(photo);
+                              const isVideo = typeof photo === "object" && photo.media_type === "video";
                               return (
                                 <div
                                   key={`photo-${index}-${photoUrl.slice(-10)}`}
@@ -1374,13 +1381,28 @@ export default function ProjectDetail() {
                                       : ""
                                   }`}
                                 >
-                                  <ImageWithFallback
-                                    photo={photo}
-                                    alt={`Photo ${index + 1}`}
-                                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                                    onClick={() => setSelectedPhoto(photoUrl)}
-                                  />
-                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                  {isVideo ? (
+                                    <>
+                                      <video
+                                        src={photoUrl}
+                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                        onClick={() => setSelectedPhoto(photoUrl)}
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                                        <Video className="h-12 w-12 text-white" />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ImageWithFallback
+                                        photo={photo}
+                                        alt={`Photo ${index + 1}`}
+                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                        onClick={() => setSelectedPhoto(photoUrl)}
+                                      />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                    </>
+                                  )}
 
                                   {/* Selection checkbox */}
                                   <div className="absolute top-2 left-2">
@@ -1445,7 +1467,7 @@ export default function ProjectDetail() {
                         ) : (
                           <div className="text-center py-12 text-muted-foreground">
                             <Images className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p>No photos uploaded yet</p>
+                            <p>No media uploaded yet</p>
                             <Button
                               variant="outline"
                               className="mt-4 gap-2"
@@ -2562,19 +2584,38 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* Photo Modal */}
+        {/* Media Modal */}
         {selectedPhoto && (
           <div
-            key="photo-modal"
+            key="media-modal"
             className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
             onClick={() => setSelectedPhoto(null)}
           >
             <div className="relative max-w-4xl max-h-full">
-              <img
-                src={selectedPhoto}
-                alt="Full size photo"
-                className="max-w-full max-h-full object-contain rounded-lg"
-              />
+              {(() => {
+                // Find the selected media object to get its type
+                const selectedMediaObj = project?.photos.find(
+                  (p) => getPhotoUrl(p) === selectedPhoto
+                );
+                const isVideo =
+                  typeof selectedMediaObj === "object" &&
+                  selectedMediaObj?.media_type === "video";
+
+                return isVideo ? (
+                  <video
+                    src={selectedPhoto}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                ) : (
+                  <img
+                    src={selectedPhoto}
+                    alt="Full size photo"
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                );
+              })()}
               <Button
                 variant="secondary"
                 size="icon"

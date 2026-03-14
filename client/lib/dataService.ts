@@ -162,7 +162,7 @@ export interface ProjectTask {
   updated_at: string;
 }
 
-export interface ProjectPhoto {
+export interface ProjectMedia {
   id: string;
   project_id: string;
   filename: string;
@@ -170,9 +170,11 @@ export interface ProjectPhoto {
   file_path: string;
   file_size: number;
   mime_type: string;
+  media_type: "image" | "video" | "document";
   width?: number;
   height?: number;
-  category: "before" | "after" | "progress" | "final" | "reference" | "general";
+  duration_seconds?: number;
+  category: "before" | "after" | "progress" | "final" | "reference" | "general" | "walkthrough" | "demonstration";
   description?: string;
   geolocation?: any;
   metadata?: any;
@@ -181,6 +183,9 @@ export interface ProjectPhoto {
   created_at: string;
   updated_at: string;
 }
+
+// Legacy alias for backward compatibility
+export type ProjectPhoto = ProjectMedia;
 
 export interface ProjectDocument {
   id: string;
@@ -936,13 +941,13 @@ export class DataService {
     if (error) throw error;
   }
 
-  // Project Photo methods
-  async getProjectPhotos(projectId: string): Promise<ProjectPhoto[]> {
+  // Project Media methods (photos, videos, documents)
+  async getProjectMedia(projectId: string): Promise<ProjectMedia[]> {
     try {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from("project_photos")
+        .from("project_media")
         .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
@@ -950,22 +955,35 @@ export class DataService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error("Error fetching project photos:", error);
+      console.error("Error fetching project media:", error);
       return [];
     }
   }
 
-  async uploadProjectPhoto(
+  async getProjectPhotos(projectId: string): Promise<ProjectMedia[]> {
+    // Legacy method - returns all media items (photos and videos)
+    return this.getProjectMedia(projectId);
+  }
+
+  async uploadProjectMedia(
     projectId: string,
     file: File,
     metadata: any = {},
-  ): Promise<ProjectPhoto> {
+  ): Promise<ProjectMedia> {
     this.checkSupabaseConfig();
+
+    // Determine media type
+    let mediaType: "image" | "video" | "document" = "document";
+    if (file.type.startsWith("image/")) {
+      mediaType = "image";
+    } else if (file.type.startsWith("video/")) {
+      mediaType = "video";
+    }
 
     // Upload file to Supabase storage
     const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `project-photos/${projectId}/${fileName}`;
+    const filePath = `project-media/${projectId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
@@ -978,9 +996,9 @@ export class DataService {
       data: { publicUrl },
     } = supabase.storage.from("media").getPublicUrl(filePath);
 
-    // Create photo record
+    // Create media record
     const { data, error } = await supabase
-      .from("project_photos")
+      .from("project_media")
       .insert({
         project_id: projectId,
         filename: fileName,
@@ -988,6 +1006,7 @@ export class DataService {
         file_path: publicUrl,
         file_size: file.size,
         mime_type: file.type,
+        media_type: mediaType,
         category: metadata.category || "general",
         description: metadata.description,
         is_featured: metadata.is_featured || false,
@@ -1000,15 +1019,29 @@ export class DataService {
     return data;
   }
 
-  async deleteProjectPhoto(id: string): Promise<void> {
+  async uploadProjectPhoto(
+    projectId: string,
+    file: File,
+    metadata: any = {},
+  ): Promise<ProjectMedia> {
+    // Legacy method - uses the new uploadProjectMedia method
+    return this.uploadProjectMedia(projectId, file, metadata);
+  }
+
+  async deleteProjectMedia(id: string): Promise<void> {
     this.checkSupabaseConfig();
 
     const { error } = await supabase
-      .from("project_photos")
+      .from("project_media")
       .delete()
       .eq("id", id);
 
     if (error) throw error;
+  }
+
+  async deleteProjectPhoto(id: string): Promise<void> {
+    // Legacy method - uses the new deleteProjectMedia method
+    return this.deleteProjectMedia(id);
   }
 
   // Project Document methods
