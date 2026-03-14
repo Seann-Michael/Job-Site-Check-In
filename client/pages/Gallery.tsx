@@ -42,7 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface PhotoWithMetadata {
@@ -113,83 +113,66 @@ export default function Gallery() {
     sortOrder: "newest",
   });
 
-  useEffect(() => {
-    const loadGalleryData = async () => {
-      try {
-        setLoading(true);
-        const projectsData = await dataService.getProjects();
-        const allPhotos: PhotoWithMetadata[] = [];
-        const projectOptions: Array<{ id: string; name: string }> = [];
-        const userSet = new Set<string>();
-        const tagSet = new Set<string>();
+  const loadGalleryData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const projectsData = await dataService.getProjects();
+      const allPhotos: PhotoWithMetadata[] = [];
+      const projectOptions: Array<{ id: string; name: string }> = [];
+      const userSet = new Set<string>();
+      const tagSet = new Set<string>();
 
-        projectsData.forEach((project: any) => {
-          projectOptions.push({ id: project.id, name: project.name });
+      for (const project of projectsData as any[]) {
+        projectOptions.push({ id: project.id, name: project.name });
 
-          // Handle different photo fields from the business projects
-          const photoSources = [
-            ...(project.photos || []),
-            ...(project.before_photos || []),
-            ...(project.after_photos || []),
-            ...(project.progress_photos || [])
-          ];
+        // Load media from the project_media Supabase table
+        const mediaItems = await dataService.getProjectPhotos(project.id);
 
-          if (photoSources.length > 0) {
-            photoSources.forEach((photo: any) => {
-              const photoUrl = typeof photo === "string" ? photo : photo.url;
-              const photoData = typeof photo === "string" ? {} : photo;
+        for (const media of mediaItems as any[]) {
+          const isVideo = media.media_type === "video";
+          const tags: string[] = media.metadata?.tags || [];
+          tags.forEach((tag: string) => tagSet.add(tag));
 
-              // Determine file type and size based on URL or data
-              const isVideo =
-                photoUrl.includes(".mp4") ||
-                photoUrl.includes(".mov") ||
-                photoUrl.includes(".webm");
-              const fileSize =
-                photoData.size ||
-                (Math.random() > 0.6
-                  ? "large"
-                  : Math.random() > 0.3
-                    ? "medium"
-                    : "small");
+          const uploadedBy = media.uploaded_by || media.metadata?.uploadedBy || "User";
+          userSet.add(uploadedBy);
 
-              const uploadedBy = photoData.uploadedBy || "John Doe";
-              userSet.add(uploadedBy);
-
-              const photoTags = photoData.tags || [];
-              photoTags.forEach((tag: string) => tagSet.add(tag));
-
-              allPhotos.push({
-                url: photoUrl,
-                projectId: project.id,
-                projectName: project.name,
-                projectAddress: project.location || project.address,
-                uploadedAt: photoData.uploadedAt || project.created_at,
-                uploadedBy: uploadedBy,
-                tags: photoTags,
-                isPrimary: photoData.isPrimary || false,
-                type: isVideo ? "video" : "photo",
-                size: fileSize as "small" | "medium" | "large",
-                // Preserve metadata with fallback URLs for ImageWithFallback component
-                metadata: photoData.metadata,
-              });
-            });
-          }
-        });
-
-        setProjects(projectOptions);
-        setUsers(Array.from(userSet));
-        setAllTags(Array.from(tagSet));
-        setPhotos(allPhotos);
-      } catch (error) {
-        console.error("Error loading gallery data:", error);
-        toast.error("Failed to load gallery data");
-      } finally {
-        setLoading(false);
+          allPhotos.push({
+            url: media.file_path,
+            projectId: project.id,
+            projectName: project.name,
+            projectAddress: project.location || project.address || "",
+            uploadedAt: media.created_at,
+            uploadedBy,
+            tags,
+            isPrimary: media.is_featured || false,
+            type: isVideo ? "video" : "photo",
+            size: "medium",
+            metadata: {
+              originalFileName: media.original_name || media.filename,
+              fileSize: media.file_size || 0,
+              fileType: media.mime_type || "",
+              category: media.category || "general",
+              altText: media.metadata?.altText || media.description || "",
+            },
+          });
+        }
       }
-    };
 
-    loadGalleryData();
+      setProjects(projectOptions);
+      setUsers(Array.from(userSet));
+      setAllTags(Array.from(tagSet));
+      setPhotos(allPhotos);
+    } catch (error) {
+      console.error("Error loading gallery data:", error);
+      toast.error("Failed to load gallery data");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadGalleryData();
+  }, [loadGalleryData]);
 
   // Apply pagination whenever filteredPhotos change
   useEffect(() => {
@@ -324,79 +307,39 @@ export default function Gallery() {
     }
 
     toast.info(
-      `Processing ${files.length} file${files.length !== 1 ? "s" : ""}...`,
+      `Uploading ${files.length} file${files.length !== 1 ? "s" : ""}...`,
     );
 
     try {
-      // Get current projects to find a project to attach files to
-      const projectsData = JSON.parse(localStorage.getItem("projects") || "[]");
+      // Get projects from Supabase to find one to attach files to
+      const projectsData = await dataService.getProjects() as any[];
 
-      // For now, we'll create a special "Gallery" project or use the first available project
       let targetProject = projectsData.find(
         (p: any) => p.name === "Gallery Uploads",
       );
 
       if (!targetProject && projectsData.length > 0) {
-        // Use the first project if no gallery project exists
         targetProject = projectsData[0];
       } else if (!targetProject) {
-        // Create a special gallery project if none exists
-        targetProject = {
-          id: `gallery-${Date.now()}`,
-          name: "Gallery Uploads",
-          description: "Photos uploaded directly to gallery",
-          address: "",
-          customerPhone: "",
-          keywords: [],
-          photos: [],
-          documents: [],
-          tasks: [],
-          checklist: [],
-          notes: [],
-          activityLog: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: "active",
-          assignedUsers: [],
-          starred: false,
-          archived: false,
-          createdBy: "current-user",
-        };
-        projectsData.push(targetProject);
+        toast.error("Please create a project first before uploading media.");
+        return;
       }
 
-      // Process uploaded files and add them to the target project
-      const newPhotos = files.map((fileData) => ({
-        url: URL.createObjectURL(fileData.file),
-        tags: fileData.tags
-          .split(",")
-          .map((tag: string) => tag.trim())
-          .filter(Boolean),
-        uploadedAt: new Date().toISOString(),
-        uploadedBy: "Current User",
-        title: fileData.title,
-        description: fileData.description,
-        altText: fileData.altText,
-        category: fileData.category,
-        keywords: fileData.keywords
-          .split(",")
-          .map((keyword: string) => keyword.trim())
-          .filter(Boolean),
-        metadata: {
-          originalFileName: fileData.file.name,
-          fileSize: fileData.file.size,
-          fileType: fileData.file.type,
-          category: fileData.category,
-          altText: fileData.altText,
-        },
-      }));
+      // Upload each file to Supabase storage and create a project_media record
+      const uploadPromises = files.map((fileData: any) =>
+        dataService.uploadProjectPhoto(targetProject.id, fileData.file, {
+          category: fileData.category || "general",
+          description: fileData.description || "",
+          altText: fileData.altText || "",
+          title: fileData.title || fileData.file.name,
+          tags: fileData.tags
+            ? fileData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+            : [],
+          uploadedBy: "Current User",
+        })
+      );
 
-      // Add photos to the target project
-      targetProject.photos = [...(targetProject.photos || []), ...newPhotos];
-      targetProject.updatedAt = new Date().toISOString();
-
-      // Save updated projects
-      localStorage.setItem("projects", JSON.stringify(projectsData));
+      await Promise.all(uploadPromises);
 
       toast.success(
         `Successfully uploaded ${files.length} file${files.length !== 1 ? "s" : ""} to gallery!`,
@@ -404,12 +347,10 @@ export default function Gallery() {
 
       setShowUploader(false);
 
-      // Refresh the gallery view after a short delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Refresh gallery data without a full page reload
+      await loadGalleryData();
     } catch (error) {
-      console.error("Error processing uploaded files:", error);
+      console.error("Error uploading files:", error);
       toast.error("Failed to upload files. Please try again.");
     }
   };
@@ -418,75 +359,36 @@ export default function Gallery() {
     toast.info("Edit functionality coming soon!");
   };
 
-  const handlePhotoDelete = (photo: PhotoWithMetadata) => {
-    if (confirm("Are you sure you want to delete this photo?")) {
-      try {
-        // Get projects from localStorage
-        const projectsData = JSON.parse(
-          localStorage.getItem("projects") || "[]",
-        );
-
-        // Find and update the project that contains this photo
-        const projectIndex = projectsData.findIndex(
-          (p: any) => p.id === photo.projectId,
-        );
-        if (projectIndex !== -1) {
-          // Remove photo from project
-          projectsData[projectIndex].photos = projectsData[
-            projectIndex
-          ].photos.filter(
-            (p: any) => (typeof p === "string" ? p : p.url) !== photo.url,
-          );
-
-          // Save updated projects
-          localStorage.setItem("projects", JSON.stringify(projectsData));
-
-          // Refresh the gallery
-          window.location.reload();
-
-          toast.success("Photo deleted successfully");
-        }
-      } catch (error) {
-        console.error("Error deleting photo:", error);
-        toast.error("Failed to delete photo");
+  const handlePhotoDelete = async (photo: PhotoWithMetadata) => {
+    if (!confirm("Are you sure you want to delete this photo?")) return;
+    try {
+      // Find the media record id from the url by reloading the project media
+      const mediaItems = await dataService.getProjectPhotos(photo.projectId) as any[];
+      const mediaRecord = mediaItems.find((m: any) => m.file_path === photo.url);
+      if (mediaRecord) {
+        await dataService.deleteProjectPhoto(mediaRecord.id);
+        toast.success("Photo deleted successfully");
+        // Remove from local state without a full reload
+        setPhotos((prev) => prev.filter((p) => p.url !== photo.url));
+      } else {
+        toast.error("Could not find media record to delete");
       }
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      toast.error("Failed to delete photo");
     }
   };
 
   const handlePhotoToggleFavorite = (photo: PhotoWithMetadata) => {
     try {
-      // Get projects from localStorage
-      const projectsData = JSON.parse(localStorage.getItem("projects") || "[]");
-
-      // Find and update the project that contains this photo
-      const projectIndex = projectsData.findIndex(
-        (p: any) => p.id === photo.projectId,
+      const newIsPrimary = !photo.isPrimary;
+      // Update local state immediately for responsiveness
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.url === photo.url ? { ...p, isPrimary: newIsPrimary } : p,
+        ),
       );
-      if (projectIndex !== -1) {
-        // Find the photo and toggle isPrimary (using as favorite)
-        const photoIndex = projectsData[projectIndex].photos.findIndex(
-          (p: any) => (typeof p === "string" ? p : p.url) === photo.url,
-        );
-
-        if (photoIndex !== -1) {
-          const currentPhoto = projectsData[projectIndex].photos[photoIndex];
-          if (typeof currentPhoto === "object") {
-            currentPhoto.isPrimary = !currentPhoto.isPrimary;
-          }
-
-          // Save updated projects
-          localStorage.setItem("projects", JSON.stringify(projectsData));
-
-          // Refresh the gallery
-          window.location.reload();
-
-          toast.success(
-            currentPhoto.isPrimary
-              ? "Added to favorites"
-              : "Removed from favorites",
-          );
-        }
-      }
+      toast.success(newIsPrimary ? "Added to favorites" : "Removed from favorites");
     } catch (error) {
       console.error("Error toggling favorite:", error);
       toast.error("Failed to update favorite status");
