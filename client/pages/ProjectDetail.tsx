@@ -1736,7 +1736,7 @@ export default function ProjectDetail() {
                               return (
                                 <div
                                   key={`photo-${index}-${photoUrl.slice(-10)}`}
-                                  className={`group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-muted shadow-sm hover:shadow-lg transition-shadow ${
+                                  className={`group relative aspect-video cursor-pointer overflow-hidden rounded-lg bg-black shadow-sm hover:shadow-lg transition-shadow ${
                                     selectedPhotos.includes(index)
                                       ? "ring-2 ring-primary"
                                       : ""
@@ -1747,7 +1747,7 @@ export default function ProjectDetail() {
                                     <>
                                       <video
                                         src={photoUrl}
-                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedPhoto(photoUrl);
@@ -1762,7 +1762,7 @@ export default function ProjectDetail() {
                                       <ImageWithFallback
                                         photo={photo}
                                         alt={`Photo ${index + 1}`}
-                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedPhoto(photoUrl);
