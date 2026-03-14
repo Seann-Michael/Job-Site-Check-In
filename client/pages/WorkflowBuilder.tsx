@@ -363,7 +363,10 @@ export default function WorkflowBuilder() {
   const [showStepConfig, setShowStepConfig] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [workflowId, setWorkflowId] = useState(id || null);
+  // Pre-generate an ID for new workflows so the webhook URL is available immediately
+  const [workflowId, setWorkflowId] = useState<string | null>(
+    id || crypto.randomUUID()
+  );
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
 
   // Load workflow if editing existing one
@@ -476,12 +479,13 @@ export default function WorkflowBuilder() {
           description: "Workflow updated successfully",
         });
       } else {
-        // Create new workflow
+        // Create new workflow using the pre-generated ID
         const workflow = await dataService.createWorkflow(
           user.id,
           workflowName,
           steps,
           workflowDescription,
+          workflowId ?? undefined,
         );
         setWorkflowId(workflow.id as string);
         toast({

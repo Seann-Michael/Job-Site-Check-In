@@ -1325,13 +1325,14 @@ export class DataService {
   }
 
   // Workflow methods
-  async createWorkflow(businessId: string, name: string, steps: any[], description?: string) {
+  async createWorkflow(businessId: string, name: string, steps: any[], description?: string, presetId?: string) {
     try {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("workflows")
         .insert({
+          ...(presetId ? { id: presetId } : {}),
           business_id: businessId,
           name,
           description,
