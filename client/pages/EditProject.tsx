@@ -52,23 +52,38 @@ export default function EditProject() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
   const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
+  const [existingMetadata, setExistingMetadata] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    const projects = JSON.parse(localStorage.getItem("projects") || "[]");
-    const project = projects.find((p: Project) => p.id === id);
-    if (project) {
-      setFormData({
-        name: project.name,
-        description: project.description,
-        address: project.address,
-        gpsLat: project.gpsLat || "",
-        gpsLng: project.gpsLng || "",
-        customerName: project.customerName || "",
-        mobilePhone: project.mobilePhone || project.customerPhone || "",
-        additionalPhones: project.additionalPhones || [""],
-        keywords: project.keywords.join(", "),
-      });
-    }
+    const loadProject = async () => {
+      if (!id) return;
+      try {
+        const project = await dataService.getProject(id);
+        if (project) {
+          const meta = (project as any).metadata || {};
+          setExistingMetadata(meta);
+          const keywords: string[] = meta.keywords || [];
+          const clientContact = (project as any).client_contact || {};
+          setFormData({
+            name: project.name || "",
+            description: project.description || "",
+            address: clientContact.address || "",
+            gpsLat: meta.gps_lat || "",
+            gpsLng: meta.gps_lng || "",
+            customerName: clientContact.name || "",
+            mobilePhone: clientContact.phone || "",
+            additionalPhones: clientContact.additional_phones?.length
+              ? clientContact.additional_phones
+              : [""],
+            keywords: keywords.join(", "),
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load project:", error);
+        toast.error("Failed to load project data");
+      }
+    };
+    loadProject();
   }, [id]);
 
   const handleInputChange = (field: string, value: string) => {
@@ -237,8 +252,9 @@ export default function EditProject() {
           additional_phones: formData.additionalPhones.filter(Boolean),
           address: formData.address,
         },
-        // Store keywords and GPS in the metadata JSONB column
+        // Merge keywords and GPS into existing metadata — preserving other keys (e.g. documents)
         metadata: {
+          ...existingMetadata,
           keywords,
           gps_lat: formData.gpsLat,
           gps_lng: formData.gpsLng,
