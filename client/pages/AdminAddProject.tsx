@@ -51,7 +51,7 @@ interface EnhancedPhoto {
 // Home services project types
 const HOME_SERVICE_TYPES = [
   { value: "renovation", label: "Renovation", icon: Home },
-  { value: "construction", label: "Construction", icon: Building2 },
+  { value: "construction", label: "Construction", icon: Home },
   { value: "repair", label: "Repair", icon: Wrench },
   { value: "painting", label: "Painting", icon: Palette },
   { value: "landscaping", label: "Landscaping", icon: TreePine },
