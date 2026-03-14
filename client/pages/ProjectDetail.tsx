@@ -56,6 +56,7 @@ import {
   AtSign,
   Smartphone,
   Monitor,
+  Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -1305,8 +1306,41 @@ export default function ProjectDetail() {
                       </button>
                     </div>
                   )}
+                  {/* Customer contact info */}
+                  {(() => {
+                    const cc = (project as any).client_contact || {};
+                    const name = cc.name || cc.contact_name || "";
+                    const phone = cc.phone || cc.contact_phone || "";
+                    const email = cc.email || cc.contact_email || "";
+                    if (!name && !phone && !email) return null;
+                    return (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                        {name && (
+                          <span className="text-sm font-medium text-foreground">{name}</span>
+                        )}
+                        {phone && (
+                          <a
+                            href={`tel:${phone}`}
+                            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Phone className="h-3 w-3" />
+                            {phone}
+                          </a>
+                        )}
+                        {email && (
+                          <a
+                            href={`mailto:${email}`}
+                            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Mail className="h-3 w-3" />
+                            {email}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div
-                    className="flex items-center gap-2 text-muted-foreground mt-1"
+                    className="flex items-center gap-2 text-muted-foreground mt-0.5"
                     key="address-display"
                   >
                     <MapPin className="h-4 w-4 flex-shrink-0" />
