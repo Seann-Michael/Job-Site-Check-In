@@ -12,7 +12,6 @@ import {
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { HeaderSearch } from "@/components/SmartSearch";
-import { ThemeToggle } from "@/components/ThemeProvider";
 import {
   Shield,
   BarChart3,
@@ -357,9 +356,6 @@ export function SuperAdminLayout({
               <div className="hidden sm:block">
                 <HeaderSearch />
               </div>
-
-              {/* Theme Toggle */}
-              <ThemeToggle />
 
               {/* Notifications */}
               <NotificationDropdown />

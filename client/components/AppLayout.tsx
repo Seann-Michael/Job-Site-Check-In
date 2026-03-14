@@ -21,7 +21,6 @@ import {
 
 import { ContextualHeader } from "@/components/ContextualHeader";
 import { HeaderSearch } from "@/components/SmartSearch";
-import { ThemeToggle } from "@/components/ThemeProvider";
 import { AppNotifications } from "@/components/UpdateNotification";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Footer } from "@/components/Footer";
@@ -703,9 +702,6 @@ export function AppLayout({
 
                   {/* Notifications */}
                   <NotificationDropdown />
-
-                  {/* Theme Toggle */}
-                  <ThemeToggle />
 
                   {/* User Menu */}
                   <DropdownMenu>

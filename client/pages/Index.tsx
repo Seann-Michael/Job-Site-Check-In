@@ -21,7 +21,6 @@ import { toast } from "sonner";
 import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
-import { ThemeToggle } from "@/components/ThemeProvider";
 import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 import { Project, User, Business } from "@/lib/dataService";
 
@@ -222,7 +221,6 @@ export default function Index() {
       <AppLayout
         title="Projects"
         breadcrumbs={[{ label: "Projects", href: "/" }]}
-        actions={<ThemeToggle />}
       >
         <ProjectGridSkeleton />
       </AppLayout>
@@ -233,7 +231,6 @@ export default function Index() {
     <AppLayout
       title="Projects"
       breadcrumbs={[{ label: "Projects", href: "/" }]}
-      actions={<ThemeToggle />}
     >
       <div className="container mx-auto p-6 space-y-6">
         <EnhancedBroadcastAlert />
