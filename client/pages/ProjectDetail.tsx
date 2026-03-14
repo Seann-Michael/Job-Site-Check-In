@@ -1453,6 +1453,42 @@ export default function ProjectDetail() {
                                     />
                                   </div>
 
+                                  {/* Star / Primary badge */}
+                                  {(() => {
+                                    const isPrimary = typeof photo === "object" ? !!photo.isPrimary : false;
+                                    return (
+                                      <button
+                                        className={`absolute bottom-2 right-2 z-10 rounded-full p-1 transition-all ${
+                                          isPrimary
+                                            ? "opacity-100 bg-black/40"
+                                            : "opacity-0 group-hover:opacity-100 bg-black/40"
+                                        }`}
+                                        title={isPrimary ? "Primary photo – click to unset" : "Set as primary photo"}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePhotoToggleFavorite(photo);
+                                        }}
+                                      >
+                                        <Star
+                                          className={`h-4 w-4 transition-colors ${
+                                            isPrimary
+                                              ? "fill-yellow-400 text-yellow-400"
+                                              : "text-white"
+                                          }`}
+                                        />
+                                      </button>
+                                    );
+                                  })()}
+
+                                  {/* Primary badge label */}
+                                  {typeof photo === "object" && photo.isPrimary && (
+                                    <div className="absolute top-2 left-1/2 -translate-x-1/2">
+                                      <span className="text-[10px] font-semibold bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+                                        Primary
+                                      </span>
+                                    </div>
+                                  )}
+
                                   {photoTags.length > 0 && (
                                     <div className="absolute bottom-1 left-1 flex flex-wrap gap-1">
                                       {photoTags
