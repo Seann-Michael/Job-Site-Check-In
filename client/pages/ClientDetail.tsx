@@ -15,6 +15,7 @@ import {
   MapPin,
   FileText,
   Images,
+  Video,
   Star,
   FolderOpen,
   Edit,
@@ -109,6 +110,7 @@ export default function ClientDetail() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const [videos, setVideos] = useState<MediaItem[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
@@ -149,6 +151,15 @@ export default function ClientDetail() {
           .order("created_at", { ascending: false })
           .limit(50);
         setMedia(mediaData || []);
+
+        const { data: videoData } = await supabase
+          .from("project_media")
+          .select("id, file_path, original_name, media_type, created_at")
+          .in("project_id", projectIds)
+          .eq("media_type", "video")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        setVideos(videoData || []);
 
         const { data: docData } = await supabase
           .from("project_documents")
@@ -390,11 +401,11 @@ export default function ClientDetail() {
                 <Badge variant="secondary" className="ml-1 text-xs">{projects.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="photos" className="gap-1.5">
+            <TabsTrigger value="media" className="gap-1.5">
               <Images className="h-4 w-4" />
-              Photos
-              {media.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">{media.length}</Badge>
+              Media
+              {(media.length + videos.length) > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{media.length + videos.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="documents" className="gap-1.5">
@@ -523,17 +534,24 @@ export default function ClientDetail() {
             </Card>
           </TabsContent>
 
-          {/* Photos */}
-          <TabsContent value="photos" className="mt-4">
+          {/* Media */}
+          <TabsContent value="media" className="mt-4 space-y-4">
+            {/* Photos */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Photos</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Images className="h-4 w-4" />
+                  Photos
+                  {media.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">{media.length}</Badge>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {media.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
                     <Images className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                    <p>No photos across linked jobs</p>
+                    <p className="text-sm">No photos across linked jobs</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -552,6 +570,46 @@ export default function ClientDetail() {
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = "/placeholder.svg";
                             }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Videos */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  Videos
+                  {videos.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">{videos.length}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {videos.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Video className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No videos across linked jobs</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {videos.map((item) => {
+                      const url = getSupabaseUrl(item.file_path);
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-lg overflow-hidden bg-muted aspect-video"
+                        >
+                          <video
+                            src={url}
+                            controls
+                            className="h-full w-full object-cover"
+                            preload="metadata"
                           />
                         </div>
                       );
