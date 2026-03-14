@@ -84,6 +84,7 @@ interface TaggedPhoto {
   uploadedAt: string;
   uploadedBy: string;
   isPrimary?: boolean;
+  _dbId?: string;
 }
 
 interface ProjectDocument {
@@ -215,6 +216,20 @@ export default function ProjectDetail() {
         const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id);
         if (foundProject) {
+          // Load photos from database
+          const dbPhotos = await dataService.getProjectPhotos(foundProject.id);
+
+          // Convert ProjectPhoto objects to TaggedPhoto format
+          const convertedPhotos: TaggedPhoto[] = dbPhotos.map((photo: any) => ({
+            url: photo.file_path,
+            tags: photo.metadata?.tags || [],
+            uploadedAt: photo.created_at,
+            uploadedBy: photo.uploaded_by || "Unknown",
+            isPrimary: photo.is_featured,
+            // Keep reference to DB photo ID for deletion
+            _dbId: photo.id,
+          }));
+
           // Ensure all required arrays exist
           const projectWithDefaults = {
             ...foundProject,
@@ -223,12 +238,7 @@ export default function ProjectDetail() {
             tasks: foundProject.tasks || [],
             checklist: foundProject.checklist || [],
             keywords: foundProject.keywords || [],
-            photos:
-              foundProject.photos ||
-              foundProject.before_photos ||
-              foundProject.after_photos ||
-              foundProject.progress_photos ||
-              [],
+            photos: convertedPhotos.length > 0 ? convertedPhotos : [],
             documents: foundProject.documents || [],
             additionalPhones: foundProject.additionalPhones || [],
           };
@@ -359,36 +369,68 @@ export default function ProjectDetail() {
     toast.success(`Review request sent via ${method}!`);
   };
 
-  const handleMediaFilesReady = (files: any[]) => {
-    const newPhotos: TaggedPhoto[] = files.map((file) => ({
-      url: file.preview || file.url,
-      tags: file.tags || [],
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: getCurrentUser()?.name || "Unknown",
-    }));
+  const handleMediaFilesReady = async (files: any[]) => {
+    if (!project) return;
 
-    const updatedProject = {
-      ...project,
-      photos: [...(project.photos || []), ...newPhotos],
-    };
+    try {
+      const newPhotos: TaggedPhoto[] = [];
+      let uploadedCount = 0;
 
-    const entry = {
-      id: Date.now().toString(),
-      action: "photos_added",
-      description: `Added ${newPhotos.length} photos`,
-      timestamp: new Date().toISOString(),
-      user: getCurrentUser()?.name || "Unknown",
-      platform: "web" as const,
-    };
+      for (const file of files) {
+        try {
+          // Upload to Supabase
+          const uploadedPhoto = await dataService.uploadProjectPhoto(project.id, file, {
+            tags: file.tags || [],
+            category: "progress",
+          });
 
-    const projectWithActivity = {
-      ...updatedProject,
-      activityLog: [entry, ...(updatedProject.activityLog || [])],
-    };
+          // Convert returned ProjectPhoto to TaggedPhoto
+          newPhotos.push({
+            url: uploadedPhoto.file_path,
+            tags: file.tags || [],
+            uploadedAt: uploadedPhoto.created_at,
+            uploadedBy: uploadedPhoto.uploaded_by || "Unknown",
+            isPrimary: uploadedPhoto.is_featured,
+            _dbId: uploadedPhoto.id,
+          });
+          uploadedCount++;
+        } catch (uploadError) {
+          console.error("Error uploading individual photo:", uploadError);
+          toast.error(`Failed to upload ${file.name}`);
+        }
+      }
 
-    updateProject(projectWithActivity);
-    setShowMediaUploader(false);
-    toast.success(`Added ${newPhotos.length} photos to the project`);
+      if (uploadedCount === 0) {
+        toast.error("No photos were uploaded");
+        return;
+      }
+
+      const updatedProject = {
+        ...project,
+        photos: [...(project.photos || []), ...newPhotos],
+      };
+
+      const entry = {
+        id: Date.now().toString(),
+        action: "photos_added",
+        description: `Added ${uploadedCount} photo(s)`,
+        timestamp: new Date().toISOString(),
+        user: getCurrentUser()?.name || "Unknown",
+        platform: "web" as const,
+      };
+
+      const projectWithActivity = {
+        ...updatedProject,
+        activityLog: [entry, ...(updatedProject.activityLog || [])],
+      };
+
+      setProject(projectWithActivity);
+      setShowMediaUploader(false);
+      toast.success(`Successfully uploaded ${uploadedCount} photo(s)`);
+    } catch (error) {
+      console.error("Error in handleMediaFilesReady:", error);
+      toast.error("Failed to upload photos");
+    }
   };
 
   const handleDocumentUpload = (files: FileList | null) => {
@@ -427,55 +469,86 @@ export default function ProjectDetail() {
     toast.success(`Added ${newDocuments.length} document(s) to the project`);
   };
 
-  const addMorePhotos = (files: FileList | null) => {
+  const addMorePhotos = async (files: FileList | null) => {
     if (!files || !project) return;
 
-    const newPhotos: TaggedPhoto[] = [];
-    Array.from(files).forEach((file) => {
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            newPhotos.push({
-              url: e.target.result as string,
-              tags: [],
-              uploadedAt: new Date().toISOString(),
-              uploadedBy: "Current User",
-            });
+    try {
+      const newPhotos: TaggedPhoto[] = [];
+      let uploadedCount = 0;
 
-            if (newPhotos.length === files.length) {
-              const updatedProject = {
-                ...project,
-                photos: [...(project.photos || []), ...newPhotos],
-              };
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) continue;
 
-              updateProject(updatedProject);
-              addActivityLogEntry(
-                "photos_added",
-                `Added ${newPhotos.length} new photo(s)`,
-              );
-              toast.success(`Added ${newPhotos.length} new photo(s)`);
-            }
-          }
-        };
-        reader.readAsDataURL(file);
+        try {
+          // Upload to Supabase
+          const uploadedPhoto = await dataService.uploadProjectPhoto(project.id, file, {
+            category: "progress",
+          });
+
+          // Convert returned ProjectPhoto to TaggedPhoto
+          newPhotos.push({
+            url: uploadedPhoto.file_path,
+            tags: [],
+            uploadedAt: uploadedPhoto.created_at,
+            uploadedBy: uploadedPhoto.uploaded_by || "Unknown",
+            isPrimary: uploadedPhoto.is_featured,
+            _dbId: uploadedPhoto.id,
+          });
+          uploadedCount++;
+        } catch (uploadError) {
+          console.error("Error uploading individual photo:", uploadError);
+          toast.error(`Failed to upload ${file.name}`);
+        }
       }
-    });
-  };
 
-  const removePhoto = (index: number) => {
-    if (!project) return;
+      if (uploadedCount === 0) {
+        toast.error("No photos were uploaded");
+        return;
+      }
 
-    if (confirm("Are you sure you want to remove this photo?")) {
-      const updatedPhotos = project.photos.filter((_, i) => i !== index);
       const updatedProject = {
         ...project,
-        photos: updatedPhotos,
+        photos: [...(project.photos || []), ...newPhotos],
       };
 
       updateProject(updatedProject);
-      addActivityLogEntry("photo_removed", "Photo removed from project");
-      toast.success("Photo removed successfully");
+      addActivityLogEntry(
+        "photos_added",
+        `Added ${uploadedCount} new photo(s)`,
+      );
+      toast.success(`Added ${uploadedCount} new photo(s)`);
+    } catch (error) {
+      console.error("Error in addMorePhotos:", error);
+      toast.error("Failed to upload photos");
+    }
+  };
+
+  const removePhoto = async (index: number) => {
+    if (!project) return;
+
+    if (confirm("Are you sure you want to remove this photo?")) {
+      try {
+        const photo = project.photos[index];
+        const dbId = typeof photo === "object" ? (photo as any)._dbId : null;
+
+        // Delete from database if we have the ID
+        if (dbId) {
+          await dataService.deleteProjectPhoto(dbId);
+        }
+
+        const updatedPhotos = project.photos.filter((_, i) => i !== index);
+        const updatedProject = {
+          ...project,
+          photos: updatedPhotos,
+        };
+
+        setProject(updatedProject);
+        addActivityLogEntry("photo_removed", "Photo removed from project");
+        toast.success("Photo removed successfully");
+      } catch (error) {
+        console.error("Error removing photo:", error);
+        toast.error("Failed to remove photo");
+      }
     }
   };
 
