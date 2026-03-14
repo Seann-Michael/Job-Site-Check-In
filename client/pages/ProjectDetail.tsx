@@ -389,7 +389,17 @@ export default function ProjectDetail() {
 
           // Debug logging for video detection
           const fileExt = actualFile.name?.split(".").pop()?.toLowerCase() || "";
-          console.log(`[Media Upload] File: ${actualFile.name}, Type: ${actualFile.type}, Extension: ${fileExt}`);
+          console.log(`[Media Upload] ===== START =====`);
+          console.log(`[Media Upload] fileWithMetadata keys:`, Object.keys(fileWithMetadata));
+          console.log(`[Media Upload] fileWithMetadata.file:`, fileWithMetadata.file);
+          console.log(`[Media Upload] actualFile:`, actualFile);
+          console.log(`[Media Upload] actualFile.name:`, actualFile.name);
+          console.log(`[Media Upload] actualFile.size:`, actualFile.size);
+          console.log(`[Media Upload] actualFile.type:`, actualFile.type);
+          console.log(`[Media Upload] Extension: ${fileExt}`);
+          console.log(`[Media Upload] Is actualFile a File?`, actualFile instanceof File);
+          console.log(`[Media Upload] Is actualFile a Blob?`, actualFile instanceof Blob);
+          console.log(`[Media Upload] ===== END =====`);
 
           // Parse tags - SmartMediaUploader provides tags as a string
           const tagsArray = typeof fileWithMetadata.tags === "string"
