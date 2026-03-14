@@ -194,12 +194,6 @@ export default function SuperAdmin() {
                 <SelectItem value="365d">Last 365 Days</SelectItem>
               </SelectContent>
             </Select>
-            <Link to="/super-admin/financial">
-              <Button className="gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Financial Dashboard
-              </Button>
-            </Link>
           </div>
         </div>
 
@@ -470,12 +464,6 @@ export default function SuperAdmin() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Link to="/super-admin/financial">
-                  <Button variant="outline" className="w-full gap-2">
-                    <TrendingUp className="h-4 w-4" />
-                    Financial Dashboard
-                  </Button>
-                </Link>
                 <Link to="/super-admin/settings">
                   <Button variant="outline" className="w-full gap-2">
                     <Users className="h-4 w-4" />

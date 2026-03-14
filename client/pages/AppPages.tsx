@@ -240,12 +240,6 @@ export default function AppPages() {
           icon: FileText,
         },
         {
-          name: "Agency Billing",
-          path: "/agency/admin/billing",
-          description: "Billing and invoicing",
-          icon: CreditCard,
-        },
-        {
           name: "Agency Settings",
           path: "/agency/admin/settings",
           description: "Agency configuration",
@@ -434,12 +428,6 @@ export default function AppPages() {
           path: "/super-admin/support",
           description: "Support management",
           icon: MessageSquare,
-        },
-        {
-          name: "Super Admin Financial",
-          path: "/super-admin/financial",
-          description: "Financial management",
-          icon: DollarSign,
         },
         {
           name: "Super Admin Communications",

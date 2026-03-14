@@ -69,17 +69,6 @@ export function NotificationDropdown() {
         category: "project",
       },
       {
-        id: "3",
-        type: "warning",
-        title: "Credit Balance Low",
-        message: "Your credit balance is running low. Consider purchasing more credits to continue using premium features.",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
-        read: true,
-        source: "system",
-        priority: "high",
-        category: "billing",
-      },
-      {
         id: "4",
         type: "info",
         title: "New Report Available",

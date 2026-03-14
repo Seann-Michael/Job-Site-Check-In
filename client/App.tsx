@@ -32,9 +32,6 @@ const Tools = lazy(() => import("./pages/Tools"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
-const AdminBillingManagement = lazy(
-  () => import("./pages/AdminBillingManagement"),
-);
 const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
@@ -74,7 +71,6 @@ const SuperAdminPerformance = lazy(
 const SuperAdminQuality = lazy(() => import("./pages/SuperAdminQuality"));
 const SuperAdminHelp = lazy(() => import("./pages/SuperAdminHelp"));
 const SuperAdminSupport = lazy(() => import("./pages/SuperAdminSupport"));
-const SuperAdminFinancial = lazy(() => import("./pages/SuperAdminFinancial"));
 const SuperAdminUsers = lazy(() => import("./pages/SuperAdminUsers"));
 const SuperAdminCommunications = lazy(
   () => import("./pages/SuperAdminCommunications"),
@@ -467,15 +463,6 @@ const App = () => (
                 />
 
                 <Route
-                  path="/admin/billing"
-                  element={
-                    <ProtectedRoute>
-                      <AdminBillingManagement />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
                   path="/admin/help"
                   element={
                     <ProtectedRoute>
@@ -612,14 +599,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <SuperAdminSupport />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/super-admin/financial"
-                  element={
-                    <ProtectedRoute>
-                      <SuperAdminFinancial />
                     </ProtectedRoute>
                   }
                 />

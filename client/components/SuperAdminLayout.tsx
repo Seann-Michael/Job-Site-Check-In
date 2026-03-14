@@ -141,12 +141,6 @@ export function SuperAdminLayout({
       active: location.pathname.startsWith("/super-admin/quality"),
     },
     {
-      label: "Financial Dashboard",
-      href: "/super-admin/financial",
-      icon: DollarSign,
-      active: location.pathname === "/super-admin/financial",
-    },
-    {
       label: "Help Center",
       href: "/super-admin/help",
       icon: BookOpen,

@@ -78,101 +78,13 @@ function expressPlugin(): Plugin {
     configureServer(server) {
       const app = createServer();
 
-      // Handle API, public routes and Netlify function requests with proper middleware order
+      // Route API and public routes to the local express app
       server.middlewares.use(async (req: any, res: any, next: any) => {
         try {
           const url = req.url || "";
-
-          // Route normal API and public routes to the local express app
           if (url.startsWith("/api/") || url.startsWith("/public/")) {
             return app(req, res, next);
           }
-
-          // Handle API endpoints in dev (supports both /api/ and legacy /.netlify/functions/)
-          if (url.startsWith("/api/") || url.startsWith("/.netlify/functions/")) {
-            // Extract function name and remaining path
-            const cleanPath = url.startsWith("/api/") ? url.replace("/api/", "") : url.replace("/.netlify/functions/", "");
-            const parts = cleanPath.split("/");
-            const funcName = parts.shift();
-            const remainingPath = parts.length ? `/${parts.join("/")}` : "";
-
-            if (!funcName) return next();
-
-            // Resolve module path in dev (support .ts files) - try api/ first, then netlify/functions/
-            const modulePathTsApi = path.resolve(process.cwd(), `api/${funcName}.ts`);
-            const modulePathJsApi = path.resolve(process.cwd(), `api/${funcName}.js`);
-            const modulePathTs = path.resolve(process.cwd(), `netlify/functions/${funcName}.ts`);
-            const modulePathJs = path.resolve(process.cwd(), `netlify/functions/${funcName}.js`);
-
-            let mod: any = null;
-            try {
-              // Try to load from api/ directory first
-              mod = await server.ssrLoadModule(modulePathTsApi);
-            } catch (e) {
-              try {
-                mod = await server.ssrLoadModule(modulePathJsApi);
-              } catch (e2) {
-                try {
-                  // Fall back to netlify/functions/ for legacy support
-                  mod = await server.ssrLoadModule(modulePathTs);
-                } catch (e3) {
-                  try {
-                    mod = await server.ssrLoadModule(modulePathJs);
-                  } catch (err) {
-                    console.error(`Failed to load API function module for ${funcName}:`, err);
-                    res.statusCode = 500;
-                    return res.end(`Function ${funcName} not found`);
-                  }
-                }
-              }
-            }
-
-            if (!mod || typeof mod.handler !== "function") {
-              res.statusCode = 500;
-              return res.end(`Function ${funcName} handler not found`);
-            }
-
-            // Collect body
-            let body = "";
-            req.on("data", (chunk: any) => (body += chunk));
-            await new Promise((resolve) => req.on("end", resolve));
-
-            // Build Netlify-style event
-            const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-            const queryParams: Record<string, string> = {};
-            for (const [k, v] of parsedUrl.searchParams.entries()) {
-              queryParams[k] = v as string;
-            }
-
-            const event = {
-              httpMethod: req.method,
-              path: url.startsWith("/api/") ? `/api/${funcName}${remainingPath}` : `/.netlify/functions/${funcName}${remainingPath}`,
-              headers: req.headers,
-              queryStringParameters: queryParams,
-              body: body || null,
-              isBase64Encoded: false,
-            };
-
-            try {
-              const result = await mod.handler(event, {});
-              if (!result || typeof result !== "object") {
-                res.statusCode = 500;
-                return res.end(`Invalid function response for ${funcName}`);
-              }
-
-              const statusCode = result.statusCode || 200;
-              const headersOut = result.headers || { "Content-Type": "application/json" };
-              const bodyOut = typeof result.body === "string" ? result.body : JSON.stringify(result.body || {});
-
-              res.writeHead(statusCode, headersOut);
-              return res.end(bodyOut);
-            } catch (fnErr) {
-              console.error(`Error running Netlify function ${funcName}:`, fnErr);
-              res.statusCode = 500;
-              return res.end(`Function ${funcName} execution error`);
-            }
-          }
-
           return next();
         } catch (err) {
           console.error("Vite dev middleware error:", err);
