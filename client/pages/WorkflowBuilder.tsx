@@ -17,7 +17,6 @@ import {
   Zap,
   Mail,
   MessageSquare,
-  Calendar,
   Webhook,
   Database,
   Clock,
@@ -36,6 +35,13 @@ interface WorkflowStep {
   config: Record<string, any>;
 }
 
+interface AppAction {
+  id: string;
+  name: string;
+  description: string;
+  secondary?: boolean;
+}
+
 const availableApps = [
   // Triggers
   {
@@ -50,16 +56,12 @@ const availableApps = [
         name: "Receive Webhook",
         description: "Trigger when webhook is received",
       },
-    ],
-  },
-  {
-    type: "trigger",
-    app: "schedule",
-    name: "Schedule",
-    icon: Calendar,
-    color: "bg-purple-500",
-    actions: [
-      { id: "scheduled", name: "Scheduled", description: "Run on schedule" },
+      {
+        id: "send_webhook",
+        name: "Send Webhook",
+        description: "Send webhook to external service (secondary trigger)",
+        secondary: true,
+      },
     ],
   },
   {
@@ -120,7 +122,8 @@ const availableApps = [
       {
         id: "create_job",
         name: "Create Job",
-        description: "Create a new job (secondary trigger after webhook)",
+        description: "Create a new job (secondary trigger)",
+        secondary: true,
       },
     ],
   },
@@ -573,6 +576,13 @@ export default function WorkflowBuilder() {
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto">
                 <div className="grid gap-3">
+                  {selectorType === "trigger" && canAddTrigger && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> Secondary triggers (greyed out) can only be used after you've set up your initial trigger.
+                      </p>
+                    </div>
+                  )}
                   {availableApps
                     .filter((app) =>
                       selectorType === "trigger"
@@ -589,29 +599,37 @@ export default function WorkflowBuilder() {
                           </div>
                           {app.name}
                         </div>
-                        {app.actions.map((action) => (
-                          <Card
-                            key={action.id}
-                            className="cursor-pointer hover:shadow-md transition-shadow"
-                            onClick={() => addStep(app, action)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`p-2 rounded-lg ${app.color} text-white`}
-                                >
-                                  <app.icon className="h-4 w-4" />
+                        {app.actions.map((action: AppAction) => {
+                          const isSecondaryDisabled = selectorType === "trigger" && canAddTrigger && action.secondary;
+                          return (
+                            <Card
+                              key={action.id}
+                              className={`${isSecondaryDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:shadow-md"} transition-shadow`}
+                              onClick={() => !isSecondaryDisabled && addStep(app, action)}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-2 rounded-lg ${app.color} text-white`}
+                                  >
+                                    <app.icon className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-medium">{action.name}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {action.description}
+                                    </p>
+                                  </div>
+                                  {isSecondaryDisabled && (
+                                    <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded whitespace-nowrap">
+                                      Add trigger first
+                                    </span>
+                                  )}
                                 </div>
-                                <div>
-                                  <h4 className="font-medium">{action.name}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {action.description}
-                                  </p>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                         {app !== availableApps[availableApps.length - 1] && (
                           <Separator className="my-4" />
                         )}
@@ -778,30 +796,6 @@ function StepConfigForm({
                 value={config.method || "POST"}
                 onChange={(e) => updateConfig("method", e.target.value)}
                 placeholder="POST"
-              />
-            </div>
-          </div>
-        );
-
-      case "schedule_scheduled":
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="schedule_type">Schedule Type</Label>
-              <Input
-                id="schedule_type"
-                value={config.schedule_type || "daily"}
-                onChange={(e) => updateConfig("schedule_type", e.target.value)}
-                placeholder="daily, weekly, monthly"
-              />
-            </div>
-            <div>
-              <Label htmlFor="time">Time</Label>
-              <Input
-                id="time"
-                type="time"
-                value={config.time || "09:00"}
-                onChange={(e) => updateConfig("time", e.target.value)}
               />
             </div>
           </div>
