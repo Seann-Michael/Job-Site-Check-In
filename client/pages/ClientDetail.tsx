@@ -25,10 +25,12 @@ import {
   ExternalLink,
   Trash2,
   MessageSquare,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase, dataService } from "@/lib/dataService";
+import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 import { workspaceService } from "@/lib/workspaceService";
 import {
   Dialog,
@@ -118,6 +120,9 @@ export default function ClientDetail() {
   const [newJobName, setNewJobName] = useState("");
   const [newJobType, setNewJobType] = useState("residential");
   const [creatingJob, setCreatingJob] = useState(false);
+  const [showMediaUploader, setShowMediaUploader] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [selectedJobForUpload, setSelectedJobForUpload] = useState<string>("");
 
   const loadClient = async () => {
     if (!id) return;
@@ -213,6 +218,45 @@ export default function ClientDetail() {
   };
 
   const cancelEdit = () => setEditingField(null);
+
+  const handleMediaFilesReady = async (files: any[]) => {
+    if (!files.length) return;
+    const jobId = selectedJobForUpload || projects[0]?.id;
+    if (!jobId) {
+      toast.error("Please link a job to this client before uploading media");
+      return;
+    }
+    setUploadingMedia(true);
+    let uploaded = 0;
+    try {
+      for (const fileData of files) {
+        try {
+          const actualFile = fileData.file || fileData;
+          const tagsArray =
+            typeof fileData.tags === "string"
+              ? fileData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+              : fileData.tags || [];
+          await dataService.uploadProjectPhoto(jobId, actualFile, {
+            tags: tagsArray,
+            category: fileData.category || "general",
+            description: fileData.description || "",
+            is_featured: false,
+          });
+          uploaded++;
+        } catch (err) {
+          console.error("Upload error:", err);
+          toast.error(`Failed to upload ${fileData.original_name || fileData.fileName || "file"}`);
+        }
+      }
+      if (uploaded > 0) {
+        toast.success(`Uploaded ${uploaded} file${uploaded !== 1 ? "s" : ""}`);
+        setShowMediaUploader(false);
+        loadClient();
+      }
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
 
   const createJob = async () => {
     if (!newJobName.trim()) {
@@ -536,6 +580,27 @@ export default function ClientDetail() {
 
           {/* Media */}
           <TabsContent value="media" className="mt-4 space-y-4">
+            {/* Upload button row */}
+            <div className="flex justify-end">
+              <Button
+                onClick={() => {
+                  setSelectedJobForUpload(projects[0]?.id || "");
+                  setShowMediaUploader(true);
+                }}
+                className="gap-2"
+                size="sm"
+                disabled={projects.length === 0}
+              >
+                <Upload className="h-4 w-4" />
+                Add Media
+              </Button>
+              {projects.length === 0 && (
+                <p className="text-xs text-muted-foreground self-center ml-3">
+                  Create a job first to upload media
+                </p>
+              )}
+            </div>
+
             {/* Photos */}
             <Card>
               <CardHeader>
@@ -775,6 +840,63 @@ export default function ClientDetail() {
               {creatingJob ? "Creating…" : "Create Job"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Media Uploader Dialog */}
+      <Dialog open={showMediaUploader} onOpenChange={setShowMediaUploader}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Add Photos &amp; Videos
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Job selector when client has multiple jobs */}
+          {projects.length > 1 && (
+            <div className="space-y-1 pb-2 border-b">
+              <Label className="text-sm">Attach to job</Label>
+              <Select
+                value={selectedJobForUpload}
+                onValueChange={setSelectedJobForUpload}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a job" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Media will be stored under the selected job
+              </p>
+            </div>
+          )}
+
+          {uploadingMedia ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm">Uploading files…</p>
+            </div>
+          ) : (
+            <SmartMediaUploader
+              onFilesReady={handleMediaFilesReady}
+              projectInfo={{
+                name: client?.name || "",
+                keywords: [],
+                customerName: client?.name,
+                address: client?.address,
+              }}
+              maxFiles={20}
+              maxFileSize={100}
+              context={{ type: "project", isPublic: true }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
