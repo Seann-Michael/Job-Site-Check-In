@@ -186,6 +186,7 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
@@ -215,6 +216,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     const loadProject = async () => {
+      setIsLoadingProject(true);
       try {
         const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id);
@@ -252,6 +254,8 @@ export default function ProjectDetail() {
         }
       } catch (error) {
         console.error("Error loading project:", error);
+      } finally {
+        setIsLoadingProject(false);
       }
     };
 
@@ -1079,6 +1083,25 @@ export default function ProjectDetail() {
       user.name.toLowerCase().includes(mentionQuery.toLowerCase()),
     );
   };
+
+  if (isLoadingProject) {
+    return (
+      <AppLayout>
+        <div className="container px-4 py-6 max-w-full overflow-x-hidden">
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="ghost" size="icon" disabled>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-32 bg-muted animate-pulse rounded-lg" />
+            <div className="h-64 bg-muted animate-pulse rounded-lg" />
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!project) {
     return (
