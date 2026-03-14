@@ -103,15 +103,6 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
     };
 
     loadCompanies();
-
-    // Re-load when workspace state changes
-    const unsubscribe = workspaceService.subscribe((state) => {
-      if (!state.initialized) return;
-      // Trigger a reload when business list changes
-      loadCompanies();
-    });
-
-    return () => unsubscribe();
   }, []);
 
   const handleCompanyChange = async (companyId: string) => {

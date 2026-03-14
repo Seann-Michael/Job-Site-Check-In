@@ -119,10 +119,11 @@ class WorkspaceService {
         return this.state;
       }
 
-      // Only fetch business IDs from Supabase when the user has a real UUID
+      // Fetch business IDs — for real UUID users scope to owner_id,
+      // for local dev users (non-UUID id like "1") return all active businesses
       const businessIds = isValidUUID(workspaceUser.id)
         ? await this.fetchBusinessIds(workspaceUser.id)
-        : [];
+        : await this.fetchAllBusinessIds();
 
       const stored = localStorage.getItem("workspace_business_id");
       const currentBusinessId =
@@ -322,6 +323,24 @@ class WorkspaceService {
     }
   }
 
+  /** Dev/demo fallback — returns all active businesses when user has no UUID */
+  private async fetchAllBusinessIds(): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("id")
+        .eq("status", "active");
+
+      if (error) {
+        console.warn("[workspace] fetchAllBusinessIds error:", serializeError(error));
+        return [];
+      }
+      return (data ?? []).map((b: { id: string }) => b.id);
+    } catch {
+      return [];
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Public accessors
   // -------------------------------------------------------------------------
@@ -378,8 +397,10 @@ class WorkspaceService {
 
   async reloadBusinesses(): Promise<void> {
     const userId = this.getUserId();
-    if (!userId || !isValidUUID(userId)) return;
-    const businessIds = await this.fetchBusinessIds(userId);
+    if (!userId) return;
+    const businessIds = isValidUUID(userId)
+      ? await this.fetchBusinessIds(userId)
+      : await this.fetchAllBusinessIds();
     const currentBusinessId =
       this.state.currentBusinessId &&
       businessIds.includes(this.state.currentBusinessId)
