@@ -34,6 +34,8 @@ import {
   Copy,
   Eye,
   X,
+  Phone,
+  Timer,
 } from "lucide-react";
 
 interface WorkflowStep {
@@ -158,6 +160,43 @@ const availableApps = [
         id: "negative_review_received",
         name: "Negative Review Received",
         description: "When a negative review is received",
+      },
+    ],
+  },
+
+  {
+    type: "trigger",
+    app: "communication",
+    name: "Communication",
+    icon: Phone,
+    color: "bg-violet-500",
+    actions: [
+      {
+        id: "send_sms",
+        name: "Send SMS",
+        description: "Send an SMS message to a contact",
+        secondary: true,
+      },
+      {
+        id: "send_email",
+        name: "Send Email",
+        description: "Send an email to a contact",
+        secondary: true,
+      },
+    ],
+  },
+  {
+    type: "trigger",
+    app: "time",
+    name: "Time",
+    icon: Timer,
+    color: "bg-amber-500",
+    actions: [
+      {
+        id: "wait",
+        name: "Wait",
+        description: "Pause the workflow for a set amount of time",
+        secondary: true,
       },
     ],
   },
@@ -1534,6 +1573,125 @@ function StepConfigForm({
                 onChange={(e) => updateConfig("action_on_negative", e.target.value)}
                 placeholder="e.g., Create support ticket, Send response"
               />
+            </div>
+          </div>
+        );
+
+      case "communication_send_sms":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="sms_to">To (Phone Number)</Label>
+              <Input
+                id="sms_to"
+                value={config.sms_to || ""}
+                onChange={(e) => updateConfig("sms_to", e.target.value)}
+                placeholder="e.g., {{phone}} or +15550001234"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Use <code className="text-blue-600">{"{{variable}}"}</code> from a mapped webhook field.</p>
+            </div>
+            <div>
+              <Label htmlFor="sms_message">Message</Label>
+              <Textarea
+                id="sms_message"
+                value={config.sms_message || ""}
+                onChange={(e) => updateConfig("sms_message", e.target.value)}
+                placeholder="Hi {{first_name}}, your job has been created!"
+                className="min-h-[100px] resize-y text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Max 160 characters for a single SMS segment.</p>
+            </div>
+            <div>
+              <Label htmlFor="sms_from">From (Optional)</Label>
+              <Input
+                id="sms_from"
+                value={config.sms_from || ""}
+                onChange={(e) => updateConfig("sms_from", e.target.value)}
+                placeholder="Your Twilio number or sender ID"
+              />
+            </div>
+          </div>
+        );
+
+      case "communication_send_email":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email_to">To (Email Address)</Label>
+              <Input
+                id="email_to"
+                value={config.email_to || ""}
+                onChange={(e) => updateConfig("email_to", e.target.value)}
+                placeholder="e.g., {{email}} or jane@example.com"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Use <code className="text-blue-600">{"{{variable}}"}</code> from a mapped webhook field.</p>
+            </div>
+            <div>
+              <Label htmlFor="email_subject">Subject</Label>
+              <Input
+                id="email_subject"
+                value={config.email_subject || ""}
+                onChange={(e) => updateConfig("email_subject", e.target.value)}
+                placeholder="e.g., Your job {{job_title}} is ready"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email_body">Body</Label>
+              <Textarea
+                id="email_body"
+                value={config.email_body || ""}
+                onChange={(e) => updateConfig("email_body", e.target.value)}
+                placeholder={"Hi {{first_name}},\n\nYour job has been created.\n\nThanks!"}
+                className="min-h-[140px] resize-y text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email_from">From (Optional)</Label>
+              <Input
+                id="email_from"
+                value={config.email_from || ""}
+                onChange={(e) => updateConfig("email_from", e.target.value)}
+                placeholder="noreply@yourdomain.com"
+              />
+            </div>
+          </div>
+        );
+
+      case "time_wait":
+        return (
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800">
+                The workflow will pause at this step for the specified duration before continuing to the next action.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="wait_duration">Duration</Label>
+              <Input
+                id="wait_duration"
+                type="number"
+                min="1"
+                value={config.wait_duration || "1"}
+                onChange={(e) => updateConfig("wait_duration", e.target.value)}
+                placeholder="1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="wait_unit">Unit</Label>
+              <select
+                id="wait_unit"
+                value={config.wait_unit || "hours"}
+                onChange={(e) => updateConfig("wait_unit", e.target.value)}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              >
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+              </select>
+            </div>
+            <div className="text-xs text-muted-foreground bg-muted rounded-md p-2">
+              Wait: <strong>{config.wait_duration || 1} {config.wait_unit || "hours"}</strong> before proceeding
             </div>
           </div>
         );
