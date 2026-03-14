@@ -615,6 +615,28 @@ export function SmartMediaUploader({
     setFiles((prev) => prev.filter((file) => file.id !== id));
   }, []);
 
+  // Get corrected MIME type (extension-first for macOS compatibility)
+  const getCorrectedMimeType = useCallback((file: File) => {
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+    const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
+
+    // Priority: Extension > MIME type
+    if (videoExtensions.includes(fileExtension)) {
+      // Return common MIME type for the extension
+      if (fileExtension === "mov") return "video/quicktime";
+      if (fileExtension === "mp4") return "video/mp4";
+      return "video/*";
+    } else if (imageExtensions.includes(fileExtension)) {
+      if (fileExtension === "jpeg" || fileExtension === "jpg") return "image/jpeg";
+      if (fileExtension === "png") return "image/png";
+      if (fileExtension === "gif") return "image/gif";
+      if (fileExtension === "webp") return "image/webp";
+      return "image/*";
+    }
+    return file.file.type || "application/octet-stream";
+  }, []);
+
   // Get file icon (extension-first for macOS compatibility)
   const getFileIcon = useCallback((file: File) => {
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
@@ -939,7 +961,7 @@ export function SmartMediaUploader({
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>{formatFileSize(file.file.size)}</span>
                               <span>•</span>
-                              <span>{file.file.type}</span>
+                              <span>{getCorrectedMimeType(file.file)}</span>
                               {file.status === "processing" && (
                                 <>
                                   <span>•</span>
