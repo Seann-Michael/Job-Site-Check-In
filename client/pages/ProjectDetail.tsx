@@ -1035,8 +1035,8 @@ export default function ProjectDetail() {
             ? { ...p, isPrimary: false }
             : p
         );
+        // Build the complete updated project in one shot to avoid stale-closure overwrites
         setProject({ ...project, photos: updatedPhotos });
-        addActivityLogEntry("photo_unfavorited", "Photo removed from primary");
         toast.success("Removed as primary photo");
       } else {
         // Star: set this as the only primary, clear all others
@@ -1047,8 +1047,8 @@ export default function ProjectDetail() {
             ? { ...p, isPrimary: url === photoUrl }
             : p;
         });
+        // Build the complete updated project in one shot to avoid stale-closure overwrites
         setProject({ ...project, photos: updatedPhotos });
-        addActivityLogEntry("photo_favorited", "Photo set as primary");
         toast.success("Set as primary photo");
       }
     } catch (error) {
