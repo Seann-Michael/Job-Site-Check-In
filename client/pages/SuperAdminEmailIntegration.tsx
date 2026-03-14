@@ -1011,12 +1011,12 @@ export default function SuperAdminEmailIntegration() {
                         <TableCell>
                           <div className="text-sm">
                             <div>
-                              Sent: {provider.stats.sent.toLocaleString()}
+                              Sent: {(provider.stats?.sent ?? 0).toLocaleString()}
                             </div>
                             <div className="text-muted-foreground">
-                              {provider.stats.sent > 0
+                              {(provider.stats?.sent ?? 0) > 0
                                 ? `${Math.round(
-                                    (provider.stats.delivered /
+                                    ((provider.stats?.delivered ?? 0) /
                                       provider.stats.sent) *
                                       100,
                                   )}% delivered`
@@ -1280,9 +1280,9 @@ export default function SuperAdminEmailIntegration() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Used {template.usageCount} times</span>
-                        <span>{template.variables.length} variables</span>
+                        <span>{(template.variables || []).length} variables</span>
                       </div>
-                      {template.variables.length > 0 && (
+                      {(template.variables || []).length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {(template.variables || [])
                             .slice(0, 3)
@@ -1295,9 +1295,9 @@ export default function SuperAdminEmailIntegration() {
                                 {`{{${variable}}}`}
                               </Badge>
                             ))}
-                          {template.variables.length > 3 && (
+                          {(template.variables || []).length > 3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{template.variables.length - 3} more
+                              +{(template.variables || []).length - 3} more
                             </Badge>
                           )}
                         </div>
@@ -1353,20 +1353,24 @@ export default function SuperAdminEmailIntegration() {
                           <div className="text-sm">
                             <div>
                               Opened:{" "}
-                              {Math.round(
-                                (campaign.stats.opened /
-                                  campaign.stats.delivered) *
-                                  100,
-                              )}
+                              {campaign.stats?.delivered
+                                ? Math.round(
+                                    ((campaign.stats.opened ?? 0) /
+                                      campaign.stats.delivered) *
+                                      100,
+                                  )
+                                : 0}
                               %
                             </div>
                             <div className="text-muted-foreground">
                               Clicked:{" "}
-                              {Math.round(
-                                (campaign.stats.clicked /
-                                  campaign.stats.opened) *
-                                  100,
-                              )}
+                              {campaign.stats?.opened
+                                ? Math.round(
+                                    ((campaign.stats.clicked ?? 0) /
+                                      campaign.stats.opened) *
+                                      100,
+                                  )
+                                : 0}
                               %
                             </div>
                           </div>
@@ -1439,7 +1443,7 @@ export default function SuperAdminEmailIntegration() {
                           <div>
                             <div className="text-muted-foreground">Sent</div>
                             <div className="font-medium">
-                              {provider.stats.sent.toLocaleString()}
+                              {(provider.stats?.sent ?? 0).toLocaleString()}
                             </div>
                           </div>
                           <div>
@@ -1447,16 +1451,16 @@ export default function SuperAdminEmailIntegration() {
                               Delivered
                             </div>
                             <div className="font-medium">
-                              {provider.stats.sent > 0
-                                ? `${Math.round((provider.stats.delivered / provider.stats.sent) * 100)}%`
+                              {(provider.stats?.sent ?? 0) > 0
+                                ? `${Math.round(((provider.stats?.delivered ?? 0) / provider.stats.sent) * 100)}%`
                                 : "0%"}
                             </div>
                           </div>
                           <div>
                             <div className="text-muted-foreground">Opened</div>
                             <div className="font-medium">
-                              {provider.stats.delivered > 0
-                                ? `${Math.round((provider.stats.opened / provider.stats.delivered) * 100)}%`
+                              {(provider.stats?.delivered ?? 0) > 0
+                                ? `${Math.round(((provider.stats?.opened ?? 0) / provider.stats.delivered) * 100)}%`
                                 : "0%"}
                             </div>
                           </div>
