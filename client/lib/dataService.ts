@@ -457,8 +457,8 @@ export class DataService {
       };
 
       if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn("Supabase not configured, returning mock users");
-        return { data: this.getMockUsers() };
+        console.warn("Supabase not configured, returning empty users");
+        return { data: [] };
       }
 
       this.checkSupabaseConfig();
@@ -481,11 +481,8 @@ export class DataService {
       const { data, error, count } = await query;
 
       if (error) {
-        console.warn(
-          "Database table might not exist, falling back to mock data:",
-          error,
-        );
-        return { data: this.getMockUsers() };
+        console.warn("Error fetching users:", error);
+        return { data: [] };
       }
 
       const result: { data: User[]; pagination?: any } = {
@@ -505,7 +502,7 @@ export class DataService {
       return result;
     } catch (error) {
       console.error("Error fetching users:", error);
-      return { data: this.getMockUsers() };
+      return { data: [] };
     }
   }
 
@@ -527,16 +524,16 @@ export class DataService {
       };
 
       if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn("Supabase not configured, returning mock businesses");
-        return { data: this.getMockBusinesses() };
+        console.warn("Supabase not configured, returning empty businesses");
+        return { data: [] };
       }
 
       this.checkSupabaseConfig();
 
       const user = await this.getCurrentUser();
       if (!user) {
-        console.warn("User not authenticated, returning mock businesses");
-        return { data: this.getMockBusinesses() };
+        console.warn("User not authenticated, returning empty businesses");
+        return { data: [] };
       }
 
       const page = parseInt(filters.page || '1');
@@ -561,11 +558,8 @@ export class DataService {
       const { data, error, count } = await query;
 
       if (error) {
-        console.warn(
-          "Database table might not exist, falling back to mock data:",
-          error,
-        );
-        return { data: this.getMockBusinesses() };
+        console.warn("Error fetching businesses:", error);
+        return { data: [] };
       }
 
       const result: { data: Business[]; pagination?: any } = {
@@ -585,7 +579,7 @@ export class DataService {
       return result;
     } catch (error) {
       console.error("Error fetching businesses:", error);
-      return { data: this.getMockBusinesses() };
+      return { data: [] };
     }
   }
 
@@ -676,8 +670,8 @@ export class DataService {
       };
 
       if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn("Supabase not configured, returning mock projects");
-        return { data: this.getMockProjects() };
+        console.warn("Supabase not configured, returning empty projects");
+        return { data: [] };
       }
 
       this.checkSupabaseConfig();
@@ -729,11 +723,8 @@ export class DataService {
       const { data, error, count } = await query;
 
       if (error) {
-        console.warn(
-          "Database table might not exist, falling back to mock data:",
-          error,
-        );
-        return { data: this.getMockProjects() };
+        console.warn("Error fetching projects:", error);
+        return { data: [] };
       }
 
       const result: { data: Project[]; pagination?: any } = {
@@ -753,7 +744,7 @@ export class DataService {
       return result;
     } catch (error) {
       console.error("Error fetching projects:", error);
-      return { data: this.getMockProjects() };
+      return { data: [] };
     }
   }
 
@@ -796,20 +787,8 @@ export class DataService {
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     try {
-      // Check if Supabase is configured
       if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn("Supabase not configured, simulating project update");
-        // For mock mode, just return the updated project data
-        const mockProjects = this.getMockProjects();
-        const existingProject = mockProjects.find((p) => p.id === id);
-        if (existingProject) {
-          return {
-            ...existingProject,
-            ...updates,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        throw new Error("Project not found in mock data");
+        throw new Error("Supabase not configured");
       }
 
       this.checkSupabaseConfig();
@@ -834,13 +813,6 @@ export class DataService {
 
   async deleteProject(id: string): Promise<void> {
     try {
-      // Check if Supabase is configured
-      if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn("Supabase not configured, simulating project deletion");
-        // For mock mode, just log the deletion
-        return;
-      }
-
       this.checkSupabaseConfig();
 
       const { error } = await supabase.from("projects").delete().eq("id", id);
@@ -1192,84 +1164,6 @@ export class DataService {
       console.error("Error fetching project activity summary:", error);
       return null;
     }
-  }
-  // Mock data fallback methods
-  private getMockBusinesses(): Business[] {
-    return [
-      {
-        id: "business-1",
-        owner_id: "user-1",
-        name: "Green Thumb Landscaping",
-        description: "Professional landscaping and lawn care services",
-        address: {
-          street: "123 Garden Lane",
-          city: "Springfield",
-          state: "IL",
-          zip: "62701",
-        },
-        phone: "(555) 123-4567",
-        email: "contact@greenthumb.com",
-        website: "https://greenthumb.com",
-        category: "Landscaping",
-        status: "active",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
-  }
-
-  private getMockProjects(): Project[] {
-    return [
-      {
-        id: "project-1",
-        business_id: "business-1",
-        name: "Front Yard Renovation",
-        description: "Complete renovation of front yard with new landscaping",
-        type: "renovation" as any,
-        status: "in_progress",
-        priority: "high",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: "project-2",
-        business_id: "business-1",
-        name: "Backyard Deck Installation",
-        description: "Installing a new wooden deck in the backyard",
-        type: "construction" as any,
-        status: "active",
-        priority: "medium",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
-  }
-
-  private getMockUsers(): User[] {
-    return [
-      {
-        id: "user-1",
-        email: "john@example.com",
-        name: "John Smith",
-        role: "business_owner",
-        is_2fa_enabled: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        email_verified: true,
-        phone_verified: false,
-      },
-      {
-        id: "user-2",
-        email: "sarah@example.com",
-        name: "Sarah Johnson",
-        role: "staff",
-        is_2fa_enabled: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        email_verified: true,
-        phone_verified: false,
-      },
-    ];
   }
 }
 

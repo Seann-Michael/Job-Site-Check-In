@@ -56,6 +56,7 @@ import {
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { formatTableDate } from "@/lib/dateUtils";
+import { supabase } from "@/lib/dataService";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { ReviewAnalyticsSection } from "@/components/ReviewAnalyticsSection";
 
@@ -517,138 +518,62 @@ export default function AdminReviews() {
     loadReviewData();
   }, []);
 
-  const loadReviewData = () => {
-    // Load review requests from localStorage
-    const submissions = JSON.parse(
-      localStorage.getItem("reviewSubmissions") || "[]",
-    );
+  const loadReviewData = async () => {
+    // Load reviews from Supabase
+    const { data: supabaseReviews } = await supabase
+      .from("reviews")
+      .select("id, business_id, platform, rating, title, text, author, date, created_at")
+      .order("date", { ascending: false });
 
-    // Mock review requests data (including scheduled)
-    const mockRequests: ReviewRequest[] = [
-      {
-        id: "s1",
-        customerName: "Angela Torres",
-        customerPhone: "(555) 707-8080",
-        projectName: "Flooring Install",
-        status: "scheduled",
-        sentAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-        linkClicked: false,
-      },
-      {
-        id: "s2",
-        customerName: "Brandon Lee",
-        customerPhone: "(555) 909-1010",
-        projectName: "Exterior Painting",
-        status: "scheduled",
-        sentAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        linkClicked: false,
-      },
-      {
-        id: "s3",
-        customerName: "Maria Gonzalez",
-        customerPhone: "(555) 111-2222",
-        projectName: "HVAC Service",
-        status: "scheduled",
-        sentAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        linkClicked: false,
-      },
-      {
-        id: "1",
-        customerName: "John Smith",
-        customerPhone: "(555) 123-4567",
-        projectName: "Kitchen Renovation",
-        status: "completed",
-        rating: 5,
-        reviewText:
-          "Excellent work! Smith Construction exceeded our expectations.",
-        submittedAt: "2024-01-15T14:30:00Z",
-        sentAt: "2024-01-14T10:00:00Z",
-        linkClicked: true,
-        redirectedToGoogle: true,
-      },
-      {
-        id: "2",
-        customerName: "Sarah Johnson",
-        customerPhone: "(555) 234-5678",
-        projectName: "Bathroom Remodel",
-        status: "completed",
-        rating: 4,
-        reviewText: "Great service, very professional team.",
-        submittedAt: "2024-01-12T16:45:00Z",
-        sentAt: "2024-01-11T11:30:00Z",
-        linkClicked: true,
-        redirectedToGoogle: false,
-      },
-      {
-        id: "3",
-        customerName: "Mike Davis",
-        customerPhone: "(555) 345-6789",
-        projectName: "Deck Construction",
-        status: "viewed",
-        sentAt: "2024-01-10T09:15:00Z",
-        viewedAt: "2024-01-10T11:42:00Z",
-        linkClicked: true,
-      },
-      {
-        id: "4",
-        customerName: "Lisa Brown",
-        customerPhone: "(555) 456-7890",
-        projectName: "Home Addition",
-        status: "sent",
-        sentAt: "2024-01-09T13:20:00Z",
-        linkClicked: false,
-      },
-      {
-        id: "5",
-        customerName: "Robert Wilson",
-        customerPhone: "(555) 567-8901",
-        projectName: "Roof Repair",
-        status: "completed",
-        rating: 3,
-        reviewText: "Decent work, but communication could be better.",
-        submittedAt: "2024-01-08T12:10:00Z",
-        sentAt: "2024-01-07T15:45:00Z",
-        linkClicked: true,
-        redirectedToGoogle: false,
-      },
-    ];
+    // Map Supabase reviews to ReviewRequest shape
+    const dbReviews: ReviewRequest[] = (supabaseReviews ?? []).map((r: any) => ({
+      id: r.id,
+      customerName: r.author?.name ?? "Customer",
+      customerPhone: r.author?.phone ?? "N/A",
+      projectName: r.title ?? "Review",
+      status: "completed" as const,
+      rating: r.rating,
+      reviewText: r.text,
+      submittedAt: r.date,
+      sentAt: r.created_at,
+      linkClicked: true,
+      redirectedToGoogle: r.platform === "google",
+    }));
 
-    // Merge with actual submissions
-    const allRequests = [
-      ...mockRequests,
-      ...submissions.map((sub: any) => ({
-        id: sub.requestId,
-        customerName: sub.customerName,
-        customerPhone: "N/A",
-        projectName: "Recent Project",
-        status: "completed" as const,
-        rating: sub.rating,
-        reviewText: sub.reviewText,
-        submittedAt: sub.submittedAt,
-        sentAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        linkClicked: true,
-        redirectedToGoogle: sub.redirectedToGoogle,
-      })),
-    ];
+    // Merge with localStorage-submitted review requests (from Send Review Request flow)
+    const submissions = JSON.parse(localStorage.getItem("reviewSubmissions") || "[]");
+    const localReviews: ReviewRequest[] = submissions.map((sub: any) => ({
+      id: sub.requestId,
+      customerName: sub.customerName,
+      customerPhone: "N/A",
+      projectName: "Recent Project",
+      status: "completed" as const,
+      rating: sub.rating,
+      reviewText: sub.reviewText,
+      submittedAt: sub.submittedAt,
+      sentAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      linkClicked: true,
+      redirectedToGoogle: sub.redirectedToGoogle,
+    }));
 
+    const allRequests = [...dbReviews, ...localReviews];
     setReviewRequests(allRequests);
 
-    // Calculate stats
+    // Calculate stats from real data
     const completed = allRequests.filter((r) => r.status === "completed");
     const withRatings = completed.filter((r) => r.rating);
     const avgRating =
-      withRatings.reduce((sum, r) => sum + (r.rating || 0), 0) /
-      withRatings.length;
-    const googleRedirects = completed.filter(
-      (r) => r.redirectedToGoogle,
-    ).length;
+      withRatings.length > 0
+        ? withRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / withRatings.length
+        : 0;
+    const googleRedirects = completed.filter((r) => r.redirectedToGoogle).length;
 
     setStats({
       totalRequests: allRequests.length,
-      completionRate: (completed.length / allRequests.length) * 100,
-      averageRating: avgRating || 0,
+      completionRate: allRequests.length > 0 ? (completed.length / allRequests.length) * 100 : 0,
+      averageRating: avgRating,
       googleRedirects,
-      monthlyTrend: 15.2, // Mock trend data
+      monthlyTrend: 0,
     });
   };
 
