@@ -26,6 +26,8 @@ import {
   Trash2,
   MessageSquare,
   Upload,
+  FilePlus,
+  File,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -123,6 +125,12 @@ export default function ClientDetail() {
   const [showMediaUploader, setShowMediaUploader] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [selectedJobForUpload, setSelectedJobForUpload] = useState<string>("");
+  const [showDocUploader, setShowDocUploader] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docJobForUpload, setDocJobForUpload] = useState<string>("");
+  const [docFiles, setDocFiles] = useState<File[]>([]);
+  const [docType, setDocType] = useState("general");
+  const [docDescription, setDocDescription] = useState("");
 
   const loadClient = async () => {
     if (!id) return;
@@ -269,6 +277,53 @@ export default function ClientDetail() {
       }
     } finally {
       setUploadingMedia(false);
+    }
+  };
+
+  const getOrCreateDocJob = async (): Promise<string> => {
+    const existing = docJobForUpload || projects[0]?.id;
+    if (existing) return existing;
+    const businessId = workspaceService.getCurrentBusinessId();
+    const job = await dataService.createProject({
+      name: `${client?.name || "Client"} — General Documents`,
+      type: "other",
+      status: "active",
+      business_id: businessId || undefined,
+      client_id: id,
+    } as any);
+    setProjects((prev) => [job as any, ...prev]);
+    return job.id;
+  };
+
+  const handleDocUpload = async () => {
+    if (!docFiles.length) {
+      toast.error("Please select at least one file");
+      return;
+    }
+    setUploadingDoc(true);
+    let uploaded = 0;
+    try {
+      const jobId = await getOrCreateDocJob();
+      for (const file of docFiles) {
+        try {
+          await dataService.uploadProjectDocument(jobId, file, {
+            document_type: docType,
+            description: docDescription,
+          });
+          uploaded++;
+        } catch (err) {
+          console.error("Doc upload error:", err);
+          toast.error(`Failed to upload ${file.name}`);
+        }
+      }
+      if (uploaded > 0) {
+        toast.success(`Uploaded ${uploaded} document${uploaded !== 1 ? "s" : ""}`);
+        setShowDocUploader(false);
+        setDocFiles([]);
+        loadClient();
+      }
+    } finally {
+      setUploadingDoc(false);
     }
   };
 
@@ -696,8 +751,29 @@ export default function ClientDetail() {
           {/* Documents */}
           <TabsContent value="documents" className="mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Documents</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Documents
+                  {documents.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">{documents.length}</Badge>
+                  )}
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    setDocJobForUpload(projects[0]?.id || "");
+                    setDocFiles([]);
+                    setDocType("general");
+                    setDocDescription("");
+                    setShowDocUploader(true);
+                  }}
+                >
+                  <FilePlus className="h-4 w-4" />
+                  Upload Document
+                </Button>
               </CardHeader>
               <CardContent>
                 {documents.length === 0 ? (
@@ -909,6 +985,138 @@ export default function ClientDetail() {
               context={{ type: "project", isPublic: true }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Upload Dialog */}
+      <Dialog open={showDocUploader} onOpenChange={setShowDocUploader}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FilePlus className="h-5 w-5" />
+              Upload Documents
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Job selector */}
+            {projects.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-3 rounded-lg bg-muted">
+                No jobs linked yet. A <span className="font-medium">General Documents</span> job will be created automatically.
+              </p>
+            ) : projects.length > 1 ? (
+              <div className="space-y-1">
+                <Label>Attach to job</Label>
+                <Select value={docJobForUpload} onValueChange={setDocJobForUpload}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a job" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            {/* File picker */}
+            <div className="space-y-1">
+              <Label>Files *</Label>
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                onClick={() => document.getElementById("doc-file-input")?.click()}
+              >
+                <input
+                  id="doc-file-input"
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.ppt,.pptx,.zip,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => setDocFiles(Array.from(e.target.files || []))}
+                />
+                {docFiles.length > 0 ? (
+                  <div className="space-y-1">
+                    {docFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm justify-center">
+                        <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="truncate max-w-[280px]">{f.name}</span>
+                        <span className="text-muted-foreground flex-shrink-0">
+                          ({(f.size / 1024 / 1024).toFixed(1)} MB)
+                        </span>
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground mt-2">Click to change files</p>
+                  </div>
+                ) : (
+                  <>
+                    <FilePlus className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                    <p className="text-sm font-medium">Click to select files</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PDF, Word, Excel, CSV, PowerPoint, images, ZIP
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Document type */}
+            <div className="space-y-1">
+              <Label>Document Type</Label>
+              <Select value={docType} onValueChange={setDocType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="contract">Contract</SelectItem>
+                  <SelectItem value="invoice">Invoice</SelectItem>
+                  <SelectItem value="estimate">Estimate</SelectItem>
+                  <SelectItem value="permit">Permit</SelectItem>
+                  <SelectItem value="warranty">Warranty</SelectItem>
+                  <SelectItem value="insurance">Insurance</SelectItem>
+                  <SelectItem value="report">Report</SelectItem>
+                  <SelectItem value="photo">Photo</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1">
+              <Label>Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                placeholder="Brief description of this document…"
+                value={docDescription}
+                onChange={(e) => setDocDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDocUploader(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDocUpload}
+              disabled={uploadingDoc || docFiles.length === 0}
+              className="gap-2"
+            >
+              {uploadingDoc ? (
+                <>
+                  <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  Upload {docFiles.length > 0 ? `${docFiles.length} file${docFiles.length !== 1 ? "s" : ""}` : ""}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
