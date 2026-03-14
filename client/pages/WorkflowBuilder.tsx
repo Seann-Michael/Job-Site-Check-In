@@ -506,8 +506,8 @@ export default function WorkflowBuilder() {
         {/* App Selector Modal */}
         {showAppSelector && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-              <CardHeader>
+            <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+              <CardHeader className="flex-shrink-0 border-b">
                 <div className="flex items-center justify-between">
                   <CardTitle>
                     Choose{" "}
@@ -522,7 +522,7 @@ export default function WorkflowBuilder() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="overflow-y-auto">
+              <CardContent className="flex-1 overflow-y-auto">
                 <div className="grid gap-3">
                   {availableApps
                     .filter((app) =>
@@ -577,8 +577,8 @@ export default function WorkflowBuilder() {
         {/* Step Configuration Modal */}
         {showStepConfig && editingStep && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-lg max-h-[80vh] overflow-hidden">
-              <CardHeader>
+            <Card className="w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+              <CardHeader className="flex-shrink-0 border-b">
                 <div className="flex items-center justify-between">
                   <CardTitle>
                     Configure {getStepName(editingStep.app, editingStep.action)}
@@ -595,7 +595,7 @@ export default function WorkflowBuilder() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="overflow-y-auto">
+              <CardContent className="flex-1 overflow-y-auto">
                 <StepConfigForm
                   step={editingStep}
                   onSave={saveStepConfig}
