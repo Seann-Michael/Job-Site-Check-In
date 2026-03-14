@@ -778,16 +778,32 @@ export class DataService {
   async createProject(project: Partial<Project>): Promise<Project> {
     this.checkSupabaseConfig();
 
+    const VALID_PROJECT_COLUMNS = new Set([
+      'business_id', 'name', 'description', 'type', 'status', 'priority',
+      'assigned_to', 'client_contact', 'objectives', 'deliverables',
+      'timeline', 'budget', 'seo_targets', 'competitors', 'progress',
+      'metadata', 'started_at', 'completed_at', 'due_date', 'materials', 'tasks',
+    ]);
+
+    const safeProject = Object.fromEntries(
+      Object.entries(project).filter(([key]) => VALID_PROJECT_COLUMNS.has(key))
+    );
+
     const { data, error } = await supabase
       .from("projects")
       .insert({
-        ...project,
+        ...safeProject,
         status: project.status || "draft",
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      const msg = typeof error === 'object' && error !== null && 'message' in error
+        ? (error as any).message
+        : JSON.stringify(error);
+      throw new Error(`Failed to create project: ${msg}`);
+    }
     return data;
   }
 
@@ -799,20 +815,43 @@ export class DataService {
 
       this.checkSupabaseConfig();
 
+      // Only send columns that actually exist in the projects table.
+      // Strip out any frontend-only or camelCase fields that Supabase would reject.
+      const VALID_PROJECT_COLUMNS = new Set([
+        'business_id', 'name', 'description', 'type', 'status', 'priority',
+        'assigned_to', 'client_contact', 'objectives', 'deliverables',
+        'timeline', 'budget', 'seo_targets', 'competitors', 'progress',
+        'metadata', 'started_at', 'completed_at', 'due_date', 'materials', 'tasks',
+      ]);
+
+      const safeUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key]) => VALID_PROJECT_COLUMNS.has(key))
+      );
+
+      if (Object.keys(safeUpdates).length === 0) {
+        // Nothing valid to update — fetch and return current record
+        const { data: current } = await supabase.from('projects').select('*').eq('id', id).single();
+        return current as Project;
+      }
+
       const { data, error } = await supabase
         .from("projects")
-        .update(updates)
+        .update(safeUpdates)
         .eq("id", id)
         .select()
         .single();
 
       if (error) {
-        console.error("Supabase update error:", error);
-        throw new Error(`Failed to update project: ${error.message}`);
+        const msg = typeof error === 'object' && error !== null && 'message' in error
+          ? (error as any).message
+          : JSON.stringify(error);
+        console.error("Supabase update error:", msg);
+        throw new Error(`Failed to update project: ${msg}`);
       }
       return data;
     } catch (error) {
-      console.error("Error in updateProject:", error);
+      const msg = error instanceof Error ? error.message : JSON.stringify(error);
+      console.error("Error in updateProject:", msg);
       throw error;
     }
   }

@@ -221,24 +221,33 @@ export default function EditProject() {
     setIsSubmitting(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Map form fields to valid Supabase project columns only
+      const keywords = formData.keywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
 
-      const projects = await dataService.getProjects();
-      const existingProject = projects.find((p) => p.id === id!);
-      if (existingProject) {
-        const updatedProject = {
-          ...existingProject,
-          ...formData,
-          keywords: formData.keywords
-            .split(",")
-            .map((k) => k.trim())
-            .filter(Boolean),
-          updatedAt: new Date().toISOString(),
-        };
-        await dataService.updateProject(id!, updatedProject);
-      }
+      const updates = {
+        name: formData.name,
+        description: formData.description,
+        // Store customer info in the client_contact JSONB column
+        client_contact: {
+          name: formData.customerName,
+          phone: formData.mobilePhone,
+          additional_phones: formData.additionalPhones.filter(Boolean),
+          address: formData.address,
+        },
+        // Store keywords and GPS in the metadata JSONB column
+        metadata: {
+          keywords,
+          gps_lat: formData.gpsLat,
+          gps_lng: formData.gpsLng,
+        },
+      };
+
+      await dataService.updateProject(id!, updates);
       toast.success("Project updated successfully!");
-      navigate(`/project/${id}`);
+      navigate(`/admin/projects`);
     } catch (error) {
       console.error("Failed to update project:", error);
       const errorMessage =
