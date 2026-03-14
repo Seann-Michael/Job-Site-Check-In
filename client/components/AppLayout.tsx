@@ -279,6 +279,14 @@ export function AppLayout({
       comingSoon: false,
     },
     {
+      id: "clients",
+      label: "Clients",
+      href: "/admin/clients",
+      icon: Users,
+      active: location.pathname.startsWith("/admin/clients"),
+      comingSoon: false,
+    },
+    {
       id: "gallery",
       label: "Gallery",
       href: "/admin/gallery",

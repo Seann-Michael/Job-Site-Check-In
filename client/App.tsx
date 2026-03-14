@@ -79,6 +79,10 @@ const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 // Lead Management
 const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
 
+// Clients
+const Clients = lazy(() => import("./pages/Clients"));
+const ClientDetail = lazy(() => import("./pages/ClientDetail"));
+
 // Service Worker registration is handled in index.html to avoid duplicates
 
 const App = () => (
@@ -304,6 +308,22 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Gallery />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/clients"
+                  element={
+                    <ProtectedRoute>
+                      <Clients />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/clients/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ClientDetail />
                     </ProtectedRoute>
                   }
                 />

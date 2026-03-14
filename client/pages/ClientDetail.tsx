@@ -1,0 +1,631 @@
+import React, { useState, useEffect } from "react";
+import { AppLayout } from "@/components/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowLeft,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  FileText,
+  Images,
+  Star,
+  FolderOpen,
+  Edit,
+  Save,
+  X,
+  Plus,
+  ExternalLink,
+  Trash2,
+  MessageSquare,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/lib/dataService";
+
+interface Client {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  type: string;
+  created_at: string;
+}
+
+interface Review {
+  id: string;
+  rating: number;
+  text: string;
+  author: any;
+  platform: string;
+  date: string;
+}
+
+interface MediaItem {
+  id: string;
+  file_path: string;
+  original_name: string;
+  media_type: string;
+  created_at: string;
+}
+
+interface Document {
+  id: string;
+  original_name: string;
+  file_path: string;
+  document_type: string;
+  created_at: string;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: "secondary",
+  active: "default",
+  in_progress: "default",
+  paused: "secondary",
+  completed: "outline",
+  cancelled: "destructive",
+};
+
+export default function ClientDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const [client, setClient] = useState<Client | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [fieldValue, setFieldValue] = useState("");
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  const loadClient = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      setClient(data);
+
+      // Load linked projects
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("id, name, status, type, created_at")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false });
+      setProjects(projectData || []);
+
+      // Load media across all linked projects
+      if (projectData && projectData.length > 0) {
+        const projectIds = projectData.map((p: any) => p.id);
+
+        const { data: mediaData } = await supabase
+          .from("project_media")
+          .select("id, file_path, original_name, media_type, created_at")
+          .in("project_id", projectIds)
+          .eq("media_type", "image")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        setMedia(mediaData || []);
+
+        const { data: docData } = await supabase
+          .from("project_documents")
+          .select("id, original_name, file_path, document_type, created_at")
+          .in("project_id", projectIds)
+          .order("created_at", { ascending: false });
+        setDocuments(docData || []);
+      }
+
+      // Load reviews by client email match
+      if (data?.email) {
+        const { data: reviewData } = await supabase
+          .from("reviews")
+          .select("id, rating, text, author, platform, date")
+          .order("date", { ascending: false })
+          .limit(20);
+        setReviews(reviewData || []);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load client");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadClient();
+  }, [id]);
+
+  const startEdit = (field: string, value: string) => {
+    setEditingField(field);
+    setFieldValue(value);
+  };
+
+  const saveField = async () => {
+    if (!client || !editingField) return;
+    try {
+      const { error } = await supabase
+        .from("clients")
+        .update({ [editingField]: fieldValue.trim(), updated_at: new Date().toISOString() })
+        .eq("id", client.id);
+      if (error) throw error;
+      setClient({ ...client, [editingField]: fieldValue.trim() });
+      setEditingField(null);
+      toast.success("Saved");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save");
+    }
+  };
+
+  const cancelEdit = () => setEditingField(null);
+
+  const getSupabaseUrl = (path: string) => {
+    const base = import.meta.env.VITE_SUPABASE_URL;
+    return `${base}/storage/v1/object/public/media/${path}`;
+  };
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-6 space-y-4 animate-pulse">
+          <div className="h-8 bg-muted rounded w-48" />
+          <div className="h-32 bg-muted rounded" />
+          <div className="h-64 bg-muted rounded" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!client) {
+    return (
+      <AppLayout>
+        <div className="p-6 text-center py-16">
+          <User className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <p className="text-muted-foreground">Client not found</p>
+          <Button onClick={() => navigate("/admin/clients")} className="mt-4" variant="outline">
+            Back to Clients
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const initials = (name: string) =>
+    name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+
+  const InlineField = ({
+    field,
+    label,
+    value,
+    icon: Icon,
+    multiline = false,
+    placeholder,
+  }: {
+    field: string;
+    label: string;
+    value?: string;
+    icon: any;
+    multiline?: boolean;
+    placeholder?: string;
+  }) => {
+    const isEditing = editingField === field;
+    return (
+      <div className="group">
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        {isEditing ? (
+          <div className="flex items-start gap-2">
+            {multiline ? (
+              <Textarea
+                autoFocus
+                rows={3}
+                value={fieldValue}
+                onChange={(e) => setFieldValue(e.target.value)}
+                className="text-sm"
+              />
+            ) : (
+              <Input
+                autoFocus
+                value={fieldValue}
+                onChange={(e) => setFieldValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveField();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                className="text-sm h-8"
+              />
+            )}
+            <Button size="sm" className="h-8 px-2" onClick={saveField}>
+              <Save className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={cancelEdit}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <div
+            className="flex items-center gap-2 cursor-pointer group/field"
+            onClick={() => startEdit(field, value || "")}
+          >
+            <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground/50 italic"}`}>
+              {value || placeholder || `Add ${label.toLowerCase()}`}
+            </span>
+            <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/field:opacity-100 transition-opacity" />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <AppLayout>
+      <div className="p-4 sm:p-6 space-y-6">
+        {/* Back + Header */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/admin/clients")}
+            className="h-9 w-9"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base flex-shrink-0">
+              {initials(client.name)}
+            </div>
+            <div className="min-w-0">
+              {editingField === "name" ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveField();
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                    className="text-xl font-bold h-9"
+                  />
+                  <Button size="sm" onClick={saveField}><Save className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-2 cursor-pointer group/name"
+                  onClick={() => startEdit("name", client.name)}
+                >
+                  <h1 className="text-xl font-bold truncate">{client.name}</h1>
+                  <Edit className="h-4 w-4 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Client since {new Date(client.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Tabs defaultValue="overview">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="overview" className="gap-1.5">
+              <User className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="jobs" className="gap-1.5">
+              <FolderOpen className="h-4 w-4" />
+              Jobs
+              {projects.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{projects.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="photos" className="gap-1.5">
+              <Images className="h-4 w-4" />
+              Photos
+              {media.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{media.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              Docs
+              {documents.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{documents.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="gap-1.5">
+              <Star className="h-4 w-4" />
+              Reviews
+              {reviews.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{reviews.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overview */}
+          <TabsContent value="overview" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Contact Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <InlineField field="phone" label="Phone" value={client.phone} icon={Phone} placeholder="Add phone number" />
+                <InlineField field="email" label="Email" value={client.email} icon={Mail} placeholder="Add email address" />
+                <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Add address" />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <InlineField
+                  field="notes"
+                  label=""
+                  value={client.notes}
+                  icon={MessageSquare}
+                  multiline
+                  placeholder="Add notes about this client..."
+                />
+              </CardContent>
+            </Card>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Jobs", value: projects.length, icon: FolderOpen },
+                { label: "Photos", value: media.length, icon: Images },
+                { label: "Documents", value: documents.length, icon: FileText },
+                { label: "Reviews", value: reviews.length, icon: Star },
+              ].map(({ label, value, icon: Icon }) => (
+                <Card key={label}>
+                  <CardContent className="p-4 text-center">
+                    <Icon className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                    <p className="text-2xl font-bold">{value}</p>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Jobs */}
+          <TabsContent value="jobs" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Jobs / Projects</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {projects.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>No jobs linked to this client yet</p>
+                    <p className="text-xs mt-1">
+                      Link this client when creating a project
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {projects.map((project) => (
+                      <div
+                        key={project.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/project/${project.id}`)}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{project.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {project.type?.replace(/_/g, " ")} •{" "}
+                            {new Date(project.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant={(STATUS_COLORS[project.status] || "secondary") as any} className="text-xs capitalize">
+                            {project.status?.replace(/_/g, " ")}
+                          </Badge>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Photos */}
+          <TabsContent value="photos" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Photos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {media.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Images className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>No photos across linked jobs</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {media.map((item) => {
+                      const url = getSupabaseUrl(item.file_path);
+                      return (
+                        <div
+                          key={item.id}
+                          className="aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedPhoto(url)}
+                        >
+                          <img
+                            src={url}
+                            alt={item.original_name}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "/placeholder.svg";
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Documents */}
+          <TabsContent value="documents" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {documents.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>No documents across linked jobs</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <FileText className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{doc.original_name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {doc.document_type?.replace(/_/g, " ")} •{" "}
+                            {new Date(doc.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <a
+                          href={getSupabaseUrl(doc.file_path)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Reviews */}
+          <TabsContent value="reviews" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reviews.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Star className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                    <p>No reviews found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="p-4 rounded-lg border">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${
+                                    i < review.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {review.platform}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {review.date
+                              ? new Date(review.date).toLocaleDateString()
+                              : ""}
+                          </span>
+                        </div>
+                        {review.author?.name && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {review.author.name}
+                          </p>
+                        )}
+                        <p className="text-sm text-foreground">{review.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Photo lightbox */}
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-[200]"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 text-white hover:bg-white/20"
+            onClick={() => setSelectedPhoto(null)}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          <div className="w-full h-full flex items-center justify-center p-10" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={selectedPhoto}
+              alt="Full size"
+              className="max-w-full max-h-full object-contain rounded-lg"
+              style={{ maxHeight: "calc(100vh - 80px)" }}
+            />
+          </div>
+        </div>
+      )}
+    </AppLayout>
+  );
+}
