@@ -1,6 +1,11 @@
 import "./global.css";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { workspaceService } from "./lib/workspaceService";
+
+// Initialize workspace (links Supabase UUID ↔ sub_account_id ↔ businesses)
+// Non-blocking — runs in background so it doesn't delay first paint
+workspaceService.initialize().catch(console.error);
 
 // Suppress ResizeObserver loop completed error (harmless but annoying)
 // This is a known issue with Radix UI and other component libraries

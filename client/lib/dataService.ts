@@ -1,5 +1,6 @@
 // @ts-nocheck - Temporary suppression of type errors during build
 import { createClient } from "@supabase/supabase-js";
+import { workspaceService } from "./workspaceService";
 
 // Initialize Supabase client with fallback handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -688,7 +689,27 @@ export class DataService {
       let query = supabase.from("projects").select("*", { count: 'exact' });
 
       if (businessId) {
+        // Specific business requested
         query = query.eq("business_id", businessId);
+      } else {
+        // Scope to the current workspace's businesses
+        const wsBusinessIds = workspaceService.getBusinessIds();
+        if (wsBusinessIds.length > 0) {
+          query = query.in("business_id", wsBusinessIds);
+        } else {
+          // Workspace not initialized yet — scope to owner via sub-select
+          const userId = workspaceService.getUserId();
+          if (userId) {
+            const { data: bizRows } = await supabase
+              .from("businesses")
+              .select("id")
+              .eq("owner_id", userId);
+            const ids = (bizRows ?? []).map((b: { id: string }) => b.id);
+            if (ids.length > 0) {
+              query = query.in("business_id", ids);
+            }
+          }
+        }
       }
 
       // Apply filters (excluding pagination params)

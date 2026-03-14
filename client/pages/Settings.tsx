@@ -1,5 +1,6 @@
 // @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect } from "react";
+import { workspaceService } from "@/lib/workspaceService";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -516,27 +517,35 @@ export default function Settings() {
     }
   };
 
-  // Safe data loading
+  // Safe data loading — reads subAccountId from Supabase workspace
   useEffect(() => {
-    const loadSettings = () => {
+    const loadSettings = async () => {
       try {
         const saved = localStorage.getItem("business_settings");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          // Merge with defaults to ensure all fields exist
-          const loadedSettings = { ...createDefaultSettings(), ...parsed };
-          // Ensure subAccountId is formatted as XXX-XXX-XXX
-          if (loadedSettings.subAccountId && !loadedSettings.subAccountId.includes("-")) {
-            const d = loadedSettings.subAccountId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0");
-            loadedSettings.subAccountId = `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6, 9)}`;
-          }
-          setSettings(loadedSettings);
-          // Also save business name to separate localStorage key
-          localStorage.setItem(
-            "business_name",
-            loadedSettings.businessName || "",
-          );
+        const loadedSettings = saved
+          ? { ...createDefaultSettings(), ...JSON.parse(saved) }
+          : createDefaultSettings();
+
+        // Always prefer the authoritative sub_account_id from Supabase
+        let wsState = workspaceService.getState();
+        if (!wsState.initialized) {
+          wsState = await workspaceService.initialize();
         }
+        if (wsState.user?.subAccountId) {
+          loadedSettings.subAccountId = wsState.user.subAccountId;
+        } else if (loadedSettings.subAccountId && !loadedSettings.subAccountId.includes("-")) {
+          // Format any legacy unformatted ID in localStorage
+          const d = loadedSettings.subAccountId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0");
+          loadedSettings.subAccountId = `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6, 9)}`;
+        }
+
+        setSettings(loadedSettings);
+        localStorage.setItem("business_settings", JSON.stringify(loadedSettings));
+        // Also save business name to separate localStorage key
+        localStorage.setItem(
+          "business_name",
+          loadedSettings.businessName || "",
+        );
       } catch (error) {
         console.error(
           "Failed to load settings:",
