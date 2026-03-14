@@ -972,11 +972,16 @@ export class DataService {
   ): Promise<ProjectMedia> {
     this.checkSupabaseConfig();
 
-    // Determine media type
+    // Ensure file is a File object
+    if (!file || !file.name || typeof file.type !== "string") {
+      throw new Error("Invalid file object provided for upload");
+    }
+
+    // Determine media type based on MIME type
     let mediaType: "image" | "video" | "document" = "document";
-    if (file.type.startsWith("image/")) {
+    if (file.type && file.type.startsWith("image/")) {
       mediaType = "image";
-    } else if (file.type.startsWith("video/")) {
+    } else if (file.type && file.type.startsWith("video/")) {
       mediaType = "video";
     }
 

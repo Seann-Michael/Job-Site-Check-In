@@ -380,18 +380,27 @@ export default function ProjectDetail() {
       const newPhotos: TaggedPhoto[] = [];
       let uploadedCount = 0;
 
-      for (const file of files) {
+      for (const fileWithMetadata of files) {
         try {
+          // Extract the actual File object from FileWithMetadata
+          const actualFile = fileWithMetadata.file || fileWithMetadata;
+
+          // Parse tags - SmartMediaUploader provides tags as a string
+          const tagsArray = typeof fileWithMetadata.tags === "string"
+            ? fileWithMetadata.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+            : fileWithMetadata.tags || [];
+
           // Upload to Supabase
-          const uploadedMedia = await dataService.uploadProjectPhoto(project.id, file, {
-            tags: file.tags || [],
+          const uploadedMedia = await dataService.uploadProjectPhoto(project.id, actualFile, {
+            tags: tagsArray,
             category: "progress",
+            description: fileWithMetadata.description || "",
           });
 
           // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
             url: uploadedMedia.file_path,
-            tags: file.tags || [],
+            tags: tagsArray,
             uploadedAt: uploadedMedia.created_at,
             uploadedBy: uploadedMedia.uploaded_by || "Unknown",
             isPrimary: uploadedMedia.is_featured,
@@ -402,7 +411,8 @@ export default function ProjectDetail() {
           uploadedCount++;
         } catch (uploadError) {
           console.error("Error uploading individual photo:", uploadError);
-          toast.error(`Failed to upload ${file.name}`);
+          const fileName = fileWithMetadata.original_name || fileWithMetadata.fileName || "file";
+          toast.error(`Failed to upload ${fileName}`);
         }
       }
 
