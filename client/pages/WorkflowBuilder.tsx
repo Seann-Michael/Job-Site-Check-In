@@ -117,6 +117,35 @@ const availableApps = [
         name: "Job Completed",
         description: "When a job is completed",
       },
+      {
+        id: "create_job",
+        name: "Create Job",
+        description: "Create a new job (secondary trigger after webhook)",
+      },
+    ],
+  },
+  {
+    type: "trigger",
+    app: "reviews",
+    name: "Reviews",
+    icon: Mail,
+    color: "bg-green-500",
+    actions: [
+      {
+        id: "review_request_sent",
+        name: "Review Request Sent",
+        description: "When a review request is sent",
+      },
+      {
+        id: "positive_review_received",
+        name: "Positive Review Received",
+        description: "When a positive review is received",
+      },
+      {
+        id: "negative_review_received",
+        name: "Negative Review Received",
+        description: "When a negative review is received",
+      },
     ],
   },
 
@@ -892,6 +921,122 @@ function StepConfigForm({
                 value={config.follow_up_action || ""}
                 onChange={(e) => updateConfig("follow_up_action", e.target.value)}
                 placeholder="e.g., Send invoice, Request review"
+              />
+            </div>
+          </div>
+        );
+
+      case "jobs_create_job":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="job_title">Job Title</Label>
+              <Input
+                id="job_title"
+                value={config.job_title || ""}
+                onChange={(e) => updateConfig("job_title", e.target.value)}
+                placeholder="e.g., Website Design, SEO Audit"
+              />
+            </div>
+            <div>
+              <Label htmlFor="job_description">Job Description</Label>
+              <Input
+                id="job_description"
+                value={config.job_description || ""}
+                onChange={(e) => updateConfig("job_description", e.target.value)}
+                placeholder="Describe the job details"
+              />
+            </div>
+            <div>
+              <Label htmlFor="assigned_to">Assign To (Optional)</Label>
+              <Input
+                id="assigned_to"
+                value={config.assigned_to || ""}
+                onChange={(e) => updateConfig("assigned_to", e.target.value)}
+                placeholder="Team member or department"
+              />
+            </div>
+          </div>
+        );
+
+      case "reviews_review_request_sent":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="review_platform">Review Platform</Label>
+              <Input
+                id="review_platform"
+                value={config.review_platform || ""}
+                onChange={(e) => updateConfig("review_platform", e.target.value)}
+                placeholder="e.g., Google, Yelp, Facebook"
+              />
+            </div>
+            <div>
+              <Label htmlFor="contact_method">Contact Method</Label>
+              <Input
+                id="contact_method"
+                value={config.contact_method || ""}
+                onChange={(e) => updateConfig("contact_method", e.target.value)}
+                placeholder="e.g., Email, SMS"
+              />
+            </div>
+          </div>
+        );
+
+      case "reviews_positive_review_received":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="min_rating">Minimum Rating (Optional)</Label>
+              <Input
+                id="min_rating"
+                type="number"
+                value={config.min_rating || ""}
+                onChange={(e) => updateConfig("min_rating", e.target.value)}
+                placeholder="e.g., 4 stars"
+              />
+            </div>
+            <div>
+              <Label htmlFor="action_on_positive">Action on Positive Review</Label>
+              <Input
+                id="action_on_positive"
+                value={config.action_on_positive || ""}
+                onChange={(e) => updateConfig("action_on_positive", e.target.value)}
+                placeholder="e.g., Share on social, Send thank you"
+              />
+            </div>
+          </div>
+        );
+
+      case "reviews_negative_review_received":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="max_rating">Maximum Rating (Optional)</Label>
+              <Input
+                id="max_rating"
+                type="number"
+                value={config.max_rating || ""}
+                onChange={(e) => updateConfig("max_rating", e.target.value)}
+                placeholder="e.g., 3 stars"
+              />
+            </div>
+            <div>
+              <Label htmlFor="notify_team">Notify Team</Label>
+              <Input
+                id="notify_team"
+                type="checkbox"
+                checked={config.notify_team || false}
+                onChange={(e) => updateConfig("notify_team", e.target.checked)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="action_on_negative">Action on Negative Review</Label>
+              <Input
+                id="action_on_negative"
+                value={config.action_on_negative || ""}
+                onChange={(e) => updateConfig("action_on_negative", e.target.value)}
+                placeholder="e.g., Create support ticket, Send response"
               />
             </div>
           </div>
