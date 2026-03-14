@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { dataService } from "@/lib/dataService";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
+  ArrowRight,
   Plus,
   Settings,
   Play,
@@ -27,6 +29,11 @@ import {
   AlertCircle,
   CheckCircle,
   Briefcase,
+  Code2,
+  Layers,
+  Copy,
+  Eye,
+  X,
 } from "lucide-react";
 
 interface WorkflowStep {
@@ -854,6 +861,344 @@ export default function WorkflowBuilder() {
   );
 }
 
+// ─── Webhook Payload Mapper ─────────────────────────────────────────────────
+
+interface FieldMapping {
+  path: string;
+  alias: string;
+  sampleValue: string;
+}
+
+/** Recursively flatten a JSON object into dot-path keys */
+function flattenObject(
+  obj: Record<string, any>,
+  prefix = "",
+): { path: string; value: any }[] {
+  const entries: { path: string; value: any }[] = [];
+  for (const key of Object.keys(obj)) {
+    const fullPath = prefix ? `${prefix}.${key}` : key;
+    const val = obj[key];
+    if (val !== null && typeof val === "object" && !Array.isArray(val)) {
+      entries.push(...flattenObject(val, fullPath));
+    } else {
+      entries.push({ path: fullPath, value: val });
+    }
+  }
+  return entries;
+}
+
+function WebhookPayloadMapper({
+  config,
+  updateConfig,
+}: {
+  config: Record<string, any>;
+  updateConfig: (key: string, value: any) => void;
+}) {
+  const [tab, setTab] = useState<"payload" | "mapping">("payload");
+  const [rawPayload, setRawPayload] = useState<string>(
+    config.samplePayload ? JSON.stringify(config.samplePayload, null, 2) : "",
+  );
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [detectedFields, setDetectedFields] = useState<
+    { path: string; value: any }[]
+  >(config.samplePayload ? flattenObject(config.samplePayload) : []);
+  const [mappings, setMappings] = useState<FieldMapping[]>(
+    config.fieldMappings || [],
+  );
+  const { toast } = useToast();
+
+  const detectFields = useCallback(() => {
+    try {
+      const parsed = JSON.parse(rawPayload);
+      const fields = flattenObject(parsed);
+      setDetectedFields(fields);
+      setParseError(null);
+      updateConfig("samplePayload", parsed);
+
+      // Auto-create mappings for fields not yet mapped
+      const existingPaths = new Set(mappings.map((m) => m.path));
+      const newMappings: FieldMapping[] = [
+        ...mappings,
+        ...fields
+          .filter((f) => !existingPaths.has(f.path))
+          .map((f) => ({
+            path: f.path,
+            alias: f.path.split(".").pop() || f.path,
+            sampleValue: String(f.value ?? ""),
+          })),
+      ];
+      setMappings(newMappings);
+      updateConfig("fieldMappings", newMappings);
+      setTab("mapping");
+    } catch {
+      setParseError("Invalid JSON — please check your payload and try again.");
+    }
+  }, [rawPayload, mappings, updateConfig]);
+
+  const updateAlias = (index: number, alias: string) => {
+    const updated = mappings.map((m, i) => (i === index ? { ...m, alias } : m));
+    setMappings(updated);
+    updateConfig("fieldMappings", updated);
+  };
+
+  const removeMapping = (index: number) => {
+    const updated = mappings.filter((_, i) => i !== index);
+    setMappings(updated);
+    updateConfig("fieldMappings", updated);
+  };
+
+  const addBlankMapping = () => {
+    const updated = [
+      ...mappings,
+      { path: "", alias: "", sampleValue: "" },
+    ];
+    setMappings(updated);
+    updateConfig("fieldMappings", updated);
+  };
+
+  const copyVariable = (alias: string) => {
+    navigator.clipboard.writeText(`{{${alias}}}`);
+    toast({ title: "Copied", description: `{{${alias}}} copied to clipboard` });
+  };
+
+  const SAMPLE_PAYLOAD = JSON.stringify(
+    {
+      id: "evt_123",
+      event: "job.created",
+      data: {
+        customer: { name: "Jane Smith", email: "jane@example.com", phone: "+1555000000" },
+        job: { title: "SEO Audit", priority: "high", notes: "Urgent request" },
+      },
+      timestamp: new Date().toISOString(),
+    },
+    null,
+    2,
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Tabs */}
+      <div className="flex gap-1 bg-muted p-1 rounded-lg">
+        <button
+          type="button"
+          onClick={() => setTab("payload")}
+          className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            tab === "payload"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Code2 className="h-3.5 w-3.5" />
+          Test Payload
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("mapping")}
+          className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            tab === "mapping"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          Field Mapping
+          {mappings.length > 0 && (
+            <span className="ml-1 bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full">
+              {mappings.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Tab: Test Payload */}
+      {tab === "payload" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>Sample Payload (JSON)</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setRawPayload(SAMPLE_PAYLOAD)}
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              Load Example
+            </Button>
+          </div>
+
+          <Textarea
+            value={rawPayload}
+            onChange={(e) => {
+              setRawPayload(e.target.value);
+              setParseError(null);
+            }}
+            placeholder={`Paste a real webhook payload here, e.g.:\n{\n  "event": "job.created",\n  "data": { "name": "Jane" }\n}`}
+            className="font-mono text-xs min-h-[200px] resize-y"
+          />
+
+          {parseError && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {parseError}
+            </div>
+          )}
+
+          <Button
+            onClick={detectFields}
+            disabled={!rawPayload.trim()}
+            className="w-full"
+          >
+            <ArrowRight className="h-4 w-4 mr-2" />
+            Detect Fields &amp; Map
+          </Button>
+
+          {detectedFields.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                {detectedFields.length} fields detected
+              </div>
+              <div className="divide-y max-h-[160px] overflow-y-auto">
+                {detectedFields.map((f) => (
+                  <div
+                    key={f.path}
+                    className="flex items-center justify-between px-3 py-2 text-xs"
+                  >
+                    <code className="font-mono text-blue-700 bg-blue-50 px-1 py-0.5 rounded">
+                      {f.path}
+                    </code>
+                    <span className="text-muted-foreground truncate max-w-[140px] ml-2">
+                      {String(f.value ?? "")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Field Mapping */}
+      {tab === "mapping" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Field Mappings</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Map payload paths to named variables you can use as{" "}
+                <code className="text-blue-600">{"{{variable}}"}</code> in later steps.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={addBlankMapping}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add Field
+            </Button>
+          </div>
+
+          {mappings.length === 0 ? (
+            <div className="text-center py-8 border-2 border-dashed rounded-lg">
+              <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No fields mapped yet.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Go to the <strong>Test Payload</strong> tab, paste a sample payload, then click{" "}
+                <strong>Detect Fields</strong>.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* Header row */}
+              <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 px-1 text-xs font-medium text-muted-foreground">
+                <span>Payload Path</span>
+                <span />
+                <span>Variable Name</span>
+                <span />
+              </div>
+
+              {mappings.map((mapping, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center"
+                >
+                  <Input
+                    value={mapping.path}
+                    onChange={(e) => {
+                      const updated = mappings.map((m, idx) =>
+                        idx === i ? { ...m, path: e.target.value } : m,
+                      );
+                      setMappings(updated);
+                      updateConfig("fieldMappings", updated);
+                    }}
+                    placeholder="data.customer.email"
+                    className="font-mono text-xs h-8"
+                  />
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={mapping.alias}
+                      onChange={(e) => updateAlias(i, e.target.value)}
+                      placeholder="email"
+                      className="font-mono text-xs h-8"
+                    />
+                    {mapping.alias && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        title={`Copy {{${mapping.alias}}}`}
+                        onClick={() => copyVariable(mapping.alias)}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                    onClick={() => removeMapping(i)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Variable preview */}
+          {mappings.filter((m) => m.alias).length > 0 && (
+            <div className="border rounded-lg p-3 bg-muted/40">
+              <p className="text-xs font-medium mb-2 text-muted-foreground">
+                Available variables in subsequent steps:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {mappings
+                  .filter((m) => m.alias)
+                  .map((m) => (
+                    <button
+                      key={m.path}
+                      type="button"
+                      title={`Click to copy — from path: ${m.path}`}
+                      onClick={() => copyVariable(m.alias)}
+                      className="font-mono text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
+                    >
+                      <span>{`{{${m.alias}}}`}</span>
+                      <Copy className="h-2.5 w-2.5 opacity-60" />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Step Configuration Form Component
 function StepConfigForm({
   step,
@@ -928,27 +1273,10 @@ function StepConfigForm({
 
       case "webhook_receive":
         return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="webhook_url">Webhook URL</Label>
-              <Input
-                id="webhook_url"
-                value={config.webhook_url || ""}
-                onChange={(e) => updateConfig("webhook_url", e.target.value)}
-                placeholder="https://example.com/webhook"
-              />
-            </div>
-            <div>
-              <Label htmlFor="secret_key">Secret Key (Optional)</Label>
-              <Input
-                id="secret_key"
-                type="password"
-                value={config.secret_key || ""}
-                onChange={(e) => updateConfig("secret_key", e.target.value)}
-                placeholder="Enter secret key"
-              />
-            </div>
-          </div>
+          <WebhookPayloadMapper
+            config={config}
+            updateConfig={updateConfig}
+          />
         );
 
       case "webhook_send_webhook":
