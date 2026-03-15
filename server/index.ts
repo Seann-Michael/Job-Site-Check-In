@@ -28,6 +28,7 @@ import {
 import { handleResolveUrl } from "./routes/resolveUrl";
 import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
 import { handleGoogleAuthorize, handleGoogleCallback } from "./routes/googleOAuth";
+import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
 
 export function createServer() {
   const app = express();
@@ -74,6 +75,10 @@ export function createServer() {
   // Google OAuth (Business Profile connection)
   app.get("/api/auth/google/authorize", handleGoogleAuthorize);
   app.get("/api/auth/google/callback", handleGoogleCallback);
+
+  // RSS Feed Routes
+  app.get("/api/rss/:workflowId", handleGetRssFeed);
+  app.post("/api/rss/:workflowId/items", handleAddRssItem);
 
   // Workflow Routes
   app.post("/api/webhooks/register", handleRegisterWebhook);

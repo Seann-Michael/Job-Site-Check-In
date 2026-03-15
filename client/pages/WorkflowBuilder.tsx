@@ -183,26 +183,6 @@ const availableApps = [
     ],
   },
 
-  {
-    type: "trigger",
-    app: "rss",
-    name: "RSS",
-    icon: Rss,
-    color: "bg-orange-500",
-    actions: [
-      {
-        id: "new_item",
-        name: "New RSS Item",
-        description: "When a new item is published to an RSS feed",
-      },
-      {
-        id: "keyword_match",
-        name: "Keyword Match",
-        description: "When a new RSS item contains a specific keyword",
-      },
-    ],
-  },
-
   // Actions - Reviews
   {
     type: "action",
@@ -342,6 +322,20 @@ const availableApps = [
         id: "api_call",
         name: "API Call",
         description: "Make custom API request",
+      },
+    ],
+  },
+  {
+    type: "action",
+    app: "rss",
+    name: "RSS Feed",
+    icon: Rss,
+    color: "bg-orange-500",
+    actions: [
+      {
+        id: "publish_item",
+        name: "Publish to RSS Feed",
+        description: "Add a new item to your hosted RSS feed (WordPress can subscribe)",
       },
     ],
   },
@@ -1743,87 +1737,84 @@ function StepConfigForm({
           </div>
         );
 
-      case "rss_new_item":
+      case "rss_publish_item": {
+        const feedUrl = workflowId
+          ? `${window.location.origin}/api/rss/${workflowId}`
+          : null;
         return (
           <div className="space-y-4">
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <p className="text-xs text-orange-800">
-                The workflow will trigger each time a new item is detected in the RSS feed. The feed is polled periodically.
-              </p>
+            {feedUrl ? (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                <p className="text-xs font-semibold text-orange-800 mb-1 uppercase tracking-wide">
+                  Your RSS Feed URL
+                </p>
+                <p className="text-xs text-orange-700 mb-3">
+                  Subscribe to this URL in WordPress or any RSS reader. New items are added each time this workflow step runs.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-white border border-orange-200 rounded px-3 py-2 break-all select-all">
+                    {feedUrl}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0 gap-1.5 border-orange-300 hover:bg-orange-100"
+                    onClick={() => navigator.clipboard.writeText(feedUrl)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs text-amber-800">
+                  Save the workflow first to generate your RSS feed URL.
+                </p>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="rss_item_title">Item Title</Label>
+              <Input
+                id="rss_item_title"
+                value={config.rss_item_title || ""}
+                onChange={(e) => updateConfig("rss_item_title", e.target.value)}
+                placeholder="e.g., Job Completed: {{job_title}}"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Use <code className="text-orange-600">{"{{variable}}"}</code> from workflow data (e.g. <code className="text-orange-600">{"{{job_title}}"}</code>, <code className="text-orange-600">{"{{customer_name}}"}</code>).</p>
             </div>
             <div>
-              <Label htmlFor="rss_feed_url">RSS Feed URL</Label>
-              <Input
-                id="rss_feed_url"
-                value={config.rss_feed_url || ""}
-                onChange={(e) => updateConfig("rss_feed_url", e.target.value)}
-                placeholder="https://example.com/feed.xml"
+              <Label htmlFor="rss_item_description">Item Description</Label>
+              <Textarea
+                id="rss_item_description"
+                value={config.rss_item_description || ""}
+                onChange={(e) => updateConfig("rss_item_description", e.target.value)}
+                placeholder={"We just completed a job for {{customer_name}}.\n\nService: {{job_title}}\nLocation: {{job_location}}\n\nContact us to schedule your own service!"}
+                className="min-h-[120px] resize-y text-sm"
               />
             </div>
             <div>
-              <Label htmlFor="rss_poll_interval">Poll Interval</Label>
-              <select
-                id="rss_poll_interval"
-                value={config.rss_poll_interval || "15"}
-                onChange={(e) => updateConfig("rss_poll_interval", e.target.value)}
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-              >
-                <option value="5">Every 5 minutes</option>
-                <option value="15">Every 15 minutes</option>
-                <option value="30">Every 30 minutes</option>
-                <option value="60">Every hour</option>
-                <option value="360">Every 6 hours</option>
-                <option value="1440">Once a day</option>
-              </select>
+              <Label htmlFor="rss_item_link">Item Link (Optional)</Label>
+              <Input
+                id="rss_item_link"
+                value={config.rss_item_link || ""}
+                onChange={(e) => updateConfig("rss_item_link", e.target.value)}
+                placeholder="https://yoursite.com/jobs/{{job_id}}"
+              />
+              <p className="text-xs text-muted-foreground mt-1">URL that WordPress will link to when importing this item.</p>
+            </div>
+            <div>
+              <Label htmlFor="rss_feed_title">Feed Title (shown in WordPress)</Label>
+              <Input
+                id="rss_feed_title"
+                value={config.rss_feed_title || ""}
+                onChange={(e) => updateConfig("rss_feed_title", e.target.value)}
+                placeholder="Completed Jobs Feed"
+              />
             </div>
           </div>
         );
-
-      case "rss_keyword_match":
-        return (
-          <div className="space-y-4">
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <p className="text-xs text-orange-800">
-                Triggers only when a new RSS item's title or content contains one of the specified keywords.
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="rss_feed_url_kw">RSS Feed URL</Label>
-              <Input
-                id="rss_feed_url_kw"
-                value={config.rss_feed_url || ""}
-                onChange={(e) => updateConfig("rss_feed_url", e.target.value)}
-                placeholder="https://example.com/feed.xml"
-              />
-            </div>
-            <div>
-              <Label htmlFor="rss_keywords">Keywords (comma-separated)</Label>
-              <Input
-                id="rss_keywords"
-                value={config.rss_keywords || ""}
-                onChange={(e) => updateConfig("rss_keywords", e.target.value)}
-                placeholder="SEO, local search, Google Maps"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Triggers if any keyword is found in the item title or description.</p>
-            </div>
-            <div>
-              <Label htmlFor="rss_poll_interval_kw">Poll Interval</Label>
-              <select
-                id="rss_poll_interval_kw"
-                value={config.rss_poll_interval || "15"}
-                onChange={(e) => updateConfig("rss_poll_interval", e.target.value)}
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-              >
-                <option value="5">Every 5 minutes</option>
-                <option value="15">Every 15 minutes</option>
-                <option value="30">Every 30 minutes</option>
-                <option value="60">Every hour</option>
-                <option value="360">Every 6 hours</option>
-                <option value="1440">Once a day</option>
-              </select>
-            </div>
-          </div>
-        );
+      }
 
       default:
         return (
