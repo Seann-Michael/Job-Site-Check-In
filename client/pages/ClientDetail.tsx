@@ -336,6 +336,9 @@ export default function ClientDetail() {
         setDocCustomName("");
         loadClient();
       }
+    } catch (err: any) {
+      console.error("Doc upload outer error:", err);
+      toast.error(`Upload failed: ${err?.message || "Unknown error"}`);
     } finally {
       setUploadingDoc(false);
     }
