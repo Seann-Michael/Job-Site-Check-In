@@ -179,12 +179,30 @@ export default function ClientDetail() {
           .limit(50);
         setVideos(videoData || []);
 
-        const { data: docData } = await supabase
+        const { data: jobDocData } = await supabase
           .from("project_documents")
           .select("id, original_name, file_path, document_type, created_at")
           .in("project_id", projectIds)
           .order("created_at", { ascending: false });
-        setDocuments(docData || []);
+
+        // Also load documents uploaded directly to the client (no job)
+        const { data: clientDocData } = await supabase
+          .from("project_documents")
+          .select("id, original_name, file_path, document_type, created_at")
+          .eq("client_id", id)
+          .is("project_id", null)
+          .order("created_at", { ascending: false });
+
+        setDocuments([...(clientDocData || []), ...(jobDocData || [])]);
+      } else {
+        // No jobs — still load client-level documents
+        const { data: clientDocData } = await supabase
+          .from("project_documents")
+          .select("id, original_name, file_path, document_type, created_at")
+          .eq("client_id", id)
+          .is("project_id", null)
+          .order("created_at", { ascending: false });
+        setDocuments(clientDocData || []);
       }
 
       // Load reviews by client email match
@@ -287,25 +305,6 @@ export default function ClientDetail() {
     }
   };
 
-  const getOrCreateDocJob = async (): Promise<string> => {
-    // If user picked a specific job, use it
-    if (docJobForUpload && docJobForUpload !== "none") return docJobForUpload;
-    // Look for an existing auto-general-docs job to reuse
-    const existing = projects.find((p) => p.name.includes("General Documents"));
-    if (existing) return existing.id;
-    // Auto-create a general docs job
-    const businessId = workspaceService.getCurrentBusinessId();
-    const job = await dataService.createProject({
-      name: `${client?.name || "Client"} — General Documents`,
-      type: "other",
-      status: "active",
-      business_id: businessId || undefined,
-      client_id: id,
-    } as any);
-    setProjects((prev) => [job as any, ...prev]);
-    return job.id;
-  };
-
   const handleDocUpload = async () => {
     if (!docFiles.length) {
       toast.error("Please select at least one file");
@@ -314,17 +313,18 @@ export default function ClientDetail() {
     setUploadingDoc(true);
     let uploaded = 0;
     try {
-      const jobId = await getOrCreateDocJob();
       for (let i = 0; i < docFiles.length; i++) {
         const file = docFiles[i];
-        // For single file uploads use the custom name; for multi use original names
         const customName = docFiles.length === 1 ? (docCustomName.trim() || file.name) : file.name;
+        const uploadMeta = { document_type: docType, description: docDescription, custom_name: customName };
         try {
-          await dataService.uploadProjectDocument(jobId, file, {
-            document_type: docType,
-            description: docDescription,
-            custom_name: customName,
-          });
+          if (docJobForUpload && docJobForUpload !== "none") {
+            // Upload attached to a specific job
+            await dataService.uploadProjectDocument(docJobForUpload, file, uploadMeta);
+          } else {
+            // Upload directly to the client — no job created
+            await dataService.uploadClientDocument(id!, file, uploadMeta);
+          }
           uploaded++;
         } catch (err: any) {
           console.error("Doc upload error:", err);
@@ -1049,7 +1049,7 @@ export default function ClientDetail() {
                 </SelectContent>
               </Select>
               {docJobForUpload === "none" && (
-                <p className="text-xs text-muted-foreground">Will be stored under a General Documents folder for this client.</p>
+                <p className="text-xs text-muted-foreground">Will be stored directly on this client profile.</p>
               )}
             </div>
 

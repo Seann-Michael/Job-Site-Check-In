@@ -1190,6 +1190,70 @@ export class DataService {
     return data;
   }
 
+  async uploadClientDocument(
+    clientId: string,
+    file: File,
+    metadata: any = {},
+  ): Promise<ProjectDocument> {
+    this.checkSupabaseConfig();
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `client-documents/${clientId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("media").getPublicUrl(filePath);
+
+    const { data, error } = await supabase
+      .from("project_documents")
+      .insert({
+        client_id: clientId,
+        project_id: null,
+        filename: fileName,
+        original_name: metadata.custom_name || file.name,
+        file_path: publicUrl,
+        file_size: file.size,
+        mime_type: file.type,
+        document_type: metadata.document_type || "general",
+        description: metadata.description,
+        version: metadata.version || 1,
+        is_final: metadata.is_final || false,
+        access_level: metadata.access_level || "team",
+        tags: metadata.tags || [],
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getClientDocuments(clientId: string): Promise<ProjectDocument[]> {
+    try {
+      this.checkSupabaseConfig();
+
+      const { data, error } = await supabase
+        .from("project_documents")
+        .select("*")
+        .eq("client_id", clientId)
+        .is("project_id", null)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching client documents:", error);
+      return [];
+    }
+  }
+
   async deleteProjectDocument(id: string): Promise<void> {
     this.checkSupabaseConfig();
 

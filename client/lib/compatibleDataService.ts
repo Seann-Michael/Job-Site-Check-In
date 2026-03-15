@@ -68,6 +68,8 @@ class CompatibleDataService {
   }
   async getProjectDocuments(projectId: string) { return await dataService.getProjectDocuments(projectId); }
   async uploadProjectDocument(projectId: string, file: File, metadata?: any) { return await dataService.uploadProjectDocument(projectId, file, metadata); }
+  async uploadClientDocument(clientId: string, file: File, metadata?: any) { return await dataService.uploadClientDocument(clientId, file, metadata); }
+  async getClientDocuments(clientId: string) { return await dataService.getClientDocuments(clientId); }
   async deleteProjectDocument(id: string) { return await dataService.deleteProjectDocument(id); }
   async signIn(email: string, password: string) { return await dataService.signIn(email, password); }
   async signUp(email: string, password: string, name: string, role?: string) {
