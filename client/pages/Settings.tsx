@@ -982,48 +982,6 @@ export default function Settings() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="subAccountId">
-                          Business Account ID
-                        </Label>
-                        <Input
-                          id="subAccountId"
-                          value={settings.subAccountId || ""}
-                          readOnly
-                          placeholder="XXX-XXX-XXX"
-                          className="font-mono bg-muted cursor-default"
-                        />
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-muted-foreground">
-                            Unique auto-generated ID for this business account
-                          </p>
-                          {settings.subAccountId && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  if (navigator.clipboard) {
-                                    await navigator.clipboard.writeText(
-                                      settings.subAccountId,
-                                    );
-                                    toast.success(
-                                      "Business Account ID copied to clipboard",
-                                    );
-                                  } else {
-                                    toast.error("Clipboard not available");
-                                  }
-                                } catch (error) {
-                                  toast.error("Failed to copy to clipboard");
-                                }
-                              }}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <div>
                         <Label htmlFor="firstName">First Name</Label>
                         <Input
                           id="firstName"
