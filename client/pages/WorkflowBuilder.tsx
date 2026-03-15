@@ -382,7 +382,8 @@ export default function WorkflowBuilder() {
   const addStep = (app: any, actionData: any) => {
     const noConfigNeeded =
       (app.app === "jobs" && actionData.id === "job_completed") ||
-      (app.app === "jobs" && actionData.id === "job_created");
+      (app.app === "jobs" && actionData.id === "job_created") ||
+      (app.app === "reviews" && actionData.id === "review_request_sent");
     const newStep: WorkflowStep = {
       id: `step_${Date.now()}`,
       type: app.type,
@@ -703,7 +704,10 @@ export default function WorkflowBuilder() {
                             <span className="text-xs">Setup required</span>
                           </div>
                         )}
-                        {!(step.app === "jobs" && (step.action === "job_completed" || step.action === "job_created")) && (
+                        {!(
+                          (step.app === "jobs" && (step.action === "job_completed" || step.action === "job_created")) ||
+                          (step.app === "reviews" && step.action === "review_request_sent")
+                        ) && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -724,7 +728,10 @@ export default function WorkflowBuilder() {
                       </div>
                     </div>
                   </CardHeader>
-                  {!step.configured && !(step.app === "jobs" && (step.action === "job_completed" || step.action === "job_created")) && (
+                  {!step.configured && !(
+                    (step.app === "jobs" && (step.action === "job_completed" || step.action === "job_created")) ||
+                    (step.app === "reviews" && step.action === "review_request_sent")
+                  ) && (
                     <CardContent className="pt-0">
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <div className="flex items-center gap-2 text-amber-700">
@@ -1729,25 +1736,14 @@ function StepConfigForm({
 
       case "reviews_review_request_sent":
         return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="review_platform">Review Platform</Label>
-              <Input
-                id="review_platform"
-                value={config.review_platform || ""}
-                onChange={(e) => updateConfig("review_platform", e.target.value)}
-                placeholder="e.g., Google, Yelp, Facebook"
-              />
+          <div className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle className="h-4 w-4 text-teal-600" />
+              <p className="text-sm font-medium text-teal-800">No configuration needed</p>
             </div>
-            <div>
-              <Label htmlFor="contact_method">Contact Method</Label>
-              <Input
-                id="contact_method"
-                value={config.contact_method || ""}
-                onChange={(e) => updateConfig("contact_method", e.target.value)}
-                placeholder="e.g., Email, SMS"
-              />
-            </div>
+            <p className="text-xs text-teal-700">
+              This trigger fires automatically whenever a review request is sent. Add actions below to define what happens next.
+            </p>
           </div>
         );
 
