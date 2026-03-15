@@ -36,6 +36,7 @@ import {
   X,
   Phone,
   Timer,
+  Rss,
 } from "lucide-react";
 
 interface WorkflowStep {
@@ -178,6 +179,26 @@ const availableApps = [
         name: "Wait",
         description: "Pause the workflow for a set amount of time",
         secondary: true,
+      },
+    ],
+  },
+
+  {
+    type: "trigger",
+    app: "rss",
+    name: "RSS",
+    icon: Rss,
+    color: "bg-orange-500",
+    actions: [
+      {
+        id: "new_item",
+        name: "New RSS Item",
+        description: "When a new item is published to an RSS feed",
+      },
+      {
+        id: "keyword_match",
+        name: "Keyword Match",
+        description: "When a new RSS item contains a specific keyword",
       },
     ],
   },
@@ -1718,6 +1739,88 @@ function StepConfigForm({
             </div>
             <div className="text-xs text-muted-foreground bg-muted rounded-md p-2">
               Wait: <strong>{config.wait_duration || 1} {config.wait_unit || "hours"}</strong> before proceeding
+            </div>
+          </div>
+        );
+
+      case "rss_new_item":
+        return (
+          <div className="space-y-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <p className="text-xs text-orange-800">
+                The workflow will trigger each time a new item is detected in the RSS feed. The feed is polled periodically.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="rss_feed_url">RSS Feed URL</Label>
+              <Input
+                id="rss_feed_url"
+                value={config.rss_feed_url || ""}
+                onChange={(e) => updateConfig("rss_feed_url", e.target.value)}
+                placeholder="https://example.com/feed.xml"
+              />
+            </div>
+            <div>
+              <Label htmlFor="rss_poll_interval">Poll Interval</Label>
+              <select
+                id="rss_poll_interval"
+                value={config.rss_poll_interval || "15"}
+                onChange={(e) => updateConfig("rss_poll_interval", e.target.value)}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              >
+                <option value="5">Every 5 minutes</option>
+                <option value="15">Every 15 minutes</option>
+                <option value="30">Every 30 minutes</option>
+                <option value="60">Every hour</option>
+                <option value="360">Every 6 hours</option>
+                <option value="1440">Once a day</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case "rss_keyword_match":
+        return (
+          <div className="space-y-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <p className="text-xs text-orange-800">
+                Triggers only when a new RSS item's title or content contains one of the specified keywords.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="rss_feed_url_kw">RSS Feed URL</Label>
+              <Input
+                id="rss_feed_url_kw"
+                value={config.rss_feed_url || ""}
+                onChange={(e) => updateConfig("rss_feed_url", e.target.value)}
+                placeholder="https://example.com/feed.xml"
+              />
+            </div>
+            <div>
+              <Label htmlFor="rss_keywords">Keywords (comma-separated)</Label>
+              <Input
+                id="rss_keywords"
+                value={config.rss_keywords || ""}
+                onChange={(e) => updateConfig("rss_keywords", e.target.value)}
+                placeholder="SEO, local search, Google Maps"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Triggers if any keyword is found in the item title or description.</p>
+            </div>
+            <div>
+              <Label htmlFor="rss_poll_interval_kw">Poll Interval</Label>
+              <select
+                id="rss_poll_interval_kw"
+                value={config.rss_poll_interval || "15"}
+                onChange={(e) => updateConfig("rss_poll_interval", e.target.value)}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              >
+                <option value="5">Every 5 minutes</option>
+                <option value="15">Every 15 minutes</option>
+                <option value="30">Every 30 minutes</option>
+                <option value="60">Every hour</option>
+                <option value="360">Every 6 hours</option>
+                <option value="1440">Once a day</option>
+              </select>
             </div>
           </div>
         );
