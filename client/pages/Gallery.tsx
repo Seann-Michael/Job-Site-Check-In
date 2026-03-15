@@ -956,7 +956,7 @@ export default function Gallery() {
       {/* Photo Modal */}
       {selectedPhoto && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4"
           onClick={() => setSelectedPhoto(null)}
         >
           <div className="relative max-w-4xl max-h-full">
