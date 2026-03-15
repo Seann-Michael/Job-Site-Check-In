@@ -85,38 +85,76 @@ export const GoogleBusinessProfileFinder: React.FC<
     setApiKeyAvailable(!!apiKey);
   }, []);
 
-  const extractCidFromUrl = (url: string): string | null => {
-    // Extract CID from various Google Maps URL formats
-    const patterns = [
-      /!1s0x[a-f0-9]+:0x([a-f0-9]+)/, // Standard format
-      /data=.*!3m1!4b1!4m\d+!3m\d+!1s0x[a-f0-9]+:0x([a-f0-9]+)/, // Data format
-      /place\/.*\/@.*\/data=.*!4m\d+!3m\d+!1s0x[a-f0-9]+:0x([a-f0-9]+)/, // Place format
-    ];
+  /** Detect if a URL is a short redirect link that needs server-side resolution */
+  const isShortUrl = (url: string): boolean => {
+    return (
+      url.includes("maps.app.goo.gl") ||
+      url.includes("share.google") ||
+      url.includes("goo.gl/maps")
+    );
+  };
 
+  /** Resolve a short URL to its final destination via our server proxy */
+  const resolveShortUrl = async (url: string): Promise<string> => {
+    const response = await fetch(
+      `/api/resolve-url?url=${encodeURIComponent(url)}`,
+    );
+    if (!response.ok) throw new Error("Failed to resolve short URL");
+    const data = await response.json();
+    return data.resolvedUrl || url;
+  };
+
+  const extractCidFromUrl = (url: string): string | null => {
+    const patterns = [
+      /!1s0x[a-f0-9]+:0x([a-f0-9]+)/i,
+      /data=.*!1s0x[a-f0-9]+:0x([a-f0-9]+)/i,
+    ];
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match) {
-        // Convert hex to decimal for CID
-        return parseInt(match[1], 16).toString();
+        try {
+          // Use BigInt to avoid precision loss on large hex values
+          return BigInt("0x" + match[1]).toString();
+        } catch {
+          return null;
+        }
       }
     }
     return null;
   };
 
   const extractPlaceIdFromUrl = (url: string): string | null => {
-    // Extract place ID from Google Maps URLs
     const placeIdMatch = url.match(/place_id:([A-Za-z0-9_-]+)/);
-    if (placeIdMatch) {
-      return placeIdMatch[1];
-    }
+    if (placeIdMatch) return placeIdMatch[1];
 
-    // Alternative format
     const altMatch = url.match(/!1s([A-Za-z0-9_-]+)!/);
-    if (altMatch && altMatch[1].startsWith("ChIJ")) {
-      return altMatch[1];
-    }
+    if (altMatch && altMatch[1].startsWith("ChIJ")) return altMatch[1];
 
     return null;
+  };
+
+  /** Extract business name and coordinates from a full Google Maps URL */
+  const extractInfoFromMapsUrl = (
+    url: string,
+  ): { name: string | null; lat: number | null; lng: number | null } => {
+    let name: string | null = null;
+    let lat: number | null = null;
+    let lng: number | null = null;
+
+    // Business name from /place/NAME/ segment
+    const nameMatch = url.match(/\/place\/([^/@]+)/);
+    if (nameMatch) {
+      name = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
+    }
+
+    // Coordinates from @lat,lng
+    const coordMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (coordMatch) {
+      lat = parseFloat(coordMatch[1]);
+      lng = parseFloat(coordMatch[2]);
+    }
+
+    return { name, lat, lng };
   };
 
   const handleBusinessNameSelect = (
@@ -201,89 +239,113 @@ export const GoogleBusinessProfileFinder: React.FC<
     setSearchError(null);
 
     try {
-      const placeId = extractPlaceIdFromUrl(urlQuery);
-      const cid = extractCidFromUrl(urlQuery);
+      // Step 1: If it's a short URL, resolve it to the full URL first
+      let resolvedUrl = urlQuery.trim();
+      if (isShortUrl(resolvedUrl)) {
+        toast.info("Resolving short URL...");
+        try {
+          resolvedUrl = await resolveShortUrl(resolvedUrl);
+        } catch (e) {
+          setSearchError(
+            "Could not resolve the short URL. Please paste the full Google Maps URL instead.",
+          );
+          setIsSearchingUrl(false);
+          return;
+        }
+      }
 
+      // Step 2: Try to extract a Place ID directly (most accurate)
+      const placeId = extractPlaceIdFromUrl(resolvedUrl);
       if (placeId) {
         const profile = await searchByPlaceId(placeId);
         if (profile) {
           setFoundProfile(profile);
-          if (onProfileFound) {
-            onProfileFound(profile);
-          }
-          toast.success("Business profile found from URL!");
-        } else {
-          setSearchError("Could not find business profile from this URL.");
-        }
-      } else {
-        // Try extracting business name from URL
-        const nameMatch = urlQuery.match(/place\/([^\/]+)/);
-        if (nameMatch) {
-          const businessName = decodeURIComponent(
-            nameMatch[1].replace(/\+/g, " "),
-          );
-          toast.info(`Extracted business name: ${businessName}. Searching...`);
-
-          await loadGoogleMapsAPI();
-          const service = new google.maps.places.PlacesService(
-            document.createElement("div"),
-          );
-
-          const request: google.maps.places.TextSearchRequest = {
-            query: businessName,
-          };
-
-          service.textSearch(request, (results, status) => {
-            if (
-              status === google.maps.places.PlacesServiceStatus.OK &&
-              results &&
-              results.length > 0
-            ) {
-              const place = results[0];
-
-              let extractedCid = "";
-              if (place.url) {
-                extractedCid = extractCidFromUrl(place.url) || "";
-              }
-
-              const profile: BusinessProfile = {
-                placeId: place.place_id || "",
-                name: place.name || "",
-                formattedAddress: place.formatted_address || "",
-                businessStatus: place.business_status || "",
-                types: place.types || [],
-                rating: place.rating,
-                userRatingsTotal: place.user_ratings_total,
-                phoneNumber: place.formatted_phone_number,
-                website: place.website,
-                openingHours: place.opening_hours?.weekday_text,
-                lat: place.geometry?.location?.lat() || 0,
-                lng: place.geometry?.location?.lng() || 0,
-                photos: place.photos
-                  ?.slice(0, 3)
-                  .map((photo) =>
-                    photo.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                  ),
-                url: place.url,
-                cid: extractedCid,
-                priceLevel: place.price_level,
-              };
-
-              setFoundProfile(profile);
-              if (onProfileFound) {
-                onProfileFound(profile);
-              }
-              toast.success("Business profile found from URL!");
-            } else {
-              setSearchError("Could not find business profile from this URL.");
-            }
-          });
-        } else {
-          setSearchError(
-            "Could not extract business information from this URL. Please ensure it's a valid Google Maps business URL.",
-          );
+          if (onProfileFound) onProfileFound(profile);
+          toast.success("Business profile found!");
+          return;
         }
       }
+
+      // Step 3: Extract business name + coordinates from the full Maps URL
+      const { name, lat, lng } = extractInfoFromMapsUrl(resolvedUrl);
+
+      if (!name) {
+        setSearchError(
+          "Could not extract business information from this URL. Please make sure it's a valid Google Maps business link.",
+        );
+        return;
+      }
+
+      await loadGoogleMapsAPI();
+      const service = new google.maps.places.PlacesService(
+        document.createElement("div"),
+      );
+
+      // Build text search request; bias to coordinates if available
+      const request: google.maps.places.TextSearchRequest = {
+        query: name,
+        ...(lat !== null && lng !== null
+          ? {
+              location: new google.maps.LatLng(lat, lng),
+              radius: 5000,
+            }
+          : {}),
+      };
+
+      service.textSearch(request, async (results, status) => {
+        if (
+          status === google.maps.places.PlacesServiceStatus.OK &&
+          results &&
+          results.length > 0
+        ) {
+          // Fetch full details for the top result
+          const topPlaceId = results[0].place_id;
+          if (topPlaceId) {
+            const profile = await searchByPlaceId(topPlaceId);
+            if (profile) {
+              setFoundProfile(profile);
+              if (onProfileFound) onProfileFound(profile);
+              toast.success("Business profile found!");
+              return;
+            }
+          }
+
+          // Fallback: build profile from text search result directly
+          const place = results[0];
+          const extractedCid = place.url ? extractCidFromUrl(place.url) || "" : "";
+          const profile: BusinessProfile = {
+            placeId: place.place_id || "",
+            name: place.name || "",
+            formattedAddress: place.formatted_address || "",
+            businessStatus: place.business_status || "",
+            types: place.types || [],
+            rating: place.rating,
+            userRatingsTotal: place.user_ratings_total,
+            phoneNumber: place.formatted_phone_number,
+            website: place.website,
+            openingHours: place.opening_hours?.weekday_text,
+            lat: place.geometry?.location?.lat() || 0,
+            lng: place.geometry?.location?.lng() || 0,
+            photos: place.photos
+              ?.slice(0, 3)
+              .map((p) => p.getUrl({ maxWidth: 400, maxHeight: 300 })),
+            url: place.url,
+            cid: extractedCid,
+            priceLevel: place.price_level,
+          };
+          setFoundProfile(profile);
+          if (onProfileFound) onProfileFound(profile);
+          toast.success("Business profile found!");
+        } else {
+          setSearchError(
+            "Could not find a matching business profile. Try the Business Name search tab instead.",
+          );
+        }
+        setIsSearchingUrl(false);
+      });
+
+      // Return here since textSearch callback handles setIsSearchingUrl(false)
+      return;
     } catch (error) {
       console.error("URL search error:", error);
       setSearchError(
@@ -442,7 +504,7 @@ export const GoogleBusinessProfileFinder: React.FC<
             <div className="flex gap-2 mt-1">
               <Input
                 id="url-search"
-                placeholder="Paste Google Maps URL..."
+                placeholder="Paste any Google Maps link (full URL, maps.app.goo.gl, or share.google)..."
                 value={urlQuery}
                 onChange={(e) => setUrlQuery(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleUrlSearch()}
@@ -459,7 +521,7 @@ export const GoogleBusinessProfileFinder: React.FC<
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Paste the full Google Maps URL of your business listing
+              Supports full Google Maps URLs, short links (maps.app.goo.gl), and share links (share.google)
             </p>
           </div>
         </TabsContent>

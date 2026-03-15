@@ -25,6 +25,7 @@ import {
   handleWorkflowWebhook,
   handleGetWebhookDeliveries,
 } from "./routes/workflows";
+import { handleResolveUrl } from "./routes/resolveUrl";
 
 export function createServer() {
   const app = express();
@@ -61,6 +62,9 @@ export function createServer() {
   app.post("/api/webhooks/twilio", handleTwilioWebhook);
   app.get("/api/twilio/test", handleTwilioTest);
   app.get("/api/twilio/status", handleTwilioStatus);
+
+  // URL Resolver (for short Google Maps links)
+  app.get("/api/resolve-url", handleResolveUrl);
 
   // Workflow Routes
   app.post("/api/webhooks/register", handleRegisterWebhook);
