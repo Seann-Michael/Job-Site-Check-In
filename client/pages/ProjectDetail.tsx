@@ -1313,39 +1313,6 @@ export default function ProjectDetail() {
                       >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1">
-                            Actions
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          <DropdownMenuItem onClick={handleShare}>
-                            <Share className="h-4 w-4 mr-2" />
-                            Share Project
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setEditNameValue(project.name); setEditingName(true); }}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Rename Project
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Upload to Website
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Post to Google My Business
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={handleDelete}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Project
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
                   )}
                   {/* Customer contact info */}
@@ -1443,14 +1410,19 @@ export default function ProjectDetail() {
               >
                 <DropdownMenu key="actions-dropdown">
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+                      Actions
+                      <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem key="share-project" onClick={handleShare}>
                       <Share className="h-4 w-4 mr-2" />
                       Share Project
+                    </DropdownMenuItem>
+                    <DropdownMenuItem key="rename-project" onClick={() => { setEditNameValue(project.name); setEditingName(true); }}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Rename Project
                     </DropdownMenuItem>
                     <DropdownMenuItem key="upload-website">
                       <ExternalLink className="h-4 w-4 mr-2" />
