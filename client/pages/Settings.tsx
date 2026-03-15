@@ -823,164 +823,6 @@ export default function Settings() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <GoogleBusinessProfileFinder
-                          onProfileFound={(profile) => {
-                            console.log(
-                              "Google Business Profile found:",
-                              profile,
-                            );
-
-                            // Auto-populate all business information
-                            updateSetting("businessName", profile.name);
-
-                            // Parse and update address information
-                            if (profile.formattedAddress) {
-                              const addressParts =
-                                profile.formattedAddress.split(", ");
-                              const fullAddress = addressParts
-                                .slice(0, -2)
-                                .join(", ");
-                              const city = addressParts.length > 1
-                                ? addressParts[addressParts.length - 2]
-                                : "";
-                              const stateZip = addressParts.length > 0
-                                ? addressParts[addressParts.length - 1]
-                                : "";
-
-                              let state = "";
-                              let zipCode = "";
-                              if (stateZip) {
-                                const stateZipMatch = stateZip.match(
-                                  /^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/,
-                                );
-                                if (stateZipMatch) {
-                                  state = stateZipMatch[1];
-                                  zipCode = stateZipMatch[2];
-                                } else {
-                                  const parts = stateZip.split(" ");
-                                  state = parts[0] || "";
-                                  zipCode = parts[1] || "";
-                                }
-                              }
-
-                              updateSetting(
-                                "addressSearch",
-                                profile.formattedAddress,
-                              );
-                              updateSetting("address", fullAddress || "");
-                              updateSetting("city", city || "");
-                              updateSetting("state", state);
-                              updateSetting("zipCode", zipCode);
-                            }
-
-                            // Update contact information
-                            if (profile.phoneNumber) {
-                              updateSetting("phone", profile.phoneNumber);
-                            }
-
-                            if (profile.website) {
-                              updateSetting("website", profile.website);
-                            }
-
-                            // Update coordinates
-                            updateSetting("latitude", profile.lat);
-                            updateSetting("longitude", profile.lng);
-
-                            // Store Google-specific data
-                            updateSetting("googlePlaceId", profile.placeId);
-                            updateSetting("googleCid", profile.cid || "");
-                            updateSetting(
-                              "googleBusinessUrl",
-                              profile.url || "",
-                            );
-                            updateSetting(
-                              "businessRating",
-                              profile.rating || 0,
-                            );
-                            updateSetting(
-                              "businessReviewsTotal",
-                              profile.userRatingsTotal || 0,
-                            );
-                            updateSetting(
-                              "businessHours",
-                              profile.openingHours || [],
-                            );
-
-                            // Auto-detect business types from Google Places types
-                            if (profile.types && profile.types.length > 0) {
-                              const typeMapping: { [key: string]: string } = {
-                                restaurant: "restaurant",
-                                food: "food",
-                                meal_takeaway: "restaurant",
-                                store: "retail",
-                                clothing_store: "retail",
-                                shopping_mall: "shopping",
-                                car_dealer: "automotive",
-                                car_repair: "automotive",
-                                gas_station: "automotive",
-                                hospital: "healthcare",
-                                dentist: "healthcare",
-                                doctor: "healthcare",
-                                pharmacy: "healthcare",
-                                beauty_salon: "beauty",
-                                spa: "beauty",
-                                hair_care: "beauty",
-                                gym: "fitness",
-                                health: "fitness",
-                                real_estate_agency: "real-estate",
-                                lawyer: "legal",
-                                accounting: "financial",
-                                bank: "financial",
-                                insurance_agency: "financial",
-                                plumber: "home-services",
-                                electrician: "home-services",
-                                general_contractor: "construction",
-                                school: "education",
-                                university: "education",
-                                lodging: "lodging",
-                                travel_agency: "travel",
-                                tourist_attraction: "entertainment",
-                              };
-
-                              const detectedTypes = [];
-                              for (const type of profile.types) {
-                                if (
-                                  typeMapping[type] &&
-                                  !detectedTypes.includes(typeMapping[type])
-                                ) {
-                                  detectedTypes.push(typeMapping[type]);
-                                }
-                              }
-
-                              if (detectedTypes.length > 0) {
-                                updateSetting("businessTypes", detectedTypes);
-                              }
-                            }
-                          }}
-                          onAddressChange={(address, addressComponents) => {
-                            if (addressComponents) {
-                              updateSetting("addressSearch", address);
-                              updateSetting(
-                                "address",
-                                addressComponents.street || "",
-                              );
-                              updateSetting(
-                                "city",
-                                addressComponents.city || "",
-                              );
-                              updateSetting(
-                                "state",
-                                addressComponents.state || "",
-                              );
-                              updateSetting(
-                                "zipCode",
-                                addressComponents.zipCode || "",
-                              );
-                            }
-                          }}
-                        />
-                      </div>
                       <div>
                         <Label htmlFor="firstName">First Name</Label>
                         <Input
@@ -1047,6 +889,164 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="sm:col-span-2">
+                      <GoogleBusinessProfileFinder
+                        onProfileFound={(profile) => {
+                          console.log(
+                            "Google Business Profile found:",
+                            profile,
+                          );
+
+                          // Auto-populate all business information
+                          updateSetting("businessName", profile.name);
+
+                          // Parse and update address information
+                          if (profile.formattedAddress) {
+                            const addressParts =
+                              profile.formattedAddress.split(", ");
+                            const fullAddress = addressParts
+                              .slice(0, -2)
+                              .join(", ");
+                            const city = addressParts.length > 1
+                              ? addressParts[addressParts.length - 2]
+                              : "";
+                            const stateZip = addressParts.length > 0
+                              ? addressParts[addressParts.length - 1]
+                              : "";
+
+                            let state = "";
+                            let zipCode = "";
+                            if (stateZip) {
+                              const stateZipMatch = stateZip.match(
+                                /^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/,
+                              );
+                              if (stateZipMatch) {
+                                state = stateZipMatch[1];
+                                zipCode = stateZipMatch[2];
+                              } else {
+                                const parts = stateZip.split(" ");
+                                state = parts[0] || "";
+                                zipCode = parts[1] || "";
+                              }
+                            }
+
+                            updateSetting(
+                              "addressSearch",
+                              profile.formattedAddress,
+                            );
+                            updateSetting("address", fullAddress || "");
+                            updateSetting("city", city || "");
+                            updateSetting("state", state);
+                            updateSetting("zipCode", zipCode);
+                          }
+
+                          // Update contact information
+                          if (profile.phoneNumber) {
+                            updateSetting("phone", profile.phoneNumber);
+                          }
+
+                          if (profile.website) {
+                            updateSetting("website", profile.website);
+                          }
+
+                          // Update coordinates
+                          updateSetting("latitude", profile.lat);
+                          updateSetting("longitude", profile.lng);
+
+                          // Store Google-specific data
+                          updateSetting("googlePlaceId", profile.placeId);
+                          updateSetting("googleCid", profile.cid || "");
+                          updateSetting(
+                            "googleBusinessUrl",
+                            profile.url || "",
+                          );
+                          updateSetting(
+                            "businessRating",
+                            profile.rating || 0,
+                          );
+                          updateSetting(
+                            "businessReviewsTotal",
+                            profile.userRatingsTotal || 0,
+                          );
+                          updateSetting(
+                            "businessHours",
+                            profile.openingHours || [],
+                          );
+
+                          // Auto-detect business types from Google Places types
+                          if (profile.types && profile.types.length > 0) {
+                            const typeMapping: { [key: string]: string } = {
+                              restaurant: "restaurant",
+                              food: "food",
+                              meal_takeaway: "restaurant",
+                              store: "retail",
+                              clothing_store: "retail",
+                              shopping_mall: "shopping",
+                              car_dealer: "automotive",
+                              car_repair: "automotive",
+                              gas_station: "automotive",
+                              hospital: "healthcare",
+                              dentist: "healthcare",
+                              doctor: "healthcare",
+                              pharmacy: "healthcare",
+                              beauty_salon: "beauty",
+                              spa: "beauty",
+                              hair_care: "beauty",
+                              gym: "fitness",
+                              health: "fitness",
+                              real_estate_agency: "real-estate",
+                              lawyer: "legal",
+                              accounting: "financial",
+                              bank: "financial",
+                              insurance_agency: "financial",
+                              plumber: "home-services",
+                              electrician: "home-services",
+                              general_contractor: "construction",
+                              school: "education",
+                              university: "education",
+                              lodging: "lodging",
+                              travel_agency: "travel",
+                              tourist_attraction: "entertainment",
+                            };
+
+                            const detectedTypes = [];
+                            for (const type of profile.types) {
+                              if (
+                                typeMapping[type] &&
+                                !detectedTypes.includes(typeMapping[type])
+                              ) {
+                                detectedTypes.push(typeMapping[type]);
+                              }
+                            }
+
+                            if (detectedTypes.length > 0) {
+                              updateSetting("businessTypes", detectedTypes);
+                            }
+                          }
+                        }}
+                        onAddressChange={(address, addressComponents) => {
+                          if (addressComponents) {
+                            updateSetting("addressSearch", address);
+                            updateSetting(
+                              "address",
+                              addressComponents.street || "",
+                            );
+                            updateSetting(
+                              "city",
+                              addressComponents.city || "",
+                            );
+                            updateSetting(
+                              "state",
+                              addressComponents.state || "",
+                            );
+                            updateSetting(
+                              "zipCode",
+                              addressComponents.zipCode || "",
+                            );
+                          }
+                        }}
+                      />
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="googlePlaceId">Google Places ID</Label>
