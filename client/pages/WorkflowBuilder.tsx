@@ -380,12 +380,14 @@ export default function WorkflowBuilder() {
   };
 
   const addStep = (app: any, actionData: any) => {
+    const noConfigNeeded =
+      app.app === "jobs" && actionData.id === "job_completed";
     const newStep: WorkflowStep = {
       id: `step_${Date.now()}`,
       type: app.type,
       app: app.app,
       action: actionData.id,
-      configured: false,
+      configured: noConfigNeeded,
       config: {},
     };
     setSteps([...steps, newStep]);
@@ -700,14 +702,16 @@ export default function WorkflowBuilder() {
                             <span className="text-xs">Setup required</span>
                           </div>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => editStep(step)}
-                        >
-                          <Settings className="h-3 w-3" />
-                        </Button>
+                        {!(step.app === "jobs" && step.action === "job_completed") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => editStep(step)}
+                          >
+                            <Settings className="h-3 w-3" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -719,7 +723,7 @@ export default function WorkflowBuilder() {
                       </div>
                     </div>
                   </CardHeader>
-                  {!step.configured && (
+                  {!step.configured && !(step.app === "jobs" && step.action === "job_completed") && (
                     <CardContent className="pt-0">
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <div className="flex items-center gap-2 text-amber-700">
