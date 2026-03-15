@@ -26,6 +26,7 @@ import {
   handleGetWebhookDeliveries,
 } from "./routes/workflows";
 import { handleResolveUrl } from "./routes/resolveUrl";
+import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
 
 export function createServer() {
   const app = express();
@@ -65,6 +66,9 @@ export function createServer() {
 
   // URL Resolver (for short Google Maps links)
   app.get("/api/resolve-url", handleResolveUrl);
+
+  // Google Place Lookup from any Maps URL
+  app.post("/api/google-place-lookup", handleGooglePlaceLookup);
 
   // Workflow Routes
   app.post("/api/webhooks/register", handleRegisterWebhook);
