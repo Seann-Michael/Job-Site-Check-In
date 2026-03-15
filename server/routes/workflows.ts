@@ -265,55 +265,160 @@ async function executeAction(
   }
 }
 
+/** Replace {{variable.path}} tokens in a string using a flat context object */
+function interpolate(template: string, context: Record<string, any>): string {
+  return template.replace(/\{\{([\w.]+)\}\}/g, (_, path) => {
+    const parts = path.split(".");
+    let val: any = context;
+    for (const part of parts) {
+      if (val == null) return "";
+      val = val[part];
+    }
+    return val != null ? String(val) : "";
+  });
+}
+
+/** Build a flat context object from trigger payload for variable substitution */
+function buildContext(payload: WebhookPayload): Record<string, any> {
+  return {
+    contact: {
+      id: payload.contact?.id || payload.contactId || "",
+      name: payload.contact?.name || payload.contactName || "",
+      email: payload.contact?.email || payload.contactEmail || "",
+      phone: payload.contact?.phone || payload.contactPhone || "",
+      firstName: payload.contact?.firstName || payload.firstName || "",
+      lastName: payload.contact?.lastName || payload.lastName || "",
+    },
+    job: {
+      id: payload.job?.id || payload.jobId || "",
+      title: payload.job?.title || payload.jobTitle || "",
+      status: payload.job?.status || payload.jobStatus || "",
+      type: payload.job?.type || payload.jobType || "",
+      location: payload.job?.location || payload.jobLocation || "",
+    },
+    // also expose raw payload fields at top level
+    ...payload,
+  };
+}
+
 // Send webhook action
 async function sendWebhook(
   config: Record<string, any>,
   payload: WebhookPayload,
   executionId: string
 ) {
+  const {
+    target_url,
+    // legacy key support
+    targetUrl: legacyTargetUrl,
+    method = "POST",
+    auth_type = "none",
+    auth_token,
+    api_key_name,
+    api_key_value,
+    basic_username,
+    basic_password,
+    headers: headerItems = [],
+    query_params: queryParamItems = [],
+    content_type = "application/json",
+    raw_body,
+    custom_data: customDataItems = [],
+  } = config;
+
+  const resolvedUrl = target_url || legacyTargetUrl;
+
+  if (!resolvedUrl) {
+    throw new Error("Target URL is required for send webhook action");
+  }
+
+  const context = buildContext(payload);
+
+  // ── Build headers ──────────────────────────────────────────────────────────
+  const requestHeaders: Record<string, string> = {
+    "Content-Type": content_type,
+  };
+
+  // Dynamic headers from key-value editor
+  if (Array.isArray(headerItems)) {
+    for (const h of headerItems) {
+      if (h.key) requestHeaders[h.key] = interpolate(h.value || "", context);
+    }
+  }
+
+  // Authorization header
+  if (auth_type === "bearer" && auth_token) {
+    requestHeaders["Authorization"] = `Bearer ${auth_token}`;
+  } else if (auth_type === "api_key" && api_key_name && api_key_value) {
+    requestHeaders[api_key_name] = api_key_value;
+  } else if (auth_type === "basic" && basic_username) {
+    const encoded = Buffer.from(`${basic_username}:${basic_password || ""}`).toString("base64");
+    requestHeaders["Authorization"] = `Basic ${encoded}`;
+  }
+
+  // ── Build URL with query params ────────────────────────────────────────────
+  let finalUrl = resolvedUrl;
+  if (Array.isArray(queryParamItems) && queryParamItems.length > 0) {
+    const qs = new URLSearchParams();
+    for (const p of queryParamItems) {
+      if (p.key) qs.append(p.key, interpolate(p.value || "", context));
+    }
+    finalUrl = `${resolvedUrl}${resolvedUrl.includes("?") ? "&" : "?"}${qs.toString()}`;
+  }
+
+  // ── Build request body ─────────────────────────────────────────────────────
+  let body: string | undefined;
+  if (method !== "GET" && method !== "HEAD") {
+    if (raw_body && raw_body.trim()) {
+      // User-defined raw body with variable interpolation
+      body = interpolate(raw_body, context);
+    } else {
+      // Merge trigger payload with any custom_data key-value pairs
+      const mergedData: Record<string, any> = { ...payload };
+      if (Array.isArray(customDataItems)) {
+        for (const item of customDataItems) {
+          if (item.key) mergedData[item.key] = interpolate(item.value || "", context);
+        }
+      }
+      if (content_type === "application/x-www-form-urlencoded") {
+        const form = new URLSearchParams();
+        for (const [k, v] of Object.entries(mergedData)) {
+          form.append(k, String(v ?? ""));
+        }
+        body = form.toString();
+      } else {
+        body = JSON.stringify(mergedData);
+      }
+    }
+  }
+
+  // ── Fire the request ───────────────────────────────────────────────────────
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
   try {
-    const { targetUrl, method = "POST", headers = {} } = config;
+    const response = await fetch(finalUrl, {
+      method,
+      headers: requestHeaders,
+      body,
+      signal: controller.signal,
+    });
 
-    if (!targetUrl) {
-      throw new Error("Target URL is required for send webhook action");
-    }
+    const responseBody = await response.text();
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      const response = await fetch(targetUrl, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      const responseBody = await response.text();
-
-      // Log delivery
-      await supabase.from("webhook_deliveries").insert({
-        webhook_id: null,
-        execution_id: executionId,
-        payload,
-        status: response.ok ? "delivered" : "failed",
-        http_status_code: response.status,
-        response_body: responseBody,
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  } catch (error) {
-    console.error("Error sending webhook:", error);
     await supabase.from("webhook_deliveries").insert({
+      webhook_id: null,
       execution_id: executionId,
       payload,
-      status: "failed",
-      error_message: error instanceof Error ? error.message : "Unknown error",
+      status: response.ok ? "delivered" : "failed",
+      http_status_code: response.status,
+      response_body: responseBody,
     });
+
+    if (!response.ok) {
+      console.warn(`Webhook responded with ${response.status}: ${responseBody.slice(0, 200)}`);
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

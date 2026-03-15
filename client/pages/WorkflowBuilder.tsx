@@ -890,6 +890,69 @@ export default function WorkflowBuilder() {
   );
 }
 
+// ─── Key-Value Pair Editor ───────────────────────────────────────────────────
+
+function KeyValueEditor({
+  label,
+  items,
+  onChange,
+  keyPlaceholder = "Key",
+  valuePlaceholder = "Value",
+}: {
+  label: string;
+  items: { key: string; value: string }[];
+  onChange: (items: { key: string; value: string }[]) => void;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+}) {
+  const addItem = () => onChange([...items, { key: "", value: "" }]);
+  const removeItem = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  const updateItem = (i: number, field: "key" | "value", v: string) =>
+    onChange(items.map((item, idx) => (idx === i ? { ...item, [field]: v } : item)));
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {items.length === 0 && (
+        <p className="text-xs text-muted-foreground">No items yet.</p>
+      )}
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <Input
+            placeholder={keyPlaceholder}
+            value={item.key}
+            onChange={(e) => updateItem(i, "key", e.target.value)}
+            className="flex-1 text-sm h-8"
+          />
+          <Input
+            placeholder={valuePlaceholder}
+            value={item.value}
+            onChange={(e) => updateItem(i, "value", e.target.value)}
+            className="flex-1 text-sm h-8"
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+            onClick={() => removeItem(i)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="gap-1.5 text-blue-600 hover:text-blue-700 h-7 px-2 text-xs"
+        onClick={addItem}
+      >
+        <Plus className="h-3 w-3" />
+        Add Item
+      </Button>
+    </div>
+  );
+}
+
 // ─── Webhook Payload Mapper ─────────────────────────────────────────────────
 
 interface FieldMapping {
@@ -1348,29 +1411,190 @@ function StepConfigForm({
         );
       }
 
-      case "webhook_send_webhook":
+      case "webhook_send_webhook": {
+        const authType = config.auth_type || "none";
         return (
           <div className="space-y-4">
+            {/* Action Name */}
             <div>
-              <Label htmlFor="target_url">Target URL</Label>
+              <Label htmlFor="wh_action_name">Action Name</Label>
               <Input
-                id="target_url"
-                value={config.target_url || ""}
-                onChange={(e) => updateConfig("target_url", e.target.value)}
-                placeholder="https://api.example.com/webhook"
+                id="wh_action_name"
+                value={config.action_name || "Webhook"}
+                onChange={(e) => updateConfig("action_name", e.target.value)}
+                placeholder="Webhook"
               />
             </div>
+
+            {/* Method + URL */}
+            <div className="flex gap-2">
+              <div className="w-28 flex-shrink-0">
+                <Label htmlFor="wh_method">Method</Label>
+                <select
+                  id="wh_method"
+                  value={config.method || "POST"}
+                  onChange={(e) => updateConfig("method", e.target.value)}
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background h-10"
+                >
+                  <option>GET</option>
+                  <option>POST</option>
+                  <option>PUT</option>
+                  <option>PATCH</option>
+                  <option>DELETE</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="wh_url">URL</Label>
+                <Input
+                  id="wh_url"
+                  value={config.target_url || ""}
+                  onChange={(e) => updateConfig("target_url", e.target.value)}
+                  placeholder="https://example.com/webhook"
+                />
+              </div>
+            </div>
+
+            {/* Authorization */}
             <div>
-              <Label htmlFor="method">HTTP Method</Label>
-              <Input
-                id="method"
-                value={config.method || "POST"}
-                onChange={(e) => updateConfig("method", e.target.value)}
-                placeholder="POST"
+              <Label htmlFor="wh_auth">Authorization</Label>
+              <select
+                id="wh_auth"
+                value={authType}
+                onChange={(e) => updateConfig("auth_type", e.target.value)}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              >
+                <option value="none">None</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="api_key">API Key</option>
+                <option value="basic">Basic Auth (username:password)</option>
+              </select>
+            </div>
+            {authType === "bearer" && (
+              <div>
+                <Label htmlFor="wh_token">Bearer Token</Label>
+                <Input
+                  id="wh_token"
+                  value={config.auth_token || ""}
+                  onChange={(e) => updateConfig("auth_token", e.target.value)}
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                />
+              </div>
+            )}
+            {authType === "api_key" && (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Label>Header Name</Label>
+                  <Input
+                    value={config.api_key_name || "X-API-Key"}
+                    onChange={(e) => updateConfig("api_key_name", e.target.value)}
+                    placeholder="X-API-Key"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label>API Key Value</Label>
+                  <Input
+                    value={config.api_key_value || ""}
+                    onChange={(e) => updateConfig("api_key_value", e.target.value)}
+                    placeholder="your-api-key"
+                  />
+                </div>
+              </div>
+            )}
+            {authType === "basic" && (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Label>Username</Label>
+                  <Input
+                    value={config.basic_username || ""}
+                    onChange={(e) => updateConfig("basic_username", e.target.value)}
+                    placeholder="username"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    value={config.basic_password || ""}
+                    onChange={(e) => updateConfig("basic_password", e.target.value)}
+                    placeholder="password"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Headers */}
+            <KeyValueEditor
+              label="Headers"
+              items={config.headers || []}
+              onChange={(v) => updateConfig("headers", v)}
+              keyPlaceholder="Header name"
+              valuePlaceholder="Header value"
+            />
+
+            {/* Query Parameters */}
+            <KeyValueEditor
+              label="Query Parameters"
+              items={config.query_params || []}
+              onChange={(v) => updateConfig("query_params", v)}
+              keyPlaceholder="Param name"
+              valuePlaceholder="Param value"
+            />
+
+            {/* Content-Type */}
+            <div>
+              <Label htmlFor="wh_content_type">Content-Type</Label>
+              <select
+                id="wh_content_type"
+                value={config.content_type || "application/json"}
+                onChange={(e) => updateConfig("content_type", e.target.value)}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              >
+                <option value="application/json">application/json</option>
+                <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                <option value="text/plain">text/plain</option>
+              </select>
+            </div>
+
+            {/* Raw Body */}
+            <div>
+              <Label htmlFor="wh_body">Raw Body</Label>
+              <Textarea
+                id="wh_body"
+                value={config.raw_body || ""}
+                onChange={(e) => updateConfig("raw_body", e.target.value)}
+                placeholder={'{\n  "id": "{{contact.id}}",\n  "name": "{{contact.name}}",\n  "email": "{{contact.email}}",\n  "phone": "{{contact.phone}}"\n}'}
+                className="min-h-[140px] resize-y text-xs font-mono"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Use <code className="text-blue-600">{"{{contact.name}}"}</code>, <code className="text-blue-600">{"{{job.title}}"}</code>, <code className="text-blue-600">{"{{job.id}}"}</code>, etc. Variables are replaced at runtime.
+              </p>
+            </div>
+
+            {/* Custom Data */}
+            <KeyValueEditor
+              label="Custom Data"
+              items={config.custom_data || []}
+              onChange={(v) => updateConfig("custom_data", v)}
+              keyPlaceholder="Key"
+              valuePlaceholder="Value"
+            />
+
+            {/* Test button */}
+            <div className="rounded-lg border border-muted bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">
+                <strong>Available variables:</strong>{" "}
+                <code className="text-blue-600">{"{{contact.id}}"}</code>{" "}
+                <code className="text-blue-600">{"{{contact.name}}"}</code>{" "}
+                <code className="text-blue-600">{"{{contact.email}}"}</code>{" "}
+                <code className="text-blue-600">{"{{contact.phone}}"}</code>{" "}
+                <code className="text-blue-600">{"{{job.title}}"}</code>{" "}
+                <code className="text-blue-600">{"{{job.id}}"}</code>{" "}
+                <code className="text-blue-600">{"{{job.status}}"}</code>
+              </p>
             </div>
           </div>
         );
+      }
 
       case "delay_wait":
         return (
