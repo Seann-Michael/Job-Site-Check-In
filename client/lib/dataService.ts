@@ -1172,7 +1172,7 @@ export class DataService {
       .insert({
         project_id: projectId,
         filename: fileName,
-        original_name: file.name,
+        original_name: metadata.custom_name || file.name,
         file_path: publicUrl,
         file_size: file.size,
         mime_type: file.type,

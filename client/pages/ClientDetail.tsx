@@ -131,8 +131,9 @@ export default function ClientDetail() {
   const [selectedJobForUpload, setSelectedJobForUpload] = useState<string>("");
   const [showDocUploader, setShowDocUploader] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [docJobForUpload, setDocJobForUpload] = useState<string>("");
+  const [docJobForUpload, setDocJobForUpload] = useState<string>("none");
   const [docFiles, setDocFiles] = useState<File[]>([]);
+  const [docCustomName, setDocCustomName] = useState("");
   const [docType, setDocType] = useState("general");
   const [docDescription, setDocDescription] = useState("");
 
@@ -285,8 +286,12 @@ export default function ClientDetail() {
   };
 
   const getOrCreateDocJob = async (): Promise<string> => {
-    const existing = docJobForUpload || projects[0]?.id;
-    if (existing) return existing;
+    // If user picked a specific job, use it
+    if (docJobForUpload && docJobForUpload !== "none") return docJobForUpload;
+    // Look for an existing auto-general-docs job to reuse
+    const existing = projects.find((p) => p.name.includes("General Documents"));
+    if (existing) return existing.id;
+    // Auto-create a general docs job
     const businessId = workspaceService.getCurrentBusinessId();
     const job = await dataService.createProject({
       name: `${client?.name || "Client"} — General Documents`,
@@ -308,22 +313,27 @@ export default function ClientDetail() {
     let uploaded = 0;
     try {
       const jobId = await getOrCreateDocJob();
-      for (const file of docFiles) {
+      for (let i = 0; i < docFiles.length; i++) {
+        const file = docFiles[i];
+        // For single file uploads use the custom name; for multi use original names
+        const customName = docFiles.length === 1 ? (docCustomName.trim() || file.name) : file.name;
         try {
           await dataService.uploadProjectDocument(jobId, file, {
             document_type: docType,
             description: docDescription,
+            custom_name: customName,
           });
           uploaded++;
-        } catch (err) {
+        } catch (err: any) {
           console.error("Doc upload error:", err);
-          toast.error(`Failed to upload ${file.name}`);
+          toast.error(`Failed to upload ${file.name}: ${err?.message || "Unknown error"}`);
         }
       }
       if (uploaded > 0) {
         toast.success(`Uploaded ${uploaded} document${uploaded !== 1 ? "s" : ""}`);
         setShowDocUploader(false);
         setDocFiles([]);
+        setDocCustomName("");
         loadClient();
       }
     } finally {
@@ -781,8 +791,9 @@ export default function ClientDetail() {
                   variant="outline"
                   className="gap-2"
                   onClick={() => {
-                    setDocJobForUpload(projects[0]?.id || "");
+                    setDocJobForUpload("none");
                     setDocFiles([]);
+                    setDocCustomName("");
                     setDocType("general");
                     setDocDescription("");
                     setShowDocUploader(true);
@@ -814,7 +825,7 @@ export default function ClientDetail() {
                           </p>
                         </div>
                         <a
-                          href={getSupabaseUrl(doc.file_path)}
+                          href={doc.file_path.startsWith("http") ? doc.file_path : getSupabaseUrl(doc.file_path)}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
@@ -1016,32 +1027,30 @@ export default function ClientDetail() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Job selector */}
-            {projects.length === 0 ? (
-              <p className="text-xs text-muted-foreground p-3 rounded-lg bg-muted">
-                No jobs linked yet. A <span className="font-medium">General Documents</span> job will be created automatically.
-              </p>
-            ) : projects.length > 1 ? (
-              <div className="space-y-1">
-                <Label>Attach to job</Label>
-                <Select value={docJobForUpload} onValueChange={setDocJobForUpload}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a job" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
+            {/* Job selector — always visible, optional */}
+            <div className="space-y-1">
+              <Label>Associated Job <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Select value={docJobForUpload} onValueChange={setDocJobForUpload}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No specific job" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No specific job</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {docJobForUpload === "none" && (
+                <p className="text-xs text-muted-foreground">Will be stored under a General Documents folder for this client.</p>
+              )}
+            </div>
 
             {/* File picker */}
             <div className="space-y-1">
-              <Label>Files *</Label>
+              <Label>File *</Label>
               <div
                 className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
                 onClick={() => document.getElementById("doc-file-input")?.click()}
@@ -1052,7 +1061,13 @@ export default function ClientDetail() {
                   multiple
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.ppt,.pptx,.zip,.png,.jpg,.jpeg"
                   className="hidden"
-                  onChange={(e) => setDocFiles(Array.from(e.target.files || []))}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setDocFiles(files);
+                    // Pre-fill custom name with first file's name
+                    if (files.length === 1) setDocCustomName(files[0].name);
+                    else setDocCustomName("");
+                  }}
                 />
                 {docFiles.length > 0 ? (
                   <div className="space-y-1">
@@ -1079,6 +1094,18 @@ export default function ClientDetail() {
               </div>
             </div>
 
+            {/* Custom name — only shown for single file */}
+            {docFiles.length === 1 && (
+              <div className="space-y-1">
+                <Label>Save as</Label>
+                <Input
+                  placeholder="Document name"
+                  value={docCustomName}
+                  onChange={(e) => setDocCustomName(e.target.value)}
+                />
+              </div>
+            )}
+
             {/* Document type */}
             <div className="space-y-1">
               <Label>Document Type</Label>
@@ -1089,14 +1116,13 @@ export default function ClientDetail() {
                 <SelectContent>
                   <SelectItem value="general">General</SelectItem>
                   <SelectItem value="contract">Contract</SelectItem>
+                  <SelectItem value="proposal">Proposal</SelectItem>
                   <SelectItem value="invoice">Invoice</SelectItem>
-                  <SelectItem value="estimate">Estimate</SelectItem>
-                  <SelectItem value="permit">Permit</SelectItem>
-                  <SelectItem value="warranty">Warranty</SelectItem>
-                  <SelectItem value="insurance">Insurance</SelectItem>
+                  <SelectItem value="receipt">Receipt</SelectItem>
                   <SelectItem value="report">Report</SelectItem>
-                  <SelectItem value="photo">Photo</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="correspondence">Correspondence</SelectItem>
+                  <SelectItem value="technical">Technical</SelectItem>
+                  <SelectItem value="legal">Legal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
