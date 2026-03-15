@@ -66,6 +66,9 @@ class CompatibleDataService {
   async getFeaturedMediaForProjects(projectIds: string[]): Promise<Record<string, string>> {
     return await dataService.getFeaturedMediaForProjects(projectIds);
   }
+  async getProjectDocuments(projectId: string) { return await dataService.getProjectDocuments(projectId); }
+  async uploadProjectDocument(projectId: string, file: File, metadata?: any) { return await dataService.uploadProjectDocument(projectId, file, metadata); }
+  async deleteProjectDocument(id: string) { return await dataService.deleteProjectDocument(id); }
   async signIn(email: string, password: string) { return await dataService.signIn(email, password); }
   async signUp(email: string, password: string, name: string, role?: string) {
     return await dataService.signUp(email, password, name, role);

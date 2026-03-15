@@ -62,6 +62,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
+import { supabase } from "@/lib/dataService";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
@@ -228,8 +229,11 @@ export default function ProjectDetail() {
         const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id);
         if (foundProject) {
-          // Load media from database
-          const dbMedia = await dataService.getProjectPhotos(foundProject.id);
+          // Load media and documents from database
+          const [dbMedia, dbDocuments] = await Promise.all([
+            dataService.getProjectPhotos(foundProject.id),
+            dataService.getProjectDocuments(foundProject.id),
+          ]);
 
           // Convert ProjectMedia objects to TaggedPhoto format
           const convertedPhotos: TaggedPhoto[] = dbMedia.map((media: any) => ({
@@ -258,7 +262,15 @@ export default function ProjectDetail() {
             keywords: foundProject.metadata?.keywords || foundProject.keywords || [],
             tags: foundProject.metadata?.tags || [],
             photos: convertedPhotos.length > 0 ? convertedPhotos : [],
-            documents: foundProject.documents || [],
+            documents: dbDocuments.map((doc: any) => ({
+              id: doc.id,
+              name: doc.original_name || doc.filename,
+              url: doc.file_path,
+              type: doc.mime_type || "application/octet-stream",
+              size: doc.file_size,
+              uploadedAt: doc.created_at,
+              uploadedBy: doc.uploaded_by || "Unknown",
+            })),
             additionalPhones: clientContact.additional_phones || foundProject.additionalPhones || [],
           };
           setProject(projectWithDefaults);
@@ -480,40 +492,40 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleDocumentUpload = (files: FileList | null) => {
+  const handleDocumentUpload = async (files: FileList | null) => {
     if (!files || !project) return;
 
-    const newDocuments: ProjectDocument[] = Array.from(files).map((file) => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      name: file.name,
-      type: file.type || "application/octet-stream",
-      size: file.size,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: getCurrentUser()?.name || "Unknown",
-      url: URL.createObjectURL(file), // In real app, this would be uploaded to cloud storage
-    }));
+    const fileArray = Array.from(files);
+    const uploadedDocs: ProjectDocument[] = [];
 
-    const updatedProject = {
-      ...project,
-      documents: [...(project.documents || []), ...newDocuments],
-    };
+    toast.info(`Uploading ${fileArray.length} document(s)…`);
 
-    const entry = {
-      id: Date.now().toString(),
-      action: "documents_added",
-      description: `Added ${newDocuments.length} document(s): ${newDocuments.map((d) => d.name).join(", ")}`,
-      timestamp: new Date().toISOString(),
-      user: getCurrentUser()?.name || "Unknown",
-      platform: "web" as const,
-    };
+    for (const file of fileArray) {
+      try {
+        const dbDoc = await dataService.uploadProjectDocument(project.id, file);
+        uploadedDocs.push({
+          id: dbDoc.id,
+          name: dbDoc.original_name || dbDoc.filename,
+          url: dbDoc.file_path,
+          type: dbDoc.mime_type || "application/octet-stream",
+          size: dbDoc.file_size,
+          uploadedAt: dbDoc.created_at,
+          uploadedBy: dbDoc.uploaded_by || getCurrentUser()?.name || "Unknown",
+        });
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
 
-    const projectWithActivity = {
-      ...updatedProject,
-      activityLog: [entry, ...(updatedProject.activityLog || [])],
-    };
+    if (uploadedDocs.length === 0) return;
 
-    updateProject(projectWithActivity);
-    toast.success(`Added ${newDocuments.length} document(s) to the project`);
+    setProject((prev) => prev ? {
+      ...prev,
+      documents: [...(prev.documents || []), ...uploadedDocs],
+    } : prev);
+
+    toast.success(`Added ${uploadedDocs.length} document(s) to the project`);
   };
 
   const addMorePhotos = async (files: FileList | null) => {
@@ -987,19 +999,15 @@ export default function ProjectDetail() {
   const saveRenameDoc = async () => {
     if (!project || !renamingDocId || !renameDocValue.trim()) return;
     const newName = renameDocValue.trim();
-    const updatedDocs = project.documents.map((d) =>
-      d.id === renamingDocId ? { ...d, name: newName } : d
-    );
-    const updatedProject = {
-      ...project,
-      documents: updatedDocs,
-      metadata: { ...(project.metadata || {}), documents: updatedDocs },
-    };
-    setProject(updatedProject);
+    const docId = renamingDocId;
+    setProject((prev) => prev ? {
+      ...prev,
+      documents: prev.documents.map((d) => d.id === docId ? { ...d, name: newName } : d),
+    } : prev);
     setRenamingDocId(null);
     setRenameDocValue("");
     try {
-      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      await supabase.from('project_documents').update({ original_name: newName }).eq('id', docId);
       toast.success("Document renamed");
     } catch (error) {
       console.error("Error renaming document:", error);
@@ -1014,15 +1022,9 @@ export default function ProjectDetail() {
 
   const deleteDocument = async (docId: string) => {
     if (!project || !confirm("Are you sure you want to delete this document?")) return;
-    const updatedDocs = project.documents.filter((d) => d.id !== docId);
-    const updatedProject = {
-      ...project,
-      documents: updatedDocs,
-      metadata: { ...(project.metadata || {}), documents: updatedDocs },
-    };
-    setProject(updatedProject);
+    setProject((prev) => prev ? { ...prev, documents: prev.documents.filter((d) => d.id !== docId) } : prev);
     try {
-      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      await dataService.deleteProjectDocument(docId);
       toast.success("Document deleted");
     } catch (error) {
       console.error("Error deleting document:", error);
