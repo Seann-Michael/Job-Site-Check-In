@@ -85,7 +85,7 @@ export default function Gallery() {
   const [displayedPhotos, setDisplayedPhotos] = useState<PhotoWithMetadata[]>(
     [],
   );
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<PhotoWithMetadata | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -400,7 +400,7 @@ export default function Gallery() {
   };
 
   const handlePhotoViewDetails = (photo: PhotoWithMetadata) => {
-    setSelectedPhoto(photo.url);
+    setSelectedPhoto(photo);
   };
 
   return (
@@ -772,7 +772,7 @@ export default function Gallery() {
                                   ? "aspect-[4/3]"
                                   : "aspect-square"
                             }`}
-                            onClick={() => setSelectedPhoto(photo.url)}
+                            onClick={() => setSelectedPhoto(photo)}
                           >
                             <ImageWithFallback
                               photo={photo}
@@ -953,26 +953,175 @@ export default function Gallery() {
         )}
       </div>
 
-      {/* Photo Modal */}
+      {/* Photo Detail Modal */}
       {selectedPhoto && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4"
+          className="fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4"
           onClick={() => setSelectedPhoto(null)}
         >
-          <div className="relative max-w-4xl max-h-full">
-            <img
-              src={selectedPhoto}
-              alt="Full size photo"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute top-4 right-4"
+          <div
+            className="relative flex flex-col md:flex-row w-full max-w-5xl max-h-[90vh] bg-card rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
               onClick={() => setSelectedPhoto(null)}
             >
-              ×
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Image / Video */}
+            <div className="flex-1 bg-black flex items-center justify-center min-h-[240px] md:min-h-0">
+              {selectedPhoto.type === "video" ? (
+                <video
+                  src={selectedPhoto.url}
+                  controls
+                  className="max-w-full max-h-full object-contain"
+                  style={{ maxHeight: "80vh" }}
+                />
+              ) : (
+                <img
+                  src={selectedPhoto.url}
+                  alt={selectedPhoto.metadata?.originalFileName || "Photo"}
+                  className="max-w-full max-h-full object-contain"
+                  style={{ maxHeight: "80vh" }}
+                />
+              )}
+            </div>
+
+            {/* Details panel */}
+            <div className="w-full md:w-72 shrink-0 flex flex-col overflow-y-auto bg-card border-t md:border-t-0 md:border-l max-h-[40vh] md:max-h-[90vh]">
+              <div className="p-4 border-b">
+                <p className="font-semibold text-sm truncate">
+                  {selectedPhoto.metadata?.originalFileName || "Photo"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 capitalize">
+                  {selectedPhoto.type === "video" ? "Video" : "Photo"}
+                  {selectedPhoto.isPrimary && " · Primary"}
+                </p>
+              </div>
+
+              <div className="p-4 space-y-4 text-sm">
+                {/* Uploaded by */}
+                <div className="flex items-start gap-2">
+                  <User className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Uploaded by</p>
+                    <p className="font-medium">{selectedPhoto.uploadedBy || "Unknown"}</p>
+                  </div>
+                </div>
+
+                {/* Date & time */}
+                <div className="flex items-start gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Uploaded on</p>
+                    <p className="font-medium">
+                      {selectedPhoto.uploadedAt
+                        ? new Date(selectedPhoto.uploadedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+                        : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedPhoto.uploadedAt
+                        ? new Date(selectedPhoto.uploadedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Project */}
+                {selectedPhoto.projectName && (
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Project</p>
+                      <Link
+                        to={`/job/${selectedPhoto.projectId}`}
+                        className="font-medium text-primary hover:underline"
+                        onClick={() => setSelectedPhoto(null)}
+                      >
+                        {selectedPhoto.projectName}
+                      </Link>
+                      {selectedPhoto.projectAddress && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{selectedPhoto.projectAddress}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Category */}
+                {selectedPhoto.metadata?.category && (
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Category</p>
+                      <p className="font-medium capitalize">{selectedPhoto.metadata.category}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* File size */}
+                {selectedPhoto.metadata?.fileSize ? (
+                  <div className="flex items-start gap-2">
+                    <Images className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">File size</p>
+                      <p className="font-medium">
+                        {selectedPhoto.metadata.fileSize > 1024 * 1024
+                          ? `${(selectedPhoto.metadata.fileSize / 1024 / 1024).toFixed(1)} MB`
+                          : `${(selectedPhoto.metadata.fileSize / 1024).toFixed(0)} KB`}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Tags */}
+                {selectedPhoto.tags && selectedPhoto.tags.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Tags</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedPhoto.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-auto p-4 border-t flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1.5"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = selectedPhoto.url;
+                    a.download = selectedPhoto.metadata?.originalFileName || "photo";
+                    a.target = "_blank";
+                    a.click();
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </Button>
+                {selectedPhoto.projectId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1.5"
+                    asChild
+                  >
+                    <Link to={`/job/${selectedPhoto.projectId}`} onClick={() => setSelectedPhoto(null)}>
+                      View Job
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
