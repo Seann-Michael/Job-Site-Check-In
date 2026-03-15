@@ -81,6 +81,7 @@ import {
   Hash,
   TrendingUp,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -489,6 +490,58 @@ export default function Settings() {
     description: string;
   } | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+
+  const handleConnectGoogle = () => {
+    const authUrl = `/api/auth/google/authorize?workspace_id=${encodeURIComponent(settings.subAccountId || "")}`;
+    const popup = window.open(
+      authUrl,
+      "google_oauth",
+      "width=540,height=660,scrollbars=yes,resizable=yes,left=" +
+        Math.round(window.screen.width / 2 - 270) +
+        ",top=" +
+        Math.round(window.screen.height / 2 - 330),
+    );
+
+    if (!popup) {
+      toast.error("Popup blocked — please allow popups for this site and try again.");
+      return;
+    }
+
+    setIsConnectingGoogle(true);
+
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const { type, platform, data, error } = event.data;
+      if (platform !== "google") return;
+
+      window.removeEventListener("message", handler);
+      setIsConnectingGoogle(false);
+
+      if (type === "oauth_success" && data) {
+        updateSetting("googleMyBusinessConnected", true);
+        updateSetting("googleOAuthEmail", data.email || "");
+        updateSetting("googleOAuthName", data.name || "");
+        updateSetting("googleAccessToken", data.accessToken || "");
+        updateSetting("googleRefreshToken", data.refreshToken || "");
+        updateSetting("googleTokenExpiresAt", data.expiresAt || null);
+        toast.success(`Google connected as ${data.email}`);
+      } else if (type === "oauth_error") {
+        toast.error(error || "Google connection failed.");
+      }
+    };
+
+    window.addEventListener("message", handler);
+
+    // Cleanup if user closes popup without completing
+    const pollClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollClosed);
+        window.removeEventListener("message", handler);
+        setIsConnectingGoogle(false);
+      }
+    }, 800);
+  };
 
   const handleUpgradeClick = (name: string, price: number, description: string) => {
     setSelectedUpgradePlan({ name, price, description });
@@ -1446,9 +1499,11 @@ export default function Settings() {
                         <div>
                           <h3 className="font-medium">Google My Business</h3>
                           <p className="text-sm text-muted-foreground">
-                            {settings.googleMyBusinessConnected
+                            {settings.googleMyBusinessConnected && settings.googleOAuthEmail
+                              ? `Connected as ${settings.googleOAuthEmail}`
+                              : settings.googleMyBusinessConnected
                               ? "Connected to your Google My Business account"
-                              : "Connect to automatically post completed projects"}
+                              : "Connect your Google account to manage your Business Profile"}
                           </p>
                         </div>
                       </div>
@@ -1460,22 +1515,26 @@ export default function Settings() {
                           </Badge>
                         )}
                         <Button
-                          variant={
-                            settings.googleMyBusinessConnected
-                              ? "outline"
-                              : "default"
-                          }
+                          variant={settings.googleMyBusinessConnected ? "outline" : "default"}
+                          disabled={isConnectingGoogle}
                           onClick={() => {
                             if (settings.googleMyBusinessConnected) {
                               updateSetting("googleMyBusinessConnected", false);
-                              toast.success("Google My Business disconnected");
+                              updateSetting("googleOAuthEmail", "");
+                              updateSetting("googleAccessToken", "");
+                              updateSetting("googleRefreshToken", "");
+                              toast.success("Google disconnected");
                             } else {
-                              updateSetting("googleMyBusinessConnected", true);
-                              toast.success("Google My Business connected");
+                              handleConnectGoogle();
                             }
                           }}
                         >
-                          {settings.googleMyBusinessConnected ? (
+                          {isConnectingGoogle ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Connecting…
+                            </>
+                          ) : settings.googleMyBusinessConnected ? (
                             <>
                               <X className="h-4 w-4 mr-2" />
                               Disconnect

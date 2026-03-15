@@ -381,8 +381,8 @@ export const GoogleBusinessProfileFinder: React.FC<
     <div className={cn("space-y-6", className)}>
       <Tabs defaultValue="name" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="name">Business Name</TabsTrigger>
-          <TabsTrigger value="cid">CID</TabsTrigger>
+          <TabsTrigger value="name">Autocomplete</TabsTrigger>
+          <TabsTrigger value="textsearch">Name Search</TabsTrigger>
           <TabsTrigger value="url">Google Maps URL</TabsTrigger>
           <TabsTrigger value="manual">Manual Entry</TabsTrigger>
         </TabsList>
@@ -403,23 +403,19 @@ export const GoogleBusinessProfileFinder: React.FC<
           </div>
         </TabsContent>
 
-        <TabsContent value="cid" className="space-y-4">
+        <TabsContent value="textsearch" className="space-y-4">
           <div>
-            <Label htmlFor="cid-search">Search by Customer ID (CID)</Label>
+            <Label htmlFor="name-search">Search by Business Name</Label>
             <div className="flex gap-2 mt-1">
               <Input
-                id="cid-search"
-                placeholder="Enter Google Customer ID..."
-                value={cidQuery}
-                onChange={(e) => setCidQuery(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleCidSearch()}
-                className="font-mono"
+                id="name-search"
+                placeholder="e.g. Nick's Junk Removal Ohio"
+                value={nameQuery}
+                onChange={(e) => setNameQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleNameSearch()}
               />
-              <Button
-                onClick={handleCidSearch}
-                disabled={isSearchingCid || !apiKeyAvailable}
-              >
-                {isSearchingCid ? (
+              <Button onClick={handleNameSearch} disabled={isSearchingName}>
+                {isSearchingName ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Search className="h-4 w-4" />
@@ -427,8 +423,7 @@ export const GoogleBusinessProfileFinder: React.FC<
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Enter the numeric Customer ID from Google My Business (e.g.,
-              1234567890123456789)
+              Works for all businesses including service-area businesses with hidden addresses. Add a city or state for more accurate results.
             </p>
           </div>
         </TabsContent>
@@ -574,6 +569,30 @@ export const GoogleBusinessProfileFinder: React.FC<
             Configure Google Maps API key in Super Admin → API Settings to
             enable business profile search.
           </p>
+        </div>
+      )}
+
+      {/* Multiple results — let user pick the right one */}
+      {searchResults.length > 0 && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-muted text-sm font-medium">
+            Multiple matches found — select the correct listing:
+          </div>
+          <div className="divide-y">
+            {searchResults.map((r) => (
+              <button
+                key={r.placeId}
+                onClick={() => handleSelectResult(r)}
+                className="w-full text-left px-3 py-3 hover:bg-muted/50 transition-colors"
+              >
+                <p className="font-medium text-sm">{r.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {r.formattedAddress || "Service Area Business (no address shown)"}
+                  {r.rating ? ` · ★ ${r.rating} (${r.userRatingsTotal})` : ""}
+                </p>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

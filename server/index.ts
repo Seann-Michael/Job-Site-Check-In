@@ -27,6 +27,7 @@ import {
 } from "./routes/workflows";
 import { handleResolveUrl } from "./routes/resolveUrl";
 import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
+import { handleGoogleAuthorize, handleGoogleCallback } from "./routes/googleOAuth";
 
 export function createServer() {
   const app = express();
@@ -69,6 +70,10 @@ export function createServer() {
 
   // Google Place Lookup from any Maps URL
   app.post("/api/google-place-lookup", handleGooglePlaceLookup);
+
+  // Google OAuth (Business Profile connection)
+  app.get("/api/auth/google/authorize", handleGoogleAuthorize);
+  app.get("/api/auth/google/callback", handleGoogleCallback);
 
   // Workflow Routes
   app.post("/api/webhooks/register", handleRegisterWebhook);
