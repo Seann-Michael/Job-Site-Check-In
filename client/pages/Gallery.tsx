@@ -95,7 +95,8 @@ function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) 
     setIsHovered(false);
     if (videoRef.current) {
       videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+      // Seek to 0.1 instead of 0 to keep the first frame visible (frame 0 is often black)
+      videoRef.current.currentTime = 0.1;
     }
   };
 
