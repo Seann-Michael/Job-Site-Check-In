@@ -158,51 +158,35 @@ export default function ClientDetail() {
       setProjects(projectData || []);
 
       // Load media across all linked projects
+      // Always load client-level media (no job)
+      const [clientImgData, clientVidData, clientDocData] = await Promise.all([
+        supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
+          .eq("client_id", id).is("project_id", null).eq("media_type", "image").order("created_at", { ascending: false }).limit(50),
+        supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
+          .eq("client_id", id).is("project_id", null).eq("media_type", "video").order("created_at", { ascending: false }).limit(50),
+        supabase.from("project_documents").select("id, original_name, file_path, document_type, created_at")
+          .eq("client_id", id).is("project_id", null).order("created_at", { ascending: false }),
+      ]);
+
       if (projectData && projectData.length > 0) {
         const projectIds = projectData.map((p: any) => p.id);
 
-        const { data: mediaData } = await supabase
-          .from("project_media")
-          .select("id, file_path, original_name, media_type, created_at")
-          .in("project_id", projectIds)
-          .eq("media_type", "image")
-          .order("created_at", { ascending: false })
-          .limit(50);
-        setMedia(mediaData || []);
+        const [jobImgData, jobVidData, jobDocData] = await Promise.all([
+          supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
+            .in("project_id", projectIds).eq("media_type", "image").order("created_at", { ascending: false }).limit(50),
+          supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
+            .in("project_id", projectIds).eq("media_type", "video").order("created_at", { ascending: false }).limit(50),
+          supabase.from("project_documents").select("id, original_name, file_path, document_type, created_at")
+            .in("project_id", projectIds).order("created_at", { ascending: false }),
+        ]);
 
-        const { data: videoData } = await supabase
-          .from("project_media")
-          .select("id, file_path, original_name, media_type, created_at")
-          .in("project_id", projectIds)
-          .eq("media_type", "video")
-          .order("created_at", { ascending: false })
-          .limit(50);
-        setVideos(videoData || []);
-
-        const { data: jobDocData } = await supabase
-          .from("project_documents")
-          .select("id, original_name, file_path, document_type, created_at")
-          .in("project_id", projectIds)
-          .order("created_at", { ascending: false });
-
-        // Also load documents uploaded directly to the client (no job)
-        const { data: clientDocData } = await supabase
-          .from("project_documents")
-          .select("id, original_name, file_path, document_type, created_at")
-          .eq("client_id", id)
-          .is("project_id", null)
-          .order("created_at", { ascending: false });
-
-        setDocuments([...(clientDocData || []), ...(jobDocData || [])]);
+        setMedia([...(clientImgData.data || []), ...(jobImgData.data || [])]);
+        setVideos([...(clientVidData.data || []), ...(jobVidData.data || [])]);
+        setDocuments([...(clientDocData.data || []), ...(jobDocData.data || [])]);
       } else {
-        // No jobs — still load client-level documents
-        const { data: clientDocData } = await supabase
-          .from("project_documents")
-          .select("id, original_name, file_path, document_type, created_at")
-          .eq("client_id", id)
-          .is("project_id", null)
-          .order("created_at", { ascending: false });
-        setDocuments(clientDocData || []);
+        setMedia(clientImgData.data || []);
+        setVideos(clientVidData.data || []);
+        setDocuments(clientDocData.data || []);
       }
 
       // Load reviews by client email match
@@ -250,30 +234,12 @@ export default function ClientDetail() {
 
   const cancelEdit = () => setEditingField(null);
 
-  const getOrCreateDefaultJob = async (): Promise<string> => {
-    // Use existing selected/first job if available
-    const existing = selectedJobForUpload || projects[0]?.id;
-    if (existing) return existing;
-    // No jobs — auto-create a default "Client Media" job for this client
-    const businessId = workspaceService.getCurrentBusinessId();
-    const job = await dataService.createProject({
-      name: `${client?.name || "Client"} — General Media`,
-      type: "other",
-      status: "active",
-      business_id: businessId || undefined,
-      client_id: id,
-    } as any);
-    // Refresh the projects list so the new job shows up
-    setProjects((prev) => [job as any, ...prev]);
-    return job.id;
-  };
-
   const handleMediaFilesReady = async (files: any[]) => {
     if (!files.length) return;
     setUploadingMedia(true);
     let uploaded = 0;
+    const VALID_MEDIA_CATEGORIES = ["before", "after", "progress", "final", "reference", "general", "walkthrough", "demonstration"];
     try {
-      const jobId = await getOrCreateDefaultJob();
       for (const fileData of files) {
         try {
           const actualFile = fileData.file || fileData;
@@ -281,14 +247,16 @@ export default function ClientDetail() {
             typeof fileData.tags === "string"
               ? fileData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
               : fileData.tags || [];
-          const VALID_MEDIA_CATEGORIES = ["before", "after", "progress", "final", "reference", "general", "walkthrough", "demonstration"];
           const safeCategory = VALID_MEDIA_CATEGORIES.includes(fileData.category) ? fileData.category : "general";
-          await dataService.uploadProjectPhoto(jobId, actualFile, {
-            tags: tagsArray,
-            category: safeCategory,
-            description: fileData.description || "",
-            is_featured: false,
-          });
+          const uploadMeta = { tags: tagsArray, category: safeCategory, description: fileData.description || "", is_featured: false };
+
+          if (selectedJobForUpload) {
+            // Attach to specific job
+            await dataService.uploadProjectPhoto(selectedJobForUpload, actualFile, uploadMeta);
+          } else {
+            // Upload directly to client — no job created
+            await dataService.uploadClientMedia(id!, actualFile, uploadMeta);
+          }
           uploaded++;
         } catch (err) {
           console.error("Upload error:", err);
@@ -971,21 +939,18 @@ export default function ClientDetail() {
           </DialogHeader>
 
           {/* Job selector */}
-          {projects.length === 0 ? (
-            <p className="text-xs text-muted-foreground pb-2 border-b">
-              This client has no jobs yet. A <span className="font-medium">General Media</span> job will be created automatically to store uploaded files.
-            </p>
-          ) : projects.length > 1 ? (
+          {projects.length > 0 ? (
             <div className="space-y-1 pb-2 border-b">
-              <Label className="text-sm">Attach to job</Label>
+              <Label className="text-sm">Attach to job <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Select
-                value={selectedJobForUpload}
-                onValueChange={setSelectedJobForUpload}
+                value={selectedJobForUpload || "none"}
+                onValueChange={(v) => setSelectedJobForUpload(v === "none" ? "" : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a job" />
+                  <SelectValue placeholder="No specific job" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">No specific job</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -994,7 +959,7 @@ export default function ClientDetail() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Media will be stored under the selected job
+                {selectedJobForUpload ? "Media will be stored under the selected job" : "Media will be stored directly on this client profile"}
               </p>
             </div>
           ) : null}

@@ -1045,6 +1045,86 @@ export class DataService {
     return this.uploadProjectMedia(projectId, file, metadata);
   }
 
+  async uploadClientMedia(
+    clientId: string,
+    file: File,
+    metadata: any = {},
+  ): Promise<ProjectMedia> {
+    this.checkSupabaseConfig();
+
+    if (!file || !file.name || typeof file.type !== "string") {
+      throw new Error("Invalid file object provided for upload");
+    }
+
+    let mediaType: "image" | "video" | "document" = "document";
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+    const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"];
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"];
+
+    if (file.type && file.type.startsWith("image/")) {
+      mediaType = "image";
+    } else if (file.type && file.type.startsWith("video/")) {
+      mediaType = "video";
+    } else if (videoExtensions.includes(fileExtension)) {
+      mediaType = "video";
+    } else if (imageExtensions.includes(fileExtension)) {
+      mediaType = "image";
+    }
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `client-media/${clientId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("media").getPublicUrl(filePath);
+
+    const { data, error } = await supabase
+      .from("project_media")
+      .insert({
+        client_id: clientId,
+        project_id: null,
+        filename: fileName,
+        original_name: file.name,
+        file_path: publicUrl,
+        file_size: file.size,
+        mime_type: file.type,
+        media_type: mediaType,
+        category: metadata.category || "general",
+        description: metadata.description,
+        is_featured: false,
+        metadata: metadata,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getClientMedia(clientId: string): Promise<ProjectMedia[]> {
+    try {
+      this.checkSupabaseConfig();
+      const { data, error } = await supabase
+        .from("project_media")
+        .select("*")
+        .eq("client_id", clientId)
+        .is("project_id", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching client media:", error);
+      return [];
+    }
+  }
+
   async deleteProjectMedia(id: string): Promise<void> {
     this.checkSupabaseConfig();
 
