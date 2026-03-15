@@ -82,11 +82,32 @@ interface FilterState {
 // Hover-to-play video thumbnail — only streams when hovered
 function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [hasThumbnail, setHasThumbnail] = useState(false);
+
+  // Once the video seeks to 0.1s, draw that frame onto the canvas
+  const handleSeeked = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || hasThumbnail) return;
+    canvas.width = video.videoWidth || 320;
+    canvas.height = video.videoHeight || 180;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      setHasThumbnail(true);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) videoRef.current.currentTime = 0.1;
+  };
 
   const handleMouseEnter = () => {
     setIsHovered(true);
     if (videoRef.current) {
+      videoRef.current.currentTime = 0.1;
       videoRef.current.play().catch(() => {});
     }
   };
@@ -95,7 +116,6 @@ function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) 
     setIsHovered(false);
     if (videoRef.current) {
       videoRef.current.pause();
-      // Seek to 0.1 instead of 0 to keep the first frame visible (frame 0 is often black)
       videoRef.current.currentTime = 0.1;
     }
   };
@@ -107,6 +127,13 @@ function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) 
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
     >
+      {/* Static canvas thumbnail — always visible when not playing */}
+      <canvas
+        ref={canvasRef}
+        className={`absolute inset-0 h-full w-full transition-opacity duration-200 ${isHovered ? "opacity-0" : hasThumbnail ? "opacity-80" : "opacity-0"}`}
+        style={{ objectFit: "cover" }}
+      />
+      {/* Video — hidden until hover, then fades in to play */}
       <video
         ref={videoRef}
         src={url}
@@ -114,13 +141,11 @@ function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) 
         loop
         playsInline
         preload="metadata"
-        onLoadedMetadata={() => {
-          // Seek slightly past 0 to force browser to render first frame
-          if (videoRef.current) videoRef.current.currentTime = 0.1;
-        }}
-        className={`h-full w-full object-cover transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-80"}`}
+        onLoadedMetadata={handleLoadedMetadata}
+        onSeeked={handleSeeked}
+        className={`h-full w-full object-cover transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-0"}`}
       />
-      {/* Play icon shown when not hovered */}
+      {/* Play icon overlay when not hovered */}
       {!isHovered && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="h-10 w-10 rounded-full bg-black/60 flex items-center justify-center">
