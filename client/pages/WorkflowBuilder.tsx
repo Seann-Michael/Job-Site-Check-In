@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -899,6 +899,80 @@ export default function WorkflowBuilder() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+// ─── SMS Message Editor with variable chips ──────────────────────────────────
+
+const SMS_VARIABLES = [
+  { label: "First Name", value: "{{contact.firstName}}" },
+  { label: "Last Name", value: "{{contact.lastName}}" },
+  { label: "Full Name", value: "{{contact.name}}" },
+  { label: "Phone", value: "{{contact.phone}}" },
+  { label: "Email", value: "{{contact.email}}" },
+  { label: "Job Title", value: "{{job.title}}" },
+  { label: "Job Status", value: "{{job.status}}" },
+  { label: "Job ID", value: "{{job.id}}" },
+];
+
+function SmsMessageEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertVariable = (variable: string) => {
+    const el = textareaRef.current;
+    if (!el) {
+      onChange(value + variable);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const next = value.slice(0, start) + variable + value.slice(end);
+    onChange(next);
+    // Restore cursor after inserted variable
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + variable.length, start + variable.length);
+    });
+  };
+
+  const charCount = value.length;
+  const segments = Math.ceil(charCount / 160) || 1;
+
+  return (
+    <div className="space-y-2">
+      <Label>Message</Label>
+      <Textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={"Hi {{contact.firstName}}, your job \"{{job.title}}\" has been completed. Thanks for choosing us!"}
+        className="min-h-[120px] resize-y text-sm font-mono"
+      />
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{charCount} characters · {segments} SMS segment{segments !== 1 ? "s" : ""}</span>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5">Click to insert variable:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {SMS_VARIABLES.map((v) => (
+            <button
+              key={v.value}
+              type="button"
+              onClick={() => insertVariable(v.value)}
+              className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1815,30 +1889,13 @@ function StepConfigForm({
                 id="sms_to"
                 value={config.sms_to || ""}
                 onChange={(e) => updateConfig("sms_to", e.target.value)}
-                placeholder="e.g., {{phone}} or +15550001234"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Use <code className="text-blue-600">{"{{variable}}"}</code> from a mapped webhook field.</p>
-            </div>
-            <div>
-              <Label htmlFor="sms_message">Message</Label>
-              <Textarea
-                id="sms_message"
-                value={config.sms_message || ""}
-                onChange={(e) => updateConfig("sms_message", e.target.value)}
-                placeholder="Hi {{first_name}}, your job has been created!"
-                className="min-h-[100px] resize-y text-sm"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Max 160 characters for a single SMS segment.</p>
-            </div>
-            <div>
-              <Label htmlFor="sms_from">From (Optional)</Label>
-              <Input
-                id="sms_from"
-                value={config.sms_from || ""}
-                onChange={(e) => updateConfig("sms_from", e.target.value)}
-                placeholder="Your Twilio number or sender ID"
+                placeholder="+15550001234 or {{contact.phone}}"
               />
             </div>
+            <SmsMessageEditor
+              value={config.sms_message || ""}
+              onChange={(v) => updateConfig("sms_message", v)}
+            />
           </div>
         );
 
