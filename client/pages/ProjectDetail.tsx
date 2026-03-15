@@ -144,6 +144,7 @@ interface Project {
   mobilePhone?: string;
   additionalPhones?: string[];
   keywords: string[];
+  tags: string[];
   metadata?: any;
   photos: TaggedPhoto[] | string[];
   videos?: TaggedPhoto[];
@@ -195,6 +196,8 @@ export default function ProjectDetail() {
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
   const [showAddKeyword, setShowAddKeyword] = useState(false);
+  const [newTag, setNewTag] = useState("");
+  const [showAddTag, setShowAddTag] = useState(false);
   const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
   const [renameDocValue, setRenameDocValue] = useState("");
   // Inline field editing
@@ -251,6 +254,7 @@ export default function ProjectDetail() {
             tasks: foundProject.tasks || [],
             checklist: foundProject.checklist || [],
             keywords: foundProject.metadata?.keywords || foundProject.keywords || [],
+            tags: foundProject.metadata?.tags || [],
             photos: convertedPhotos.length > 0 ? convertedPhotos : [],
             documents: foundProject.documents || [],
             additionalPhones: clientContact.additional_phones || foundProject.additionalPhones || [],
@@ -1091,6 +1095,49 @@ export default function ProjectDetail() {
     }
   };
 
+  const addTag = async () => {
+    if (!project || !newTag.trim()) return;
+    const trimmed = newTag.trim();
+    if ((project.tags || []).includes(trimmed)) {
+      toast.error("Tag already exists");
+      return;
+    }
+    const updatedTags = [...(project.tags || []), trimmed];
+    const updatedProject = {
+      ...project,
+      tags: updatedTags,
+      metadata: { ...(project.metadata || {}), tags: updatedTags },
+    };
+    setProject(updatedProject);
+    setNewTag("");
+    setShowAddTag(false);
+    try {
+      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      toast.success(`Tag "${trimmed}" added`);
+    } catch (error) {
+      console.error("Error saving tag:", error);
+      toast.error("Failed to save tag");
+    }
+  };
+
+  const removeTag = async (tag: string) => {
+    if (!project) return;
+    const updatedTags = (project.tags || []).filter((t) => t !== tag);
+    const updatedProject = {
+      ...project,
+      tags: updatedTags,
+      metadata: { ...(project.metadata || {}), tags: updatedTags },
+    };
+    setProject(updatedProject);
+    try {
+      await dataService.updateProject(project.id, { metadata: updatedProject.metadata });
+      toast.success(`Tag "${tag}" removed`);
+    } catch (error) {
+      console.error("Error removing tag:", error);
+      toast.error("Failed to remove tag");
+    }
+  };
+
   const removeKeyword = async (keyword: string) => {
     if (!project) return;
     const updatedKeywords = project.keywords.filter((k) => k !== keyword);
@@ -1656,6 +1703,82 @@ export default function ProjectDetail() {
                               onClick={() => setShowAddKeyword(true)}
                             >
                               + Add Keyword
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Project Tags */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Tag className="h-5 w-5" />
+                          Project Tags
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {project.tags && project.tags.length > 0 ? (
+                            project.tags.map((tag, tagIndex) => (
+                              <Badge
+                                key={`tag-${tagIndex}-${tag.replace(/\s+/g, "-")}`}
+                                className="cursor-pointer bg-blue-100 text-blue-800 hover:bg-blue-200 border-0 gap-1"
+                              >
+                                <span>{tag}</span>
+                                <button
+                                  className="ml-0.5 hover:text-red-600 leading-none"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeTag(tag);
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              No tags added
+                            </span>
+                          )}
+                          {showAddTag ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={newTag}
+                                onChange={(e) => setNewTag(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") addTag();
+                                  if (e.key === "Escape") {
+                                    setShowAddTag(false);
+                                    setNewTag("");
+                                  }
+                                }}
+                                placeholder="New tag…"
+                                className="text-sm border rounded px-2 py-0.5 w-32 focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                              <button
+                                onClick={addTag}
+                                className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => { setShowAddTag(false); setNewTag(""); }}
+                                className="text-xs px-2 py-0.5 rounded hover:bg-muted"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="cursor-pointer hover:bg-muted"
+                              onClick={() => setShowAddTag(true)}
+                            >
+                              + Add Tag
                             </Badge>
                           )}
                         </div>
