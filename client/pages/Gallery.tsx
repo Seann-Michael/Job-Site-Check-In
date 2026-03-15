@@ -112,7 +112,11 @@ function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) 
         muted
         loop
         playsInline
-        preload="none"
+        preload="metadata"
+        onLoadedMetadata={() => {
+          // Seek slightly past 0 to force browser to render first frame
+          if (videoRef.current) videoRef.current.currentTime = 0.1;
+        }}
         className={`h-full w-full object-cover transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-80"}`}
       />
       {/* Play icon shown when not hovered */}
