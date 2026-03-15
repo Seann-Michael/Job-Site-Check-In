@@ -381,7 +381,8 @@ export default function WorkflowBuilder() {
 
   const addStep = (app: any, actionData: any) => {
     const noConfigNeeded =
-      app.app === "jobs" && actionData.id === "job_completed";
+      (app.app === "jobs" && actionData.id === "job_completed") ||
+      (app.app === "jobs" && actionData.id === "job_created");
     const newStep: WorkflowStep = {
       id: `step_${Date.now()}`,
       type: app.type,
@@ -702,7 +703,7 @@ export default function WorkflowBuilder() {
                             <span className="text-xs">Setup required</span>
                           </div>
                         )}
-                        {!(step.app === "jobs" && step.action === "job_completed") && (
+                        {!(step.app === "jobs" && (step.action === "job_completed" || step.action === "job_created")) && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -723,7 +724,7 @@ export default function WorkflowBuilder() {
                       </div>
                     </div>
                   </CardHeader>
-                  {!step.configured && !(step.app === "jobs" && step.action === "job_completed") && (
+                  {!step.configured && !(step.app === "jobs" && (step.action === "job_completed" || step.action === "job_created")) && (
                     <CardContent className="pt-0">
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <div className="flex items-center gap-2 text-amber-700">
@@ -1669,25 +1670,14 @@ function StepConfigForm({
 
       case "jobs_job_created":
         return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="job_type">Job Type (Optional)</Label>
-              <Input
-                id="job_type"
-                value={config.job_type || ""}
-                onChange={(e) => updateConfig("job_type", e.target.value)}
-                placeholder="e.g., SEO, Maintenance, Cleaning"
-              />
+          <div className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle className="h-4 w-4 text-teal-600" />
+              <p className="text-sm font-medium text-teal-800">No configuration needed</p>
             </div>
-            <div>
-              <Label htmlFor="job_priority">Priority Level (Optional)</Label>
-              <Input
-                id="job_priority"
-                value={config.job_priority || ""}
-                onChange={(e) => updateConfig("job_priority", e.target.value)}
-                placeholder="e.g., High, Medium, Low"
-              />
-            </div>
+            <p className="text-xs text-teal-700">
+              This trigger fires automatically whenever a new job is created. Add actions below to define what happens next.
+            </p>
           </div>
         );
 
