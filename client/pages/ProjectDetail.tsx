@@ -2025,9 +2025,9 @@ export default function ProjectDetail() {
                           {project.notes &&
                           Array.isArray(project.notes) &&
                           project.notes.length > 0 ? (
-                            project.notes.map((note) => (
+                            project.notes.map((note, noteIdx) => (
                               <div
-                                key={note.id}
+                                key={note.id || `note-${noteIdx}`}
                                 className="border rounded-lg p-4"
                               >
                                 <div className="flex items-start justify-between mb-2">
@@ -2214,9 +2214,9 @@ export default function ProjectDetail() {
                           {project.tasks &&
                           Array.isArray(project.tasks) &&
                           project.tasks.length > 0 ? (
-                            project.tasks.map((task) => (
+                            project.tasks.map((task, taskIdx) => (
                               <div
-                                key={task.id}
+                                key={task.id || `task-${taskIdx}`}
                                 className="flex items-start justify-between p-3 border rounded-lg"
                               >
                                 <div className="flex items-start gap-3 flex-1">
@@ -2428,9 +2428,9 @@ export default function ProjectDetail() {
                           {project.checklist &&
                           Array.isArray(project.checklist) &&
                           project.checklist.length > 0 ? (
-                            project.checklist.map((item) => (
+                            project.checklist.map((item, itemIdx) => (
                               <div
-                                key={item.id}
+                                key={item.id || `checklist-${itemIdx}`}
                                 className="flex items-start justify-between p-2 border rounded-lg"
                               >
                                 <div className="flex items-start gap-3 flex-1">
@@ -2573,9 +2573,9 @@ export default function ProjectDetail() {
                     <CardContent>
                       {project.documents && project.documents.length > 0 ? (
                         <div className="space-y-3">
-                          {project.documents.map((doc) => (
+                          {project.documents.map((doc, docIdx) => (
                             <div
-                              key={doc.id}
+                              key={doc.id || `doc-${docIdx}`}
                               className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
                             >
                               <div className="flex items-center gap-3">
@@ -2743,9 +2743,9 @@ export default function ProjectDetail() {
                               <tbody>
                                 {project.activityLog
                                   .slice(0, 10)
-                                  .map((entry) => (
+                                  .map((entry, entryIdx) => (
                                     <tr
-                                      key={entry.id}
+                                      key={entry.id || `entry-${entryIdx}`}
                                       className="border-b hover:bg-muted/50"
                                     >
                                       <td className="p-2">
