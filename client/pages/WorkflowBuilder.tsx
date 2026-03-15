@@ -78,25 +78,6 @@ const availableApps = [
   },
   {
     type: "trigger",
-    app: "workflow",
-    name: "Workflow",
-    icon: GitBranch,
-    color: "bg-indigo-500",
-    actions: [
-      {
-        id: "add_to_workflow",
-        name: "Add to Workflow",
-        description: "When contact is added to workflow",
-      },
-      {
-        id: "remove_from_workflow",
-        name: "Remove from Workflow",
-        description: "When contact is removed from workflow",
-      },
-    ],
-  },
-  {
-    type: "trigger",
     app: "tags",
     name: "Tags",
     icon: Settings,
