@@ -42,7 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface PhotoWithMetadata {
@@ -77,6 +77,56 @@ interface FilterState {
   photoSize: "all" | "small" | "medium" | "large";
   thumbnailSize: "small" | "medium" | "large";
   sortOrder: "newest" | "oldest";
+}
+
+// Hover-to-play video thumbnail — only streams when hovered
+function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
+  return (
+    <div
+      className="relative h-full w-full bg-black cursor-pointer"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+    >
+      <video
+        ref={videoRef}
+        src={url}
+        muted
+        loop
+        playsInline
+        preload="none"
+        className={`h-full w-full object-cover transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-80"}`}
+      />
+      {/* Play icon shown when not hovered */}
+      {!isHovered && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="h-10 w-10 rounded-full bg-black/60 flex items-center justify-center">
+            <svg className="h-5 w-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Gallery() {
@@ -774,15 +824,19 @@ export default function Gallery() {
                             }`}
                             onClick={() => setSelectedPhoto(photo)}
                           >
-                            <ImageWithFallback
-                              photo={photo}
-                              alt={`${photo.type} from ${photo.projectName}`}
-                              className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            {photo.type === "video" ? (
+                              <VideoThumbnail url={photo.url} onClick={() => setSelectedPhoto(photo)} />
+                            ) : (
+                              <ImageWithFallback
+                                photo={photo}
+                                alt={`${photo.type} from ${photo.projectName}`}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              />
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
 
                             {/* Top badges */}
-                            <div className="absolute top-2 left-2 flex gap-1">
+                            <div className="absolute top-2 left-2 flex gap-1 pointer-events-none">
                               {photo.isPrimary && (
                                 <Badge variant="secondary" className="gap-1">
                                   <Star className="h-3 w-3" />
