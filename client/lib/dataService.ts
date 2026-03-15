@@ -999,12 +999,13 @@ export class DataService {
 
     // Upload file to Supabase storage
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const uid = Math.random().toString(36).substr(2, 8);
+    const fileName = `${Date.now()}-${uid}.${fileExt}`;
     const filePath = `project-media/${projectId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
-      .upload(filePath, file);
+      .upload(filePath, file, { upsert: false });
 
     if (uploadError) throw uploadError;
 
@@ -1072,12 +1073,13 @@ export class DataService {
     }
 
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const uid = Math.random().toString(36).substr(2, 8);
+    const fileName = `${Date.now()}-${uid}.${fileExt}`;
     const filePath = `client-media/${clientId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
-      .upload(filePath, file);
+      .upload(filePath, file, { upsert: false });
 
     if (uploadError) throw uploadError;
 
@@ -1232,12 +1234,13 @@ export class DataService {
 
     // Upload file to Supabase storage
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const uid = Math.random().toString(36).substr(2, 8);
+    const fileName = `${Date.now()}-${uid}.${fileExt}`;
     const filePath = `project-documents/${projectId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
-      .upload(filePath, file);
+      .upload(filePath, file, { upsert: false });
 
     if (uploadError) throw uploadError;
 
@@ -1278,12 +1281,13 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const uid = Math.random().toString(36).substr(2, 8);
+    const fileName = `${Date.now()}-${uid}.${fileExt}`;
     const filePath = `client-documents/${clientId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
-      .upload(filePath, file);
+      .upload(filePath, file, { upsert: false });
 
     if (uploadError) throw uploadError;
 
