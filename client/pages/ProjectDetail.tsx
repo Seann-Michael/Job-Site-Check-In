@@ -1560,6 +1560,50 @@ export default function ProjectDetail() {
               )}
             </div>
 
+            {/* Tags row above tabs */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {project.tags && project.tags.length > 0 && project.tags.map((tag, tagIndex) => (
+                <Badge
+                  key={`tag-${tagIndex}-${tag.replace(/\s+/g, "-")}`}
+                  className="cursor-pointer bg-blue-100 text-blue-800 hover:bg-blue-200 border-0 gap-1"
+                >
+                  <span>{tag}</span>
+                  <button
+                    className="ml-0.5 hover:text-red-600 leading-none"
+                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                  >
+                    ×
+                  </button>
+                </Badge>
+              ))}
+              {showAddTag ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addTag();
+                      if (e.key === "Escape") { setShowAddTag(false); setNewTag(""); }
+                    }}
+                    placeholder="New tag…"
+                    className="text-sm border rounded px-2 py-0.5 w-32 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button onClick={addTag} className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90">Add</button>
+                  <button onClick={() => { setShowAddTag(false); setNewTag(""); }} className="text-xs px-2 py-0.5 rounded hover:bg-muted">Cancel</button>
+                </div>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer hover:bg-muted"
+                  onClick={() => setShowAddTag(true)}
+                >
+                  + Add Tag
+                </Badge>
+              )}
+            </div>
+
             {/* Tabs */}
             <div className="border-b mb-6">
               <div className="flex space-x-1 overflow-x-auto scrollbar-hide pb-1">
@@ -1703,82 +1747,6 @@ export default function ProjectDetail() {
                               onClick={() => setShowAddKeyword(true)}
                             >
                               + Add Keyword
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Project Tags */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Tag className="h-5 w-5" />
-                          Project Tags
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                          {project.tags && project.tags.length > 0 ? (
-                            project.tags.map((tag, tagIndex) => (
-                              <Badge
-                                key={`tag-${tagIndex}-${tag.replace(/\s+/g, "-")}`}
-                                className="cursor-pointer bg-blue-100 text-blue-800 hover:bg-blue-200 border-0 gap-1"
-                              >
-                                <span>{tag}</span>
-                                <button
-                                  className="ml-0.5 hover:text-red-600 leading-none"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeTag(tag);
-                                  }}
-                                >
-                                  ×
-                                </button>
-                              </Badge>
-                            ))
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              No tags added
-                            </span>
-                          )}
-                          {showAddTag ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                autoFocus
-                                type="text"
-                                value={newTag}
-                                onChange={(e) => setNewTag(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") addTag();
-                                  if (e.key === "Escape") {
-                                    setShowAddTag(false);
-                                    setNewTag("");
-                                  }
-                                }}
-                                placeholder="New tag…"
-                                className="text-sm border rounded px-2 py-0.5 w-32 focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
-                              <button
-                                onClick={addTag}
-                                className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                              >
-                                Add
-                              </button>
-                              <button
-                                onClick={() => { setShowAddTag(false); setNewTag(""); }}
-                                className="text-xs px-2 py-0.5 rounded hover:bg-muted"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="cursor-pointer hover:bg-muted"
-                              onClick={() => setShowAddTag(true)}
-                            >
-                              + Add Tag
                             </Badge>
                           )}
                         </div>
