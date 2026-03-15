@@ -1443,56 +1443,6 @@ export default function Settings() {
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <span className="text-blue-600 font-bold">f</span>
-                        </div>
-                        <div>
-                          <h3 className="font-medium">Facebook</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {settings.facebookConnected
-                              ? "Connected to your Facebook account"
-                              : "Connect to automatically post completed projects"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {settings.facebookConnected && (
-                          <Badge variant="default" className="gap-1">
-                            <CheckCircle className="h-3 w-3" />
-                            Connected
-                          </Badge>
-                        )}
-                        <Button
-                          variant={
-                            settings.facebookConnected ? "outline" : "default"
-                          }
-                          onClick={() => {
-                            if (settings.facebookConnected) {
-                              updateSetting("facebookConnected", false);
-                              toast.success("Facebook disconnected");
-                            } else {
-                              updateSetting("facebookConnected", true);
-                              toast.success("Facebook connected");
-                            }
-                          }}
-                        >
-                          {settings.facebookConnected ? (
-                            <>
-                              <X className="h-4 w-4 mr-2" />
-                              Disconnect
-                            </>
-                          ) : (
-                            <>
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Connect Facebook
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
                         <div className="h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center">
                           <span className="text-red-600 font-bold">G</span>
                         </div>
