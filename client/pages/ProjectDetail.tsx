@@ -1,22 +1,6 @@
 // @ts-nocheck - Temporary suppression of type errors
 import React from "react";
 
-// Temporary targeted suppression for persistent React key warning
-// This warning has been exhaustively debugged without resolution
-// The component is fully functional despite the warning
-if (process.env.NODE_ENV === "development") {
-  const originalError = console.error;
-  console.error = (...args) => {
-    if (
-      typeof args[0] === "string" &&
-      args[0].includes('Each child in a list should have a unique "key" prop')
-    ) {
-      // Skip this specific warning only in development
-      return;
-    }
-    originalError.apply(console, args);
-  };
-}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -340,16 +324,16 @@ export default function ProjectDetail() {
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this project?")) {
-      if (id) {
-        try {
-          await dataService.deleteProject(id);
-          toast.success("Job deleted successfully");
-          navigate("/admin/jobs");
-        } catch (error) {
-          console.error("Error deleting project:", error);
-          toast.error("Failed to delete project");
-        }
+    if (confirm("Are you sure you want to delete this job? This cannot be undone.")) {
+      if (!id) return;
+      try {
+        await dataService.deleteProject(id);
+        toast.success("Job deleted successfully");
+        navigate("/admin/jobs");
+      } catch (err: any) {
+        const msg = err?.message || (typeof err === "string" ? err : JSON.stringify(err));
+        console.error("Delete failed:", msg, err);
+        toast.error(`Delete failed: ${msg || "Unknown error"}`);
       }
     }
   };

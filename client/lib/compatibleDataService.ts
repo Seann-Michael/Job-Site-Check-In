@@ -44,6 +44,7 @@ class CompatibleDataService {
   async deleteBusiness(id: string) { return await dataService.deleteBusiness(id); }
   async createProject(project: any) { return await dataService.createProject(project); }
   async updateProject(id: string, updates: any) { return await dataService.updateProject(id, updates); }
+  async deleteProject(id: string) { return await dataService.deleteProject(id); }
   async getProjectPhotos(projectId: string) {
     return await dataService.getProjectPhotos(projectId);
   }
