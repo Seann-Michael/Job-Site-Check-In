@@ -219,17 +219,6 @@ const availableApps = [
       },
     ],
   },
-  {
-    type: "action",
-    app: "rss",
-    name: "RSS",
-    icon: Database,
-    color: "bg-orange-600",
-    actions: [
-      { id: "rss", name: "RSS Feed", description: "Add item to RSS feed" },
-    ],
-  },
-
   // Actions - Social Media
   {
     type: "action",
