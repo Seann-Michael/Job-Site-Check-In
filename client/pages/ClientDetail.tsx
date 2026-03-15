@@ -263,9 +263,11 @@ export default function ClientDetail() {
             typeof fileData.tags === "string"
               ? fileData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
               : fileData.tags || [];
+          const VALID_MEDIA_CATEGORIES = ["before", "after", "progress", "final", "reference", "general", "walkthrough", "demonstration"];
+          const safeCategory = VALID_MEDIA_CATEGORIES.includes(fileData.category) ? fileData.category : "general";
           await dataService.uploadProjectPhoto(jobId, actualFile, {
             tags: tagsArray,
-            category: fileData.category || "general",
+            category: safeCategory,
             description: fileData.description || "",
             is_featured: false,
           });

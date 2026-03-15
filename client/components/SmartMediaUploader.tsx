@@ -290,7 +290,7 @@ export function SmartMediaUploader({
         altText: autoApplyDefaults
           ? `${title} - ${projectInfo?.name || "Project"} photo`
           : "",
-        category: autoApplyDefaults ? "project-media" : "",
+        category: autoApplyDefaults ? "general" : "",
         attribution: autoApplyDefaults
           ? `${projectInfo?.customerName || "Unknown"} - ${projectInfo?.name || "Project"}`
           : "",
