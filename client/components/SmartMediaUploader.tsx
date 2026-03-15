@@ -92,7 +92,8 @@ interface SmartMediaUploaderProps {
   onFilesReady: (files: FileWithMetadata[]) => void;
   acceptedTypes?: string[];
   maxFiles?: number;
-  maxFileSize?: number; // in MB
+  maxFileSize?: number; // in MB (images/documents)
+  maxVideoSize?: number; // in MB (videos, defaults to 2048)
   projectInfo?: {
     name: string;
     keywords: string[];
@@ -117,6 +118,7 @@ export function SmartMediaUploader({
   acceptedTypes = ["image/*", "video/*"],
   maxFiles = 20,
   maxFileSize = 100,
+  maxVideoSize = 2048,
   projectInfo,
   enableAIFeatures = true,
   autoApplyDefaults = true,
@@ -354,16 +356,17 @@ export function SmartMediaUploader({
       );
 
       const fileSizeMB = file.size / (1024 * 1024);
-      if (fileSizeMB > maxFileSize) {
+      const sizeLimit = isVideo ? maxVideoSize : maxFileSize;
+      if (fileSizeMB > sizeLimit) {
         return {
           valid: false,
-          error: `File too large. Maximum size: ${maxFileSize}MB`,
+          error: `File too large. Maximum size: ${sizeLimit >= 1024 ? `${(sizeLimit/1024).toFixed(0)}GB` : `${sizeLimit}MB`}`,
         };
       }
 
       return { valid: true };
     },
-    [acceptedTypes, maxFileSize],
+    [acceptedTypes, maxFileSize, maxVideoSize],
   );
 
   // Process files
