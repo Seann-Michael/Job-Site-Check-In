@@ -1689,29 +1689,14 @@ function StepConfigForm({
 
       case "jobs_job_completed":
         return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="completion_notification">
-                Send Notification
-              </Label>
-              <Input
-                id="completion_notification"
-                type="checkbox"
-                checked={config.send_notification || false}
-                onChange={(e) =>
-                  updateConfig("send_notification", e.target.checked)
-                }
-              />
+          <div className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle className="h-4 w-4 text-teal-600" />
+              <p className="text-sm font-medium text-teal-800">No configuration needed</p>
             </div>
-            <div>
-              <Label htmlFor="follow_up_action">Follow-up Action (Optional)</Label>
-              <Input
-                id="follow_up_action"
-                value={config.follow_up_action || ""}
-                onChange={(e) => updateConfig("follow_up_action", e.target.value)}
-                placeholder="e.g., Send invoice, Request review"
-              />
-            </div>
+            <p className="text-xs text-teal-700">
+              This trigger fires automatically whenever a job is marked as completed. Add actions below to define what happens next.
+            </p>
           </div>
         );
 
