@@ -1671,84 +1671,63 @@ export default function ProjectDetail() {
                             {project.description || "No description provided"}
                           </p>
                         )}
-                      </CardContent>
-                    </Card>
 
-                    {/* Project Keywords/Tags */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Tag className="h-5 w-5" />
-                          Project Keywords
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                          {project.keywords && project.keywords.length > 0 ? (
-                            project.keywords.map((keyword, index) => (
-                              <Badge
-                                key={`keyword-${index}-${keyword.replace(/\s+/g, "-")}`}
-                                variant="secondary"
-                                className="cursor-pointer hover:bg-secondary/80"
-                              >
-                                <span>{keyword}</span>
-                                <button
-                                  className="ml-1 hover:text-destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeKeyword(keyword);
-                                  }}
+                        {/* Keywords inside description card */}
+                        <div className="mt-4 pt-4 border-t">
+                          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                            <Tag className="h-3 w-3" />
+                            Keywords
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {project.keywords && project.keywords.length > 0 ? (
+                              project.keywords.map((keyword, index) => (
+                                <Badge
+                                  key={`keyword-${index}-${keyword.replace(/\s+/g, "-")}`}
+                                  variant="secondary"
+                                  className="cursor-pointer hover:bg-secondary/80"
                                 >
-                                  ×
-                                </button>
+                                  <span>{keyword}</span>
+                                  <button
+                                    className="ml-1 hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeKeyword(keyword);
+                                    }}
+                                  >
+                                    ×
+                                  </button>
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-sm text-muted-foreground">No keywords added</span>
+                            )}
+                            {showAddKeyword ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={newKeyword}
+                                  onChange={(e) => setNewKeyword(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") addKeyword();
+                                    if (e.key === "Escape") { setShowAddKeyword(false); setNewKeyword(""); }
+                                  }}
+                                  placeholder="New keyword…"
+                                  className="text-sm border rounded px-2 py-0.5 w-32 focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                                <button onClick={addKeyword} className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90">Add</button>
+                                <button onClick={() => { setShowAddKeyword(false); setNewKeyword(""); }} className="text-xs px-2 py-0.5 rounded hover:bg-muted">Cancel</button>
+                              </div>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="cursor-pointer hover:bg-muted"
+                                onClick={() => setShowAddKeyword(true)}
+                              >
+                                + Add Keyword
                               </Badge>
-                            ))
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              No keywords added
-                            </span>
-                          )}
-                          {/* Add keyword inline input */}
-                          {showAddKeyword ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                autoFocus
-                                type="text"
-                                value={newKeyword}
-                                onChange={(e) => setNewKeyword(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") addKeyword();
-                                  if (e.key === "Escape") {
-                                    setShowAddKeyword(false);
-                                    setNewKeyword("");
-                                  }
-                                }}
-                                placeholder="New keyword…"
-                                className="text-sm border rounded px-2 py-0.5 w-32 focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
-                              <button
-                                onClick={addKeyword}
-                                className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                              >
-                                Add
-                              </button>
-                              <button
-                                onClick={() => { setShowAddKeyword(false); setNewKeyword(""); }}
-                                className="text-xs px-2 py-0.5 rounded hover:bg-muted"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <Badge
-                              key="add-keyword-button"
-                              variant="outline"
-                              className="cursor-pointer hover:bg-muted"
-                              onClick={() => setShowAddKeyword(true)}
-                            >
-                              + Add Keyword
-                            </Badge>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
