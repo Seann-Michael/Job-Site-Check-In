@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Footer } from "@/components/Footer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -429,6 +430,11 @@ export function SuperAdminLayout({
         <main className="flex-1 p-4 md:p-6 overflow-auto mobile-bottom-safe md:pb-6">
           {children}
         </main>
+
+        {/* Footer - desktop only */}
+        <div className="hidden md:block">
+          <Footer />
+        </div>
 
         {/* Mobile Bottom Navigation */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t z-50 pb-safe">
