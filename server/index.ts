@@ -65,6 +65,10 @@ export function createServer() {
   app.post("/api/google-place-lookup", handleGooglePlaceLookup);
 
   // Google OAuth (Business Profile connection)
+  // Primary routes matching the registered Google Cloud Console redirect URI
+  app.get("/api/oauth/google_my_business/authorize", handleGoogleAuthorize);
+  app.get("/api/oauth/google_my_business/callback", handleGoogleCallback);
+  // Legacy aliases kept for backwards compatibility
   app.get("/api/auth/google/authorize", handleGoogleAuthorize);
   app.get("/api/auth/google/callback", handleGoogleCallback);
 

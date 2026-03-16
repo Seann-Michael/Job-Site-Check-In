@@ -489,7 +489,7 @@ export default function Settings() {
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
 
   const handleConnectGoogle = () => {
-    const authUrl = `/api/auth/google/authorize?workspace_id=${encodeURIComponent(settings.subAccountId || "")}`;
+    const authUrl = `/api/oauth/google_my_business/authorize?workspace_id=${encodeURIComponent(settings.subAccountId || "")}`;
     const popup = window.open(
       authUrl,
       "google_oauth",

@@ -14,11 +14,12 @@ const SCOPES = [
 function getRedirectUri(req: Request): string {
   const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:5173";
-  return `${proto}://${host}/api/auth/google/callback`;
+  return `${proto}://${host}/api/oauth/google_my_business/callback`;
 }
 
 /**
  * GET /api/auth/google/authorize
+ * Also accessible at /api/oauth/google_my_business/authorize
  * Redirects the popup to Google's OAuth consent screen.
  * Query params:
  *   workspace_id - the workspace/account to attach the token to
