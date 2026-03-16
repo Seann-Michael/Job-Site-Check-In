@@ -816,6 +816,16 @@ const App = () => (
                   element={<Navigate to="/super-admin/users" replace />}
                 />
 
+                {/* Legacy short-form admin redirects */}
+                <Route
+                  path="/agencyadmin"
+                  element={<Navigate to="/super-admin" replace />}
+                />
+                <Route
+                  path="/superadmin"
+                  element={<Navigate to="/super-admin" replace />}
+                />
+
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

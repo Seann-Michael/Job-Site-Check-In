@@ -24,14 +24,14 @@ export function Footer() {
           </Link>
           <span className="text-muted-foreground/50">•</span>
           <Link
-            to="/superadmin"
+            to="/super-admin"
             className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
             Super Admin
           </Link>
           <span className="text-muted-foreground/50">•</span>
           <Link
-            to="/agencyadmin"
+            to="/super-admin"
             className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
             Agency Admin
