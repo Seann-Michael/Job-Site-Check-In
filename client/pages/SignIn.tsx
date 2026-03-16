@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Camera, Eye, EyeOff } from "lucide-react";
+import { Camera, Eye, EyeOff, Zap } from "lucide-react";
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -16,6 +16,17 @@ export default function SignIn() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const from = (location.state as any)?.from?.pathname || "/";
+
+  const devBypass = (role: "admin" | "superadmin") => {
+    const user =
+      role === "superadmin"
+        ? { id: "1", name: "Super Admin", email: "superadmin@projectlens.com", role: "superadmin" }
+        : { id: "3", name: "Dev Admin", email: "admin@example.com", role: "admin" };
+    localStorage.setItem("auth_user", JSON.stringify(user));
+    localStorage.setItem("auth_token", "dev_bypass_token_" + Date.now());
+    toast.success(`Dev bypass: signed in as ${user.name}`);
+    navigate(role === "superadmin" ? "/super-admin" : "/admin/jobs", { replace: true });
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +167,35 @@ export default function SignIn() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center space-y-3">
+          {/* DEV BYPASS — remove before production */}
+          <div className="mt-6 border border-dashed border-yellow-400 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/20 space-y-2">
+            <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1">
+              <Zap className="h-3 w-3" />
+              Dev Bypass — remove before launch
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
+                onClick={() => devBypass("admin")}
+              >
+                Skip Login → Admin
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
+                onClick={() => devBypass("superadmin")}
+              >
+                Skip Login → Super Admin
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 text-center space-y-3">
             <p className="text-sm text-muted-foreground">
               <Link
                 to="/forgot-password"
