@@ -22,6 +22,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AccountManager } from "@/lib/accountManager";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface LoginFormData {
   email: string;
@@ -95,10 +96,42 @@ const testimonials = [
   },
 ];
 
+// Slides can come from Supabase (managed by Super Admin) or fall back to defaults
+type SlideSource = typeof slides[number] & { image_url?: string };
+
 export default function Login() {
   const navigate = useNavigate();
+  const [activeSlides, setActiveSlides] = useState<SlideSource[]>(slides);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [animating, setAnimating] = useState(false);
+
+  // Fetch custom slides from Supabase; keep defaults if none configured
+  useEffect(() => {
+    const fetchSlides = async () => {
+      try {
+        const { data } = await supabaseClient
+          .from("login_slides")
+          .select("*")
+          .eq("active", true)
+          .order("sort_order");
+        if (data && data.length > 0) {
+          const mapped: SlideSource[] = data.map((row: any) => ({
+            icon: MapPin,
+            tag: row.tag,
+            headline: row.headline,
+            body: row.body,
+            stat: { value: row.stat_value, label: row.stat_label },
+            color: row.color,
+            image_url: row.image_url || undefined,
+          }));
+          setActiveSlides(mapped);
+        }
+      } catch {
+        // silently keep defaults
+      }
+    };
+    fetchSlides();
+  }, []);
   const [formData, setFormData] = useState<LoginFormData>({ email: "", password: "" });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -106,7 +139,7 @@ export default function Login() {
 
   // Auto-advance slides
   useEffect(() => {
-    const timer = setInterval(() => goToSlide((currentSlide + 1) % slides.length), 5000);
+    const timer = setInterval(() => goToSlide((currentSlide + 1) % activeSlides.length), 5000);
     return () => clearInterval(timer);
   }, [currentSlide]);
 
@@ -182,7 +215,7 @@ export default function Login() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  const slide = slides[currentSlide];
+  const slide = activeSlides[currentSlide] ?? activeSlides[0];
   const SlideIcon = slide.icon;
   const testimonial = testimonials[currentSlide % testimonials.length];
 
@@ -358,7 +391,7 @@ export default function Login() {
             {/* Slide controls */}
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
-                {slides.map((_, i) => (
+                {activeSlides.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => goToSlide(i)}
@@ -372,13 +405,13 @@ export default function Login() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => goToSlide((currentSlide - 1 + slides.length) % slides.length)}
+                  onClick={() => goToSlide((currentSlide - 1 + activeSlides.length) % activeSlides.length)}
                   className="h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4 text-white" />
                 </button>
                 <button
-                  onClick={() => goToSlide((currentSlide + 1) % slides.length)}
+                  onClick={() => goToSlide((currentSlide + 1) % activeSlides.length)}
                   className="h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 transition-colors"
                 >
                   <ChevronRight className="h-4 w-4 text-white" />
