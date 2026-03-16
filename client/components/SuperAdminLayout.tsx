@@ -122,13 +122,6 @@ export function SuperAdminLayout({
       active: location.pathname.startsWith("/super-admin/email"),
     },
     {
-      label: "API Management",
-      href: "/super-admin/api",
-      icon: Code,
-      active: location.pathname.startsWith("/super-admin/api"),
-    },
-
-    {
       label: "Performance & Scale",
       href: "/super-admin/performance",
       icon: Zap,

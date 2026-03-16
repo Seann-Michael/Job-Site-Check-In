@@ -62,7 +62,6 @@ const SuperAdminSegmentation = lazy(
 const SuperAdminEmailIntegration = lazy(
   () => import("./pages/SuperAdminEmailIntegration"),
 );
-const SuperAdminAPI = lazy(() => import("./pages/SuperAdminAPI"));
 const SuperAdminPerformance = lazy(
   () => import("./pages/SuperAdminPerformance"),
 );
@@ -573,15 +572,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/super-admin/api"
-                  element={
-                    <ProtectedRoute>
-                      <SuperAdminAPI />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
                   path="/super-admin/performance"
                   element={
                     <ProtectedRoute>
@@ -794,10 +784,6 @@ const App = () => (
                 <Route
                   path="/SuperAdminAutomation"
                   element={<Navigate to="/super-admin/automation" replace />}
-                />
-                <Route
-                  path="/SuperAdminAPI"
-                  element={<Navigate to="/super-admin/api" replace />}
                 />
                 <Route
                   path="/SuperAdminPerformance"

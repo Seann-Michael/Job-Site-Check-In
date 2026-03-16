@@ -400,12 +400,6 @@ export default function AppPages() {
           icon: Mail,
         },
         {
-          name: "Super Admin API",
-          path: "/super-admin/api",
-          description: "API management",
-          icon: Code,
-        },
-        {
           name: "Super Admin Performance",
           path: "/super-admin/performance",
           description: "Performance monitoring",
