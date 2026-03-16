@@ -421,7 +421,7 @@ export function useProtectedRoute(
         path: window.location.pathname,
       });
 
-      window.location.href = "/signin";
+      window.location.href = "/login";
       return;
     }
 

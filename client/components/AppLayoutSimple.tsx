@@ -138,7 +138,7 @@ export function AppLayout({
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/signin");
+      navigate("/login");
     } catch (error) {
       console.error("Sign out error:", error);
       toast.error("Failed to sign out");

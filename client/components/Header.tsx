@@ -44,7 +44,7 @@ export function Header() {
     signOut();
     localStorage.removeItem("superadmin_session");
     toast.success("Signed out successfully");
-    navigate("/signin", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   const returnToSuperAdmin = () => {

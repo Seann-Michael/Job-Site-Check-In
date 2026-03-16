@@ -426,7 +426,7 @@ This feature has been highly requested by our user base, especially those who wo
                   <p className="text-sm text-gray-600 mb-3">
                     You must be logged in to leave a comment
                   </p>
-                  <Button onClick={() => navigate("/signin")}>
+                  <Button onClick={() => navigate("/login")}>
                     Sign In to Comment
                   </Button>
                 </div>

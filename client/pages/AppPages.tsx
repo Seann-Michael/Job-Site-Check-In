@@ -191,7 +191,7 @@ export default function AppPages() {
         },
         {
           name: "Sign In",
-          path: "/signin",
+          path: "/login",
           description: "User authentication",
           icon: Lock,
         },

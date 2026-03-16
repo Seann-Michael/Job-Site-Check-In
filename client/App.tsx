@@ -35,7 +35,6 @@ const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProject = lazy(() => import("./pages/PublicProject"));
-const SignIn = lazy(() => import("./pages/SignIn"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
@@ -129,7 +128,7 @@ const App = () => (
             >
               <Routes>
                 {/* Public routes */}
-                <Route path="/signin" element={<SignIn />} />
+                <Route path="/signin" element={<Navigate to="/login" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -689,7 +688,7 @@ const App = () => (
                 {/* Auth and Public Routes */}
                 <Route
                   path="/SignIn"
-                  element={<Navigate to="/signin" replace />}
+                  element={<Navigate to="/login" replace />}
                 />
                 <Route
                   path="/Login"

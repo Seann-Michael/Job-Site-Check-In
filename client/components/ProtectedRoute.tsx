@@ -12,12 +12,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   try {
     if (!isAuthenticated()) {
       // Redirect to sign in page with return url
-      return <Navigate to="/signin" state={{ from: location }} replace />;
+      return <Navigate to="/login" state={{ from: location }} replace />
     }
   } catch (error) {
     console.error("Authentication check failed:", error);
     // If authentication check fails, allow access anyway (demo mode)
-    // In production, you might want to redirect to signin
+    // In production, you might want to redirect to login
   }
 
   return <>{children}</>;

@@ -69,7 +69,7 @@ export function SuperAdminLayout({
   const handleSignOut = () => {
     signOut();
     toast.success("Signed out successfully");
-    navigate("/signin", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   const sidebarItems = [
