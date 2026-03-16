@@ -1,4 +1,4 @@
-// @ts-nocheck - Temporary suppression of type errors
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -41,249 +40,220 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import {
   Plus,
   Shield,
   User,
   Mail,
-  Calendar,
   MoreVertical,
   Edit,
   Trash2,
   UserCheck,
   UserX,
-  Settings,
-  Eye,
+  RefreshCw,
+  Search,
 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
+import { Input as SearchInput } from "@/components/ui/input";
 
-interface SuperAdminUser {
+// ── Types ──────────────────────────────────────────────────────────────────────
+type StaffRole = "super_admin" | "agency_admin" | "staff" | "viewer";
+
+interface StaffMember {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
-  role: "super-admin" | "admin" | "support";
-  status: "active" | "inactive" | "pending";
-  lastLogin: string;
-  createdDate: string;
-  permissions: string[];
-  avatar?: string;
+  role: StaffRole;
+  created_at: string;
+  last_login: string | null;
+  email_verified: boolean;
+  phone: string | null;
 }
 
-export default function SuperAdminStaff() {
-  const [users, setUsers] = useState<SuperAdminUser[]>([]);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState<SuperAdminUser | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    role: "admin" as const,
-    permissions: [] as string[],
-  });
+const ROLE_LABELS: Record<StaffRole, string> = {
+  super_admin: "Super Admin",
+  agency_admin: "Agency Admin",
+  staff: "Staff",
+  viewer: "Viewer",
+};
 
-  const availablePermissions = [
-    "User Management",
-    "Business Management",
-    "Agency Management",
-    "Financial Dashboard",
-    "System Settings",
-    "Support Management",
-    "Database Access",
-    "Analytics & Reports",
-  ];
+const ROLE_VARIANTS: Record<StaffRole, "default" | "secondary" | "outline" | "destructive"> = {
+  super_admin: "destructive",
+  agency_admin: "default",
+  staff: "secondary",
+  viewer: "outline",
+};
+
+// ── Blank form ─────────────────────────────────────────────────────────────────
+const blankForm = () => ({
+  name: "",
+  email: "",
+  role: "staff" as StaffRole,
+  phone: "",
+});
+
+// ── Component ──────────────────────────────────────────────────────────────────
+export default function SuperAdminStaff() {
+  const [members, setMembers] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(blankForm());
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const fetchMembers = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Show super_admin + staff + agency_admin — i.e. everyone except regular business_owner/viewer
+      let query = supabaseClient
+        .from("users")
+        .select("id, name, email, role, created_at, last_login, email_verified, phone")
+        .in("role", ["super_admin", "agency_admin", "staff", "viewer"])
+        .order("created_at", { ascending: false });
+
+      if (roleFilter !== "all") {
+        query = query.eq("role", roleFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setMembers((data as StaffMember[]) ?? []);
+    } catch (err: any) {
+      toast.error("Failed to load staff: " + (err?.message ?? "Unknown"));
+    } finally {
+      setLoading(false);
+    }
+  }, [roleFilter]);
 
   useEffect(() => {
-    // Load existing super admin users
-    const existingUsers = JSON.parse(
-      localStorage.getItem("super_admin_users") || "[]",
+    fetchMembers();
+  }, [fetchMembers]);
+
+  // ── Filtered list ──────────────────────────────────────────────────────────
+  const filtered = members.filter((m) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      m.name?.toLowerCase().includes(term) ||
+      m.email.toLowerCase().includes(term)
     );
+  });
 
-    if (existingUsers.length === 0) {
-      const sampleUsers: SuperAdminUser[] = [
-        {
-          id: "1",
-          name: "John Doe",
-          email: "john@localgmbbooster.com",
-          role: "super-admin",
-          status: "active",
-          lastLogin: "2024-03-15T10:30:00Z",
-          createdDate: "2024-01-15",
-          permissions: availablePermissions,
-        },
-        {
-          id: "2",
-          name: "Sarah Wilson",
-          email: "sarah@localgmbbooster.com",
-          role: "admin",
-          status: "active",
-          lastLogin: "2024-03-14T15:20:00Z",
-          createdDate: "2024-02-01",
-          permissions: [
-            "User Management",
-            "Business Management",
-            "Support Management",
-          ],
-        },
-        {
-          id: "3",
-          name: "Mike Johnson",
-          email: "mike@localgmbbooster.com",
-          role: "support",
-          status: "active",
-          lastLogin: "2024-03-15T09:15:00Z",
-          createdDate: "2024-02-15",
-          permissions: ["Support Management", "User Management"],
-        },
-      ];
+  // ── Open add / edit dialog ─────────────────────────────────────────────────
+  const openAdd = () => {
+    setEditingId(null);
+    setFormData(blankForm());
+    setDialogOpen(true);
+  };
 
-      localStorage.setItem("super_admin_users", JSON.stringify(sampleUsers));
-      setUsers(sampleUsers);
-    } else {
-      setUsers(existingUsers);
-    }
-  }, []);
+  const openEdit = (m: StaffMember) => {
+    setEditingId(m.id);
+    setFormData({ name: m.name ?? "", email: m.email, role: m.role, phone: m.phone ?? "" });
+    setDialogOpen(true);
+  };
 
-  const handleAddUser = () => {
-    if (!formData.name || !formData.email) {
-      toast.error("Please fill in all required fields");
+  // ── Save (add or update) ───────────────────────────────────────────────────
+  const handleSave = async () => {
+    if (!formData.email.trim()) {
+      toast.error("Email is required");
       return;
     }
-
-    const newUser: SuperAdminUser = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      status: "pending",
-      lastLogin: "",
-      createdDate: new Date().toISOString().split("T")[0],
-      permissions: formData.permissions,
-    };
-
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    localStorage.setItem("super_admin_users", JSON.stringify(updatedUsers));
-
-    setFormData({
-      name: "",
-      email: "",
-      role: "admin",
-      permissions: [],
-    });
-    setShowAddDialog(false);
-
-    toast.success(
-      `Super admin user ${newUser.name} has been added successfully`,
-    );
-  };
-
-  const handleEditUser = (user: SuperAdminUser) => {
-    setEditingUser(user);
-    setFormData({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      permissions: user.permissions,
-    });
-    setShowAddDialog(true);
-  };
-
-  const handleUpdateUser = () => {
-    if (!editingUser || !formData.name || !formData.email) {
-      toast.error("Please fill in all required fields");
-      return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        // Update existing
+        const { error } = await supabaseClient
+          .from("users")
+          .update({
+            name: formData.name || null,
+            email: formData.email,
+            role: formData.role,
+            phone: formData.phone || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingId);
+        if (error) throw error;
+        toast.success("Staff member updated");
+      } else {
+        // Insert new
+        const { error } = await supabaseClient.from("users").insert({
+          name: formData.name || null,
+          email: formData.email,
+          role: formData.role,
+          phone: formData.phone || null,
+          email_verified: false,
+        });
+        if (error) throw error;
+        toast.success("Staff member added");
+      }
+      setDialogOpen(false);
+      fetchMembers();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Save failed");
+    } finally {
+      setSaving(false);
     }
-
-    const updatedUser = {
-      ...editingUser,
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      permissions: formData.permissions,
-    };
-
-    const updatedUsers = users.map((user) =>
-      user.id === editingUser.id ? updatedUser : user,
-    );
-
-    setUsers(updatedUsers);
-    localStorage.setItem("super_admin_users", JSON.stringify(updatedUsers));
-
-    setEditingUser(null);
-    setFormData({
-      name: "",
-      email: "",
-      role: "admin",
-      permissions: [],
-    });
-    setShowAddDialog(false);
-
-    toast.success(
-      `Super admin user ${updatedUser.name} has been updated successfully`,
-    );
   };
 
-  const handleDeleteUser = (userId: string) => {
-    const updatedUsers = users.filter((user) => user.id !== userId);
-    setUsers(updatedUsers);
-    localStorage.setItem("super_admin_users", JSON.stringify(updatedUsers));
-    toast.success("Super admin user has been deleted");
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
+    try {
+      const { error } = await supabaseClient
+        .from("users")
+        .delete()
+        .eq("id", deleteTargetId);
+      if (error) throw error;
+      toast.success("Staff member removed");
+      setDeleteTargetId(null);
+      fetchMembers();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Delete failed");
+    }
   };
 
-  const toggleUserStatus = (userId: string) => {
-    const updatedUsers = users.map((user) =>
-      user.id === userId
-        ? {
-            ...user,
-            status: user.status === "active" ? "inactive" : ("active" as const),
-          }
-        : user,
-    );
-
-    setUsers(updatedUsers);
-    localStorage.setItem("super_admin_users", JSON.stringify(updatedUsers));
-
-    const user = updatedUsers.find((u) => u.id === userId);
-    toast.success(
-      `User ${user?.name} has been ${user?.status === "active" ? "activated" : "deactivated"}`,
-    );
+  // ── Toggle role between active super_admin and staff ────────────────────────
+  const toggleActive = async (m: StaffMember) => {
+    const newRole: StaffRole = m.role === "super_admin" ? "staff" : "super_admin";
+    try {
+      const { error } = await supabaseClient
+        .from("users")
+        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .eq("id", m.id);
+      if (error) throw error;
+      toast.success(`${m.name ?? m.email} role updated to ${ROLE_LABELS[newRole]}`);
+      fetchMembers();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Update failed");
+    }
   };
 
-  const getRoleBadge = (role: string) => {
-    const roleConfig = {
-      "super-admin": { variant: "destructive" as const, label: "Super Admin" },
-      admin: { variant: "default" as const, label: "Admin" },
-      support: { variant: "secondary" as const, label: "Support" },
-    };
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const superAdminCount = members.filter((m) => m.role === "super_admin").length;
+  const recentlyActive = members.filter(
+    (m) => m.last_login && new Date(m.last_login) > new Date(Date.now() - 7 * 86400000),
+  ).length;
 
-    const config = roleConfig[role as keyof typeof roleConfig];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { variant: "default" as const, label: "Active" },
-      inactive: { variant: "secondary" as const, label: "Inactive" },
-      pending: { variant: "outline" as const, label: "Pending" },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      email: "",
-      role: "admin",
-      permissions: [],
-    });
-    setEditingUser(null);
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SuperAdminLayout>
       <div className="space-y-6">
@@ -292,136 +262,22 @@ export default function SuperAdminStaff() {
           <div>
             <h1 className="text-3xl font-bold">Super Admin Staff</h1>
             <p className="text-muted-foreground">
-              Manage super administrator users and their permissions
+              Manage staff members and their access roles
             </p>
           </div>
-          <Dialog
-            open={showAddDialog}
-            onOpenChange={(open) => {
-              setShowAddDialog(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Staff Member
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingUser ? "Edit Staff Member" : "Add Staff Member"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingUser
-                    ? "Update staff member details and permissions"
-                    : "Add a new super admin staff member to the system"}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    placeholder="Enter full name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        email: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter email address"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, role: value as any }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="super-admin">Super Admin</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="support">Support</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Permissions</Label>
-                  <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
-                    {availablePermissions.map((permission) => (
-                      <label
-                        key={permission}
-                        className="flex items-center space-x-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.permissions.includes(permission)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                permissions: [...prev.permissions, permission],
-                              }));
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                permissions: prev.permissions.filter(
-                                  (p) => p !== permission,
-                                ),
-                              }));
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span>{permission}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowAddDialog(false);
-                    resetForm();
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={editingUser ? handleUpdateUser : handleAddUser}
-                >
-                  {editingUser ? "Update" : "Add"} Staff Member
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={fetchMembers} disabled={loading} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button className="gap-2" onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              Add Staff Member
+            </Button>
+          </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -429,164 +285,307 @@ export default function SuperAdminStaff() {
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active</CardTitle>
-              <UserCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter((u) => u.status === "active").length}
+                {loading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : members.length}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Super Admins
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Super Admins</CardTitle>
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter((u) => u.role === "super-admin").length}
+                {loading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : superAdminCount}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              <UserX className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Active (7d)</CardTitle>
+              <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter((u) => u.status === "pending").length}
+                {loading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : recentlyActive}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Verified</CardTitle>
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading
+                  ? <div className="h-7 w-10 animate-pulse bg-muted rounded" />
+                  : members.filter((m) => m.email_verified).length}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Staff Table */}
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <SearchInput
+              placeholder="Search by name or email…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="All Roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="super_admin">Super Admin</SelectItem>
+              <SelectItem value="agency_admin">Agency Admin</SelectItem>
+              <SelectItem value="staff">Staff</SelectItem>
+              <SelectItem value="viewer">Viewer</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Staff Members</CardTitle>
             <CardDescription>
-              Manage super admin staff members and their access levels
+              {loading ? "Loading…" : `${filtered.length} member${filtered.length !== 1 ? "s" : ""} shown`}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Permissions</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="min-w-[220px]">Member</TableHead>
+                    <TableHead className="min-w-[130px]">Role</TableHead>
+                    <TableHead className="min-w-[100px]">Verified</TableHead>
+                    <TableHead className="min-w-[120px]">Joined</TableHead>
+                    <TableHead className="min-w-[120px]">Last Login</TableHead>
+                    <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar} />
-                            <AvatarFallback>
-                              {user.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{user.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {user.email}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell>{getStatusBadge(user.status)}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {user.permissions.length} permissions
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {user.lastLogin ? (
-                          <div className="text-sm">
-                            {new Date(user.lastLogin).toLocaleDateString()}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            Never
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(user.createdDate).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleEditUser(user)}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit User
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => toggleUserStatus(user.id)}
-                            >
-                              {user.status === "active" ? (
-                                <>
-                                  <UserX className="mr-2 h-4 w-4" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <UserCheck className="mr-2 h-4 w-4" />
-                                  Activate
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {loading ? (
+                    [...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        {[...Array(6)].map((__, j) => (
+                          <TableCell key={j}>
+                            <div className="h-4 w-full animate-pulse bg-muted rounded" />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-16 text-muted-foreground">
+                        <User className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">No staff members found</p>
+                        <p className="text-sm mt-1">Add a staff member to get started</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filtered.map((m) => (
+                      <TableRow key={m.id} className="group">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                                {(m.name ?? m.email).slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">
+                                {m.name ?? <span className="italic text-muted-foreground">No name</span>}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                {m.email}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant={ROLE_VARIANTS[m.role]}>
+                            {ROLE_LABELS[m.role] ?? m.role}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant={m.email_verified ? "default" : "secondary"} className="text-xs">
+                            {m.email_verified ? "Verified" : "Unverified"}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="text-sm text-muted-foreground">
+                          {m.created_at ? new Date(m.created_at).toLocaleDateString() : "—"}
+                        </TableCell>
+
+                        <TableCell className="text-sm text-muted-foreground">
+                          {m.last_login
+                            ? new Date(m.last_login).toLocaleDateString()
+                            : <span className="italic">Never</span>}
+                        </TableCell>
+
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => openEdit(m)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toggleActive(m)}>
+                                {m.role === "super_admin" ? (
+                                  <>
+                                    <UserX className="mr-2 h-4 w-4" />
+                                    Demote to Staff
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserCheck className="mr-2 h-4 w-4" />
+                                    Promote to Super Admin
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteTargetId(m.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Add / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit Staff Member" : "Add Staff Member"}</DialogTitle>
+            <DialogDescription>
+              {editingId
+                ? "Update this staff member's details in Supabase."
+                : "Add a new staff member. They'll need to sign up at /signup to gain login access."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="staff-name">Full Name</Label>
+              <Input
+                id="staff-name"
+                placeholder="Jane Smith"
+                value={formData.name}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="staff-email">Email Address <span className="text-destructive">*</span></Label>
+              <Input
+                id="staff-email"
+                type="email"
+                placeholder="jane@company.com"
+                value={formData.email}
+                onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+                disabled={!!editingId}
+              />
+              {editingId && (
+                <p className="text-xs text-muted-foreground">Email cannot be changed after creation.</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="staff-phone">Phone (optional)</Label>
+              <Input
+                id="staff-phone"
+                type="tel"
+                placeholder="+1 (555) 000-0000"
+                value={formData.phone}
+                onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="staff-role">Role</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(v) => setFormData((p) => ({ ...p, role: v as StaffRole }))}
+              >
+                <SelectTrigger id="staff-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="agency_admin">Agency Admin</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving} className="gap-2">
+              {saving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+              {editingId ? "Save Changes" : "Add Member"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove staff member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the user record from Supabase. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 }
