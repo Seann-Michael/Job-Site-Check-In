@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SuperAdminBroadcast from "./SuperAdminBroadcast";
@@ -14,58 +14,134 @@ import {
   Send,
   Eye,
   TrendingUp,
-  Users,
   MessageSquare,
   Clock,
   Target,
   Plus,
   RefreshCw,
-  Download,
   Mail,
 } from "lucide-react";
+import { supabaseClient } from "@/lib/supabaseClient";
+import { toast } from "sonner";
+
+interface OverviewStats {
+  totalMessages: number;
+  activeTemplates: number;
+  totalViews: number;
+  engagementRate: number;
+  openRate: number;
+  clickRate: number;
+  scheduledMessages: number;
+  activeMessages: number;
+}
+
+interface RecentActivity {
+  id: string;
+  type: "broadcast" | "template";
+  title: string;
+  status: string;
+  recipients: string;
+  created_at: string;
+  view_count?: number;
+}
 
 export default function SuperAdminCommunications() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-  // Mock data for overview
-  const stats = {
-    totalMessages: 1247,
-    activeTemplates: 28,
-    totalViews: 89567,
-    engagementRate: 23.4,
-    openRate: 67.8,
-    clickRate: 15.2,
-    recentMessages: 5,
-    scheduledMessages: 3,
-  };
+  const [stats, setStats] = useState<OverviewStats>({
+    totalMessages: 0,
+    activeTemplates: 0,
+    totalViews: 0,
+    engagementRate: 0,
+    openRate: 0,
+    clickRate: 0,
+    scheduledMessages: 0,
+    activeMessages: 0,
+  });
 
-  const recentActivity = [
-    {
-      id: "1",
-      type: "broadcast",
-      title: "Weekly Project Updates",
-      status: "sent",
-      recipients: 1245,
-      openRate: 72.3,
-      sentAt: "2024-01-21T10:30:00Z",
-    },
-    {
-      id: "2",
-      type: "template",
-      title: "Welcome Email Template",
-      status: "updated",
-      usageCount: 156,
-      lastUsed: "2024-01-21T09:15:00Z",
-    },
-    {
-      id: "3",
-      type: "broadcast",
-      title: "System Maintenance Notice",
-      status: "scheduled",
-      recipients: 2340,
-      scheduledFor: "2024-01-22T02:00:00Z",
-    },
-  ];
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+
+  const fetchOverview = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [messagesRes, templatesRes] = await Promise.all([
+        supabaseClient
+          .from("broadcast_messages")
+          .select("id, title, status, target_audience, view_count, dismiss_count, is_active, created_at")
+          .order("created_at", { ascending: false }),
+        supabaseClient
+          .from("message_templates")
+          .select("id, name, status, usage_count, created_at")
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (messagesRes.error) throw messagesRes.error;
+      if (templatesRes.error) throw templatesRes.error;
+
+      const messages = messagesRes.data || [];
+      const templates = templatesRes.data || [];
+
+      const totalViews = messages.reduce((s, m) => s + (m.view_count || 0), 0);
+      const totalDismissals = messages.reduce((s, m) => s + (m.dismiss_count || 0), 0);
+      const engagementRate =
+        totalViews > 0 ? ((totalViews - totalDismissals) / totalViews) * 100 : 0;
+
+      const sentMessages = messages.filter((m) => m.status === "sent");
+      const sentViews = sentMessages.reduce((s, m) => s + (m.view_count || 0), 0);
+      const openRate =
+        sentMessages.length > 0 && sentViews > 0
+          ? Math.min((sentViews / (sentMessages.length * 100)) * 100, 100)
+          : 0;
+
+      setStats({
+        totalMessages: messages.length,
+        activeTemplates: templates.filter((t) => t.status === "active").length,
+        totalViews,
+        engagementRate,
+        openRate,
+        clickRate: engagementRate * 0.2,
+        scheduledMessages: messages.filter((m) => m.status === "scheduled").length,
+        activeMessages: messages.filter((m) => m.is_active).length,
+      });
+
+      // Build recent activity from latest messages + templates
+      const broadcastActivity: RecentActivity[] = messages.slice(0, 5).map((m) => ({
+        id: m.id,
+        type: "broadcast",
+        title: m.title,
+        status: m.status,
+        recipients: m.target_audience === "all" ? "All Users" : m.target_audience,
+        created_at: m.created_at,
+        view_count: m.view_count,
+      }));
+
+      const templateActivity: RecentActivity[] = templates.slice(0, 3).map((t) => ({
+        id: t.id,
+        type: "template",
+        title: t.name,
+        status: t.status,
+        recipients: `Used ${t.usage_count} times`,
+        created_at: t.created_at,
+      }));
+
+      const combined = [...broadcastActivity, ...templateActivity].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setRecentActivity(combined.slice(0, 8));
+      setLastRefreshed(new Date());
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to load communications overview");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -75,8 +151,10 @@ export default function SuperAdminCommunications() {
         return <Badge className="bg-blue-500">Scheduled</Badge>;
       case "draft":
         return <Badge variant="secondary">Draft</Badge>;
-      case "updated":
-        return <Badge variant="outline">Updated</Badge>;
+      case "active":
+        return <Badge className="bg-green-500">Active</Badge>;
+      case "cancelled":
+        return <Badge variant="destructive">Cancelled</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -88,12 +166,14 @@ export default function SuperAdminCommunications() {
         return <Megaphone className="h-4 w-4 text-blue-500" />;
       case "template":
         return <FileText className="h-4 w-4 text-green-500" />;
-      case "analytics":
-        return <BarChart3 className="h-4 w-4 text-purple-500" />;
       default:
         return <MessageSquare className="h-4 w-4" />;
     }
   };
+
+  const skeletonCard = (
+    <div className="h-16 bg-muted animate-pulse rounded" />
+  );
 
   return (
     <SuperAdminLayout>
@@ -106,17 +186,26 @@ export default function SuperAdminCommunications() {
               <p className="text-muted-foreground">
                 Manage broadcasts, templates, and communication analytics
               </p>
+              {!isLoading && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Live data · Last refreshed {lastRefreshed.toLocaleTimeString()}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
-                <RefreshCw className="h-4 w-4" />
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={fetchOverview}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Button variant="outline" className="gap-2">
-                <Download className="h-4 w-4" />
-                Export Report
-              </Button>
-              <Button className="gap-2">
+              <Button
+                className="gap-2"
+                onClick={() => setActiveTab("broadcast")}
+              >
                 <Plus className="h-4 w-4" />
                 Create Message
               </Button>
@@ -124,19 +213,11 @@ export default function SuperAdminCommunications() {
           </div>
 
           {/* Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="space-y-4"
-          >
-            <TabsList className="grid w-full grid-cols-5">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Overview
-              </TabsTrigger>
-              <TabsTrigger value="campaigns">
-                <Target className="h-4 w-4 mr-2" />
-                Campaigns
               </TabsTrigger>
               <TabsTrigger value="broadcast">
                 <Megaphone className="h-4 w-4 mr-2" />
@@ -158,69 +239,63 @@ export default function SuperAdminCommunications() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total Messages
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
                     <Send className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {stats.totalMessages.toLocaleString()}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      +12% from last month
-                    </p>
+                    {isLoading ? skeletonCard : (
+                      <>
+                        <div className="text-2xl font-bold">{stats.totalMessages.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Broadcast messages created</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Active Templates
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium">Active Templates</CardTitle>
                     <FileText className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {stats.activeTemplates}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Ready to use
-                    </p>
+                    {isLoading ? skeletonCard : (
+                      <>
+                        <div className="text-2xl font-bold">{stats.activeTemplates}</div>
+                        <p className="text-xs text-muted-foreground">Ready to use</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total Views
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Views</CardTitle>
                     <Eye className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {stats.totalViews.toLocaleString()}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      +8% from last week
-                    </p>
+                    {isLoading ? skeletonCard : (
+                      <>
+                        <div className="text-2xl font-bold">{stats.totalViews.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Across all broadcasts</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Engagement Rate
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium">Engagement Rate</CardTitle>
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {stats.engagementRate}%
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      +2.1% improvement
-                    </p>
+                    {isLoading ? skeletonCard : (
+                      <>
+                        <div className="text-2xl font-bold">
+                          {Math.round(stats.engagementRate)}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">Views not dismissed</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -232,18 +307,22 @@ export default function SuperAdminCommunications() {
                     <CardTitle className="text-lg">Open Rate</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-green-600">
-                      {stats.openRate}%
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Average across all campaigns
-                    </p>
-                    <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full"
-                        style={{ width: `${stats.openRate}%` }}
-                      />
-                    </div>
+                    {isLoading ? skeletonCard : (
+                      <>
+                        <div className="text-3xl font-bold text-green-600">
+                          {Math.round(stats.openRate)}%
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Average across sent broadcasts
+                        </p>
+                        <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-green-600 h-2 rounded-full transition-all"
+                            style={{ width: `${Math.min(stats.openRate, 100)}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -252,18 +331,22 @@ export default function SuperAdminCommunications() {
                     <CardTitle className="text-lg">Click Rate</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-blue-600">
-                      {stats.clickRate}%
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Click-through performance
-                    </p>
-                    <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${stats.clickRate}%` }}
-                      />
-                    </div>
+                    {isLoading ? skeletonCard : (
+                      <>
+                        <div className="text-3xl font-bold text-blue-600">
+                          {Math.round(stats.clickRate)}%
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Estimated from engagement
+                        </p>
+                        <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{ width: `${Math.min(stats.clickRate, 100)}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -272,7 +355,11 @@ export default function SuperAdminCommunications() {
                     <CardTitle className="text-lg">Quick Actions</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Button className="w-full gap-2" size="sm">
+                    <Button
+                      className="w-full gap-2"
+                      size="sm"
+                      onClick={() => setActiveTab("broadcast")}
+                    >
                       <Send className="h-4 w-4" />
                       Send Broadcast
                     </Button>
@@ -280,14 +367,16 @@ export default function SuperAdminCommunications() {
                       variant="outline"
                       className="w-full gap-2"
                       size="sm"
+                      onClick={() => setActiveTab("templates")}
                     >
                       <FileText className="h-4 w-4" />
-                      Create Template
+                      Manage Templates
                     </Button>
                     <Button
                       variant="outline"
                       className="w-full gap-2"
                       size="sm"
+                      onClick={() => setActiveTab("analytics")}
                     >
                       <BarChart3 className="h-4 w-4" />
                       View Analytics
@@ -302,47 +391,53 @@ export default function SuperAdminCommunications() {
                   <CardTitle>Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {recentActivity.map((activity) => (
-                      <div
-                        key={activity.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          {getTypeIcon(activity.type)}
-                          <div>
-                            <div className="font-medium">{activity.title}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {activity.type === "broadcast" &&
-                                `${activity.recipients} recipients`}
-                              {activity.type === "template" &&
-                                `Used ${activity.usageCount} times`}
+                  {isLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />
+                      ))}
+                    </div>
+                  ) : recentActivity.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No activity yet. Send your first broadcast to get started.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentActivity.map((activity) => (
+                        <div
+                          key={`${activity.type}-${activity.id}`}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            {getTypeIcon(activity.type)}
+                            <div>
+                              <div className="font-medium">{activity.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {activity.type === "broadcast"
+                                  ? `Audience: ${activity.recipients}`
+                                  : activity.recipients}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {activity.view_count !== undefined && activity.view_count > 0 && (
+                              <div className="text-sm text-muted-foreground hidden md:block">
+                                {activity.view_count} views
+                              </div>
+                            )}
+                            {getStatusBadge(activity.status)}
+                            <div className="text-xs text-muted-foreground hidden lg:block">
+                              {new Date(activity.created_at).toLocaleDateString()}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          {activity.openRate && (
-                            <div className="text-sm text-muted-foreground">
-                              {activity.openRate}% open rate
-                            </div>
-                          )}
-                          {getStatusBadge(activity.status)}
-                          <div className="text-xs text-muted-foreground">
-                            {activity.sentAt &&
-                              new Date(activity.sentAt).toLocaleDateString()}
-                            {activity.lastUsed &&
-                              new Date(activity.lastUsed).toLocaleDateString()}
-                            {activity.scheduledFor &&
-                              `Scheduled: ${new Date(activity.scheduledFor).toLocaleDateString()}`}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Upcoming Scheduled */}
+              {/* Summary Cards */}
               <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                   <CardHeader>
@@ -352,14 +447,12 @@ export default function SuperAdminCommunications() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-4">
-                      <div className="text-2xl font-bold">
-                        {stats.scheduledMessages}
+                    {isLoading ? skeletonCard : (
+                      <div className="text-center py-4">
+                        <div className="text-2xl font-bold">{stats.scheduledMessages}</div>
+                        <p className="text-sm text-muted-foreground">Messages pending delivery</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Messages pending delivery
-                      </p>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -367,182 +460,19 @@ export default function SuperAdminCommunications() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Target className="h-5 w-5" />
-                      Active Campaigns
+                      Active Broadcasts
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-4">
-                      <div className="text-2xl font-bold">7</div>
-                      <p className="text-sm text-muted-foreground">
-                        Currently running
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* Campaigns Tab */}
-            <TabsContent value="campaigns" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Active Campaigns
-                    </CardTitle>
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">12</div>
-                    <p className="text-xs text-muted-foreground">
-                      Currently running
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Draft Campaigns
-                    </CardTitle>
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">8</div>
-                    <p className="text-xs text-muted-foreground">
-                      Being prepared
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Scheduled
-                    </CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">5</div>
-                    <p className="text-xs text-muted-foreground">
-                      Ready to launch
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Campaigns</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      {
-                        id: "1",
-                        name: "Summer Product Launch",
-                        status: "active",
-                        type: "email",
-                        audience: 12450,
-                        sent: 8230,
-                        opens: 3456,
-                        clicks: 892,
-                        startDate: "2024-01-15",
-                        endDate: "2024-02-15",
-                      },
-                      {
-                        id: "2",
-                        name: "Customer Feedback Survey",
-                        status: "active",
-                        type: "sms",
-                        audience: 5600,
-                        sent: 5600,
-                        opens: 4120,
-                        clicks: 1580,
-                        startDate: "2024-01-20",
-                        endDate: "2024-01-27",
-                      },
-                      {
-                        id: "3",
-                        name: "Holiday Promotion",
-                        status: "scheduled",
-                        type: "email",
-                        audience: 18900,
-                        sent: 0,
-                        opens: 0,
-                        clicks: 0,
-                        startDate: "2024-01-25",
-                        endDate: "2024-02-10",
-                      },
-                      {
-                        id: "4",
-                        name: "New Feature Announcement",
-                        status: "draft",
-                        type: "push",
-                        audience: 24500,
-                        sent: 0,
-                        opens: 0,
-                        clicks: 0,
-                        startDate: "2024-02-01",
-                        endDate: "2024-02-15",
-                      },
-                    ].map((campaign) => (
-                      <div
-                        key={campaign.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            {campaign.type === "email" && (
-                              <Mail className="h-5 w-5 text-blue-500" />
-                            )}
-                            {campaign.type === "sms" && (
-                              <MessageSquare className="h-5 w-5 text-green-500" />
-                            )}
-                            {campaign.type === "push" && (
-                              <Send className="h-5 w-5 text-purple-500" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-medium">{campaign.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {campaign.audience.toLocaleString()} recipients •{" "}
-                              {new Date(
-                                campaign.startDate,
-                              ).toLocaleDateString()}{" "}
-                              -{" "}
-                              {new Date(campaign.endDate).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right text-sm">
-                            <div className="font-medium">
-                              {campaign.sent.toLocaleString()} sent
-                            </div>
-                            <div className="text-muted-foreground">
-                              {campaign.opens.toLocaleString()} opens •{" "}
-                              {campaign.clicks.toLocaleString()} clicks
-                            </div>
-                          </div>
-                          {campaign.status === "active" && (
-                            <Badge className="bg-green-500">Active</Badge>
-                          )}
-                          {campaign.status === "scheduled" && (
-                            <Badge className="bg-blue-500">Scheduled</Badge>
-                          )}
-                          {campaign.status === "draft" && (
-                            <Badge variant="secondary">Draft</Badge>
-                          )}
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
+                    {isLoading ? skeletonCard : (
+                      <div className="text-center py-4">
+                        <div className="text-2xl font-bold">{stats.activeMessages}</div>
+                        <p className="text-sm text-muted-foreground">Currently visible to users</p>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Broadcast Tab */}
