@@ -131,6 +131,7 @@ const App = () => (
                 <Route path="/signin" element={<Navigate to="/login" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
