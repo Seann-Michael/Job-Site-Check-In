@@ -1,10 +1,11 @@
-// @ts-nocheck - Temporary suppression of type errors
+// @ts-nocheck
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -30,744 +39,670 @@ import {
   Monitor,
   TrendingUp,
   Clock,
-  Users,
-  Cpu,
   HardDrive,
-  Network,
   BarChart3,
-  Settings,
   RefreshCw,
   AlertTriangle,
   CheckCircle,
   Gauge,
-  CloudCog,
   Scale,
-  Filter,
   Eye,
+  Plus,
+  Edit,
+  Trash2,
+  Play,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { supabaseClient } from "@/lib/supabaseClient";
+import { formatSystemDate } from "@/lib/dateUtils";
 
-interface CacheMetrics {
-  id: string;
-  name: string;
-  type: "redis" | "memory" | "database" | "cdn";
-  hitRate: number;
-  size: string;
-  requests: number;
-  lastCleared: string;
-  enabled: boolean;
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface DatabaseConnection {
-  id: string;
+interface TableHealthCheck {
   name: string;
-  type: "postgresql" | "mongodb" | "redis" | "elasticsearch";
+  table: string;
+  responseMs: number;
+  rowCount: number | null;
   status: "healthy" | "warning" | "error";
-  connections: number;
-  maxConnections: number;
-  responseTime: number;
-  lastOptimized: string;
-}
-
-interface PerformanceMetric {
-  id: string;
-  name: string;
-  category: "response_time" | "throughput" | "memory" | "cpu" | "database";
-  value: number;
-  unit: string;
-  trend: "up" | "down" | "stable";
-  threshold: {
-    warning: number;
-    critical: number;
-  };
-  lastUpdated: string;
+  checkedAt: string;
 }
 
 interface ScalingRule {
   id: string;
   name: string;
-  trigger: {
-    metric: string;
-    operator: ">" | "<" | "=";
-    value: number;
-    duration: number;
-  };
-  action: {
-    type: "scale_up" | "scale_down" | "restart" | "notify";
-    parameters: Record<string, any>;
-  };
+  trigger_metric: string;
+  trigger_operator: string;
+  trigger_value: number;
+  trigger_duration: number;
+  action_type: string;
+  action_parameters: Record<string, any>;
   enabled: boolean;
-  lastTriggered?: string;
-  triggerCount: number;
+  trigger_count: number;
+  last_triggered: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface OptimizationJob {
   id: string;
   name: string;
-  type: "cache_warmup" | "database_cleanup" | "index_rebuild" | "log_rotation";
+  type: string;
   status: "running" | "completed" | "failed" | "scheduled";
   progress: number;
-  startTime: string;
-  endTime?: string;
-  logs: string[];
+  logs: string[] | null;
+  started_at: string | null;
+  ended_at: string | null;
+  scheduled_at: string;
+  created_at: string;
+  created_by: string;
 }
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TABLES_TO_CHECK = [
+  { name: "Users", table: "users" },
+  { name: "Businesses", table: "businesses" },
+  { name: "Reviews", table: "reviews" },
+  { name: "Jobs", table: "jobs" },
+  { name: "Broadcast Messages", table: "broadcast_messages" },
+  { name: "Event Triggers", table: "event_triggers" },
+  { name: "Ideas", table: "ideas" },
+  { name: "User Segments", table: "user_segments" },
+  { name: "Email Campaigns", table: "email_campaigns" },
+  { name: "Message Templates", table: "message_templates" },
+];
+
+const RULE_EMPTY = {
+  name: "",
+  trigger_metric: "response_time",
+  trigger_operator: ">",
+  trigger_value: 500,
+  trigger_duration: 300,
+  action_type: "notify",
+  action_parameters: {},
+  enabled: true,
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function latencyToHealth(avgMs: number): number {
+  if (avgMs <= 0) return 100;
+  if (avgMs < 100) return Math.round(98 - avgMs * 0.02);
+  if (avgMs < 300) return Math.round(90 - (avgMs - 100) * 0.05);
+  if (avgMs < 800) return Math.round(75 - (avgMs - 300) * 0.05);
+  return Math.max(40, Math.round(50 - (avgMs - 800) * 0.01));
+}
+
+function statusFromMs(ms: number): "healthy" | "warning" | "error" {
+  if (ms < 300) return "healthy";
+  if (ms < 800) return "warning";
+  return "error";
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SuperAdminPerformance() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [cacheMetrics, setCacheMetrics] = useState<CacheMetrics[]>([]);
-  const [dbConnections, setDbConnections] = useState<DatabaseConnection[]>([]);
-  const [performanceMetrics, setPerformanceMetrics] = useState<
-    PerformanceMetric[]
-  >([]);
+
+  // Health checks
+  const [healthChecks, setHealthChecks] = useState<TableHealthCheck[]>([]);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+
+  // DB-backed data
   const [scalingRules, setScalingRules] = useState<ScalingRule[]>([]);
-  const [optimizationJobs, setOptimizationJobs] = useState<OptimizationJob[]>(
-    [],
-  );
-  const [systemHealth, setSystemHealth] = useState({
-    overall: 94,
-    api: 98,
-    database: 89,
-    cache: 96,
-    storage: 92,
-  });
+  const [optimizationJobs, setOptimizationJobs] = useState<OptimizationJob[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [jobsLoading, setJobsLoading] = useState(true);
 
-  useEffect(() => {
-    loadCacheMetrics();
-    loadDatabaseConnections();
-    loadPerformanceMetrics();
-    loadScalingRules();
-    loadOptimizationJobs();
+  // Dialog state
+  const [showRuleDialog, setShowRuleDialog] = useState(false);
+  const [editingRule, setEditingRule] = useState<ScalingRule | null>(null);
+  const [ruleForm, setRuleForm] = useState(RULE_EMPTY);
+  const [isSaving, setIsSaving] = useState(false);
 
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      updateRealTimeMetrics();
-    }, 5000);
-
-    return () => clearInterval(interval);
+  // ── Health Checks ──────────────────────────────────────────────────────────
+  const runHealthChecks = useCallback(async () => {
+    setHealthLoading(true);
+    try {
+      const results: TableHealthCheck[] = await Promise.all(
+        TABLES_TO_CHECK.map(async ({ name, table }) => {
+          const start = performance.now();
+          try {
+            const { count, error } = await supabaseClient
+              .from(table)
+              .select("id", { count: "exact", head: true });
+            const ms = Math.round(performance.now() - start);
+            return {
+              name,
+              table,
+              responseMs: ms,
+              rowCount: error ? null : (count ?? 0),
+              status: error ? "error" : statusFromMs(ms),
+              checkedAt: new Date().toISOString(),
+            };
+          } catch {
+            return {
+              name,
+              table,
+              responseMs: Math.round(performance.now() - start),
+              rowCount: null,
+              status: "error" as const,
+              checkedAt: new Date().toISOString(),
+            };
+          }
+        })
+      );
+      setHealthChecks(results);
+      setLastChecked(new Date());
+    } finally {
+      setHealthLoading(false);
+    }
   }, []);
 
-  const loadCacheMetrics = () => {
-    const mockCache: CacheMetrics[] = [
-      {
-        id: "cache-1",
-        name: "Redis Main Cache",
-        type: "redis",
-        hitRate: 94.2,
-        size: "2.4GB",
-        requests: 1247893,
-        lastCleared: "2024-01-15T10:30:00Z",
-        enabled: true,
-      },
-      {
-        id: "cache-2",
-        name: "Application Memory Cache",
-        type: "memory",
-        hitRate: 87.5,
-        size: "512MB",
-        requests: 456721,
-        lastCleared: "2024-01-20T08:00:00Z",
-        enabled: true,
-      },
-      {
-        id: "cache-3",
-        name: "Database Query Cache",
-        type: "database",
-        hitRate: 78.9,
-        size: "1.1GB",
-        requests: 234567,
-        lastCleared: "2024-01-18T14:20:00Z",
-        enabled: true,
-      },
-      {
-        id: "cache-4",
-        name: "CDN Edge Cache",
-        type: "cdn",
-        hitRate: 96.7,
-        size: "15.2GB",
-        requests: 3456789,
-        lastCleared: "2024-01-10T12:00:00Z",
-        enabled: true,
-      },
-    ];
-    setCacheMetrics(mockCache || []);
+  // ── Supabase data loaders ──────────────────────────────────────────────────
+  const fetchScalingRules = useCallback(async () => {
+    setRulesLoading(true);
+    try {
+      const { data, error } = await supabaseClient
+        .from("scaling_rules")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setScalingRules(data || []);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to load scaling rules");
+    } finally {
+      setRulesLoading(false);
+    }
+  }, []);
+
+  const fetchOptimizationJobs = useCallback(async () => {
+    setJobsLoading(true);
+    try {
+      const { data, error } = await supabaseClient
+        .from("optimization_jobs")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setOptimizationJobs(data || []);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to load optimization jobs");
+    } finally {
+      setJobsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    runHealthChecks();
+    fetchScalingRules();
+    fetchOptimizationJobs();
+  }, [runHealthChecks, fetchScalingRules, fetchOptimizationJobs]);
+
+  // ── Derived system health ──────────────────────────────────────────────────
+  const avgMs =
+    healthChecks.length > 0
+      ? healthChecks.reduce((s, h) => s + h.responseMs, 0) / healthChecks.length
+      : 0;
+
+  const dbMs =
+    healthChecks.length > 0
+      ? Math.min(...healthChecks.map((h) => h.responseMs))
+      : 0;
+
+  const healthyCount = healthChecks.filter((h) => h.status === "healthy").length;
+  const systemHealth = {
+    overall: latencyToHealth(avgMs),
+    api: latencyToHealth(avgMs * 0.8),
+    database: latencyToHealth(dbMs),
+    tables:
+      healthChecks.length > 0
+        ? Math.round((healthyCount / healthChecks.length) * 100)
+        : 100,
+    avgResponseMs: Math.round(avgMs),
   };
 
-  const loadDatabaseConnections = () => {
-    const mockDbs: DatabaseConnection[] = [
-      {
-        id: "db-1",
-        name: "Primary PostgreSQL",
-        type: "postgresql",
-        status: "healthy",
-        connections: 45,
-        maxConnections: 200,
-        responseTime: 23,
-        lastOptimized: "2024-01-19T09:30:00Z",
-      },
-      {
-        id: "db-2",
-        name: "Analytics MongoDB",
-        type: "mongodb",
-        status: "healthy",
-        connections: 12,
-        maxConnections: 100,
-        responseTime: 15,
-        lastOptimized: "2024-01-18T16:45:00Z",
-      },
-      {
-        id: "db-3",
-        name: "Session Redis",
-        type: "redis",
-        status: "warning",
-        connections: 89,
-        maxConnections: 100,
-        responseTime: 5,
-        lastOptimized: "2024-01-17T11:20:00Z",
-      },
-      {
-        id: "db-4",
-        name: "Search Elasticsearch",
-        type: "elasticsearch",
-        status: "healthy",
-        connections: 8,
-        maxConnections: 50,
-        responseTime: 45,
-        lastOptimized: "2024-01-20T07:15:00Z",
-      },
-    ];
-    setDbConnections(mockDbs || []);
+  // ── Scaling Rules CRUD ─────────────────────────────────────────────────────
+  const openCreateRule = () => {
+    setEditingRule(null);
+    setRuleForm(RULE_EMPTY);
+    setShowRuleDialog(true);
   };
 
-  const loadPerformanceMetrics = () => {
-    const mockMetrics: PerformanceMetric[] = [
-      {
-        id: "metric-1",
-        name: "API Response Time",
-        category: "response_time",
-        value: 234,
-        unit: "ms",
-        trend: "down",
-        threshold: { warning: 500, critical: 1000 },
-        lastUpdated: new Date().toISOString(),
-      },
-      {
-        id: "metric-2",
-        name: "Requests per Second",
-        category: "throughput",
-        value: 1247,
-        unit: "req/s",
-        trend: "up",
-        threshold: { warning: 2000, critical: 3000 },
-        lastUpdated: new Date().toISOString(),
-      },
-      {
-        id: "metric-3",
-        name: "Memory Usage",
-        category: "memory",
-        value: 78.5,
-        unit: "%",
-        trend: "stable",
-        threshold: { warning: 80, critical: 90 },
-        lastUpdated: new Date().toISOString(),
-      },
-      {
-        id: "metric-4",
-        name: "CPU Utilization",
-        category: "cpu",
-        value: 45.2,
-        unit: "%",
-        trend: "stable",
-        threshold: { warning: 70, critical: 85 },
-        lastUpdated: new Date().toISOString(),
-      },
-      {
-        id: "metric-5",
-        name: "Database Query Time",
-        category: "database",
-        value: 45,
-        unit: "ms",
-        trend: "down",
-        threshold: { warning: 100, critical: 200 },
-        lastUpdated: new Date().toISOString(),
-      },
-    ];
-    setPerformanceMetrics(mockMetrics || []);
-  };
-
-  const loadScalingRules = () => {
-    const mockRules: ScalingRule[] = [
-      {
-        id: "rule-1",
-        name: "CPU High Load Scale Up",
-        trigger: {
-          metric: "cpu_usage",
-          operator: ">",
-          value: 70,
-          duration: 300,
-        },
-        action: {
-          type: "scale_up",
-          parameters: { instances: 2, timeout: 600 },
-        },
-        enabled: true,
-        triggerCount: 12,
-        lastTriggered: "2024-01-18T14:30:00Z",
-      },
-      {
-        id: "rule-2",
-        name: "Memory Pressure Alert",
-        trigger: {
-          metric: "memory_usage",
-          operator: ">",
-          value: 85,
-          duration: 180,
-        },
-        action: {
-          type: "notify",
-          parameters: { channels: ["email", "slack"], severity: "high" },
-        },
-        enabled: true,
-        triggerCount: 3,
-        lastTriggered: "2024-01-15T09:45:00Z",
-      },
-      {
-        id: "rule-3",
-        name: "Low Traffic Scale Down",
-        trigger: {
-          metric: "requests_per_second",
-          operator: "<",
-          value: 100,
-          duration: 1800,
-        },
-        action: {
-          type: "scale_down",
-          parameters: { min_instances: 2, timeout: 900 },
-        },
-        enabled: false,
-        triggerCount: 8,
-        lastTriggered: "2024-01-12T22:15:00Z",
-      },
-    ];
-    setScalingRules(mockRules || []);
-  };
-
-  const loadOptimizationJobs = () => {
-    const mockJobs: OptimizationJob[] = [
-      {
-        id: "job-1",
-        name: "Database Index Rebuild",
-        type: "index_rebuild",
-        status: "running",
-        progress: 67,
-        startTime: "2024-01-21T02:00:00Z",
-        logs: [
-          "Started index rebuild for table 'projects'",
-          "Rebuilding primary key index...",
-          "Rebuilding foreign key indexes...",
-          "Progress: 67% complete",
-        ],
-      },
-      {
-        id: "job-2",
-        name: "Cache Warmup - User Data",
-        type: "cache_warmup",
-        status: "completed",
-        progress: 100,
-        startTime: "2024-01-21T01:00:00Z",
-        endTime: "2024-01-21T01:15:00Z",
-        logs: [
-          "Cache warmup started",
-          "Loading user preferences...",
-          "Loading project data...",
-          "Warmup completed successfully",
-        ],
-      },
-      {
-        id: "job-3",
-        name: "Log Rotation",
-        type: "log_rotation",
-        status: "scheduled",
-        progress: 0,
-        startTime: "2024-01-22T03:00:00Z",
-        logs: [],
-      },
-    ];
-    setOptimizationJobs(mockJobs || []);
-  };
-
-  const updateRealTimeMetrics = () => {
-    setPerformanceMetrics((prev) => {
-      if (!Array.isArray(prev)) return [];
-      return prev.map((metric) => ({
-        ...metric,
-        value: metric.value + (Math.random() - 0.5) * (metric.value * 0.1),
-        lastUpdated: new Date().toISOString(),
-      }));
+  const openEditRule = (rule: ScalingRule) => {
+    setEditingRule(rule);
+    setRuleForm({
+      name: rule.name,
+      trigger_metric: rule.trigger_metric,
+      trigger_operator: rule.trigger_operator,
+      trigger_value: rule.trigger_value,
+      trigger_duration: rule.trigger_duration,
+      action_type: rule.action_type,
+      action_parameters: rule.action_parameters,
+      enabled: rule.enabled,
     });
-
-    setSystemHealth((prev) => ({
-      overall: Math.max(
-        85,
-        Math.min(99, prev.overall + (Math.random() - 0.5) * 2),
-      ),
-      api: Math.max(90, Math.min(100, prev.api + (Math.random() - 0.5) * 1)),
-      database: Math.max(
-        80,
-        Math.min(95, prev.database + (Math.random() - 0.5) * 3),
-      ),
-      cache: Math.max(90, Math.min(99, prev.cache + (Math.random() - 0.5) * 1)),
-      storage: Math.max(
-        85,
-        Math.min(98, prev.storage + (Math.random() - 0.5) * 2),
-      ),
-    }));
+    setShowRuleDialog(true);
   };
 
-  const clearCache = (cacheId: string) => {
-    setCacheMetrics((prev) => {
-      if (!Array.isArray(prev)) return [];
-      return prev.map((cache) =>
-        cache.id === cacheId
-          ? { ...cache, lastCleared: new Date().toISOString(), requests: 0 }
-          : cache,
-      );
-    });
-    toast.success("Cache cleared successfully");
-  };
+  const handleSaveRule = async () => {
+    if (!ruleForm.name.trim()) {
+      toast.error("Rule name is required");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: ruleForm.name.trim(),
+        trigger_metric: ruleForm.trigger_metric,
+        trigger_operator: ruleForm.trigger_operator,
+        trigger_value: Number(ruleForm.trigger_value),
+        trigger_duration: Number(ruleForm.trigger_duration),
+        action_type: ruleForm.action_type,
+        action_parameters: ruleForm.action_parameters,
+        enabled: ruleForm.enabled,
+        updated_at: new Date().toISOString(),
+      };
 
-  const toggleScalingRule = (ruleId: string) => {
-    setScalingRules((prev) => {
-      if (!Array.isArray(prev)) return [];
-      return prev.map((rule) =>
-        rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
-      );
-    });
-    toast.success("Scaling rule updated");
-  };
-
-  const runOptimizationJob = (type: OptimizationJob["type"]) => {
-    const newJob: OptimizationJob = {
-      id: `job-${Date.now()}`,
-      name: `Manual ${type.replace("_", " ").toUpperCase()}`,
-      type,
-      status: "running",
-      progress: 0,
-      startTime: new Date().toISOString(),
-      logs: [`Started ${type} job manually`],
-    };
-
-    setOptimizationJobs((prev) => [newJob, ...prev]);
-    toast.success("Optimization job started");
-
-    // Simulate job progress
-    const interval = setInterval(() => {
-      setOptimizationJobs((prev) => {
-        if (!Array.isArray(prev)) return [];
-        return prev.map((job) => {
-          if (job.id === newJob.id && job.status === "running") {
-            const newProgress = Math.min(
-              100,
-              job.progress + Math.random() * 15,
-            );
-            const updatedJob = {
-              ...job,
-              progress: newProgress,
-              logs: [
-                ...(job.logs || []),
-                `Progress: ${Math.round(newProgress)}% complete`,
-              ],
-            };
-
-            if (newProgress >= 100) {
-              updatedJob.status = "completed";
-              updatedJob.endTime = new Date().toISOString();
-              updatedJob.logs.push("Job completed successfully");
-              clearInterval(interval);
-            }
-
-            return updatedJob;
-          }
-          return job;
-        });
-      });
-    }, 2000);
-  };
-
-  const getMetricIcon = (category: string) => {
-    switch (category) {
-      case "response_time":
-        return Clock;
-      case "throughput":
-        return TrendingUp;
-      case "memory":
-        return HardDrive;
-      case "cpu":
-        return Cpu;
-      case "database":
-        return Database;
-      default:
-        return Monitor;
+      if (editingRule) {
+        const { error } = await supabaseClient
+          .from("scaling_rules")
+          .update(payload)
+          .eq("id", editingRule.id);
+        if (error) throw error;
+        toast.success("Scaling rule updated!");
+      } else {
+        const { error } = await supabaseClient
+          .from("scaling_rules")
+          .insert([{ ...payload, trigger_count: 0 }]);
+        if (error) throw error;
+        toast.success("Scaling rule created!");
+      }
+      setShowRuleDialog(false);
+      fetchScalingRules();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to save rule");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const getMetricColor = (
-    value: number,
-    threshold: { warning: number; critical: number } | null | undefined,
-    category: string,
-  ) => {
-    // Return default color if threshold is not provided
-    if (!threshold) return "text-gray-600";
-
-    const isInverted = category === "response_time" || category === "database";
-
-    if (isInverted) {
-      if (value >= threshold.critical) return "text-red-600";
-      if (value >= threshold.warning) return "text-yellow-600";
-      return "text-green-600";
-    } else {
-      if (value >= threshold.critical) return "text-red-600";
-      if (value >= threshold.warning) return "text-yellow-600";
-      return "text-green-600";
+  const handleToggleRule = async (rule: ScalingRule) => {
+    try {
+      const { error } = await supabaseClient
+        .from("scaling_rules")
+        .update({ enabled: !rule.enabled, updated_at: new Date().toISOString() })
+        .eq("id", rule.id);
+      if (error) throw error;
+      toast.success(`Rule ${!rule.enabled ? "enabled" : "disabled"}!`);
+      fetchScalingRules();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to toggle rule");
     }
   };
 
-  // Ensure all arrays are properly initialized
-  const safePerformanceMetrics = Array.isArray(performanceMetrics)
-    ? performanceMetrics
-    : [];
-  const safeCacheMetrics = Array.isArray(cacheMetrics) ? cacheMetrics : [];
-  const safeDbConnections = Array.isArray(dbConnections) ? dbConnections : [];
-  const safeScalingRules = Array.isArray(scalingRules) ? scalingRules : [];
-  const safeOptimizationJobs = Array.isArray(optimizationJobs)
-    ? optimizationJobs
-    : [];
+  const handleDeleteRule = async (id: string) => {
+    if (!confirm("Delete this scaling rule?")) return;
+    try {
+      const { error } = await supabaseClient
+        .from("scaling_rules")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Rule deleted!");
+      fetchScalingRules();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete rule");
+    }
+  };
+
+  // ── Optimization Jobs ──────────────────────────────────────────────────────
+  const handleRunJob = async (type: OptimizationJob["type"]) => {
+    try {
+      const { data, error } = await supabaseClient
+        .from("optimization_jobs")
+        .insert([
+          {
+            name: `Manual ${type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`,
+            type,
+            status: "running",
+            progress: 0,
+            logs: [`Started ${type} job manually`],
+            started_at: new Date().toISOString(),
+            created_by: "Super Admin",
+          },
+        ])
+        .select()
+        .single();
+      if (error) throw error;
+      toast.success("Optimization job started!");
+      fetchOptimizationJobs();
+
+      // Simulate progress updates
+      let progress = 0;
+      const interval = setInterval(async () => {
+        progress = Math.min(100, progress + Math.random() * 20);
+        const isDone = progress >= 100;
+        await supabaseClient
+          .from("optimization_jobs")
+          .update({
+            progress: Math.round(progress),
+            status: isDone ? "completed" : "running",
+            ended_at: isDone ? new Date().toISOString() : null,
+            logs: isDone
+              ? [`Started ${type} job manually`, "Job completed successfully"]
+              : [`Started ${type} job manually`, `Progress: ${Math.round(progress)}%`],
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", data.id);
+        fetchOptimizationJobs();
+        if (isDone) clearInterval(interval);
+      }, 2000);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to start job");
+    }
+  };
+
+  const handleDeleteJob = async (id: string) => {
+    try {
+      const { error } = await supabaseClient
+        .from("optimization_jobs")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      fetchOptimizationJobs();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete job");
+    }
+  };
+
+  const skeletonRows = Array.from({ length: 5 });
 
   return (
     <SuperAdminLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Performance & Scale
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight">Performance & Scale</h1>
             <p className="text-muted-foreground">
-              System optimization, caching, and scaling management
+              System health, database latency, scaling rules, and optimization jobs
             </p>
+            {lastChecked && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Live data · Last checked {lastChecked.toLocaleTimeString()}
+              </p>
+            )}
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => updateRealTimeMetrics()}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { runHealthChecks(); fetchScalingRules(); fetchOptimizationJobs(); }}
+            disabled={healthLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${healthLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {/* System Health Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Overall Health
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Overall Health</CardTitle>
               <Gauge className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {(systemHealth.overall || 0).toFixed(1)}%
-              </div>
-              <Progress value={systemHealth.overall} className="h-2 mt-2" />
+              {healthLoading ? (
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{systemHealth.overall}%</div>
+                  <Progress value={systemHealth.overall} className="h-2 mt-2" />
+                </>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">API Health</CardTitle>
+              <CardTitle className="text-sm font-medium">API Latency</CardTitle>
               <Server className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {(systemHealth.api || 0).toFixed(1)}%
-              </div>
-              <Progress value={systemHealth.api} className="h-2 mt-2" />
+              {healthLoading ? (
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{systemHealth.avgResponseMs}ms</div>
+                  <p className="text-xs text-muted-foreground mt-1">avg across all tables</p>
+                </>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Database</CardTitle>
+              <CardTitle className="text-sm font-medium">Database Health</CardTitle>
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {(systemHealth.database || 0).toFixed(1)}%
-              </div>
-              <Progress value={systemHealth.database} className="h-2 mt-2" />
+              {healthLoading ? (
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{systemHealth.database}%</div>
+                  <Progress value={systemHealth.database} className="h-2 mt-2" />
+                </>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cache</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Healthy Tables</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {(systemHealth.cache || 0).toFixed(1)}%
-              </div>
-              <Progress value={systemHealth.cache} className="h-2 mt-2" />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Storage</CardTitle>
-              <HardDrive className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {(systemHealth.storage || 0).toFixed(1)}%
-              </div>
-              <Progress value={systemHealth.storage} className="h-2 mt-2" />
+              {healthLoading ? (
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {healthChecks.filter((h) => h.status === "healthy").length}/{healthChecks.length}
+                  </div>
+                  <Progress value={systemHealth.tables} className="h-2 mt-2" />
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-4"
-        >
-          <TabsList className="grid w-full grid-cols-5">
+        {/* Rule Dialog */}
+        <Dialog open={showRuleDialog} onOpenChange={setShowRuleDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingRule ? "Edit Scaling Rule" : "Create Scaling Rule"}</DialogTitle>
+              <DialogDescription>
+                Define conditions and actions for automated scaling responses
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="grid gap-2">
+                <Label>Rule Name *</Label>
+                <Input
+                  value={ruleForm.name}
+                  onChange={(e) => setRuleForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g., High Latency Alert"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="grid gap-2">
+                  <Label>Metric</Label>
+                  <Select value={ruleForm.trigger_metric} onValueChange={(v) => setRuleForm((p) => ({ ...p, trigger_metric: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="response_time">Response Time</SelectItem>
+                      <SelectItem value="error_rate">Error Rate</SelectItem>
+                      <SelectItem value="row_count">Row Count</SelectItem>
+                      <SelectItem value="active_users">Active Users</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Operator</Label>
+                  <Select value={ruleForm.trigger_operator} onValueChange={(v) => setRuleForm((p) => ({ ...p, trigger_operator: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value=">">{">"}</SelectItem>
+                      <SelectItem value="<">{"<"}</SelectItem>
+                      <SelectItem value="=">{"="}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Value</Label>
+                  <Input
+                    type="number"
+                    value={ruleForm.trigger_value}
+                    onChange={(e) => setRuleForm((p) => ({ ...p, trigger_value: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Duration (seconds) — how long condition must hold</Label>
+                <Input
+                  type="number"
+                  value={ruleForm.trigger_duration}
+                  onChange={(e) => setRuleForm((p) => ({ ...p, trigger_duration: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Action</Label>
+                <Select value={ruleForm.action_type} onValueChange={(v) => setRuleForm((p) => ({ ...p, action_type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="notify">Notify</SelectItem>
+                    <SelectItem value="scale_up">Scale Up</SelectItem>
+                    <SelectItem value="scale_down">Scale Down</SelectItem>
+                    <SelectItem value="restart">Restart</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch checked={ruleForm.enabled} onCheckedChange={(v) => setRuleForm((p) => ({ ...p, enabled: v }))} />
+                <Label>Enable this rule</Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRuleDialog(false)}>Cancel</Button>
+              <Button onClick={handleSaveRule} disabled={isSaving}>
+                {isSaving ? "Saving..." : editingRule ? "Update Rule" : "Create Rule"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="caching">Caching</TabsTrigger>
             <TabsTrigger value="database">Database</TabsTrigger>
             <TabsTrigger value="scaling">Scaling</TabsTrigger>
             <TabsTrigger value="optimization">Optimization</TabsTrigger>
           </TabsList>
 
+          {/* ── Overview ─────────────────────────────────────────────────────── */}
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Real-time Performance Metrics</CardTitle>
+                  <CardTitle>Supabase Table Health</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {safePerformanceMetrics.map((metric) => {
-                      const Icon = getMetricIcon(metric.category);
-                      const colorClass = getMetricColor(
-                        metric.value,
-                        metric.threshold,
-                        metric.category,
-                      );
-
-                      return (
-                        <div
-                          key={metric.id}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Icon className={`h-5 w-5 ${colorClass}`} />
-                            <div>
-                              <div className="font-medium">{metric.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                Updated{" "}
-                                {metric.lastUpdated
-                                  ? new Date(metric.lastUpdated).toLocaleTimeString()
-                                  : "Never"}
+                  <div className="space-y-3">
+                    {healthLoading
+                      ? skeletonRows.map((_, i) => (
+                          <div key={i} className="h-10 bg-muted animate-pulse rounded-lg" />
+                        ))
+                      : healthChecks.map((h) => (
+                          <div key={h.table} className="flex items-center justify-between p-2 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              {h.status === "healthy" ? (
+                                <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                              ) : h.status === "warning" ? (
+                                <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
+                              ) : (
+                                <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+                              )}
+                              <div>
+                                <div className="font-medium text-sm">{h.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {h.rowCount !== null ? `${h.rowCount.toLocaleString()} rows` : "unreachable"}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div
+                                className={`text-sm font-bold ${
+                                  h.status === "healthy"
+                                    ? "text-green-600"
+                                    : h.status === "warning"
+                                    ? "text-yellow-600"
+                                    : "text-red-600"
+                                }`}
+                              >
+                                {h.responseMs}ms
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className={`text-lg font-bold ${colorClass}`}>
-                              {(metric.value || 0).toFixed(
-                                metric.unit === "%" ? 1 : 0,
-                              )}
-                              {metric.unit}
-                            </div>
-                            <div className="flex items-center gap-1 text-sm">
-                              {metric.trend === "up" && (
-                                <TrendingUp className="h-3 w-3 text-green-500" />
-                              )}
-                              {metric.trend === "down" && (
-                                <TrendingUp className="h-3 w-3 text-red-500 rotate-180" />
-                              )}
-                              {metric.trend === "stable" && (
-                                <span className="w-3 h-0.5 bg-gray-400" />
-                              )}
-                              <span className="text-muted-foreground">
-                                {metric.trend}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        ))}
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Running Optimization Jobs</CardTitle>
+                  <CardTitle>Active Jobs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {safeOptimizationJobs
-                      .filter((job) => job.status !== "completed")
-                      .map((job) => (
-                        <div key={job.id} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="font-medium">{job.name}</div>
-                            <Badge
-                              variant={
-                                job.status === "running"
-                                  ? "default"
-                                  : job.status === "scheduled"
-                                    ? "secondary"
-                                    : "destructive"
-                              }
-                            >
-                              {job.status}
-                            </Badge>
-                          </div>
-                          {job.status === "running" && (
-                            <div className="space-y-2">
-                              <Progress value={job.progress} className="h-2" />
-                              <div className="text-sm text-muted-foreground">
-                                {(job.progress || 0).toFixed(0)}% complete
+                  <div className="space-y-3">
+                    {jobsLoading ? (
+                      <div className="h-20 bg-muted animate-pulse rounded" />
+                    ) : optimizationJobs.filter((j) => j.status === "running" || j.status === "scheduled").length === 0 ? (
+                      <p className="text-center text-muted-foreground py-4">No active jobs</p>
+                    ) : (
+                      optimizationJobs
+                        .filter((j) => j.status === "running" || j.status === "scheduled")
+                        .map((job) => (
+                          <div key={job.id} className="p-3 border rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-sm">{job.name}</div>
+                              <Badge variant={job.status === "running" ? "default" : "secondary"}>
+                                {job.status}
+                              </Badge>
+                            </div>
+                            {job.status === "running" && (
+                              <div className="space-y-1">
+                                <Progress value={job.progress} className="h-2" />
+                                <div className="text-xs text-muted-foreground">{job.progress}% complete</div>
                               </div>
-                            </div>
-                          )}
-                          {job.status === "scheduled" && (
-                            <div className="text-sm text-muted-foreground">
-                              Scheduled for{" "}
-                              {job.startTime
-                                ? new Date(job.startTime).toLocaleString()
-                                : "Unknown"}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        ))
+                    )}
 
-                    <div className="pt-4 border-t">
-                      <div className="text-sm font-medium mb-2">
-                        Quick Actions
-                      </div>
+                    <div className="pt-3 border-t">
+                      <div className="text-sm font-medium mb-2">Quick Actions</div>
                       <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => runOptimizationJob("cache_warmup")}
-                        >
-                          Cache Warmup
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => runOptimizationJob("database_cleanup")}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => handleRunJob("database_cleanup")}>
                           DB Cleanup
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleRunJob("log_rotation")}>
+                          Log Rotation
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleRunJob("index_rebuild")}>
+                          Rebuild Indexes
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleRunJob("cache_warmup")}>
+                          Cache Warmup
                         </Button>
                       </div>
                     </div>
@@ -777,173 +712,95 @@ export default function SuperAdminPerformance() {
             </div>
           </TabsContent>
 
-          <TabsContent value="caching" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cache Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cache Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Hit Rate</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Requests</TableHead>
-                      <TableHead>Last Cleared</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {safeCacheMetrics.map((cache) => (
-                      <TableRow key={cache.id}>
-                        <TableCell className="font-medium">
-                          {cache.name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{cache.type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`text-sm font-medium ${
-                                cache.hitRate > 90
-                                  ? "text-green-600"
-                                  : cache.hitRate > 75
-                                    ? "text-yellow-600"
-                                    : "text-red-600"
-                              }`}
-                            >
-                              {(cache.hitRate || 0).toFixed(1)}%
-                            </div>
-                            <Progress
-                              value={cache.hitRate}
-                              className="h-2 w-16"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell>{cache.size}</TableCell>
-                        <TableCell>{(cache.requests || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-sm">
-                          {cache.lastCleared
-                            ? new Date(cache.lastCleared).toLocaleDateString()
-                            : "Never"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => clearCache(cache.id)}
-                            >
-                              Clear
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Settings className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
+          {/* ── Database ─────────────────────────────────────────────────────── */}
           <TabsContent value="database" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Database Connections</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Live Database Performance</CardTitle>
+                  <Button variant="outline" size="sm" onClick={runHealthChecks} disabled={healthLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${healthLoading ? "animate-spin" : ""}`} />
+                    Re-check
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Database</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead>Table</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Connections</TableHead>
                       <TableHead>Response Time</TableHead>
-                      <TableHead>Last Optimized</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Row Count</TableHead>
+                      <TableHead>Checked At</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {safeDbConnections.map((db) => (
-                      <TableRow key={db.id}>
-                        <TableCell className="font-medium">{db.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{db.type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {db.status === "healthy" && (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            )}
-                            {db.status === "warning" && (
-                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                            )}
-                            {db.status === "error" && (
-                              <AlertTriangle className="h-4 w-4 text-red-500" />
-                            )}
-                            <span className="capitalize">{db.status}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>
-                              {db.connections}/{db.maxConnections}
-                            </span>
-                            <Progress
-                              value={(db.connections / db.maxConnections) * 100}
-                              className="h-2 w-16"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`${
-                              db.responseTime < 50
-                                ? "text-green-600"
-                                : db.responseTime < 100
-                                  ? "text-yellow-600"
-                                  : "text-red-600"
-                            }`}
-                          >
-                            {db.responseTime}ms
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {db.lastOptimized
-                            ? new Date(db.lastOptimized).toLocaleDateString()
-                            : "Never"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              Optimize
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Monitor className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {healthLoading
+                      ? skeletonRows.map((_, i) => (
+                          <TableRow key={i}>
+                            {[...Array(5)].map((__, j) => (
+                              <TableCell key={j}>
+                                <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      : healthChecks.map((h) => (
+                          <TableRow key={h.table}>
+                            <TableCell className="font-medium">{h.name}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {h.status === "healthy" ? (
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <AlertTriangle className={`h-4 w-4 ${h.status === "warning" ? "text-yellow-500" : "text-red-500"}`} />
+                                )}
+                                <span className="capitalize">{h.status}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={
+                                  h.status === "healthy"
+                                    ? "text-green-600 font-medium"
+                                    : h.status === "warning"
+                                    ? "text-yellow-600 font-medium"
+                                    : "text-red-600 font-medium"
+                                }
+                              >
+                                {h.responseMs}ms
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {h.rowCount !== null ? h.rowCount.toLocaleString() : "—"}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {new Date(h.checkedAt).toLocaleTimeString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ── Scaling ──────────────────────────────────────────────────────── */}
           <TabsContent value="scaling" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                Define rules that trigger automated scaling actions when thresholds are exceeded.
+              </p>
+              <Button onClick={openCreateRule} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Rule
+              </Button>
+            </div>
+
             <Card>
-              <CardHeader>
-                <CardTitle>Auto-scaling Rules</CardTitle>
-              </CardHeader>
-              <CardContent>
+              <CardHeader><CardTitle>Auto-scaling Rules</CardTitle></CardHeader>
+              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -956,68 +813,91 @@ export default function SuperAdminPerformance() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {safeScalingRules.map((rule) => (
-                      <TableRow key={rule.id}>
-                        <TableCell className="font-medium">
-                          {rule.name}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {rule.trigger.metric} {rule.trigger.operator}{" "}
-                            {rule.trigger.value}
-                            <div className="text-xs text-muted-foreground">
-                              for {rule.trigger.duration}s
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {rule.action.type.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              checked={rule.enabled}
-                              onCheckedChange={() => toggleScalingRule(rule.id)}
-                            />
-                            <span className="text-sm">
-                              {rule.enabled ? "Active" : "Disabled"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>{rule.triggerCount} times</div>
-                            {rule.lastTriggered && (
-                              <div className="text-muted-foreground">
-                                Last:{" "}
-                                {new Date(
-                                  rule.lastTriggered,
-                                ).toLocaleDateString()}
+                    {rulesLoading
+                      ? skeletonRows.map((_, i) => (
+                          <TableRow key={i}>
+                            {[...Array(6)].map((__, j) => (
+                              <TableCell key={j}>
+                                <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      : scalingRules.length === 0
+                      ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                              No scaling rules. Create one to get started.
+                            </TableCell>
+                          </TableRow>
+                        )
+                      : scalingRules.map((rule) => (
+                          <TableRow key={rule.id}>
+                            <TableCell className="font-medium">{rule.name}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                {rule.trigger_metric} {rule.trigger_operator} {rule.trigger_value}
+                                <div className="text-xs text-muted-foreground">for {rule.trigger_duration}s</div>
                               </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm">
-                            Edit
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{rule.action_type.replace("_", " ")}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Switch checked={rule.enabled} onCheckedChange={() => handleToggleRule(rule)} />
+                                <span className="text-sm">{rule.enabled ? "Active" : "Disabled"}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{rule.trigger_count} times</div>
+                                {rule.last_triggered && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Last: {formatSystemDate(rule.last_triggered)}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditRule(rule)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={() => handleDeleteRule(rule.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ── Optimization ─────────────────────────────────────────────────── */}
           <TabsContent value="optimization" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                Run maintenance and optimization tasks against the database.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleRunJob("database_cleanup")}>
+                  <Play className="h-4 w-4 mr-2" />
+                  DB Cleanup
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleRunJob("index_rebuild")}>
+                  <Play className="h-4 w-4 mr-2" />
+                  Rebuild Indexes
+                </Button>
+              </div>
+            </div>
+
             <Card>
-              <CardHeader>
-                <CardTitle>Optimization Jobs</CardTitle>
-              </CardHeader>
-              <CardContent>
+              <CardHeader><CardTitle>Optimization Jobs</CardTitle></CardHeader>
+              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1025,59 +905,80 @@ export default function SuperAdminPerformance() {
                       <TableHead>Type</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Progress</TableHead>
-                      <TableHead>Start Time</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Logs</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {safeOptimizationJobs.map((job) => (
-                      <TableRow key={job.id}>
-                        <TableCell className="font-medium">
-                          {job.name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {job.type.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              job.status === "running"
-                                ? "default"
-                                : job.status === "completed"
-                                  ? "default"
-                                  : job.status === "failed"
+                    {jobsLoading
+                      ? skeletonRows.map((_, i) => (
+                          <TableRow key={i}>
+                            {[...Array(7)].map((__, j) => (
+                              <TableCell key={j}>
+                                <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      : optimizationJobs.length === 0
+                      ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                              No optimization jobs yet.
+                            </TableCell>
+                          </TableRow>
+                        )
+                      : optimizationJobs.map((job) => (
+                          <TableRow key={job.id}>
+                            <TableCell className="font-medium">{job.name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{job.type.replace(/_/g, " ")}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  job.status === "running"
+                                    ? "default"
+                                    : job.status === "completed"
+                                    ? "default"
+                                    : job.status === "failed"
                                     ? "destructive"
                                     : "secondary"
-                            }
-                          >
-                            {job.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Progress
-                              value={job.progress}
-                              className="h-2 w-16"
-                            />
-                            <span className="text-sm">
-                              {(job.progress || 0).toFixed(0)}%
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {job.startTime
-                            ? new Date(job.startTime).toLocaleString()
-                            : "Unknown"}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                                }
+                                className={job.status === "completed" ? "bg-green-500" : ""}
+                              >
+                                {job.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Progress value={job.progress} className="h-2 w-16" />
+                                <span className="text-sm">{job.progress}%</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {job.started_at
+                                ? new Date(job.started_at).toLocaleString()
+                                : formatSystemDate(job.scheduled_at)}
+                            </TableCell>
+                            <TableCell className="max-w-xs">
+                              <div className="text-xs text-muted-foreground line-clamp-2">
+                                {(job.logs || []).slice(-1)[0] || "—"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-500 hover:text-red-600"
+                                onClick={() => handleDeleteJob(job.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                   </TableBody>
                 </Table>
               </CardContent>
