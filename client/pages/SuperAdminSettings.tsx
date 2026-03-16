@@ -312,6 +312,7 @@ export default function SuperAdminSettings() {
     { id: "integrations", label: "Integrations", icon: Globe },
     { id: "reviews", label: "Review System", icon: MessageSquare },
     { id: "login-slides", label: "Login Slides", icon: Monitor },
+    { id: "signup-slides", label: "Signup Slides", icon: Monitor },
     { id: "branding", label: "Branding", icon: Camera },
     { id: "features", label: "Feature Control", icon: BarChart3 },
     { id: "security", label: "Security", icon: Shield },
@@ -2863,6 +2864,10 @@ export default function SuperAdminSettings() {
               <LoginSlidesManager />
             )}
 
+            {activeTab === "signup-slides" && (
+              <SignupSlidesManager />
+            )}
+
             {activeTab === "database" && (
               <Card>
                 <CardHeader>
@@ -2927,6 +2932,283 @@ export default function SuperAdminSettings() {
         </div>
       </div>
     </SuperAdminLayout>
+  );
+}
+
+// ── Signup Slides Manager ─────────────────────────────────────────────────────
+function SignupSlidesManager() {
+  const [slides, setSlides] = useState<LoginSlide[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingSlide, setEditingSlide] = useState<LoginSlide | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const blankSlide = (): LoginSlide => ({
+    sort_order: slides.length,
+    tag: "",
+    headline: "",
+    body: "",
+    stat_value: "",
+    stat_label: "",
+    color: "from-blue-600 to-indigo-700",
+    image_url: "",
+    active: true,
+  });
+
+  useEffect(() => {
+    fetchSlides();
+  }, []);
+
+  const fetchSlides = async () => {
+    setLoading(true);
+    const { data, error } = await supabaseClient
+      .from("signup_slides")
+      .select("*")
+      .order("sort_order");
+    if (error) {
+      toast.error("Failed to load slides: " + error.message);
+    } else {
+      setSlides((data as LoginSlide[]) || []);
+    }
+    setLoading(false);
+  };
+
+  const openNew = () => {
+    setEditingSlide(blankSlide());
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (slide: LoginSlide) => {
+    setEditingSlide({ ...slide });
+    setIsDialogOpen(true);
+  };
+
+  const saveSlide = async () => {
+    if (!editingSlide) return;
+    setSaving(true);
+    try {
+      if (editingSlide.id) {
+        const { error } = await supabaseClient
+          .from("signup_slides")
+          .update({
+            tag: editingSlide.tag,
+            headline: editingSlide.headline,
+            body: editingSlide.body,
+            stat_value: editingSlide.stat_value,
+            stat_label: editingSlide.stat_label,
+            color: editingSlide.color,
+            image_url: editingSlide.image_url || null,
+            active: editingSlide.active,
+            sort_order: editingSlide.sort_order,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingSlide.id);
+        if (error) throw error;
+        toast.success("Slide updated");
+      } else {
+        const { error } = await supabaseClient.from("signup_slides").insert({
+          tag: editingSlide.tag,
+          headline: editingSlide.headline,
+          body: editingSlide.body,
+          stat_value: editingSlide.stat_value,
+          stat_label: editingSlide.stat_label,
+          color: editingSlide.color,
+          image_url: editingSlide.image_url || null,
+          active: editingSlide.active,
+          sort_order: editingSlide.sort_order,
+        });
+        if (error) throw error;
+        toast.success("Slide created");
+      }
+      setIsDialogOpen(false);
+      fetchSlides();
+    } catch (err: any) {
+      toast.error(err.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteSlide = async (id: string) => {
+    if (!confirm("Delete this slide?")) return;
+    const { error } = await supabaseClient.from("signup_slides").delete().eq("id", id);
+    if (error) {
+      toast.error("Delete failed: " + error.message);
+    } else {
+      toast.success("Slide deleted");
+      fetchSlides();
+    }
+  };
+
+  const toggleActive = async (slide: LoginSlide) => {
+    const { error } = await supabaseClient
+      .from("signup_slides")
+      .update({ active: !slide.active, updated_at: new Date().toISOString() })
+      .eq("id", slide.id!);
+    if (error) {
+      toast.error("Failed to update: " + error.message);
+    } else {
+      fetchSlides();
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Sign Up Page Slides</CardTitle>
+            <CardDescription>
+              Manage the feature highlight slides shown on the right side of the sign up screen. These are separate from the login slides. If no slides are configured, the system defaults are used.
+            </CardDescription>
+          </div>
+          <Button onClick={openNew} className="gap-2 shrink-0">
+            <Plus className="h-4 w-4" />
+            Add Slide
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+              Loading slides…
+            </div>
+          ) : slides.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Monitor className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No custom slides yet</p>
+              <p className="text-sm mt-1">The sign up page is using the built-in default slides.</p>
+              <Button onClick={openNew} variant="outline" className="mt-4 gap-2">
+                <Plus className="h-4 w-4" />
+                Create First Slide
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {slides.map((slide) => (
+                <div
+                  key={slide.id}
+                  className={`flex items-center gap-4 p-4 border rounded-lg ${!slide.active ? "opacity-50" : ""}`}
+                >
+                  <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${slide.color} shrink-0`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{slide.tag}</span>
+                      {!slide.active && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full">Hidden</span>
+                      )}
+                    </div>
+                    <p className="font-semibold truncate">{slide.headline}</p>
+                    <p className="text-sm text-muted-foreground truncate">{slide.body}</p>
+                  </div>
+                  <div className="hidden md:block text-right shrink-0">
+                    <div className="font-bold text-lg">{slide.stat_value}</div>
+                    <div className="text-xs text-muted-foreground">{slide.stat_label}</div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleActive(slide)} title={slide.active ? "Hide slide" : "Show slide"}>
+                      {slide.active ? <Eye className="h-4 w-4" /> : <Eye className="h-4 w-4 opacity-40" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(slide)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteSlide(slide.id!)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingSlide?.id ? "Edit Slide" : "New Slide"}</DialogTitle>
+            <DialogDescription>
+              Fill in the slide content. Changes are reflected on the sign up page immediately.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingSlide && (
+            <div className="space-y-4">
+              <div className={`h-16 rounded-xl bg-gradient-to-br ${editingSlide.color} flex items-end p-3`}>
+                <span className="text-white font-bold text-sm truncate">{editingSlide.headline || "Headline preview"}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tag / Category</Label>
+                  <Input placeholder="e.g. Local SEO" value={editingSlide.tag} onChange={(e) => setEditingSlide({ ...editingSlide, tag: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Display Order</Label>
+                  <Input type="number" min={0} value={editingSlide.sort_order} onChange={(e) => setEditingSlide({ ...editingSlide, sort_order: parseInt(e.target.value) || 0 })} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Headline</Label>
+                <Input placeholder="e.g. Dominate Local Search Results" value={editingSlide.headline} onChange={(e) => setEditingSlide({ ...editingSlide, headline: e.target.value })} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Body Text</Label>
+                <Textarea placeholder="A short description of this feature…" rows={3} value={editingSlide.body} onChange={(e) => setEditingSlide({ ...editingSlide, body: e.target.value })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Stat Value</Label>
+                  <Input placeholder="e.g. 3.2× or 500+" value={editingSlide.stat_value} onChange={(e) => setEditingSlide({ ...editingSlide, stat_value: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Stat Label</Label>
+                  <Input placeholder="e.g. more calls in 90 days" value={editingSlide.stat_label} onChange={(e) => setEditingSlide({ ...editingSlide, stat_label: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Background Gradient</Label>
+                <Select value={editingSlide.color} onValueChange={(v) => setEditingSlide({ ...editingSlide, color: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SLIDE_COLORS.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        <div className="flex items-center gap-2">
+                          <div className={`h-4 w-8 rounded bg-gradient-to-r ${c.value}`} />
+                          {c.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Image URL (optional)</Label>
+                <Input placeholder="https://… (overrides gradient background)" value={editingSlide.image_url || ""} onChange={(e) => setEditingSlide({ ...editingSlide, image_url: e.target.value })} />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch checked={editingSlide.active} onCheckedChange={(v) => setEditingSlide({ ...editingSlide, active: v })} />
+                <Label>Visible on sign up page</Label>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button onClick={saveSlide} disabled={saving} className="gap-2">
+              {saving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+              {editingSlide?.id ? "Save Changes" : "Create Slide"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

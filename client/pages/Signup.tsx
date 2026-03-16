@@ -1,35 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
-import {
   Building2,
   Mail,
-  Phone,
   Lock,
   User,
-  Shield,
-  CheckCircle,
-  AlertCircle,
-  ArrowLeft,
   Eye,
   EyeOff,
+  AlertCircle,
+  Zap,
+  Star,
+  MapPin,
+  BarChart3,
+  MessageSquare,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AccountManager } from "@/lib/accountManager";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface SignupFormData {
   name: string;
   email: string;
-  phone: string;
   password: string;
   confirmPassword: string;
 }
@@ -37,490 +36,533 @@ interface SignupFormData {
 interface FormErrors {
   name?: string;
   email?: string;
-  phone?: string;
   password?: string;
   confirmPassword?: string;
   general?: string;
 }
 
+const defaultSlides = [
+  {
+    icon: MapPin,
+    tag: "Local SEO",
+    headline: "Dominate Local Search Results",
+    body: "Automatically optimize your Google Business Profile with AI-generated posts, photo uploads, and real-time ranking insights — all from one dashboard.",
+    stat: { value: "3.2×", label: "average increase in map views" },
+    color: "from-blue-600 to-indigo-700",
+  },
+  {
+    icon: Star,
+    tag: "Review Management",
+    headline: "Turn Happy Customers Into 5-Star Reviews",
+    body: "Send automated review requests via SMS or email right after a job is done. Our review gate filters unhappy customers before they post publicly.",
+    stat: { value: "4.8★", label: "average rating across all clients" },
+    color: "from-amber-500 to-orange-600",
+  },
+  {
+    icon: BarChart3,
+    tag: "Analytics",
+    headline: "Know Exactly What's Working",
+    body: "Track calls, clicks, direction requests, and photo views from Google. See which jobs and keywords are driving the most revenue.",
+    stat: { value: "68%", label: "more calls reported by clients in 90 days" },
+    color: "from-emerald-500 to-teal-600",
+  },
+  {
+    icon: MessageSquare,
+    tag: "Automation",
+    headline: "Follow Up Without Lifting a Finger",
+    body: "Set up workflows that send review requests, project updates, and invoices automatically — triggered by job status changes in real time.",
+    stat: { value: "5 hrs", label: "saved per week on average" },
+    color: "from-purple-600 to-violet-700",
+  },
+  {
+    icon: TrendingUp,
+    tag: "Growth",
+    headline: "Built for Local Service Businesses",
+    body: "From HVAC and plumbing to landscaping and roofing — contractors across North America use Local SEO Ranker to grow their Google presence.",
+    stat: { value: "500+", label: "businesses actively growing on Google" },
+    color: "from-rose-500 to-pink-600",
+  },
+];
+
+const testimonials = [
+  {
+    quote: "We went from 12 reviews to over 80 in 3 months. The automation did all the heavy lifting.",
+    name: "Mike T.",
+    company: "Cuyahoga Container Service",
+  },
+  {
+    quote: "Our Google ranking jumped from page 3 to the top 3 map pack within 6 weeks.",
+    name: "Sarah L.",
+    company: "Sunrise Plumbing & Heating",
+  },
+  {
+    quote: "The review gate alone saved us from a bad review. Game changer for our business.",
+    name: "James R.",
+    company: "Apex Concrete & Paving",
+  },
+];
+
+type SlideSource = typeof defaultSlides[number] & { image_url?: string };
+
 export default function Signup() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"form" | "phone-verification" | "success">(
-    "form",
-  );
+  const [activeSlides, setActiveSlides] = useState<SlideSource[]>(defaultSlides);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [formData, setFormData] = useState<SignupFormData>({
     name: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [accountNumber, setAccountNumber] = useState<string>("");
-  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Generate unique 9-digit account number in format 123-123-1234
-  const generateAccountNumber = (): string => {
-    const part1 = Math.floor(Math.random() * 900) + 100; // 100-999
-    const part2 = Math.floor(Math.random() * 900) + 100; // 100-999
-    const part3 = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
-    return `${part1}-${part2}-${part3}`;
+  // Fetch custom signup slides from Supabase; keep defaults if none configured
+  useEffect(() => {
+    const fetchSlides = async () => {
+      try {
+        const { data } = await supabaseClient
+          .from("signup_slides")
+          .select("*")
+          .eq("active", true)
+          .order("sort_order");
+        if (data && data.length > 0) {
+          const mapped: SlideSource[] = data.map((row: any) => ({
+            icon: MapPin,
+            tag: row.tag,
+            headline: row.headline,
+            body: row.body,
+            stat: { value: row.stat_value, label: row.stat_label },
+            color: row.color,
+            image_url: row.image_url || undefined,
+          }));
+          setActiveSlides(mapped);
+        }
+      } catch {
+        // silently keep defaults
+      }
+    };
+    fetchSlides();
+  }, []);
+
+  // Auto-advance slides
+  useEffect(() => {
+    const timer = setInterval(
+      () => goToSlide((currentSlide + 1) % activeSlides.length),
+      5000,
+    );
+    return () => clearInterval(timer);
+  }, [currentSlide, activeSlides.length]);
+
+  const goToSlide = (index: number) => {
+    if (animating) return;
+    setAnimating(true);
+    setTimeout(() => {
+      setCurrentSlide(index);
+      setAnimating(false);
+    }, 300);
   };
 
-  // Form validation
+  const devBypass = (role: "admin" | "superadmin") => {
+    const user =
+      role === "superadmin"
+        ? { id: "1", name: "Super Admin", email: "superadmin@projectlens.com", role: "superadmin" }
+        : { id: "3", name: "Dev Admin", email: "admin@example.com", role: "admin" };
+    localStorage.setItem("auth_user", JSON.stringify(user));
+    localStorage.setItem("current_user", JSON.stringify(user));
+    localStorage.setItem("auth_token", "dev_bypass_token_" + Date.now());
+    toast.success(`Dev bypass: signed in as ${user.name}`);
+    navigate(role === "superadmin" ? "/super-admin" : "/admin/jobs", { replace: true });
+  };
+
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/admin/jobs`,
+          scopes: "email profile",
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error(err.message || "Google sign-up failed. Please try again.");
+      setIsGoogleLoading(false);
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-
     if (!formData.name.trim()) {
       newErrors.name = "Full name is required";
     } else if (formData.name.trim().length < 2) {
       newErrors.name = "Name must be at least 2 characters";
     }
-
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
     }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (
-      !/^\+?[\d\s\-\(\)]{10,}$/.test(formData.phone.replace(/\s/g, ""))
-    ) {
-      newErrors.phone = "Please enter a valid phone number";
-    }
-
     if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
       newErrors.password = "Password must be at least 8 characters";
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password =
-        "Password must contain uppercase, lowercase, and numbers";
+      newErrors.password = "Password must contain uppercase, lowercase, and numbers";
     }
-
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = "Please confirm your password";
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
+    if (!validateForm()) return;
     setIsLoading(true);
     setErrors({});
-
     try {
-      // Simulate API call to check if email/phone already exists
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Check for existing accounts using AccountManager
       const emailExists = AccountManager.getAccountByEmail(formData.email);
       if (emailExists) {
         setErrors({ email: "An account with this email already exists" });
         return;
       }
-
-      // Generate unique account number
-      const newAccountNumber = AccountManager.generateAccountNumber();
-      setAccountNumber(newAccountNumber);
-
-      // Move to phone verification step
-      setStep("phone-verification");
-      toast.success("Verification code sent to your phone!");
-    } catch (error) {
+      AccountManager.createAccount({
+        name: formData.name,
+        email: formData.email,
+        phone: "",
+        password: formData.password,
+        emailVerified: false,
+        phoneVerified: false,
+        role: "admin" as const,
+        businessName: formData.name + "'s Business",
+      });
+      toast.success("Account created! Please sign in.");
+      navigate("/login");
+    } catch {
       setErrors({ general: "Something went wrong. Please try again." });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle phone verification
-  const handlePhoneVerification = async () => {
-    if (otpCode.length !== 6) {
-      toast.error("Please enter the complete 6-digit code");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Simulate OTP verification (in real app, this would verify with SMS service)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // For demo purposes, accept any 6-digit code
-      if (otpCode === "123456" || otpCode.length === 6) {
-        // Create account using AccountManager
-        const newAccount = AccountManager.createAccount({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password, // In real app, this would be hashed
-          emailVerified: false,
-          phoneVerified: true,
-          role: "admin" as const,
-          businessName: formData.name + "'s Business", // Default business name
-        });
-
-        setStep("success");
-        toast.success("Account created successfully!");
-      } else {
-        toast.error("Invalid verification code. Please try again.");
-      }
-    } catch (error) {
-      toast.error("Verification failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Resend OTP
-  const handleResendOTP = async () => {
-    if (resendCooldown > 0) return;
-
-    setIsLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast.success("New verification code sent!");
-      setResendCooldown(60);
-
-      // Countdown timer
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (error) {
-      toast.error("Failed to send code. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle form input changes
   const handleInputChange = (field: keyof SignupFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  if (step === "success") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl">Account Created!</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-center">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground mb-2">
-                Your Account Number
-              </p>
-              <p className="text-xl font-mono font-bold">{accountNumber}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Keep this number safe - you'll need it for support
-              </p>
-            </div>
-
-            <Alert>
-              <Mail className="h-4 w-4" />
-              <AlertDescription>
-                We've sent an email verification link to{" "}
-                <strong>{formData.email}</strong>. Please check your inbox to
-                complete your account setup.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-3 pt-4">
-              <Button
-                onClick={() => navigate("/login")}
-                className="w-full"
-                size="lg"
-              >
-                Continue to Login
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                You can start using your account immediately, but some features
-                may be limited until you verify your email.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === "phone-verification") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-8 w-8 text-blue-600" />
-            </div>
-            <CardTitle className="text-2xl">Verify Your Phone</CardTitle>
-            <p className="text-muted-foreground">
-              We've sent a 6-digit code to <br />
-              <strong>{formData.phone}</strong>
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-
-              <Button
-                onClick={handlePhoneVerification}
-                disabled={isLoading || otpCode.length !== 6}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? "Verifying..." : "Verify Phone Number"}
-              </Button>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Didn't receive the code?
-                </p>
-                <Button
-                  variant="ghost"
-                  onClick={handleResendOTP}
-                  disabled={resendCooldown > 0 || isLoading}
-                  className="text-sm"
-                >
-                  {resendCooldown > 0
-                    ? `Resend in ${resendCooldown}s`
-                    : "Resend Code"}
-                </Button>
-              </div>
-            </div>
-
-            <Button
-              variant="ghost"
-              onClick={() => setStep("form")}
-              className="w-full"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Form
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const slide = activeSlides[currentSlide] ?? activeSlides[0];
+  const SlideIcon = slide.icon;
+  const testimonial = testimonials[currentSlide % testimonials.length];
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-            <Building2 className="h-8 w-8 text-primary" />
+    <div className="min-h-screen flex">
+      {/* ── LEFT: Sign Up Form ── */}
+      <div className="w-full lg:w-[38%] flex flex-col justify-center px-8 py-12 bg-background">
+        <div className="mx-auto w-full max-w-sm">
+
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+              <Building2 className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold tracking-tight">Local SEO Ranker</span>
           </div>
-          <CardTitle className="text-2xl">Create Business Account</CardTitle>
-          <p className="text-muted-foreground">
-            Start managing your business with GMB Booster
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {errors.general && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{errors.general}</AlertDescription>
-              </Alert>
+
+          <h1 className="text-3xl font-bold mb-1">Create your account</h1>
+          <p className="text-muted-foreground mb-8">Get started free — no credit card required</p>
+
+          {/* ── Google Sign-Up (primary) ── */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-12 text-base font-medium gap-3 border-2 hover:bg-muted/50"
+            disabled={isGoogleLoading}
+            onClick={handleGoogleSignUp}
+          >
+            {isGoogleLoading ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
             )}
+            Continue with Google
+          </Button>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  className={`pl-10 ${errors.name ? "border-destructive" : ""}`}
-                />
-              </div>
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name}</p>
-              )}
+          {/* ── Divider ── */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className={`pl-10 ${errors.email ? "border-destructive" : ""}`}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1 (555) 123-4567"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
-                  className={`pl-10 ${errors.phone ? "border-destructive" : ""}`}
-                />
-              </div>
-              {errors.phone && (
-                <p className="text-sm text-destructive">{errors.phone}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                We'll send a verification code to this number
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a strong password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    handleInputChange("password", e.target.value)
-                  }
-                  className={`pl-10 pr-10 ${errors.password ? "border-destructive" : ""}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    handleInputChange("confirmPassword", e.target.value)
-                  }
-                  className={`pl-10 pr-10 ${errors.confirmPassword ? "border-destructive" : ""}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {errors.confirmPassword && (
-                <p className="text-sm text-destructive">
-                  {errors.confirmPassword}
-                </p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full"
-              size="lg"
-            >
-              {isLoading ? "Creating Account..." : "Create Account"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Managing multiple client businesses?{" "}
-              <Link
-                to="/agency-signup"
-                className="text-primary hover:underline"
+            <div className="relative flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowEmailForm((v) => !v)}
+                className="flex items-center gap-1.5 bg-background px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                Create Agency Account
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline">
-                Sign in here
-              </Link>
-            </p>
+                or sign up with email
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${showEmailForm ? "rotate-180" : ""}`}
+                />
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground text-center">
-              By creating an account, you agree to our Terms of Service and
-              Privacy Policy. No credit card required to get started.
-            </p>
+          {/* ── Email / Password Form (collapsible) ── */}
+          <div
+            className="overflow-hidden transition-all duration-300"
+            style={{ maxHeight: showEmailForm ? "600px" : "0px", opacity: showEmailForm ? 1 : 0 }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {errors.general && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{errors.general}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="name">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Your full name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    className={`pl-10 h-11 ${errors.name ? "border-destructive" : ""}`}
+                  />
+                </div>
+                {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className={`pl-10 h-11 ${errors.email ? "border-destructive" : ""}`}
+                  />
+                </div>
+                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Min. 8 characters"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    className={`pl-10 pr-10 h-11 ${errors.password ? "border-destructive" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    className={`pl-10 pr-10 h-11 ${errors.confirmPassword ? "border-destructive" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                )}
+              </div>
+
+              <Button type="submit" disabled={isLoading} className="w-full h-11 font-semibold">
+                {isLoading ? "Creating Account…" : "Create Account"}
+              </Button>
+            </form>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* ── Disclosure ── */}
+          <p className="mt-6 text-center text-xs text-muted-foreground leading-relaxed">
+            By signing up, you agree to our{" "}
+            <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+              Privacy Policy
+            </Link>{" "}
+            &amp;{" "}
+            <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">
+              Terms of Service
+            </Link>
+          </p>
+
+          <p className="mt-4 text-center text-sm">
+            Already have an account?{" "}
+            <Link to="/login" className="text-primary font-semibold hover:underline text-base">
+              Sign In Here
+            </Link>
+          </p>
+
+          {/* DEV BYPASS — remove before production */}
+          <div className="mt-6 border border-dashed border-yellow-400 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/20 space-y-2">
+            <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1">
+              <Zap className="h-3 w-3" />
+              Dev Bypass — remove before launch
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
+                onClick={() => devBypass("admin")}
+              >
+                Skip → Admin
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
+                onClick={() => devBypass("superadmin")}
+              >
+                Skip → Super Admin
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT: Feature Slides ── */}
+      <div
+        className={`hidden lg:flex lg:w-[62%] bg-gradient-to-br ${slide.color} transition-all duration-700 flex-col relative overflow-hidden`}
+      >
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-white" />
+          <div className="absolute bottom-[-15%] left-[-10%] w-[400px] h-[400px] rounded-full bg-white" />
+        </div>
+
+        <div className="relative flex flex-col h-full p-12 justify-between">
+          {/* Top: Slide content */}
+          <div
+            className="flex-1 flex flex-col justify-center"
+            style={{ opacity: animating ? 0 : 1, transition: "opacity 0.3s ease" }}
+          >
+            {/* Tag */}
+            <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-1.5 w-fit mb-6">
+              <SlideIcon className="h-4 w-4 text-white" />
+              <span className="text-white text-sm font-medium">{slide.tag}</span>
+            </div>
+
+            {/* Headline */}
+            <h2 className="text-4xl font-bold text-white leading-tight mb-4">
+              {slide.headline}
+            </h2>
+
+            {/* Body */}
+            <p className="text-white/80 text-lg leading-relaxed mb-8 max-w-md">
+              {slide.body}
+            </p>
+
+            {/* Stat */}
+            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 w-fit border border-white/20">
+              <div className="text-4xl font-bold text-white mb-1">{slide.stat.value}</div>
+              <div className="text-white/70 text-sm">{slide.stat.label}</div>
+            </div>
+          </div>
+
+          {/* Bottom: Testimonial + controls */}
+          <div>
+            {/* Testimonial */}
+            <div
+              className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 mb-6"
+              style={{ opacity: animating ? 0 : 1, transition: "opacity 0.3s ease" }}
+            >
+              <div className="flex gap-0.5 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <p className="text-white/90 text-sm italic mb-3">"{testimonial.quote}"</p>
+              <div>
+                <p className="text-white font-semibold text-sm">{testimonial.name}</p>
+                <p className="text-white/60 text-xs">{testimonial.company}</p>
+              </div>
+            </div>
+
+            {/* Slide controls */}
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                {activeSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goToSlide(i)}
+                    className={`rounded-full transition-all duration-300 ${
+                      i === currentSlide
+                        ? "bg-white w-6 h-2"
+                        : "bg-white/40 w-2 h-2 hover:bg-white/60"
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() =>
+                    goToSlide((currentSlide - 1 + activeSlides.length) % activeSlides.length)
+                  }
+                  className="h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4 text-white" />
+                </button>
+                <button
+                  onClick={() => goToSlide((currentSlide + 1) % activeSlides.length)}
+                  className="h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4 text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
