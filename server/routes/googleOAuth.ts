@@ -113,15 +113,49 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     });
     const profile = await profileRes.json() as any;
 
-    // Fetch Google Business Profile accounts (if scope was granted)
+    // Fetch Google Business Profile accounts, then locations under each account
     let gmbAccounts: any[] = [];
+    let gmbLocations: any[] = [];
     try {
-      const gmbRes = await fetch(
+      const accountsRes = await fetch(
         "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
         { headers: { Authorization: `Bearer ${tokens.access_token}` } }
       );
-      const gmbData = await gmbRes.json() as any;
-      gmbAccounts = gmbData.accounts || [];
+      const accountsData = await accountsRes.json() as any;
+      gmbAccounts = accountsData.accounts || [];
+
+      // For each account fetch its individual business listings (locations)
+      for (const account of gmbAccounts) {
+        try {
+          const locRes = await fetch(
+            `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations` +
+              `?readMask=name,title,storefrontAddress,websiteUri,phoneNumbers`,
+            { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+          );
+          const locData = await locRes.json() as any;
+          if (locData.locations?.length) {
+            for (const loc of locData.locations) {
+              gmbLocations.push({
+                name: loc.name,                      // e.g. "locations/1234567890"
+                title: loc.title || "",              // Business display name
+                address: loc.storefrontAddress
+                  ? [
+                      loc.storefrontAddress.addressLines?.[0],
+                      loc.storefrontAddress.locality,
+                      loc.storefrontAddress.administrativeArea,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")
+                  : "",
+                phone: loc.phoneNumbers?.primaryPhone || "",
+                accountName: account.name,
+              });
+            }
+          }
+        } catch {
+          // If locations fetch fails for an account, skip it silently
+        }
+      }
     } catch {}
 
     const accountInfo = {
@@ -134,7 +168,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
       expiresAt: tokens.expires_in
         ? Date.now() + tokens.expires_in * 1000
         : null,
-      gmbAccounts,
+      gmbAccounts: gmbLocations.length > 0 ? gmbLocations : gmbAccounts, // prefer locations over raw accounts
       workspaceId,
     };
 

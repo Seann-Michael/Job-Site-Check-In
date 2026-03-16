@@ -239,11 +239,13 @@ interface SettingsData {
 }
 
 interface GmbAccount {
-  name: string; // e.g. "accounts/123456789"
-  accountName?: string;
+  name: string;          // e.g. "locations/1234567890" or "accounts/123456789"
+  title?: string;        // Business display name (locations)
+  accountName?: string;  // Parent account resource name
+  address?: string;      // Formatted address
+  phone?: string;
   type?: string;
   role?: string;
-  state?: { status?: string };
 }
 
 interface WebhookItem {
@@ -546,10 +548,11 @@ export default function Settings() {
         updateSetting("googleRefreshToken", data.refreshToken || "");
         updateSetting("googleTokenExpiresAt", data.expiresAt || null);
         updateSetting("gmbAccounts", data.gmbAccounts || []);
-        // Auto-select if only one business
+        // Auto-select if only one business listing
         if (data.gmbAccounts?.length === 1) {
-          updateSetting("selectedGmbAccountName", data.gmbAccounts[0].name || "");
-          updateSetting("selectedGmbAccountId", data.gmbAccounts[0].name || "");
+          const single = data.gmbAccounts[0];
+          updateSetting("selectedGmbAccountId", single.name || "");
+          updateSetting("selectedGmbAccountName", single.title || single.accountName || single.name || "");
         } else {
           updateSetting("selectedGmbAccountName", "");
           updateSetting("selectedGmbAccountId", "");
@@ -1528,18 +1531,23 @@ export default function Settings() {
                         <Select
                           value={settings.selectedGmbAccountId || ""}
                           onValueChange={(val) => {
-                            const account = settings.gmbAccounts?.find((a) => a.name === val);
+                            const loc = settings.gmbAccounts?.find((a) => a.name === val);
                             updateSetting("selectedGmbAccountId", val);
-                            updateSetting("selectedGmbAccountName", account?.accountName || account?.name || val);
+                            updateSetting("selectedGmbAccountName", loc?.title || loc?.accountName || loc?.name || val);
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a business location…" />
+                            <SelectValue placeholder="Select a business listing…" />
                           </SelectTrigger>
                           <SelectContent>
-                            {settings.gmbAccounts.map((account) => (
-                              <SelectItem key={account.name} value={account.name}>
-                                {account.accountName || account.name}
+                            {settings.gmbAccounts.map((loc) => (
+                              <SelectItem key={loc.name} value={loc.name}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{loc.title || loc.accountName || loc.name}</span>
+                                  {loc.address && (
+                                    <span className="text-xs text-muted-foreground">{loc.address}</span>
+                                  )}
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
