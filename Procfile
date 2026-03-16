@@ -1,1 +1,1 @@
-web: node dist/server/production.mjs
+web: node dist/server/node-build.mjs

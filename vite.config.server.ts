@@ -11,7 +11,7 @@ export default defineConfig({
       formats: ["es"],
     },
     outDir: "dist/server",
-    target: "node22",
+    target: "node20",
     ssr: true,
     rollupOptions: {
       external: [

@@ -47,7 +47,7 @@ services:
       branch: main
       deploy_on_push: true
     build_command: npm install && npm run build:server
-    run_command: node dist/server/production.mjs
+    run_command: node dist/server/node-build.mjs
     source_dir: /
     environment_slug: node-js
     instance_count: 1

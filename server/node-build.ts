@@ -1,13 +1,17 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import { createServer } from "./index";
 
 const app = createServer();
 const port = process.env.PORT || 3000;
 
-// In production, serve the built SPA files from dist/
-// __dirname equivalent in ESM: dist/server/ → dist/
-const distPath = path.join(import.meta.dirname, "..");
+// ESM-compatible __dirname (works on Node 18+)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve the built SPA files from dist/ (server builds to dist/server/, so go up one level)
+const distPath = path.join(__dirname, "..");
 
 // Serve static files (frontend)
 app.use(express.static(distPath));
