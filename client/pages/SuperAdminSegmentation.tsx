@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -47,78 +46,40 @@ import {
   MoreHorizontal,
   Target,
   TrendingUp,
-  Calendar,
-  Clock,
-  Activity,
   Filter,
   Search,
   Download,
   RefreshCw,
   UserCheck,
   UserX,
-  Settings,
-  Eye,
-  Send,
   PieChart,
-  BarChart3,
-  Zap,
   Tag,
-  MapPin,
-  Building,
-  Star,
-  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatSystemDate } from "@/lib/dateUtils";
-
-interface UserSegment {
-  id: string;
-  name: string;
-  description: string;
-  criteria: SegmentCriteria[];
-  userCount: number;
-  isActive: boolean;
-  isStatic: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  lastCalculated?: string;
-  tags: string[];
-}
+import { supabaseClient } from "@/lib/supabaseClient";
 
 interface SegmentCriteria {
   field: string;
   operator: string;
   value: string;
-  type: "user" | "behavior" | "engagement" | "business" | "custom";
+  type: "user" | "behavior" | "engagement" | "business";
   logicalOperator?: "AND" | "OR";
 }
 
-interface SegmentStats {
-  totalSegments: number;
-  activeSegments: number;
-  totalUsers: number;
-  segmentedUsers: number;
-  averageSegmentSize: number;
-  engagementBoost: number;
-}
-
-interface UserProfile {
+interface UserSegment {
   id: string;
   name: string;
-  email: string;
-  role: string;
-  signupDate: string;
-  lastLogin: string;
-  projectCount: number;
-  reviewCount: number;
-  loginCount: number;
-  subscriptionTier: string;
-  location: string;
-  companySize: string;
-  industry: string;
-  engagementScore: number;
-  tags: string[];
+  description: string | null;
+  criteria: SegmentCriteria[];
+  tags: string[] | null;
+  user_count: number;
+  is_active: boolean;
+  is_static: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  last_calculated: string | null;
 }
 
 const CRITERIA_FIELDS = {
@@ -142,11 +103,7 @@ const CRITERIA_FIELDS = {
     { value: "engagementScore", label: "Engagement Score", type: "number" },
     { value: "messageViews", label: "Message Views", type: "number" },
     { value: "messageDismissals", label: "Message Dismissals", type: "number" },
-    {
-      value: "notificationPrefs",
-      label: "Notification Preferences",
-      type: "boolean",
-    },
+    { value: "notificationPrefs", label: "Notification Preferences", type: "boolean" },
   ],
   business: [
     { value: "revenue", label: "Revenue Generated", type: "number" },
@@ -170,8 +127,8 @@ const OPERATORS = {
     { value: "greater_than", label: "Greater than" },
     { value: "less_than", label: "Less than" },
     { value: "between", label: "Between" },
-    { value: "greater_equal", label: "Greater than or equal" },
-    { value: "less_equal", label: "Less than or equal" },
+    { value: "greater_equal", label: "≥" },
+    { value: "less_equal", label: "≤" },
   ],
   date: [
     { value: "equals", label: "On date" },
@@ -187,474 +144,291 @@ const OPERATORS = {
   ],
 };
 
+const EMPTY_FORM = {
+  name: "",
+  description: "",
+  criteria: [] as SegmentCriteria[],
+  is_active: true,
+  is_static: false,
+  tags: [] as string[],
+  newTag: "",
+};
+
+function getFieldType(field: string): string {
+  for (const category of Object.values(CRITERIA_FIELDS)) {
+    const found = category.find((f) => f.value === field);
+    if (found) return found.type;
+  }
+  return "string";
+}
+
+function getSizeCategory(count: number) {
+  if (count > 300) return "large";
+  if (count > 100) return "medium";
+  return "small";
+}
+
+function getSizeBadge(count: number) {
+  const cat = getSizeCategory(count);
+  if (cat === "large") return <Badge className="bg-purple-500">Large</Badge>;
+  if (cat === "medium") return <Badge className="bg-blue-500">Medium</Badge>;
+  return <Badge variant="secondary">Small</Badge>;
+}
+
 export default function SuperAdminSegmentation() {
   const [segments, setSegments] = useState<UserSegment[]>([]);
-  const [stats, setStats] = useState<SegmentStats>({
-    totalSegments: 0,
-    activeSegments: 0,
-    totalUsers: 0,
-    segmentedUsers: 0,
-    averageSegmentSize: 0,
-    engagementBoost: 0,
-  });
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editingSegment, setEditingSegment] = useState<UserSegment | null>(
-    null,
-  );
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingSegment, setEditingSegment] = useState<UserSegment | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sizeFilter, setSizeFilter] = useState("all");
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    criteria: [] as SegmentCriteria[],
-    isActive: true,
-    isStatic: false,
-    tags: [] as string[],
-    newTag: "",
-  });
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [segRes, userRes] = await Promise.all([
+        supabaseClient
+          .from("user_segments")
+          .select("*")
+          .order("created_at", { ascending: false }),
+        supabaseClient
+          .from("users")
+          .select("id", { count: "exact", head: true }),
+      ]);
 
-  useEffect(() => {
-    loadSegmentationData();
+      if (segRes.error) throw segRes.error;
+      setSegments(segRes.data || []);
+      setTotalUsers(userRes.count || 0);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to load segments");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const loadSegmentationData = () => {
-    const storedSegments = localStorage.getItem("userSegments");
-    const mockSegments: UserSegment[] = storedSegments
-      ? JSON.parse(storedSegments)
-      : [
-          {
-            id: "high-value-customers",
-            name: "High-Value Customers",
-            description: "Users with high project count and engagement",
-            criteria: [
-              {
-                field: "projectCount",
-                operator: "greater_than",
-                value: "5",
-                type: "behavior",
-              },
-              {
-                field: "engagementScore",
-                operator: "greater_than",
-                value: "80",
-                type: "engagement",
-                logicalOperator: "AND",
-              },
-            ],
-            userCount: 234,
-            isActive: true,
-            isStatic: false,
-            createdAt: "2024-01-10T10:00:00Z",
-            updatedAt: "2024-01-15T14:30:00Z",
-            createdBy: "Super Admin",
-            lastCalculated: "2024-01-20T09:00:00Z",
-            tags: ["premium", "engaged"],
-          },
-          {
-            id: "new-users",
-            name: "New Users",
-            description: "Users who signed up in the last 30 days",
-            criteria: [
-              {
-                field: "signupDate",
-                operator: "days_ago",
-                value: "30",
-                type: "user",
-              },
-            ],
-            userCount: 156,
-            isActive: true,
-            isStatic: false,
-            createdAt: "2024-01-05T15:00:00Z",
-            updatedAt: "2024-01-05T15:00:00Z",
-            createdBy: "Super Admin",
-            lastCalculated: "2024-01-20T09:00:00Z",
-            tags: ["onboarding"],
-          },
-          {
-            id: "at-risk-users",
-            name: "At-Risk Users",
-            description: "Users who haven't logged in for 14+ days",
-            criteria: [
-              {
-                field: "daysInactive",
-                operator: "greater_than",
-                value: "14",
-                type: "behavior",
-              },
-              {
-                field: "projectCount",
-                operator: "greater_than",
-                value: "0",
-                type: "behavior",
-                logicalOperator: "AND",
-              },
-            ],
-            userCount: 89,
-            isActive: true,
-            isStatic: false,
-            createdAt: "2024-01-08T11:30:00Z",
-            updatedAt: "2024-01-18T16:45:00Z",
-            createdBy: "Super Admin",
-            lastCalculated: "2024-01-20T09:00:00Z",
-            tags: ["retention", "risk"],
-          },
-          {
-            id: "business-owners",
-            name: "Business Owners",
-            description: "Users with business owner or owner role",
-            criteria: [
-              {
-                field: "role",
-                operator: "in",
-                value: "business,owner",
-                type: "user",
-              },
-            ],
-            userCount: 445,
-            isActive: true,
-            isStatic: false,
-            createdAt: "2024-01-12T09:00:00Z",
-            updatedAt: "2024-01-12T09:00:00Z",
-            createdBy: "Super Admin",
-            lastCalculated: "2024-01-20T09:00:00Z",
-            tags: ["primary"],
-          },
-          {
-            id: "power-users",
-            name: "Power Users",
-            description: "Highly active users with multiple features used",
-            criteria: [
-              {
-                field: "loginCount",
-                operator: "greater_than",
-                value: "50",
-                type: "behavior",
-              },
-              {
-                field: "projectCount",
-                operator: "greater_than",
-                value: "10",
-                type: "behavior",
-                logicalOperator: "AND",
-              },
-              {
-                field: "engagementScore",
-                operator: "greater_than",
-                value: "90",
-                type: "engagement",
-                logicalOperator: "AND",
-              },
-            ],
-            userCount: 67,
-            isActive: false,
-            isStatic: false,
-            createdAt: "2024-01-14T13:20:00Z",
-            updatedAt: "2024-01-19T10:15:00Z",
-            createdBy: "Super Admin",
-            lastCalculated: "2024-01-20T09:00:00Z",
-            tags: ["advanced", "advocates"],
-          },
-        ];
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    setSegments(mockSegments);
-
-    // Calculate stats
-    const totalUsers = 1247; // Mock total user count
-    const segmentedUsers = mockSegments.reduce(
-      (sum, segment) => sum + segment.userCount,
-      0,
-    );
-    const averageSize =
-      mockSegments.length > 0
-        ? Math.round(
-            mockSegments.reduce((sum, s) => sum + s.userCount, 0) /
-              mockSegments.length,
-          )
-        : 0;
-
-    setStats({
-      totalSegments: mockSegments.length,
-      activeSegments: mockSegments.filter((s) => s.isActive).length,
-      totalUsers,
-      segmentedUsers: Math.min(segmentedUsers, totalUsers), // Cap at total users
-      averageSegmentSize: averageSize,
-      engagementBoost: 34.5, // Mock engagement improvement
-    });
+  const stats = {
+    totalSegments: segments.length,
+    activeSegments: segments.filter((s) => s.is_active).length,
+    totalUsers,
+    segmentedUsers: Math.min(
+      segments.reduce((s, seg) => s + (seg.user_count || 0), 0),
+      totalUsers
+    ),
+    averageSegmentSize:
+      segments.length > 0
+        ? Math.round(segments.reduce((s, seg) => s + (seg.user_count || 0), 0) / segments.length)
+        : 0,
   };
 
   const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      criteria: [],
-      isActive: true,
-      isStatic: false,
-      tags: [],
-      newTag: "",
-    });
+    setFormData(EMPTY_FORM);
     setEditingSegment(null);
   };
 
-  const handleCreateSegment = () => {
+  const openCreate = () => {
+    resetForm();
+    setShowDialog(true);
+  };
+
+  const openEdit = (segment: UserSegment) => {
+    setEditingSegment(segment);
+    setFormData({
+      name: segment.name,
+      description: segment.description || "",
+      criteria: segment.criteria || [],
+      is_active: segment.is_active,
+      is_static: segment.is_static,
+      tags: segment.tags || [],
+      newTag: "",
+    });
+    setShowDialog(true);
+  };
+
+  const handleSave = async () => {
     if (!formData.name.trim()) {
       toast.error("Please enter a segment name");
       return;
     }
-
     if (formData.criteria.length === 0) {
       toast.error("Please add at least one criteria");
       return;
     }
 
-    const newSegment: UserSegment = {
-      id: Date.now().toString(),
-      name: formData.name,
-      description: formData.description,
-      criteria: formData.criteria,
-      userCount: Math.floor(Math.random() * 200) + 50, // Mock user count
-      isActive: formData.isActive,
-      isStatic: formData.isStatic,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "Super Admin",
-      lastCalculated: new Date().toISOString(),
-      tags: formData.tags,
-    };
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        criteria: formData.criteria,
+        tags: formData.tags.length > 0 ? formData.tags : null,
+        is_active: formData.is_active,
+        is_static: formData.is_static,
+        updated_at: new Date().toISOString(),
+      };
 
-    const updatedSegments = [...segments, newSegment];
-    setSegments(updatedSegments);
-    localStorage.setItem("userSegments", JSON.stringify(updatedSegments));
+      if (editingSegment) {
+        const { error } = await supabaseClient
+          .from("user_segments")
+          .update({ ...payload, last_calculated: new Date().toISOString() })
+          .eq("id", editingSegment.id);
+        if (error) throw error;
+        toast.success("Segment updated successfully!");
+      } else {
+        const { error } = await supabaseClient
+          .from("user_segments")
+          .insert([{ ...payload, created_by: "Super Admin", user_count: 0 }]);
+        if (error) throw error;
+        toast.success("Segment created successfully!");
+      }
 
-    toast.success("User segment created successfully!");
-    setShowCreateDialog(false);
-    resetForm();
-    loadSegmentationData();
-  };
-
-  const handleEditSegment = (segment: UserSegment) => {
-    setEditingSegment(segment);
-    setFormData({
-      name: segment.name,
-      description: segment.description,
-      criteria: segment.criteria,
-      isActive: segment.isActive,
-      isStatic: segment.isStatic,
-      tags: segment.tags,
-      newTag: "",
-    });
-    setShowCreateDialog(true);
-  };
-
-  const handleUpdateSegment = () => {
-    if (!editingSegment) return;
-
-    const updatedSegment: UserSegment = {
-      ...editingSegment,
-      name: formData.name,
-      description: formData.description,
-      criteria: formData.criteria,
-      isActive: formData.isActive,
-      isStatic: formData.isStatic,
-      tags: formData.tags,
-      updatedAt: new Date().toISOString(),
-      lastCalculated: new Date().toISOString(),
-      userCount: Math.floor(Math.random() * 200) + 50, // Recalculate
-    };
-
-    const updatedSegments = segments.map((s) =>
-      s.id === editingSegment.id ? updatedSegment : s,
-    );
-    setSegments(updatedSegments);
-    localStorage.setItem("userSegments", JSON.stringify(updatedSegments));
-
-    toast.success("User segment updated successfully!");
-    setShowCreateDialog(false);
-    resetForm();
-    loadSegmentationData();
-  };
-
-  const handleDeleteSegment = (segmentId: string) => {
-    const updatedSegments = segments.filter((s) => s.id !== segmentId);
-    setSegments(updatedSegments);
-    localStorage.setItem("userSegments", JSON.stringify(updatedSegments));
-    toast.success("User segment deleted successfully!");
-    loadSegmentationData();
-  };
-
-  const handleToggleActive = (segmentId: string) => {
-    const updatedSegments = segments.map((s) =>
-      s.id === segmentId ? { ...s, isActive: !s.isActive } : s,
-    );
-    setSegments(updatedSegments);
-    localStorage.setItem("userSegments", JSON.stringify(updatedSegments));
-    toast.success("Segment status updated!");
-    loadSegmentationData();
-  };
-
-  const handleDuplicateSegment = (segment: UserSegment) => {
-    const duplicatedSegment: UserSegment = {
-      ...segment,
-      id: Date.now().toString(),
-      name: `${segment.name} (Copy)`,
-      isActive: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      userCount: Math.floor(Math.random() * 200) + 50,
-    };
-
-    const updatedSegments = [...segments, duplicatedSegment];
-    setSegments(updatedSegments);
-    localStorage.setItem("userSegments", JSON.stringify(updatedSegments));
-    toast.success("Segment duplicated successfully!");
-    loadSegmentationData();
-  };
-
-  const addCriteria = () => {
-    setFormData((prev) => ({
-      ...prev,
-      criteria: [
-        ...prev.criteria,
-        {
-          field: "",
-          operator: "",
-          value: "",
-          type: "user",
-          logicalOperator: prev.criteria.length > 0 ? "AND" : undefined,
-        },
-      ],
-    }));
-  };
-
-  const updateCriteria = (index: number, field: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      criteria: prev.criteria.map((criteria, i) =>
-        i === index ? { ...criteria, [field]: value } : criteria,
-      ),
-    }));
-  };
-
-  const removeCriteria = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      criteria: prev.criteria.filter((_, i) => i !== index),
-    }));
-  };
-
-  const addTag = () => {
-    if (
-      formData.newTag.trim() &&
-      !formData.tags.includes(formData.newTag.trim())
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, prev.newTag.trim()],
-        newTag: "",
-      }));
+      setShowDialog(false);
+      resetForm();
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to save segment");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const removeTag = (tag: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((t) => t !== tag),
-    }));
+  const handleToggleActive = async (segment: UserSegment) => {
+    try {
+      const { error } = await supabaseClient
+        .from("user_segments")
+        .update({ is_active: !segment.is_active, updated_at: new Date().toISOString() })
+        .eq("id", segment.id);
+      if (error) throw error;
+      toast.success(`Segment ${!segment.is_active ? "activated" : "deactivated"}!`);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to update segment");
+    }
   };
 
-  const calculateSegment = (segmentId: string) => {
-    const updatedSegments = segments.map((s) =>
-      s.id === segmentId
-        ? {
-            ...s,
-            lastCalculated: new Date().toISOString(),
-            userCount: Math.floor(Math.random() * 200) + 50,
-          }
-        : s,
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this user segment?")) return;
+    try {
+      const { error } = await supabaseClient
+        .from("user_segments")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Segment deleted!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete segment");
+    }
+  };
+
+  const handleDuplicate = async (segment: UserSegment) => {
+    try {
+      const { error } = await supabaseClient.from("user_segments").insert([
+        {
+          name: `${segment.name} (Copy)`,
+          description: segment.description,
+          criteria: segment.criteria,
+          tags: segment.tags,
+          is_active: false,
+          is_static: segment.is_static,
+          created_by: "Super Admin",
+          user_count: 0,
+        },
+      ]);
+      if (error) throw error;
+      toast.success("Segment duplicated!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to duplicate segment");
+    }
+  };
+
+  const handleRecalculate = async (segment: UserSegment) => {
+    try {
+      const { error } = await supabaseClient
+        .from("user_segments")
+        .update({ last_calculated: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", segment.id);
+      if (error) throw error;
+      toast.success("Segment recalculated!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to recalculate");
+    }
+  };
+
+  const handleExport = (segment: UserSegment) => {
+    const blob = new Blob(
+      [JSON.stringify({ segment, exportedAt: new Date().toISOString() }, null, 2)],
+      { type: "application/json" }
     );
-    setSegments(updatedSegments);
-    localStorage.setItem("userSegments", JSON.stringify(updatedSegments));
-    toast.success("Segment recalculated!");
-    loadSegmentationData();
-  };
-
-  const exportSegment = (segment: UserSegment) => {
-    const exportData = {
-      segment,
-      exportedAt: new Date().toISOString(),
-      userCount: segment.userCount,
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: "application/json",
-    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `segment-${segment.name.toLowerCase().replace(/\s+/g, "-")}-${formatSystemDate(new Date().toISOString())}.json`;
+    a.download = `segment-${segment.name.toLowerCase().replace(/\s+/g, "-")}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    toast.success("Segment data exported!");
+    toast.success("Segment exported!");
   };
 
-  const getSizeCategory = (userCount: number) => {
-    if (userCount > 300) return "large";
-    if (userCount > 100) return "medium";
-    return "small";
-  };
+  // Criteria helpers
+  const addCriteria = () =>
+    setFormData((p) => ({
+      ...p,
+      criteria: [
+        ...p.criteria,
+        { field: "", operator: "", value: "", type: "user", logicalOperator: p.criteria.length > 0 ? "AND" : undefined },
+      ],
+    }));
 
-  const getSizeBadge = (userCount: number) => {
-    const category = getSizeCategory(userCount);
-    switch (category) {
-      case "large":
-        return <Badge className="bg-purple-500">Large</Badge>;
-      case "medium":
-        return <Badge className="bg-blue-500">Medium</Badge>;
-      case "small":
-        return <Badge variant="secondary">Small</Badge>;
-      default:
-        return <Badge variant="outline">{userCount}</Badge>;
+  const updateCriteria = (index: number, field: string, value: any) =>
+    setFormData((p) => ({
+      ...p,
+      criteria: p.criteria.map((c, i) => (i === index ? { ...c, [field]: value } : c)),
+    }));
+
+  const removeCriteria = (index: number) =>
+    setFormData((p) => ({ ...p, criteria: p.criteria.filter((_, i) => i !== index) }));
+
+  const addTag = () => {
+    const tag = formData.newTag.trim();
+    if (tag && !formData.tags.includes(tag)) {
+      setFormData((p) => ({ ...p, tags: [...p.tags, tag], newTag: "" }));
     }
   };
 
-  const getFieldType = (field: string): string => {
-    for (const category of Object.values(CRITERIA_FIELDS)) {
-      const found = category.find((f) => f.value === field);
-      if (found) return found.type;
-    }
-    return "string";
-  };
+  const removeTag = (tag: string) =>
+    setFormData((p) => ({ ...p, tags: p.tags.filter((t) => t !== tag) }));
 
   const filteredSegments = segments.filter((segment) => {
-    if (statusFilter !== "all") {
-      if (statusFilter === "active" && !segment.isActive) return false;
-      if (statusFilter === "inactive" && segment.isActive) return false;
-    }
-    if (sizeFilter !== "all") {
-      const category = getSizeCategory(segment.userCount);
-      if (category !== sizeFilter) return false;
-    }
+    if (statusFilter === "active" && !segment.is_active) return false;
+    if (statusFilter === "inactive" && segment.is_active) return false;
+    if (sizeFilter !== "all" && getSizeCategory(segment.user_count) !== sizeFilter) return false;
     if (
       searchTerm &&
       !segment.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !segment.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !segment.tags.some((tag) =>
-        tag.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+      !(segment.description || "").toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !(segment.tags || []).some((t) => t.toLowerCase().includes(searchTerm.toLowerCase()))
     )
       return false;
     return true;
   });
 
+  const skeletonRows = Array.from({ length: 4 });
+
   return (
     <SuperAdminLayout>
       <div className="max-w-full overflow-x-hidden">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
@@ -665,333 +439,258 @@ export default function SuperAdminSegmentation() {
               Create and manage user segments for targeted messaging campaigns
             </p>
           </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm} className="gap-2 w-full sm:w-auto">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Create Segment</span>
-                <span className="sm:hidden">Create</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingSegment ? "Edit User Segment" : "Create User Segment"}
-                </DialogTitle>
-                <DialogDescription>
-                  Define criteria to automatically group users for targeted
-                  messaging
-                </DialogDescription>
-              </DialogHeader>
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                  <TabsTrigger value="criteria">Criteria</TabsTrigger>
-                  <TabsTrigger value="settings">Settings</TabsTrigger>
-                </TabsList>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+            <Button onClick={openCreate} className="gap-2 w-full sm:w-auto">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Create Segment</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          </div>
+        </div>
 
-                <TabsContent value="basic" className="space-y-4">
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="name">Segment Name *</Label>
+        {/* Create / Edit Dialog */}
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingSegment ? "Edit User Segment" : "Create User Segment"}
+              </DialogTitle>
+              <DialogDescription>
+                Define criteria to automatically group users for targeted messaging
+              </DialogDescription>
+            </DialogHeader>
+
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                <TabsTrigger value="criteria">Criteria</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
+              </TabsList>
+
+              {/* Basic Info */}
+              <TabsContent value="basic" className="space-y-4 pt-4">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Segment Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="e.g., High-Value Customers"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                      placeholder="Describe this user segment..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Tags</Label>
+                    <div className="flex gap-2">
                       <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            name: e.target.value,
-                          }))
-                        }
-                        placeholder="e.g., High-Value Customers"
+                        value={formData.newTag}
+                        onChange={(e) => setFormData((p) => ({ ...p, newTag: e.target.value }))}
+                        placeholder="Add a tag..."
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
                       />
+                      <Button type="button" onClick={addTag} variant="outline">
+                        Add
+                      </Button>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        id="description"
-                        value={formData.description}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            description: e.target.value,
-                          }))
-                        }
-                        placeholder="Describe this user segment..."
-                        rows={3}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Tags</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={formData.newTag}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              newTag: e.target.value,
-                            }))
-                          }
-                          placeholder="Add a tag..."
-                          onKeyPress={(e) => e.key === "Enter" && addTag()}
-                        />
-                        <Button
-                          type="button"
-                          onClick={addTag}
-                          variant="outline"
-                        >
-                          Add
-                        </Button>
-                      </div>
+                    {formData.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {formData.tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="secondary"
-                            className="gap-1"
-                          >
+                          <Badge key={tag} variant="secondary" className="gap-1">
                             <Tag className="h-3 w-3" />
                             {tag}
-                            <button
-                              onClick={() => removeTag(tag)}
-                              className="ml-1 hover:text-red-500"
-                            >
+                            <button onClick={() => removeTag(tag)} className="ml-1 hover:text-red-500">
                               ×
                             </button>
                           </Badge>
                         ))}
                       </div>
-                    </div>
+                    )}
                   </div>
-                </TabsContent>
+                </div>
+              </TabsContent>
 
-                <TabsContent value="criteria" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">Segment Criteria</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Define conditions to identify users for this segment
-                      </p>
-                    </div>
-                    <Button onClick={addCriteria} variant="outline" size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Criteria
-                    </Button>
+              {/* Criteria */}
+              <TabsContent value="criteria" className="space-y-4 pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Segment Criteria</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Define conditions to identify users for this segment
+                    </p>
                   </div>
-                  {formData.criteria.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Target className="h-8 w-8 mx-auto mb-2" />
-                      <p>
-                        No criteria defined - add criteria to create segment
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {formData.criteria.map((criteria, index) => (
-                        <div
-                          key={index}
-                          className="p-4 border rounded-lg space-y-3"
-                        >
-                          {index > 0 && (
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={criteria.logicalOperator || "AND"}
-                                onValueChange={(value) =>
-                                  updateCriteria(
-                                    index,
-                                    "logicalOperator",
-                                    value,
-                                  )
-                                }
-                              >
-                                <SelectTrigger className="w-20">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="AND">AND</SelectItem>
-                                  <SelectItem value="OR">OR</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <span className="text-sm text-muted-foreground">
-                                previous condition
-                              </span>
-                            </div>
-                          )}
-                          <div className="grid grid-cols-12 gap-2 items-end">
-                            <div className="col-span-3">
-                              <Label className="text-xs">Category</Label>
-                              <Select
-                                value={criteria.type}
-                                onValueChange={(value) =>
-                                  updateCriteria(index, "type", value)
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="user">
-                                    User Info
+                  <Button onClick={addCriteria} variant="outline" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Criteria
+                  </Button>
+                </div>
+                {formData.criteria.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    <Target className="h-8 w-8 mx-auto mb-2" />
+                    <p>No criteria — add at least one to define the segment</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {formData.criteria.map((criteria, index) => (
+                      <div key={index} className="p-4 border rounded-lg space-y-3">
+                        {index > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={criteria.logicalOperator || "AND"}
+                              onValueChange={(v) => updateCriteria(index, "logicalOperator", v)}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AND">AND</SelectItem>
+                                <SelectItem value="OR">OR</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <span className="text-sm text-muted-foreground">previous condition</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-12 gap-2 items-end">
+                          <div className="col-span-3">
+                            <Label className="text-xs">Category</Label>
+                            <Select
+                              value={criteria.type}
+                              onValueChange={(v) => updateCriteria(index, "type", v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="user">User Info</SelectItem>
+                                <SelectItem value="behavior">Behavior</SelectItem>
+                                <SelectItem value="engagement">Engagement</SelectItem>
+                                <SelectItem value="business">Business</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-3">
+                            <Label className="text-xs">Field</Label>
+                            <Select
+                              value={criteria.field}
+                              onValueChange={(v) => updateCriteria(index, "field", v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CRITERIA_FIELDS[criteria.type as keyof typeof CRITERIA_FIELDS]?.map((f) => (
+                                  <SelectItem key={f.value} value={f.value}>
+                                    {f.label}
                                   </SelectItem>
-                                  <SelectItem value="behavior">
-                                    Behavior
-                                  </SelectItem>
-                                  <SelectItem value="engagement">
-                                    Engagement
-                                  </SelectItem>
-                                  <SelectItem value="business">
-                                    Business
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="col-span-3">
-                              <Label className="text-xs">Field</Label>
-                              <Select
-                                value={criteria.field}
-                                onValueChange={(value) =>
-                                  updateCriteria(index, "field", value)
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CRITERIA_FIELDS[
-                                    criteria.type as keyof typeof CRITERIA_FIELDS
-                                  ]?.map((field) => (
-                                    <SelectItem
-                                      key={field.value}
-                                      value={field.value}
-                                    >
-                                      {field.label}
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2">
+                            <Label className="text-xs">Operator</Label>
+                            <Select
+                              value={criteria.operator}
+                              onValueChange={(v) => updateCriteria(index, "operator", v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {criteria.field &&
+                                  OPERATORS[
+                                    getFieldType(criteria.field) as keyof typeof OPERATORS
+                                  ]?.map((op) => (
+                                    <SelectItem key={op.value} value={op.value}>
+                                      {op.label}
                                     </SelectItem>
                                   ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="col-span-2">
-                              <Label className="text-xs">Operator</Label>
-                              <Select
-                                value={criteria.operator}
-                                onValueChange={(value) =>
-                                  updateCriteria(index, "operator", value)
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {criteria.field &&
-                                    OPERATORS[
-                                      getFieldType(
-                                        criteria.field,
-                                      ) as keyof typeof OPERATORS
-                                    ]?.map((op) => (
-                                      <SelectItem
-                                        key={op.value}
-                                        value={op.value}
-                                      >
-                                        {op.label}
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="col-span-3">
-                              <Label className="text-xs">Value</Label>
-                              <Input
-                                value={criteria.value}
-                                onChange={(e) =>
-                                  updateCriteria(index, "value", e.target.value)
-                                }
-                                placeholder="Enter value..."
-                              />
-                            </div>
-                            <div className="col-span-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeCriteria(index)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-3">
+                            <Label className="text-xs">Value</Label>
+                            <Input
+                              value={criteria.value}
+                              onChange={(e) => updateCriteria(index, "value", e.target.value)}
+                              placeholder="Enter value..."
+                            />
+                          </div>
+                          <div className="col-span-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeCriteria(index)}
+                              className="h-9 w-9 p-0"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="settings" className="space-y-4">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Active Segment</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Enable this segment for use in campaigns
-                        </p>
                       </div>
-                      <Switch
-                        checked={formData.isActive}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isActive: checked,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Static Segment</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Don't update membership automatically (manual only)
-                        </p>
-                      </div>
-                      <Switch
-                        checked={formData.isStatic}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isStatic: checked,
-                          }))
-                        }
-                      />
-                    </div>
+                    ))}
                   </div>
-                </TabsContent>
-              </Tabs>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreateDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={
-                    editingSegment ? handleUpdateSegment : handleCreateSegment
-                  }
-                >
-                  {editingSegment ? "Update Segment" : "Create Segment"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+                )}
+              </TabsContent>
+
+              {/* Settings */}
+              <TabsContent value="settings" className="space-y-4 pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Active Segment</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Enable this segment for use in campaigns
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.is_active}
+                    onCheckedChange={(v) => setFormData((p) => ({ ...p, is_active: v }))}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Static Segment</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Don't update membership automatically (manual only)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.is_static}
+                    onCheckedChange={(v) => setFormData((p) => ({ ...p, is_static: v }))}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Saving..." : editingSegment ? "Update Segment" : "Create Segment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Total Segments
-                  </p>
+                  <p className="text-sm text-muted-foreground">Total Segments</p>
                   <p className="text-2xl font-bold">{stats.totalSegments}</p>
                 </div>
                 <Target className="h-8 w-8 text-primary" />
@@ -1002,9 +701,7 @@ export default function SuperAdminSegmentation() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Active Segments
-                  </p>
+                  <p className="text-sm text-muted-foreground">Active Segments</p>
                   <p className="text-2xl font-bold">{stats.activeSegments}</p>
                 </div>
                 <UserCheck className="h-8 w-8 text-green-500" />
@@ -1016,9 +713,7 @@ export default function SuperAdminSegmentation() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-2xl font-bold">
-                    {stats.totalUsers.toLocaleString()}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
               </div>
@@ -1028,12 +723,8 @@ export default function SuperAdminSegmentation() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Segmented Users
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {stats.segmentedUsers.toLocaleString()}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Segmented Users</p>
+                  <p className="text-2xl font-bold">{stats.segmentedUsers.toLocaleString()}</p>
                 </div>
                 <Filter className="h-8 w-8 text-purple-500" />
               </div>
@@ -1044,22 +735,9 @@ export default function SuperAdminSegmentation() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Avg Size</p>
-                  <p className="text-2xl font-bold">
-                    {stats.averageSegmentSize}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.averageSegmentSize}</p>
                 </div>
                 <PieChart className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Engagement ↑</p>
-                  <p className="text-2xl font-bold">{stats.engagementBoost}%</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -1118,150 +796,132 @@ export default function SuperAdminSegmentation() {
                     <TableHead>Segment</TableHead>
                     <TableHead className="hidden sm:table-cell">Size</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Criteria
-                    </TableHead>
-                    <TableHead className="hidden lg:table-cell">
-                      Last Updated
-                    </TableHead>
+                    <TableHead className="hidden md:table-cell">Criteria</TableHead>
+                    <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSegments.map((segment) => (
-                    <TableRow key={segment.id}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate text-sm sm:text-base">
-                            {segment.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {segment.description}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {segment.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                          <div className="sm:hidden mt-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Users className="h-3 w-3" />
-                              <span className="text-xs text-muted-foreground">
-                                {segment.userCount.toLocaleString()} users
-                              </span>
-                              {getSizeBadge(segment.userCount)}
-                            </div>
-                            <div className="md:hidden text-xs text-muted-foreground">
-                              {segment.criteria.length} criteria
-                            </div>
-                            <div className="lg:hidden text-xs text-muted-foreground">
-                              Updated: {formatSystemDate(segment.updatedAt)}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {segment.userCount.toLocaleString()}
-                          </span>
-                          {getSizeBadge(segment.userCount)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {segment.isActive ? (
-                            <Badge className="bg-green-500">Active</Badge>
-                          ) : (
-                            <Badge variant="secondary">Inactive</Badge>
-                          )}
-                          {segment.isStatic && (
-                            <Badge variant="outline" className="text-xs">
-                              Static
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-sm">
-                          {segment.criteria.length} criteria
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div className="text-sm">
-                          <div>{formatSystemDate(segment.updatedAt)}</div>
-                          {segment.lastCalculated && (
-                            <div className="text-xs text-muted-foreground">
-                              Calculated:{" "}
-                              {formatSystemDate(segment.lastCalculated)}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleEditSegment(segment)}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => calculateSegment(segment.id)}
-                            >
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Recalculate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleToggleActive(segment.id)}
-                            >
-                              {segment.isActive ? (
-                                <UserX className="h-4 w-4 mr-2" />
-                              ) : (
-                                <UserCheck className="h-4 w-4 mr-2" />
+                  {isLoading
+                    ? skeletonRows.map((_, i) => (
+                        <TableRow key={i}>
+                          {[...Array(6)].map((__, j) => (
+                            <TableCell key={j}>
+                              <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    : filteredSegments.length === 0
+                    ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                            No segments found. Create one to get started.
+                          </TableCell>
+                        </TableRow>
+                      )
+                    : filteredSegments.map((segment) => (
+                        <TableRow key={segment.id}>
+                          <TableCell>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate text-sm sm:text-base">
+                                {segment.name}
+                              </p>
+                              {segment.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {segment.description}
+                                </p>
                               )}
-                              {segment.isActive ? "Deactivate" : "Activate"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => exportSegment(segment)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Export
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDuplicateSegment(segment)}
-                            >
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteSegment(segment.id)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              {(segment.tags || []).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(segment.tags || []).map((tag) => (
+                                    <Badge key={tag} variant="outline" className="text-xs">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {(segment.user_count || 0).toLocaleString()}
+                              </span>
+                              {getSizeBadge(segment.user_count || 0)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {segment.is_active ? (
+                                <Badge className="bg-green-500">Active</Badge>
+                              ) : (
+                                <Badge variant="secondary">Inactive</Badge>
+                              )}
+                              {segment.is_static && (
+                                <Badge variant="outline" className="text-xs">Static</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <span className="text-sm">
+                              {(segment.criteria || []).length} criteria
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="text-sm">
+                              <div>{formatSystemDate(segment.updated_at)}</div>
+                              {segment.last_calculated && (
+                                <div className="text-xs text-muted-foreground">
+                                  Calculated: {formatSystemDate(segment.last_calculated)}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEdit(segment)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleRecalculate(segment)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Recalculate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleToggleActive(segment)}>
+                                  {segment.is_active ? (
+                                    <UserX className="h-4 w-4 mr-2" />
+                                  ) : (
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                  )}
+                                  {segment.is_active ? "Deactivate" : "Activate"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExport(segment)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDuplicate(segment)}>
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(segment.id)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                 </TableBody>
               </Table>
             </div>
