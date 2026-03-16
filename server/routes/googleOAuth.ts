@@ -114,49 +114,91 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const profile = await profileRes.json() as any;
 
     // Fetch Google Business Profile accounts, then locations under each account
-    let gmbAccounts: any[] = [];
+    const authHeader = { Authorization: `Bearer ${tokens.access_token}` };
     let gmbLocations: any[] = [];
+    let debugErrors: string[] = [];
+
+    // Step 1: Get all accounts the user manages
+    let gmbAccounts: any[] = [];
     try {
       const accountsRes = await fetch(
         "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-        { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+        { headers: authHeader }
       );
       const accountsData = await accountsRes.json() as any;
-      gmbAccounts = accountsData.accounts || [];
-
-      // For each account fetch its individual business listings (locations)
-      for (const account of gmbAccounts) {
-        try {
-          const locRes = await fetch(
-            `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations` +
-              `?readMask=name,title,storefrontAddress,websiteUri,phoneNumbers`,
-            { headers: { Authorization: `Bearer ${tokens.access_token}` } }
-          );
-          const locData = await locRes.json() as any;
-          if (locData.locations?.length) {
-            for (const loc of locData.locations) {
-              gmbLocations.push({
-                name: loc.name,                      // e.g. "locations/1234567890"
-                title: loc.title || "",              // Business display name
-                address: loc.storefrontAddress
-                  ? [
-                      loc.storefrontAddress.addressLines?.[0],
-                      loc.storefrontAddress.locality,
-                      loc.storefrontAddress.administrativeArea,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")
-                  : "",
-                phone: loc.phoneNumbers?.primaryPhone || "",
-                accountName: account.name,
-              });
-            }
-          }
-        } catch {
-          // If locations fetch fails for an account, skip it silently
-        }
+      if (accountsData.error) {
+        debugErrors.push(`Accounts API error: ${accountsData.error.message || JSON.stringify(accountsData.error)}`);
+      } else {
+        gmbAccounts = accountsData.accounts || [];
       }
-    } catch {}
+    } catch (e: any) {
+      debugErrors.push(`Accounts fetch exception: ${e.message}`);
+    }
+
+    // Step 2: For each account, fetch its locations (business listings)
+    for (const account of gmbAccounts) {
+      // Try the v1 Business Information API first
+      try {
+        const locRes = await fetch(
+          `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations` +
+            `?readMask=name,title,storefrontAddress,phoneNumbers`,
+          { headers: authHeader }
+        );
+        const locData = await locRes.json() as any;
+        if (locData.error) {
+          debugErrors.push(`Locations v1 API error for ${account.name}: ${locData.error.message}`);
+        } else if (locData.locations?.length) {
+          for (const loc of locData.locations) {
+            gmbLocations.push({
+              name: loc.name,
+              title: loc.title || "",
+              address: loc.storefrontAddress
+                ? [
+                    loc.storefrontAddress.addressLines?.[0],
+                    loc.storefrontAddress.locality,
+                    loc.storefrontAddress.administrativeArea,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")
+                : "",
+              phone: loc.phoneNumbers?.primaryPhone || "",
+              accountName: account.name,
+            });
+          }
+          continue; // v1 worked, skip legacy fallback
+        }
+      } catch (e: any) {
+        debugErrors.push(`Locations v1 exception for ${account.name}: ${e.message}`);
+      }
+
+      // Fallback: try the legacy v4 API
+      try {
+        const legacyRes = await fetch(
+          `https://mybusiness.googleapis.com/v4/${account.name}/locations`,
+          { headers: authHeader }
+        );
+        const legacyData = await legacyRes.json() as any;
+        if (legacyData.locations?.length) {
+          for (const loc of legacyData.locations) {
+            gmbLocations.push({
+              name: loc.name,
+              title: loc.locationName || loc.name,
+              address: loc.address
+                ? [loc.address.addressLines?.[0], loc.address.locality, loc.address.administrativeArea]
+                    .filter(Boolean)
+                    .join(", ")
+                : "",
+              phone: loc.primaryPhone || "",
+              accountName: account.name,
+            });
+          }
+        } else if (legacyData.error) {
+          debugErrors.push(`Legacy v4 error for ${account.name}: ${legacyData.error.message}`);
+        }
+      } catch (e: any) {
+        debugErrors.push(`Legacy v4 exception for ${account.name}: ${e.message}`);
+      }
+    }
 
     const accountInfo = {
       email: profile.email,
@@ -168,7 +210,9 @@ export async function handleGoogleCallback(req: Request, res: Response) {
       expiresAt: tokens.expires_in
         ? Date.now() + tokens.expires_in * 1000
         : null,
-      gmbAccounts: gmbLocations.length > 0 ? gmbLocations : gmbAccounts, // prefer locations over raw accounts
+      gmbAccounts: gmbLocations.length > 0 ? gmbLocations : [],
+      gmbAccountsRaw: gmbAccounts,   // raw accounts for debugging
+      gmbDebugErrors: debugErrors,   // surface errors to the client
       workspaceId,
     };
 

@@ -144,6 +144,7 @@ interface SettingsData {
   googleRefreshToken?: string;
   googleTokenExpiresAt?: number | null;
   gmbAccounts?: GmbAccount[];
+  gmbDebugErrors?: string[];
   selectedGmbAccountName?: string;
   selectedGmbAccountId?: string;
   goHighLevelApiKey: string;
@@ -557,6 +558,7 @@ export default function Settings() {
           updateSetting("selectedGmbAccountName", "");
           updateSetting("selectedGmbAccountId", "");
         }
+        updateSetting("gmbDebugErrors", data.gmbDebugErrors || []);
         toast.success(`Google connected as ${data.email}`);
       } else if (type === "oauth_error") {
         toast.error(error || "Google connection failed.");
@@ -1563,9 +1565,29 @@ export default function Settings() {
 
                     {/* Prompt to reconnect if connected but no accounts came back */}
                     {settings.googleMyBusinessConnected && (!settings.gmbAccounts || settings.gmbAccounts.length === 0) && (
-                      <p className="text-xs text-muted-foreground px-1">
-                        No Business Profile locations found on this Google account. Make sure you have access to a Google Business Profile and try reconnecting.
-                      </p>
+                      <div className="space-y-2 px-1">
+                        <p className="text-xs text-muted-foreground">
+                          No Business Profile locations were returned by Google's API. This is usually because one of the required APIs isn't enabled in your Google Cloud project.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Make sure these APIs are enabled in{" "}
+                          <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noreferrer" className="underline text-primary">Google Cloud Console</a>:
+                        </p>
+                        <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                          <li>My Business Account Management API</li>
+                          <li>My Business Business Information API</li>
+                        </ul>
+                        {settings.gmbDebugErrors && settings.gmbDebugErrors.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="text-xs text-destructive cursor-pointer">API error details (click to expand)</summary>
+                            <ul className="mt-1 space-y-1">
+                              {settings.gmbDebugErrors.map((err, i) => (
+                                <li key={i} className="text-xs text-destructive font-mono bg-destructive/10 rounded px-2 py-1">{err}</li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>
