@@ -43,6 +43,7 @@ import {
   CloudCog,
   Scale,
   Filter,
+  Eye,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
