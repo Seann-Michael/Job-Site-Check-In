@@ -1,9 +1,5 @@
-// @ts-nocheck - Temporary suppression of type errors
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SuperAdminAgencyManagement from "./SuperAdminAgencyManagement";
-import BusinessManagement from "./BusinessManagement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,15 +23,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Users,
   Building2,
   Shield,
   Search,
-  Filter,
   MoreVertical,
   Eye,
   Edit,
@@ -43,603 +38,435 @@ import {
   Download,
   RefreshCw,
   Mail,
-  Phone,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Activity,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Settings,
-  Columns,
+  ChevronLeft,
+  ChevronRight,
+  Ban,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
-interface User {
+// ── Types ──────────────────────────────────────────────────────────────────────
+type DbRole = "super_admin" | "agency_admin" | "business_owner" | "staff" | "viewer";
+
+interface DbUser {
   id: string;
-  name: string;
   email: string;
-  role: "admin" | "agency-admin" | "staff" | "viewer";
-  status: "active" | "inactive" | "pending" | "suspended" | "cancelled";
-  type: "business-owner" | "agency-admin" | "staff-member";
-  organization?: string;
-  lastLogin: string;
-  lastActive: string;
-  signupDate: string;
-  subscription?: string;
-  cancellationDate?: string;
+  name: string | null;
+  role: DbRole;
+  created_at: string;
+  last_login: string | null;
+  email_verified: boolean;
+  phone: string | null;
+  avatar_url: string | null;
+  // joined from businesses
+  business_name?: string | null;
 }
 
+const PAGE_SIZE = 25;
+
+const ROLE_LABELS: Record<DbRole, string> = {
+  super_admin: "Super Admin",
+  agency_admin: "Agency Admin",
+  business_owner: "Business Owner",
+  staff: "Staff",
+  viewer: "Viewer",
+};
+
+const ROLE_VARIANTS: Record<DbRole, "default" | "secondary" | "outline" | "destructive"> = {
+  super_admin: "destructive",
+  agency_admin: "default",
+  business_owner: "default",
+  staff: "secondary",
+  viewer: "outline",
+};
+
+const ROLE_ICONS: Record<DbRole, React.ReactNode> = {
+  super_admin: <Shield className="h-4 w-4 text-red-500" />,
+  agency_admin: <Shield className="h-4 w-4 text-purple-500" />,
+  business_owner: <Building2 className="h-4 w-4 text-blue-500" />,
+  staff: <Users className="h-4 w-4 text-green-500" />,
+  viewer: <Eye className="h-4 w-4 text-gray-400" />,
+};
+
+// ── Component ──────────────────────────────────────────────────────────────────
 export default function SuperAdminUsers() {
-  const [activeTab, setActiveTab] = useState("all-users");
+  const [users, setUsers] = useState<DbUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortField, setSortField] = useState<string>("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [visibleColumns, setVisibleColumns] = useState({
-    user: true,
-    role: true,
-    status: true,
-    organization: true,
-    lastActive: true,
-    signupDate: false,
-    subscription: false,
-    cancellationDate: false,
-  });
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  // Mock user data
-  const users: User[] = [
-    {
-      id: "1",
-      name: "John Smith",
-      email: "john@smithconstruction.com",
-      role: "admin",
-      status: "active",
-      type: "business-owner",
-      organization: "Smith Construction LLC",
-      lastLogin: "2024-01-21T10:30:00Z",
-      lastActive: "2024-01-21T15:45:00Z",
-      signupDate: "2023-08-15",
-      subscription: "Pro",
-    },
-    {
-      id: "2",
-      name: "Sarah Johnson",
-      email: "sarah@digitalmarketingpro.com",
-      role: "agency-admin",
-      status: "active",
-      type: "agency-admin",
-      organization: "Digital Marketing Pro",
-      lastLogin: "2024-01-21T09:15:00Z",
-      lastActive: "2024-01-21T14:22:00Z",
-      signupDate: "2024-01-10",
-      subscription: "Professional",
-    },
-    {
-      id: "3",
-      name: "Mike Wilson",
-      email: "mike@joespizza.com",
-      role: "staff",
-      status: "active",
-      type: "staff-member",
-      organization: "Joe's Pizza",
-      lastLogin: "2024-01-20T16:45:00Z",
-      lastActive: "2024-01-21T08:30:00Z",
-      signupDate: "2024-01-15",
-    },
-    {
-      id: "4",
-      name: "Lisa Rodriguez",
-      email: "lisa@premierrenovations.com",
-      role: "admin",
-      status: "cancelled",
-      type: "business-owner",
-      organization: "Premier Renovations",
-      lastLogin: "2024-01-19T14:20:00Z",
-      lastActive: "2024-01-19T14:20:00Z",
-      signupDate: "2024-01-18",
-      subscription: "Enterprise",
-      cancellationDate: "2024-01-20",
-    },
-  ];
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabaseClient
+        .from("users")
+        .select(
+          `id, email, name, role, created_at, last_login, email_verified, phone, avatar_url,
+           businesses(name)`,
+          { count: "exact" },
+        )
+        .order(sortField, { ascending: sortDirection === "asc" })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
+      if (roleFilter !== "all") {
+        query = query.eq("role", roleFilter);
+      }
+
+      if (searchTerm.trim()) {
+        query = query.or(
+          `name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`,
+        );
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+
+      const mapped: DbUser[] = (data ?? []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        created_at: u.created_at,
+        last_login: u.last_login,
+        email_verified: u.email_verified,
+        phone: u.phone,
+        avatar_url: u.avatar_url,
+        business_name: u.businesses?.[0]?.name ?? null,
+      }));
+
+      setUsers(mapped);
+      setTotal(count ?? 0);
+    } catch (err: any) {
+      toast.error("Failed to load users: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
+  }, [page, roleFilter, searchTerm, sortField, sortDirection]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [roleFilter, searchTerm, sortField, sortDirection]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleSort = (field: string) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortField(field);
       setSortDirection("asc");
     }
   };
 
-  const getSortIcon = (field: string) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
-    return sortDirection === "asc" ? (
-      <ArrowUp className="h-4 w-4" />
-    ) : (
-      <ArrowDown className="h-4 w-4" />
-    );
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" />;
+    return sortDirection === "asc"
+      ? <ArrowUp className="h-3.5 w-3.5 ml-1 text-primary" />
+      : <ArrowDown className="h-3.5 w-3.5 ml-1 text-primary" />;
   };
 
-  const toggleColumn = (columnKey: string) => {
-    setVisibleColumns((prev) => ({
-      ...prev,
-      [columnKey]: !prev[columnKey as keyof typeof prev],
-    }));
+  const handleExport = () => {
+    const csv = [
+      ["Name", "Email", "Role", "Business", "Joined", "Last Login", "Email Verified"].join(","),
+      ...users.map((u) =>
+        [
+          u.name ?? "",
+          u.email,
+          ROLE_LABELS[u.role] ?? u.role,
+          u.business_name ?? "",
+          u.created_at ? new Date(u.created_at).toLocaleDateString() : "",
+          u.last_login ? new Date(u.last_login).toLocaleDateString() : "Never",
+          u.email_verified ? "Yes" : "No",
+        ].join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Users exported");
   };
 
-  const filteredUsers = users
-    .filter((user) => {
-      if (roleFilter !== "all" && user.role !== roleFilter) return false;
-      if (statusFilter !== "all" && user.status !== statusFilter) return false;
-      if (
-        searchTerm &&
-        !user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !user.email.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !user.organization?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-        return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const aValue = a[sortField as keyof User];
-      const bValue = b[sortField as keyof User];
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
 
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const comparison = aValue.localeCompare(bValue);
-        return sortDirection === "asc" ? comparison : -comparison;
-      }
-
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
-      }
-
-      return 0;
-    });
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { variant: "default" as const, label: "Active" },
-      inactive: { variant: "secondary" as const, label: "Inactive" },
-      pending: { variant: "outline" as const, label: "Pending" },
-      suspended: { variant: "destructive" as const, label: "Suspended" },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      variant: "secondary" as const,
-      label: status || "Unknown"
-    };
-
-    return (
-      <Badge variant={config.variant} className="capitalize">
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getRoleBadge = (role: string) => {
-    const roleConfig = {
-      admin: { variant: "default" as const, label: "Admin" },
-      "agency-admin": { variant: "default" as const, label: "Agency Admin" },
-      staff: { variant: "secondary" as const, label: "Staff" },
-      viewer: { variant: "outline" as const, label: "Viewer" },
-    };
-
-    const config = roleConfig[role as keyof typeof roleConfig] || {
-      variant: "secondary" as const,
-      label: role || "Unknown"
-    };
-
-    return (
-      <Badge variant={config.variant} className="capitalize">
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "business-owner":
-        return <Building2 className="h-4 w-4 text-blue-500" />;
-      case "agency-admin":
-        return <Shield className="h-4 w-4 text-purple-500" />;
-      case "staff-member":
-        return <Users className="h-4 w-4 text-green-500" />;
-      default:
-        return <Users className="h-4 w-4" />;
-    }
-  };
-
-  const getTotalStats = () => {
-    const activeUsers = users.filter((u) => u.status === "active").length;
-    const businessOwners = users.filter(
-      (u) => u.type === "business-owner",
-    ).length;
-    const agencies = users.filter((u) => u.type === "agency-admin").length;
-    const totalRevenue = users.reduce(
-      (sum, user) => sum + (user.revenue || 0),
-      0,
-    );
-
-    return { activeUsers, businessOwners, agencies, totalRevenue };
-  };
-
-  const stats = getTotalStats();
-
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <SuperAdminLayout>
-      <div className="w-full max-w-none overflow-x-auto">
-        <div className="space-y-6 min-w-0">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">User Management</h1>
-              <p className="text-muted-foreground">
-                Manage all users, businesses, and agencies across the platform
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Columns className="h-4 w-4" />
-                    Columns
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {Object.entries(visibleColumns).map(([key, visible]) => (
-                    <DropdownMenuItem
-                      key={key}
-                      className="flex items-center gap-2"
-                      onClick={() => toggleColumn(key)}
-                    >
-                      <Checkbox checked={visible} onChange={() => {}} />
-                      <span className="capitalize">
-                        {key === "lastActive"
-                          ? "Last Active"
-                          : key === "signupDate"
-                            ? "Signup Date"
-                            : key === "cancellationDate"
-                              ? "Cancellation Date"
-                              : key}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button variant="outline" className="gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-              <Button className="gap-2">
-                <UserPlus className="h-4 w-4" />
-                Add User
-              </Button>
-            </div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">User Management</h1>
+            <p className="text-muted-foreground">
+              {loading ? "Loading…" : `${total.toLocaleString()} users in the system`}
+            </p>
           </div>
-
-          {/* Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="space-y-4"
-          >
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all-users">
-                <Users className="h-4 w-4 mr-2" />
-                All Users
-              </TabsTrigger>
-              <TabsTrigger value="business-owners">
-                <Building2 className="h-4 w-4 mr-2" />
-                Business Owners
-              </TabsTrigger>
-              <TabsTrigger value="agencies">
-                <Shield className="h-4 w-4 mr-2" />
-                Agencies
-              </TabsTrigger>
-            </TabsList>
-
-            {/* All Users Tab */}
-            <TabsContent value="all-users" className="space-y-4">
-              {/* Filters */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="flex-1">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search users..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="w-full md:w-[180px]">
-                        <SelectValue placeholder="Filter by role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="agency-admin">
-                          Agency Admin
-                        </SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={statusFilter}
-                      onValueChange={setStatusFilter}
-                    >
-                      <SelectTrigger className="w-full md:w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Users Table */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Users ({filteredUsers.length})</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <div className="min-w-full w-max">
-                      <Table className="table-fixed w-full min-w-[800px]">
-                        <TableHeader>
-                          <TableRow>
-                            {visibleColumns.user && (
-                              <TableHead className="w-64 min-w-[200px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("name")}
-                                >
-                                  User
-                                  {getSortIcon("name")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            {visibleColumns.role && (
-                              <TableHead className="w-32 min-w-[120px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("role")}
-                                >
-                                  Role
-                                  {getSortIcon("role")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            {visibleColumns.status && (
-                              <TableHead className="w-32 min-w-[120px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("status")}
-                                >
-                                  Status
-                                  {getSortIcon("status")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            {visibleColumns.organization && (
-                              <TableHead className="w-48 min-w-[180px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("organization")}
-                                >
-                                  Organization
-                                  {getSortIcon("organization")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            {visibleColumns.lastActive && (
-                              <TableHead className="w-36 min-w-[140px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("lastActive")}
-                                >
-                                  Last Active
-                                  {getSortIcon("lastActive")}
-                                </Button>
-                              </TableHead>
-                            )}
-
-                            {visibleColumns.signupDate && (
-                              <TableHead className="w-36 min-w-[140px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("signupDate")}
-                                >
-                                  Signup Date
-                                  {getSortIcon("signupDate")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            {visibleColumns.subscription && (
-                              <TableHead className="w-36 min-w-[140px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("subscription")}
-                                >
-                                  Subscription
-                                  {getSortIcon("subscription")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            {visibleColumns.cancellationDate && (
-                              <TableHead className="w-36 min-w-[140px]">
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-semibold"
-                                  onClick={() => handleSort("cancellationDate")}
-                                >
-                                  Cancellation Date
-                                  {getSortIcon("cancellationDate")}
-                                </Button>
-                              </TableHead>
-                            )}
-                            <TableHead className="w-24 min-w-[100px]">
-                              Actions
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredUsers.map((user) => (
-                            <TableRow key={user.id}>
-                              {visibleColumns.user && (
-                                <TableCell>
-                                  <div className="flex items-center gap-3">
-                                    {getTypeIcon(user.type)}
-                                    <div>
-                                      <div className="font-medium">
-                                        {user.name}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                                        <Mail className="h-3 w-3" />
-                                        {user.email}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                              )}
-                              {visibleColumns.role && (
-                                <TableCell>{getRoleBadge(user.role)}</TableCell>
-                              )}
-                              {visibleColumns.status && (
-                                <TableCell>
-                                  {getStatusBadge(user.status)}
-                                </TableCell>
-                              )}
-                              {visibleColumns.organization && (
-                                <TableCell>
-                                  <div className="font-medium">
-                                    {user.organization}
-                                  </div>
-                                  {user.subscription && (
-                                    <div className="text-sm text-muted-foreground">
-                                      {user.subscription} plan
-                                    </div>
-                                  )}
-                                </TableCell>
-                              )}
-                              {visibleColumns.lastActive && (
-                                <TableCell>
-                                  <div className="text-sm">
-                                    {new Date(
-                                      user.lastActive,
-                                    ).toLocaleDateString()}
-                                  </div>
-                                </TableCell>
-                              )}
-
-                              {visibleColumns.signupDate && (
-                                <TableCell>
-                                  <div className="text-sm">
-                                    {new Date(
-                                      user.signupDate,
-                                    ).toLocaleDateString()}
-                                  </div>
-                                </TableCell>
-                              )}
-                              {visibleColumns.subscription && (
-                                <TableCell>
-                                  {user.subscription ? (
-                                    <Badge variant="outline">
-                                      {user.subscription}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      Free
-                                    </span>
-                                  )}
-                                </TableCell>
-                              )}
-                              {visibleColumns.cancellationDate && (
-                                <TableCell>
-                                  {user.cancellationDate ? (
-                                    <div className="text-sm text-red-600">
-                                      {new Date(
-                                        user.cancellationDate,
-                                      ).toLocaleDateString()}
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      -
-                                    </span>
-                                  )}
-                                </TableCell>
-                              )}
-                              <TableCell>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      View Details
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Edit User
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                      <Mail className="mr-2 h-4 w-4" />
-                                      Send Message
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Business Owners Tab */}
-            <TabsContent value="business-owners">
-              <BusinessManagement />
-            </TabsContent>
-
-            {/* Agencies Tab */}
-            <TabsContent value="agencies">
-              <SuperAdminAgencyManagement />
-            </TabsContent>
-          </Tabs>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || users.length === 0} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button size="sm" className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Add User
+            </Button>
+          </div>
         </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or email…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="agency_admin">Agency Admin</SelectItem>
+                  <SelectItem value="business_owner">Business Owner</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">
+              {loading
+                ? "Loading users…"
+                : total === 0
+                ? "No users found"
+                : `Showing ${from}–${to} of ${total.toLocaleString()} users`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[220px]">
+                      <button
+                        onClick={() => handleSort("name")}
+                        className="flex items-center font-semibold hover:text-foreground transition-colors"
+                      >
+                        User <SortIcon field="name" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="min-w-[130px]">
+                      <button
+                        onClick={() => handleSort("role")}
+                        className="flex items-center font-semibold hover:text-foreground transition-colors"
+                      >
+                        Role <SortIcon field="role" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="min-w-[160px]">Business</TableHead>
+                    <TableHead className="min-w-[120px]">
+                      <button
+                        onClick={() => handleSort("created_at")}
+                        className="flex items-center font-semibold hover:text-foreground transition-colors"
+                      >
+                        Joined <SortIcon field="created_at" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="min-w-[120px]">
+                      <button
+                        onClick={() => handleSort("last_login")}
+                        className="flex items-center font-semibold hover:text-foreground transition-colors"
+                      >
+                        Last Login <SortIcon field="last_login" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="min-w-[90px]">Verified</TableHead>
+                    <TableHead className="w-12" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    [...Array(8)].map((_, i) => (
+                      <TableRow key={i}>
+                        {[...Array(7)].map((__, j) => (
+                          <TableCell key={j}>
+                            <div className="h-4 w-full animate-pulse bg-muted rounded" />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : users.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
+                        <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">No users found</p>
+                        <p className="text-sm mt-1">Try adjusting your search or filters</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    users.map((user) => (
+                      <TableRow key={user.id} className="group">
+                        {/* User */}
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                              {(user.name ?? user.email)[0].toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">
+                                {user.name ?? <span className="text-muted-foreground italic">No name</span>}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                {user.email}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* Role */}
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            {ROLE_ICONS[user.role]}
+                            <Badge variant={ROLE_VARIANTS[user.role]} className="text-xs">
+                              {ROLE_LABELS[user.role] ?? user.role}
+                            </Badge>
+                          </div>
+                        </TableCell>
+
+                        {/* Business */}
+                        <TableCell className="text-sm text-muted-foreground">
+                          {user.business_name ?? "—"}
+                        </TableCell>
+
+                        {/* Joined */}
+                        <TableCell className="text-sm text-muted-foreground">
+                          {user.created_at
+                            ? new Date(user.created_at).toLocaleDateString()
+                            : "—"}
+                        </TableCell>
+
+                        {/* Last Login */}
+                        <TableCell className="text-sm text-muted-foreground">
+                          {user.last_login
+                            ? new Date(user.last_login).toLocaleDateString()
+                            : <span className="italic">Never</span>}
+                        </TableCell>
+
+                        {/* Email Verified */}
+                        <TableCell>
+                          <Badge variant={user.email_verified ? "default" : "secondary"} className="text-xs">
+                            {user.email_verified ? "Verified" : "Unverified"}
+                          </Badge>
+                        </TableCell>
+
+                        {/* Actions */}
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Send Email
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive">
+                                <Ban className="mr-2 h-4 w-4" />
+                                Suspend
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1 || loading}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages || loading}
+                    className="gap-1"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </SuperAdminLayout>
   );
