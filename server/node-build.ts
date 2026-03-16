@@ -16,9 +16,10 @@ const distPath = path.join(__dirname, "..");
 // Serve static files (frontend)
 app.use(express.static(distPath));
 
-// Handle React Router - serve index.html for all non-API routes
-app.get("*", (req: express.Request, res: express.Response) => {
-  // Don't serve index.html for API routes
+// Catch-all: serve index.html for React Router (SPA fallback)
+// Using app.use() avoids Express 5's named-wildcard requirement in path-to-regexp v8
+app.use((req: express.Request, res: express.Response) => {
+  // Return JSON 404 for unknown API or health routes
   if (req.path.startsWith("/api/") || req.path.startsWith("/health")) {
     return res.status(404).json({ error: "API endpoint not found" });
   }
