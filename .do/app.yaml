@@ -46,7 +46,8 @@ services:
       repo: your-username/your-repo
       branch: main
       deploy_on_push: true
-    build_command: npm install
+    build_command: npm install && npm run build:server
+    run_command: node dist/server/production.mjs
     source_dir: /
     environment_slug: node-js
     instance_count: 1
