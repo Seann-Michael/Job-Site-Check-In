@@ -138,6 +138,14 @@ interface SettingsData {
 
   // Integrations
   googleMyBusinessConnected: boolean;
+  googleOAuthEmail?: string;
+  googleOAuthName?: string;
+  googleAccessToken?: string;
+  googleRefreshToken?: string;
+  googleTokenExpiresAt?: number | null;
+  gmbAccounts?: GmbAccount[];
+  selectedGmbAccountName?: string;
+  selectedGmbAccountId?: string;
   goHighLevelApiKey: string;
   webhooks: WebhookItem[];
   rssIncludeImages: boolean;
@@ -228,6 +236,14 @@ interface SettingsData {
   planFeatures: string[];
   creditCard: CreditCardInfo;
   invoices: InvoiceItem[];
+}
+
+interface GmbAccount {
+  name: string; // e.g. "accounts/123456789"
+  accountName?: string;
+  type?: string;
+  role?: string;
+  state?: { status?: string };
 }
 
 interface WebhookItem {
@@ -339,6 +355,14 @@ const createDefaultSettings = (): SettingsData => ({
 
   // Integrations
   googleMyBusinessConnected: true,
+  googleOAuthEmail: "",
+  googleOAuthName: "",
+  googleAccessToken: "",
+  googleRefreshToken: "",
+  googleTokenExpiresAt: null,
+  gmbAccounts: [],
+  selectedGmbAccountName: "",
+  selectedGmbAccountId: "",
   goHighLevelApiKey: "",
   webhooks: [],
   rssIncludeImages: true,
@@ -521,6 +545,15 @@ export default function Settings() {
         updateSetting("googleAccessToken", data.accessToken || "");
         updateSetting("googleRefreshToken", data.refreshToken || "");
         updateSetting("googleTokenExpiresAt", data.expiresAt || null);
+        updateSetting("gmbAccounts", data.gmbAccounts || []);
+        // Auto-select if only one business
+        if (data.gmbAccounts?.length === 1) {
+          updateSetting("selectedGmbAccountName", data.gmbAccounts[0].name || "");
+          updateSetting("selectedGmbAccountId", data.gmbAccounts[0].name || "");
+        } else {
+          updateSetting("selectedGmbAccountName", "");
+          updateSetting("selectedGmbAccountId", "");
+        }
         toast.success(`Google connected as ${data.email}`);
       } else if (type === "oauth_error") {
         toast.error(error || "Google connection failed.");
@@ -1454,6 +1487,9 @@ export default function Settings() {
                               updateSetting("googleOAuthEmail", "");
                               updateSetting("googleAccessToken", "");
                               updateSetting("googleRefreshToken", "");
+                              updateSetting("gmbAccounts", []);
+                              updateSetting("selectedGmbAccountName", "");
+                              updateSetting("selectedGmbAccountId", "");
                               toast.success("Google disconnected");
                             } else {
                               handleConnectGoogle();
@@ -1479,6 +1515,50 @@ export default function Settings() {
                         </Button>
                       </div>
                     </div>
+
+                    {/* Business location picker — shown after OAuth connects */}
+                    {settings.googleMyBusinessConnected && settings.gmbAccounts && settings.gmbAccounts.length > 0 && (
+                      <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                        <div>
+                          <Label className="text-sm font-medium">Select Business Location</Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Choose which Google Business Profile to use for posting and reviews.
+                          </p>
+                        </div>
+                        <Select
+                          value={settings.selectedGmbAccountId || ""}
+                          onValueChange={(val) => {
+                            const account = settings.gmbAccounts?.find((a) => a.name === val);
+                            updateSetting("selectedGmbAccountId", val);
+                            updateSetting("selectedGmbAccountName", account?.accountName || account?.name || val);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a business location…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {settings.gmbAccounts.map((account) => (
+                              <SelectItem key={account.name} value={account.name}>
+                                {account.accountName || account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {settings.selectedGmbAccountId && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            Using: <span className="font-medium text-foreground">{settings.selectedGmbAccountName || settings.selectedGmbAccountId}</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Prompt to reconnect if connected but no accounts came back */}
+                    {settings.googleMyBusinessConnected && (!settings.gmbAccounts || settings.gmbAccounts.length === 0) && (
+                      <p className="text-xs text-muted-foreground px-1">
+                        No Business Profile locations found on this Google account. Make sure you have access to a Google Business Profile and try reconnecting.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
