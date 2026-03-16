@@ -1,18 +1,8 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,12 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import {
   Bug,
-  TestTube,
   Shield,
   Monitor,
   AlertTriangle,
@@ -36,1095 +24,635 @@ import {
   TrendingUp,
   Users,
   BarChart3,
-  Settings,
-  Play,
-  Pause,
   RefreshCw,
   Eye,
   Download,
-  Filter,
-  Search,
-  Bell,
   Activity,
-  Zap,
   Gauge,
-  FileText,
   Heart,
+  Star,
+  Building2,
+  Briefcase,
+  Database,
 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
-interface TestSuite {
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface GmbAuditResult {
   id: string;
-  name: string;
-  type: "unit" | "integration" | "e2e" | "performance" | "security";
-  status: "running" | "passed" | "failed" | "skipped";
-  tests: TestCase[];
-  coverage: number;
-  duration: number;
-  lastRun: string;
-  environment: string;
-}
-
-interface TestCase {
-  id: string;
-  name: string;
-  status: "passed" | "failed" | "skipped";
-  duration: number;
-  errorMessage?: string;
-  retries: number;
-}
-
-interface ErrorLog {
-  id: string;
-  timestamp: string;
-  level: "error" | "warning" | "info" | "debug";
-  message: string;
-  stack?: string;
-  user?: string;
-  url: string;
-  userAgent: string;
-  resolved: boolean;
-  frequency: number;
-}
-
-interface HealthCheck {
-  id: string;
-  name: string;
-  type: "http" | "database" | "redis" | "external_api" | "file_system";
-  status: "healthy" | "warning" | "critical" | "unknown";
-  responseTime: number;
-  lastCheck: string;
-  endpoint?: string;
-  enabled: boolean;
-  alertThreshold: number;
-}
-
-interface PerformanceAlert {
-  id: string;
+  business_id: string;
+  category: string;
   title: string;
-  type:
-    | "response_time"
-    | "error_rate"
-    | "memory_usage"
-    | "cpu_usage"
-    | "disk_space";
-  severity: "low" | "medium" | "high" | "critical";
-  description: string;
-  value: number;
-  threshold: number;
-  triggeredAt: string;
-  acknowledged: boolean;
-  resolvedAt?: string;
+  description: string | null;
+  status: "critical" | "warning" | "good";
+  impact: "high" | "medium" | "low";
+  action_required: string | null;
+  scanned_at: string | null;
 }
 
-interface ValidationRule {
+interface ReviewRow {
   id: string;
-  name: string;
-  type: "input" | "api" | "database" | "business";
-  pattern: string;
-  errorMessage: string;
-  enabled: boolean;
-  violationCount: number;
-  lastViolation?: string;
+  business_id: string;
+  platform: string;
+  rating: number;
+  text: string;
+  created_at: string;
+  response: any;
 }
 
+interface HealthResult {
+  name: string;
+  table: string;
+  status: "healthy" | "warning" | "error";
+  responseMs: number;
+  rowCount: number;
+  checkedAt: string;
+}
+
+interface DataSummary {
+  totalUsers: number;
+  totalBusinesses: number;
+  totalJobs: number;
+  activeJobs: number;
+  totalReviews: number;
+  avgRating: number;
+  verifiedUsers: number;
+  gmbAuditTotal: number;
+  gmbAuditGood: number;
+  gmbAuditWarning: number;
+  gmbAuditCritical: number;
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
 export default function SuperAdminQuality() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
-  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
-  const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([]);
-  const [performanceAlerts, setPerformanceAlerts] = useState<
-    PerformanceAlert[]
-  >([]);
-  const [validationRules, setValidationRules] = useState<ValidationRule[]>([]);
-  const [qualityMetrics, setQualityMetrics] = useState({
-    testCoverage: 87.5,
-    errorRate: 0.12,
-    uptime: 99.94,
-    performanceScore: 92.3,
-    securityScore: 96.1,
+  const [loading, setLoading] = useState(true);
+  const [healthLoading, setHealthLoading] = useState(false);
+
+  const [summary, setSummary] = useState<DataSummary>({
+    totalUsers: 0, totalBusinesses: 0, totalJobs: 0, activeJobs: 0,
+    totalReviews: 0, avgRating: 0, verifiedUsers: 0,
+    gmbAuditTotal: 0, gmbAuditGood: 0, gmbAuditWarning: 0, gmbAuditCritical: 0,
   });
+  const [auditResults, setAuditResults] = useState<GmbAuditResult[]>([]);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [healthChecks, setHealthChecks] = useState<HealthResult[]>([]);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-  useEffect(() => {
-    loadTestSuites();
-    loadErrorLogs();
-    loadHealthChecks();
-    loadPerformanceAlerts();
-    loadValidationRules();
+  // ── Fetch all real data ───────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [
+        usersRes,
+        verifiedRes,
+        bizRes,
+        jobsRes,
+        activeJobsRes,
+        reviewsRes,
+        ratingsRes,
+        auditRes,
+      ] = await Promise.all([
+        supabaseClient.from("users").select("id", { count: "exact", head: true }),
+        supabaseClient.from("users").select("id", { count: "exact", head: true }).eq("email_verified", true),
+        supabaseClient.from("businesses").select("id", { count: "exact", head: true }),
+        supabaseClient.from("jobs").select("id", { count: "exact", head: true }),
+        supabaseClient.from("jobs").select("id", { count: "exact", head: true }).in("status", ["active", "in_progress"]),
+        supabaseClient.from("reviews").select("id, business_id, platform, rating, text, created_at, response").order("created_at", { ascending: false }).limit(50),
+        supabaseClient.from("reviews").select("rating"),
+        supabaseClient.from("gmb_audit_results").select("*").order("scanned_at", { ascending: false }),
+      ]);
 
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      updateRealTimeData();
-    }, 10000);
+      const ratings: number[] = (ratingsRes.data ?? []).map((r: any) => Number(r.rating));
+      const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
-    return () => clearInterval(interval);
+      const audits: GmbAuditResult[] = (auditRes.data ?? []) as GmbAuditResult[];
+
+      setSummary({
+        totalUsers: usersRes.count ?? 0,
+        verifiedUsers: verifiedRes.count ?? 0,
+        totalBusinesses: bizRes.count ?? 0,
+        totalJobs: jobsRes.count ?? 0,
+        activeJobs: activeJobsRes.count ?? 0,
+        totalReviews: reviewsRes.count ?? ratings.length,
+        avgRating: Math.round(avgRating * 10) / 10,
+        gmbAuditTotal: audits.length,
+        gmbAuditGood: audits.filter((a) => a.status === "good").length,
+        gmbAuditWarning: audits.filter((a) => a.status === "warning").length,
+        gmbAuditCritical: audits.filter((a) => a.status === "critical").length,
+      });
+
+      setAuditResults(audits);
+      setReviews((reviewsRes.data ?? []) as ReviewRow[]);
+      setLastRefreshed(new Date());
+    } catch (err: any) {
+      toast.error("Failed to load data: " + (err?.message ?? "Unknown"));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const loadTestSuites = () => {
-    const mockSuites: TestSuite[] = [
-      {
-        id: "suite-1",
-        name: "API Integration Tests",
-        type: "integration",
-        status: "passed",
-        tests: [
-          {
-            id: "test-1",
-            name: "User Authentication",
-            status: "passed",
-            duration: 1234,
-            retries: 0,
-          },
-          {
-            id: "test-2",
-            name: "Project Creation",
-            status: "passed",
-            duration: 2456,
-            retries: 0,
-          },
-          {
-            id: "test-3",
-            name: "Message Broadcasting",
-            status: "passed",
-            duration: 1876,
-            retries: 1,
-          },
-        ],
-        coverage: 94.2,
-        duration: 45678,
-        lastRun: "2024-01-21T10:30:00Z",
-        environment: "staging",
-      },
-      {
-        id: "suite-2",
-        name: "Unit Tests - Core Functions",
-        type: "unit",
-        status: "passed",
-        tests: [
-          {
-            id: "test-4",
-            name: "User Validation",
-            status: "passed",
-            duration: 123,
-            retries: 0,
-          },
-          {
-            id: "test-5",
-            name: "Email Templates",
-            status: "passed",
-            duration: 456,
-            retries: 0,
-          },
-          {
-            id: "test-6",
-            name: "Permission Checks",
-            status: "failed",
-            duration: 789,
-            retries: 2,
-            errorMessage: "Permission check failed for admin role",
-          },
-        ],
-        coverage: 91.7,
-        duration: 12345,
-        lastRun: "2024-01-21T09:15:00Z",
-        environment: "development",
-      },
-      {
-        id: "suite-3",
-        name: "End-to-End User Flows",
-        type: "e2e",
-        status: "running",
-        tests: [
-          {
-            id: "test-7",
-            name: "Complete Project Workflow",
-            status: "passed",
-            duration: 15678,
-            retries: 0,
-          },
-          {
-            id: "test-8",
-            name: "User Registration Flow",
-            status: "passed",
-            duration: 8456,
-            retries: 0,
-          },
-        ],
-        coverage: 78.9,
-        duration: 0,
-        lastRun: "2024-01-21T11:00:00Z",
-        environment: "production",
-      },
+  // ── Real health checks: measure actual Supabase query response times ───────
+  const runHealthChecks = useCallback(async () => {
+    setHealthLoading(true);
+    const tables = [
+      { name: "Users", table: "users" },
+      { name: "Businesses", table: "businesses" },
+      { name: "Jobs", table: "jobs" },
+      { name: "Reviews", table: "reviews" },
+      { name: "GMB Audit Results", table: "gmb_audit_results" },
+      { name: "Clients", table: "clients" },
     ];
-    setTestSuites(mockSuites);
-  };
 
-  const loadErrorLogs = () => {
-    const mockErrors: ErrorLog[] = [
-      {
-        id: "error-1",
-        timestamp: "2024-01-21T10:45:00Z",
-        level: "error",
-        message: "Database connection timeout",
-        stack:
-          "Error: Connection timeout\n    at Database.connect (db.js:45)\n    at async handler (api.js:123)",
-        user: "user123",
-        url: "/api/projects",
-        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-        resolved: false,
-        frequency: 3,
-      },
-      {
-        id: "error-2",
-        timestamp: "2024-01-21T09:30:00Z",
-        level: "warning",
-        message: "High memory usage detected",
-        user: "system",
-        url: "/admin/analytics",
-        userAgent: "System Monitor",
-        resolved: true,
-        frequency: 1,
-      },
-      {
-        id: "error-3",
-        timestamp: "2024-01-21T08:15:00Z",
-        level: "error",
-        message: "Failed to send broadcast message",
-        stack:
-          "Error: Email service unavailable\n    at EmailService.send (email.js:78)",
-        user: "admin456",
-        url: "/admin/broadcast",
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        resolved: false,
-        frequency: 7,
-      },
-    ];
-    setErrorLogs(mockErrors);
-  };
-
-  const loadHealthChecks = () => {
-    const mockHealthChecks: HealthCheck[] = [
-      {
-        id: "health-1",
-        name: "Main API Endpoint",
-        type: "http",
-        status: "healthy",
-        responseTime: 234,
-        lastCheck: "2024-01-21T11:05:00Z",
-        endpoint: "https://api.example.com/health",
-        enabled: true,
-        alertThreshold: 1000,
-      },
-      {
-        id: "health-2",
-        name: "Primary Database",
-        type: "database",
-        status: "healthy",
-        responseTime: 45,
-        lastCheck: "2024-01-21T11:05:00Z",
-        enabled: true,
-        alertThreshold: 200,
-      },
-      {
-        id: "health-3",
-        name: "Redis Cache",
-        type: "redis",
-        status: "warning",
-        responseTime: 156,
-        lastCheck: "2024-01-21T11:04:00Z",
-        enabled: true,
-        alertThreshold: 100,
-      },
-      {
-        id: "health-4",
-        name: "Email Service API",
-        type: "external_api",
-        status: "critical",
-        responseTime: 5000,
-        lastCheck: "2024-01-21T11:03:00Z",
-        endpoint: "https://api.emailservice.com/status",
-        enabled: true,
-        alertThreshold: 2000,
-      },
-    ];
-    setHealthChecks(mockHealthChecks);
-  };
-
-  const loadPerformanceAlerts = () => {
-    const mockAlerts: PerformanceAlert[] = [
-      {
-        id: "alert-1",
-        title: "High Response Time Detected",
-        type: "response_time",
-        severity: "high",
-        description:
-          "API response time exceeded 2 seconds for /api/projects endpoint",
-        value: 2340,
-        threshold: 1000,
-        triggeredAt: "2024-01-21T10:45:00Z",
-        acknowledged: false,
-      },
-      {
-        id: "alert-2",
-        title: "Memory Usage Spike",
-        type: "memory_usage",
-        severity: "medium",
-        description: "Server memory usage reached 85%",
-        value: 85.4,
-        threshold: 80,
-        triggeredAt: "2024-01-21T09:30:00Z",
-        acknowledged: true,
-      },
-      {
-        id: "alert-3",
-        title: "Error Rate Increase",
-        type: "error_rate",
-        severity: "critical",
-        description: "Error rate increased to 2.3% over the last hour",
-        value: 2.3,
-        threshold: 1.0,
-        triggeredAt: "2024-01-21T08:15:00Z",
-        acknowledged: false,
-        resolvedAt: "2024-01-21T08:45:00Z",
-      },
-    ];
-    setPerformanceAlerts(mockAlerts);
-  };
-
-  const loadValidationRules = () => {
-    const mockRules: ValidationRule[] = [
-      {
-        id: "rule-1",
-        name: "Email Format Validation",
-        type: "input",
-        pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
-        errorMessage: "Please enter a valid email address",
-        enabled: true,
-        violationCount: 12,
-        lastViolation: "2024-01-21T09:45:00Z",
-      },
-      {
-        id: "rule-2",
-        name: "Password Strength Check",
-        type: "input",
-        pattern:
-          "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-        errorMessage:
-          "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
-        enabled: true,
-        violationCount: 45,
-        lastViolation: "2024-01-21T10:20:00Z",
-      },
-      {
-        id: "rule-3",
-        name: "API Rate Limiting",
-        type: "api",
-        pattern: "100 requests per minute per user",
-        errorMessage:
-          "Rate limit exceeded. Please wait before making more requests.",
-        enabled: true,
-        violationCount: 8,
-        lastViolation: "2024-01-21T08:30:00Z",
-      },
-    ];
-    setValidationRules(mockRules);
-  };
-
-  const updateRealTimeData = () => {
-    // Update quality metrics with slight variations
-    setQualityMetrics((prev) => ({
-      testCoverage: Math.max(
-        80,
-        Math.min(95, prev.testCoverage + (Math.random() - 0.5) * 1),
-      ),
-      errorRate: Math.max(
-        0,
-        Math.min(2, prev.errorRate + (Math.random() - 0.5) * 0.05),
-      ),
-      uptime: Math.max(
-        99,
-        Math.min(100, prev.uptime + (Math.random() - 0.5) * 0.01),
-      ),
-      performanceScore: Math.max(
-        85,
-        Math.min(98, prev.performanceScore + (Math.random() - 0.5) * 2),
-      ),
-      securityScore: Math.max(
-        90,
-        Math.min(100, prev.securityScore + (Math.random() - 0.5) * 0.5),
-      ),
-    }));
-
-    // Update health check response times
-    setHealthChecks((prev) =>
-      prev.map((check) => ({
-        ...check,
-        responseTime: Math.max(
-          10,
-          check.responseTime + (Math.random() - 0.5) * 50,
-        ),
-        lastCheck: new Date().toISOString(),
-      })),
-    );
-  };
-
-  const runTestSuite = (suiteId: string) => {
-    setTestSuites((prev) =>
-      prev.map((suite) =>
-        suite.id === suiteId
-          ? {
-              ...suite,
-              status: "running" as const,
-              lastRun: new Date().toISOString(),
-            }
-          : suite,
-      ),
+    const results: HealthResult[] = await Promise.all(
+      tables.map(async ({ name, table }) => {
+        const start = performance.now();
+        try {
+          const { count, error } = await supabaseClient
+            .from(table)
+            .select("id", { count: "exact", head: true });
+          const ms = Math.round(performance.now() - start);
+          if (error) throw error;
+          return {
+            name,
+            table,
+            status: ms < 300 ? "healthy" : ms < 800 ? "warning" : "error",
+            responseMs: ms,
+            rowCount: count ?? 0,
+            checkedAt: new Date().toISOString(),
+          } as HealthResult;
+        } catch {
+          return {
+            name,
+            table,
+            status: "error",
+            responseMs: Math.round(performance.now() - start),
+            rowCount: 0,
+            checkedAt: new Date().toISOString(),
+          } as HealthResult;
+        }
+      }),
     );
 
-    // Simulate test completion
-    setTimeout(() => {
-      setTestSuites((prev) =>
-        prev.map((suite) =>
-          suite.id === suiteId
-            ? {
-                ...suite,
-                status:
-                  Math.random() > 0.8
-                    ? ("failed" as const)
-                    : ("passed" as const),
-                duration: Math.floor(Math.random() * 60000) + 10000,
-              }
-            : suite,
-        ),
-      );
-      toast.success("Test suite completed");
-    }, 3000);
+    setHealthChecks(results);
+    setHealthLoading(false);
+    toast.success("Health checks complete");
+  }, []);
 
-    toast.success("Test suite started");
+  useEffect(() => {
+    fetchData();
+    runHealthChecks();
+  }, [fetchData, runHealthChecks]);
+
+  // ── Derived metrics ────────────────────────────────────────────────────────
+  const gmbHealthPct =
+    summary.gmbAuditTotal > 0
+      ? Math.round((summary.gmbAuditGood / summary.gmbAuditTotal) * 100)
+      : 0;
+
+  const emailVerifiedPct =
+    summary.totalUsers > 0
+      ? Math.round((summary.verifiedUsers / summary.totalUsers) * 100)
+      : 0;
+
+  const avgRatingPct = Math.round((summary.avgRating / 5) * 100);
+
+  const reviewResponseRate =
+    reviews.length > 0
+      ? Math.round((reviews.filter((r) => r.response).length / reviews.length) * 100)
+      : 0;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const StatusIcon = ({ status }: { status: string }) => {
+    if (status === "good" || status === "healthy")
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (status === "critical" || status === "error")
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    if (status === "warning")
+      return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    return <Clock className="h-4 w-4 text-gray-400" />;
   };
 
-  const acknowledgeAlert = (alertId: string) => {
-    setPerformanceAlerts((prev) =>
-      prev.map((alert) =>
-        alert.id === alertId ? { ...alert, acknowledged: true } : alert,
-      ),
-    );
-    toast.success("Alert acknowledged");
-  };
+  const impactVariant = (impact: string) =>
+    impact === "high" ? "destructive" : impact === "medium" ? "default" : "secondary";
 
-  const resolveError = (errorId: string) => {
-    setErrorLogs((prev) =>
-      prev.map((error) =>
-        error.id === errorId ? { ...error, resolved: true } : error,
-      ),
-    );
-    toast.success("Error marked as resolved");
-  };
+  const statusVariant = (status: string) =>
+    status === "critical" || status === "error"
+      ? "destructive"
+      : status === "warning"
+      ? "default"
+      : "secondary";
 
-  const toggleValidationRule = (ruleId: string) => {
-    setValidationRules((prev) =>
-      prev.map((rule) =>
-        rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
-      ),
-    );
-    toast.success("Validation rule updated");
-  };
+  const ratingStars = (rating: number) =>
+    "★".repeat(rating) + "☆".repeat(5 - rating);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "passed":
-      case "healthy":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "failed":
-      case "critical":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case "warning":
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case "running":
-        return <Clock className="h-4 w-4 text-blue-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
-    }
-  };
+  const SkeletonRow = ({ cols }: { cols: number }) => (
+    <TableRow>
+      {[...Array(cols)].map((_, i) => (
+        <TableCell key={i}>
+          <div className="h-4 w-full animate-pulse bg-muted rounded" />
+        </TableCell>
+      ))}
+    </TableRow>
+  );
 
-  const getErrorLevelColor = (level: string) => {
-    switch (level) {
-      case "error":
-        return "text-red-600";
-      case "warning":
-        return "text-yellow-600";
-      case "info":
-        return "text-blue-600";
-      case "debug":
-        return "text-gray-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SuperAdminLayout>
-      <div className="max-w-full overflow-x-hidden">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Quality Assurance
-              </h1>
-              <p className="text-muted-foreground">
-                Testing, monitoring, error handling, and validation
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => updateRealTimeData()}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export Report
-              </Button>
-            </div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Quality Assurance</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Live data · Last refreshed {lastRefreshed.toLocaleTimeString()}
+            </p>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Test Coverage
-                </CardTitle>
-                <TestTube className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {qualityMetrics.testCoverage.toFixed(1)}%
-                </div>
-                <Progress
-                  value={qualityMetrics.testCoverage}
-                  className="h-2 mt-2"
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Error Rate
-                </CardTitle>
-                <Bug className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {qualityMetrics.errorRate.toFixed(2)}%
-                </div>
-                <Progress
-                  value={qualityMetrics.errorRate * 50}
-                  className="h-2 mt-2"
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Uptime</CardTitle>
-                <Heart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {qualityMetrics.uptime.toFixed(2)}%
-                </div>
-                <Progress value={qualityMetrics.uptime} className="h-2 mt-2" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Performance
-                </CardTitle>
-                <Gauge className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {qualityMetrics.performanceScore.toFixed(1)}
-                </div>
-                <Progress
-                  value={qualityMetrics.performanceScore}
-                  className="h-2 mt-2"
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Security Score
-                </CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {qualityMetrics.securityScore.toFixed(1)}
-                </div>
-                <Progress
-                  value={qualityMetrics.securityScore}
-                  className="h-2 mt-2"
-                />
-              </CardContent>
-            </Card>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { fetchData(); runHealthChecks(); }}
+              disabled={loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
           </div>
+        </div>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="space-y-4"
-          >
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="testing">Testing</TabsTrigger>
-              <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-              <TabsTrigger value="errors">Error Logs</TabsTrigger>
-              <TabsTrigger value="validation">Validation</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-4">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>System Health Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {healthChecks.slice(0, 4).map((check) => (
-                        <div
-                          key={check.id}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            {getStatusIcon(check.status)}
-                            <div>
-                              <div className="font-medium">{check.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {check.responseTime}ms • {check.type}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium capitalize">
-                              {check.status}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(check.lastCheck).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Alerts</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {performanceAlerts.slice(0, 4).map((alert) => (
-                        <div key={alert.id} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="font-medium">{alert.title}</div>
-                            <Badge
-                              variant={
-                                alert.severity === "critical"
-                                  ? "destructive"
-                                  : alert.severity === "high"
-                                    ? "destructive"
-                                    : alert.severity === "medium"
-                                      ? "default"
-                                      : "secondary"
-                              }
-                            >
-                              {alert.severity}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground mb-2">
-                            {alert.description}
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(alert.triggeredAt).toLocaleString()}
-                            </div>
-                            {!alert.acknowledged && !alert.resolvedAt && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => acknowledgeAlert(alert.id)}
-                              >
-                                Acknowledge
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+        {/* KPI Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Review Rating</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <div className="h-7 w-16 animate-pulse bg-muted rounded" /> : `${summary.avgRating}★`}
               </div>
+              <Progress value={avgRatingPct} className="h-2 mt-2" />
+              <p className="text-xs text-muted-foreground mt-1">{summary.totalReviews} reviews total</p>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">GMB Health Score</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <div className="h-7 w-16 animate-pulse bg-muted rounded" /> : `${gmbHealthPct}%`}
+              </div>
+              <Progress value={gmbHealthPct} className="h-2 mt-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {summary.gmbAuditCritical > 0 ? `${summary.gmbAuditCritical} critical` : "No critical issues"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Email Verified</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <div className="h-7 w-16 animate-pulse bg-muted rounded" /> : `${emailVerifiedPct}%`}
+              </div>
+              <Progress value={emailVerifiedPct} className="h-2 mt-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {summary.verifiedUsers} of {summary.totalUsers} users
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Review Response Rate</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <div className="h-7 w-16 animate-pulse bg-muted rounded" /> : `${reviewResponseRate}%`}
+              </div>
+              <Progress value={reviewResponseRate} className="h-2 mt-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {reviews.filter((r) => r.response).length} of {reviews.length} responded
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="gmb-audit">GMB Audit</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          </TabsList>
+
+          {/* ── Overview ── */}
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Platform stats */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle>Platform Data Summary</CardTitle>
+                  <CardDescription>Live record counts from Supabase</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => runTestSuite("suite-1")}
-                    >
-                      <TestTube className="h-4 w-4 mr-2" />
-                      Run All Tests
-                    </Button>
-                    <Button variant="outline">
-                      <Monitor className="h-4 w-4 mr-2" />
-                      Health Check
-                    </Button>
-                    <Button variant="outline">
-                      <Bug className="h-4 w-4 mr-2" />
-                      Error Analysis
-                    </Button>
-                    <Button variant="outline">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Generate Report
-                    </Button>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Total Users", value: summary.totalUsers, icon: Users },
+                      { label: "Total Businesses", value: summary.totalBusinesses, icon: Building2 },
+                      { label: "Total Jobs", value: summary.totalJobs, icon: Briefcase },
+                      { label: "Active Jobs", value: summary.activeJobs, icon: Activity },
+                      { label: "Total Reviews", value: summary.totalReviews, icon: Star },
+                      { label: "GMB Audit Items", value: summary.gmbAuditTotal, icon: Shield },
+                    ].map(({ label, value, icon: Icon }) => (
+                      <div key={label} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-4 w-4 text-blue-500" />
+                          <span className="font-medium">{label}</span>
+                        </div>
+                        {loading ? (
+                          <div className="h-5 w-10 animate-pulse bg-background rounded" />
+                        ) : (
+                          <span className="font-bold text-lg">{value.toLocaleString()}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            <TabsContent value="testing" className="space-y-4">
+              {/* GMB audit summary */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Test Suites</CardTitle>
+                  <CardTitle>GMB Audit Breakdown</CardTitle>
+                  <CardDescription>Issue counts by severity</CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <span className="font-medium">Good / Passing</span>
+                      </div>
+                      <Badge variant="secondary" className="text-green-700 bg-green-100">{summary.gmbAuditGood}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                        <span className="font-medium">Warnings</span>
+                      </div>
+                      <Badge variant="default">{summary.gmbAuditWarning}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <XCircle className="h-5 w-5 text-red-500" />
+                        <span className="font-medium">Critical Issues</span>
+                      </div>
+                      <Badge variant="destructive">{summary.gmbAuditCritical}</Badge>
+                    </div>
+                    <div className="pt-2">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-muted-foreground">Overall Health</span>
+                        <span className="font-semibold">{gmbHealthPct}%</span>
+                      </div>
+                      <Progress value={gmbHealthPct} className="h-3" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── GMB Audit ── */}
+          <TabsContent value="gmb-audit" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>GMB Audit Results</CardTitle>
+                <CardDescription>Real audit data from your Google Business Profile scans</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Impact</TableHead>
+                        <TableHead>Action Required</TableHead>
+                        <TableHead>Scanned</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        [...Array(5)].map((_, i) => <SkeletonRow key={i} cols={6} />)
+                      ) : auditResults.length === 0 ? (
                         <TableRow>
-                          <TableHead>Suite Name</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Coverage</TableHead>
-                          <TableHead>Duration</TableHead>
-                          <TableHead>Last Run</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableCell colSpan={6} className="text-center py-16 text-muted-foreground">
+                            <Shield className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                            <p className="font-medium">No audit results yet</p>
+                            <p className="text-sm mt-1">Run a GMB audit to see results here</p>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {testSuites.map((suite) => (
-                          <TableRow key={suite.id}>
+                      ) : (
+                        auditResults.map((item, i) => (
+                          <TableRow key={i}>
+                            <TableCell>
+                              <Badge variant="outline">{item.category}</Badge>
+                            </TableCell>
                             <TableCell className="font-medium">
-                              {suite.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{suite.type}</Badge>
-                            </TableCell>
-                            <TableCell>
                               <div className="flex items-center gap-2">
-                                {getStatusIcon(suite.status)}
-                                <span className="capitalize">
-                                  {suite.status}
-                                </span>
+                                <StatusIcon status={item.status} />
+                                {item.title}
                               </div>
+                              {item.description && (
+                                <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
+                              )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full"
-                                    style={{ width: `${suite.coverage}%` }}
-                                  />
-                                </div>
-                                <span className="text-sm">
-                                  {suite.coverage.toFixed(1)}%
-                                </span>
-                              </div>
+                              <Badge variant={statusVariant(item.status)} className="capitalize">
+                                {item.status}
+                              </Badge>
                             </TableCell>
                             <TableCell>
-                              {suite.duration > 0
-                                ? `${(suite.duration / 1000).toFixed(1)}s`
-                                : "-"}
+                              <Badge variant={impactVariant(item.impact)} className="capitalize">
+                                {item.impact}
+                              </Badge>
                             </TableCell>
-                            <TableCell className="text-sm">
-                              {new Date(suite.lastRun).toLocaleString()}
+                            <TableCell className="text-sm text-muted-foreground max-w-xs">
+                              {item.action_required ?? "—"}
                             </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => runTestSuite(suite.id)}
-                                  disabled={suite.status === "running"}
-                                >
-                                  {suite.status === "running" ? (
-                                    <Pause className="h-4 w-4" />
-                                  ) : (
-                                    <Play className="h-4 w-4" />
-                                  )}
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </div>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {item.scanned_at ? new Date(item.scanned_at).toLocaleDateString() : "—"}
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <TabsContent value="monitoring" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Health Checks</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+          {/* ── Reviews ── */}
+          <TabsContent value="reviews" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Reviews</CardTitle>
+                <CardDescription>Latest {reviews.length} reviews across all platforms</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Platform</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead className="min-w-[300px]">Review</TableHead>
+                        <TableHead>Response</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        [...Array(6)].map((_, i) => <SkeletonRow key={i} cols={5} />)
+                      ) : reviews.length === 0 ? (
                         <TableRow>
-                          <TableHead>Service</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Response Time</TableHead>
-                          <TableHead>Threshold</TableHead>
-                          <TableHead>Last Check</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
+                            <Star className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                            <p className="font-medium">No reviews yet</p>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {healthChecks.map((check) => (
-                          <TableRow key={check.id}>
-                            <TableCell className="font-medium">
-                              {check.name}
+                      ) : (
+                        reviews.map((r) => (
+                          <TableRow key={r.id} className="group">
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">{r.platform}</Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{check.type}</Badge>
+                              <span className="text-amber-500 text-sm font-medium">{ratingStars(r.rating)}</span>
+                              <span className="text-xs text-muted-foreground ml-1">({r.rating}/5)</span>
+                            </TableCell>
+                            <TableCell className="text-sm max-w-xs">
+                              <p className="line-clamp-2">{r.text}</p>
+                            </TableCell>
+                            <TableCell>
+                              {r.response ? (
+                                <Badge variant="secondary">Responded</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground">No response</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {new Date(r.created_at).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Monitoring ── */}
+          <TabsContent value="monitoring" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Database Health Checks</CardTitle>
+                  <CardDescription>
+                    Live response times measured against Supabase tables
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={runHealthChecks}
+                  disabled={healthLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${healthLoading ? "animate-spin" : ""}`} />
+                  Run Checks
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Service / Table</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Response Time</TableHead>
+                        <TableHead>Row Count</TableHead>
+                        <TableHead>Checked At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {healthLoading ? (
+                        [...Array(6)].map((_, i) => <SkeletonRow key={i} cols={5} />)
+                      ) : healthChecks.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
+                            <Database className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                            <p className="font-medium">No health checks run yet</p>
+                            <Button variant="outline" size="sm" className="mt-3" onClick={runHealthChecks}>
+                              Run Health Checks
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        healthChecks.map((check) => (
+                          <TableRow key={check.table}>
+                            <TableCell>
+                              <div className="font-medium">{check.name}</div>
+                              <div className="text-xs text-muted-foreground font-mono">{check.table}</div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                {getStatusIcon(check.status)}
-                                <span className="capitalize">
-                                  {check.status}
-                                </span>
+                                <StatusIcon status={check.status} />
+                                <span className="capitalize">{check.status}</span>
                               </div>
                             </TableCell>
                             <TableCell>
                               <span
-                                className={`${
-                                  check.responseTime > check.alertThreshold
-                                    ? "text-red-600"
-                                    : check.responseTime >
-                                        check.alertThreshold * 0.8
-                                      ? "text-yellow-600"
-                                      : "text-green-600"
-                                }`}
+                                className={
+                                  check.responseMs < 300
+                                    ? "text-green-600 font-medium"
+                                    : check.responseMs < 800
+                                    ? "text-yellow-600 font-medium"
+                                    : "text-red-600 font-medium"
+                                }
                               >
-                                {check.responseTime}ms
+                                {check.responseMs}ms
                               </span>
                             </TableCell>
+                            <TableCell className="font-medium">{check.rowCount.toLocaleString()}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">
-                              {check.alertThreshold}ms
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {new Date(check.lastCheck).toLocaleString()}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
-                                  <RefreshCw className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <Settings className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              {new Date(check.checkedAt).toLocaleTimeString()}
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="errors" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Error Logs</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Timestamp</TableHead>
-                          <TableHead>Level</TableHead>
-                          <TableHead>Message</TableHead>
-                          <TableHead>User</TableHead>
-                          <TableHead>Frequency</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {errorLogs.map((error) => (
-                          <TableRow key={error.id}>
-                            <TableCell className="text-sm">
-                              {new Date(error.timestamp).toLocaleString()}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  error.level === "error"
-                                    ? "destructive"
-                                    : error.level === "warning"
-                                      ? "default"
-                                      : "secondary"
-                                }
-                              >
-                                {error.level}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="max-w-md">
-                              <div className="truncate font-medium">
-                                {error.message}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {error.url}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {error.user || "-"}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{error.frequency}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              {error.resolved ? (
-                                <Badge variant="default">Resolved</Badge>
-                              ) : (
-                                <Badge variant="outline">Open</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                {!error.resolved && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => resolveError(error.id)}
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="validation" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Validation Rules</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Rule Name</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Pattern</TableHead>
-                          <TableHead>Violations</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Last Violation</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {validationRules.map((rule) => (
-                          <TableRow key={rule.id}>
-                            <TableCell className="font-medium">
-                              {rule.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{rule.type}</Badge>
-                            </TableCell>
-                            <TableCell className="max-w-md">
-                              <div className="text-sm font-mono truncate">
-                                {rule.pattern}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  rule.violationCount > 20
-                                    ? "destructive"
-                                    : "default"
-                                }
-                              >
-                                {rule.violationCount}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={rule.enabled}
-                                  onCheckedChange={() =>
-                                    toggleValidationRule(rule.id)
-                                  }
-                                />
-                                <span className="text-sm">
-                                  {rule.enabled ? "Active" : "Disabled"}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {rule.lastViolation
-                                ? new Date(
-                                    rule.lastViolation,
-                                  ).toLocaleDateString()
-                                : "Never"}
-                            </TableCell>
-                            <TableCell>
-                              <Button variant="outline" size="sm">
-                                Edit
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </SuperAdminLayout>
   );
