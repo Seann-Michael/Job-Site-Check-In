@@ -488,32 +488,6 @@ export default function SuperAdmin() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Agency Management
-              </CardTitle>
-              <CardDescription>Manage marketing agencies and partners</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Link to="/super-admin/agencies">
-                  <Button variant="outline" className="w-full gap-2">
-                    <Eye className="h-4 w-4" />
-                    View All Agencies
-                  </Button>
-                </Link>
-                <Link to="/super-admin/agencies/add">
-                  <Button className="w-full gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Add New Agency
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
                 Analytics & Reports
               </CardTitle>
