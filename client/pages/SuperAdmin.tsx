@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -20,7 +21,6 @@ import {
   Users,
   Activity,
   TrendingUp,
-  TrendingDown,
   UserPlus,
   Building2,
   Star,
@@ -29,16 +29,67 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
+  RefreshCw,
+  Briefcase,
+  MessageSquare,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface DashboardMetrics {
+  totalUsers: number;
+  activeUsers: number;       // logged in within time frame
+  newSignups: number;        // created within time frame
+  totalBusinesses: number;
+  activeJobs: number;        // status active or in_progress
+  totalReviews: number;
+  avgReviewRating: number;
+  totalClients: number;
+}
+
+interface MonthlySignup {
+  month: string;
+  count: number;
+}
+
+function getTimeframeCutoff(tf: string): Date {
+  const now = new Date();
+  const map: Record<string, number> = {
+    "1d": 1, "7d": 7, "30d": 30, "60d": 60, "90d": 90, "180d": 180, "365d": 365,
+  };
+  const days = map[tf] ?? 30;
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
+function pctChange(current: number, previous: number): string {
+  if (previous === 0) return current > 0 ? "+100%" : "0%";
+  const pct = ((current - previous) / previous) * 100;
+  return (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%";
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
 export default function SuperAdmin() {
   const [timeFrame, setTimeFrame] = useState("30d");
   const [hideMetrics, setHideMetrics] = useState(() => {
     const saved = localStorage.getItem("super_admin_hide_metrics");
-    return saved ? JSON.parse(saved) : true; // Default: metrics hidden
+    return saved ? JSON.parse(saved) : true;
   });
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    totalUsers: 0,
+    activeUsers: 0,
+    newSignups: 0,
+    totalBusinesses: 0,
+    activeJobs: 0,
+    totalReviews: 0,
+    avgReviewRating: 0,
+    totalClients: 0,
+  });
+  const [prevMetrics, setPrevMetrics] = useState<DashboardMetrics | null>(null);
+  const [monthlySignups, setMonthlySignups] = useState<MonthlySignup[]>([]);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const toggleMetrics = () => {
     const newValue = !hideMetrics;
@@ -46,113 +97,182 @@ export default function SuperAdmin() {
     localStorage.setItem("super_admin_hide_metrics", JSON.stringify(newValue));
   };
 
-  // Mock analytics data based on time frame
-  const analyticsData = {
-    "1d": {
-      activeUsers: 1247,
-      dailyActiveUsers: 812,
-      newSignups: 45,
-      userRetention: 87.3,
-      apiCalls: 45678,
-      activeProjects: 234,
-      reviewsGenerated: 123,
-    },
-    "7d": {
-      activeUsers: 1289,
-      dailyActiveUsers: 834,
-      newSignups: 289,
-      userRetention: 86.8,
-      apiCalls: 298765,
-      activeProjects: 267,
-      reviewsGenerated: 856,
-    },
-    "30d": {
-      activeUsers: 1456,
-      dailyActiveUsers: 943,
-      newSignups: 1247,
-      userRetention: 87.3,
-      apiCalls: 987654,
-      activeProjects: 289,
-      reviewsGenerated: 3456,
-    },
-    "60d": {
-      activeUsers: 1623,
-      dailyActiveUsers: 1056,
-      newSignups: 2134,
-      userRetention: 88.1,
-      apiCalls: 1876543,
-      activeProjects: 334,
-      reviewsGenerated: 6789,
-    },
-    "90d": {
-      activeUsers: 1789,
-      dailyActiveUsers: 1167,
-      newSignups: 3421,
-      userRetention: 88.9,
-      apiCalls: 2765432,
-      activeProjects: 389,
-      reviewsGenerated: 9876,
-    },
-    "180d": {
-      activeUsers: 2156,
-      dailyActiveUsers: 1402,
-      newSignups: 6789,
-      userRetention: 89.5,
-      apiCalls: 5432109,
-      activeProjects: 456,
-      reviewsGenerated: 18765,
-    },
-    "365d": {
-      activeUsers: 2847,
-      dailyActiveUsers: 1851,
-      newSignups: 12456,
-      userRetention: 90.2,
-      apiCalls: 9876543,
-      activeProjects: 567,
-      reviewsGenerated: 34567,
-    },
-  };
+  const fetchMetrics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const cutoff = getTimeframeCutoff(timeFrame);
+      const cutoffIso = cutoff.toISOString();
 
-  const currentData = analyticsData[timeFrame as keyof typeof analyticsData];
+      // Double the window to calculate a "previous period" for trend arrows
+      const prevCutoff = new Date(cutoff.getTime() - (new Date().getTime() - cutoff.getTime()));
+      const prevCutoffIso = prevCutoff.toISOString();
 
-  // User growth trend data for charts
-  const userGrowthData = [
-    { period: "6 months ago", users: 1234, growth: "+15%" },
-    { period: "5 months ago", users: 1456, growth: "+18%" },
-    { period: "4 months ago", users: 1623, growth: "+11%" },
-    { period: "3 months ago", users: 1789, growth: "+10%" },
-    { period: "2 months ago", users: 1987, growth: "+11%" },
-    { period: "Last month", users: 2156, growth: "+8%" },
-    { period: "This month", users: 2847, growth: "+32%" },
-  ];
+      // ── Parallel queries ────────────────────────────────────────────────────
+      const [
+        usersRes,
+        activeUsersRes,
+        newSignupsRes,
+        prevSignupsRes,
+        businessesRes,
+        activeJobsRes,
+        reviewsRes,
+        avgRatingRes,
+        clientsRes,
+      ] = await Promise.all([
+        // Total users (all time)
+        supabaseClient.from("users").select("id", { count: "exact", head: true }),
+        // Active users: last_login within time frame
+        supabaseClient
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .gte("last_login", cutoffIso),
+        // New signups in current period
+        supabaseClient
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", cutoffIso),
+        // New signups in previous period (for trend comparison)
+        supabaseClient
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", prevCutoffIso)
+          .lt("created_at", cutoffIso),
+        // Total businesses
+        supabaseClient.from("businesses").select("id", { count: "exact", head: true }),
+        // Active jobs (status in active / in_progress)
+        supabaseClient
+          .from("jobs")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["active", "in_progress"]),
+        // Reviews in time frame
+        supabaseClient
+          .from("reviews")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", cutoffIso),
+        // Average review rating
+        supabaseClient.from("reviews").select("rating"),
+        // Total clients
+        supabaseClient.from("clients").select("id", { count: "exact", head: true }),
+      ]);
 
-  const usageMetrics = [
+      // Compute avg rating
+      const ratings: number[] = (avgRatingRes.data ?? []).map((r: any) => Number(r.rating));
+      const avgRating = ratings.length > 0
+        ? ratings.reduce((a, b) => a + b, 0) / ratings.length
+        : 0;
+
+      const current: DashboardMetrics = {
+        totalUsers: usersRes.count ?? 0,
+        activeUsers: activeUsersRes.count ?? 0,
+        newSignups: newSignupsRes.count ?? 0,
+        totalBusinesses: businessesRes.count ?? 0,
+        activeJobs: activeJobsRes.count ?? 0,
+        totalReviews: reviewsRes.count ?? 0,
+        avgReviewRating: Math.round(avgRating * 10) / 10,
+        totalClients: clientsRes.count ?? 0,
+      };
+
+      setPrevMetrics({
+        ...current,
+        newSignups: prevSignupsRes.count ?? 0,
+      });
+      setMetrics(current);
+
+      // ── Monthly signups for trend chart (last 7 months) ────────────────────
+      const monthlyData: MonthlySignup[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const start = new Date();
+        start.setDate(1);
+        start.setMonth(start.getMonth() - i);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + 1);
+
+        const { count } = await supabaseClient
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", start.toISOString())
+          .lt("created_at", end.toISOString());
+
+        const label = start.toLocaleString("default", { month: "short", year: "2-digit" });
+        monthlyData.push({ month: label, count: count ?? 0 });
+      }
+      setMonthlySignups(monthlyData);
+      setLastRefreshed(new Date());
+    } catch (err: any) {
+      toast.error("Failed to load analytics: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
+  }, [timeFrame]);
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
+
+  // ── Derived display values ─────────────────────────────────────────────────
+  const signupTrend = prevMetrics
+    ? pctChange(metrics.newSignups, prevMetrics.newSignups)
+    : null;
+
+  const maxMonthlyCount = Math.max(...monthlySignups.map((m) => m.count), 1);
+
+  const kpiCards = [
     {
-      label: "API Calls Today",
-      value: "45,678",
-      change: "+15%",
-      trend: "up",
+      label: "Total Users",
+      value: metrics.totalUsers.toLocaleString(),
+      sub: `${metrics.newSignups.toLocaleString()} new this period`,
+      trend: signupTrend,
+      trendUp: signupTrend ? !signupTrend.startsWith("-") : true,
+      icon: Users,
+    },
+    {
+      label: "Active Users",
+      value: metrics.activeUsers.toLocaleString(),
+      sub: "Logged in within period",
+      trend: metrics.totalUsers > 0
+        ? `${((metrics.activeUsers / metrics.totalUsers) * 100).toFixed(1)}% of total`
+        : "—",
+      trendUp: true,
       icon: Activity,
     },
     {
-      label: "Active Projects",
-      value: currentData.activeProjects.toString(),
-      change: "+8%",
-      trend: "up",
+      label: "New Signups",
+      value: metrics.newSignups.toLocaleString(),
+      sub: "In selected period",
+      trend: signupTrend,
+      trendUp: signupTrend ? !signupTrend.startsWith("-") : true,
+      icon: UserPlus,
+    },
+    {
+      label: "Avg Review Rating",
+      value: metrics.avgReviewRating > 0 ? `${metrics.avgReviewRating}★` : "N/A",
+      sub: `${metrics.totalReviews.toLocaleString()} reviews total`,
+      trend: metrics.avgReviewRating >= 4 ? "Good standing" : metrics.avgReviewRating > 0 ? "Needs attention" : "No data",
+      trendUp: metrics.avgReviewRating >= 4,
+      icon: Star,
+    },
+  ];
+
+  const platformStats = [
+    {
+      label: "Active Jobs",
+      value: metrics.activeJobs.toLocaleString(),
+      icon: Briefcase,
+    },
+    {
+      label: "Total Businesses",
+      value: metrics.totalBusinesses.toLocaleString(),
       icon: Building2,
     },
     {
-      label: "Reviews Generated",
-      value: currentData.reviewsGenerated.toLocaleString(),
-      change: "+12%",
-      trend: "up",
-      icon: Star,
+      label: "Total Reviews",
+      value: metrics.totalReviews.toLocaleString(),
+      icon: MessageSquare,
     },
     {
-      label: "User Sessions",
-      value: "12,456",
-      change: "+23%",
-      trend: "up",
+      label: "Total Clients",
+      value: metrics.totalClients.toLocaleString(),
       icon: Users,
     },
   ];
@@ -164,25 +284,31 @@ export default function SuperAdmin() {
         <EnhancedBroadcastAlert />
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-            <p className="text-muted-foreground">
-              Software performance and user analytics
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Live data from Supabase · Last refreshed {lastRefreshed.toLocaleTimeString()}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchMetrics}
+              disabled={loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
             <Button variant="outline" onClick={toggleMetrics} className="gap-2">
-              {hideMetrics ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
+              {hideMetrics ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               {hideMetrics ? "Show Metrics" : "Hide Metrics"}
             </Button>
             <Select value={timeFrame} onValueChange={setTimeFrame}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select time frame" />
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Time frame" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="1d">Last 24 Hours</SelectItem>
@@ -197,167 +323,106 @@ export default function SuperAdmin() {
           </div>
         </div>
 
-        {/* Key Performance Metrics - Always visible, values conditionally hidden */}
+        {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Active Users
-              </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {hideMetrics ? "***" : currentData.activeUsers.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground flex items-center">
-                <ArrowUp className="h-3 w-3 mr-1 text-green-500" />
-                {hideMetrics ? "Hidden" : "+12% from last period"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Daily Active Users
-              </CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {hideMetrics
-                  ? "***"
-                  : currentData.dailyActiveUsers.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground flex items-center">
-                <ArrowUp className="h-3 w-3 mr-1 text-green-500" />
-                {hideMetrics ? "Hidden" : "+8% from last period"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">New Signups</CardTitle>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {hideMetrics ? "***" : currentData.newSignups.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground flex items-center">
-                <ArrowUp className="h-3 w-3 mr-1 text-green-500" />
-                {hideMetrics ? "Hidden" : "+23% from last period"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                User Retention
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {hideMetrics ? "***%" : `${currentData.userRetention}%`}
-              </div>
-              <p className="text-xs text-muted-foreground flex items-center">
-                <ArrowUp className="h-3 w-3 mr-1 text-green-500" />
-                {hideMetrics ? "Hidden" : "+5.2% from last period"}
-              </p>
-            </CardContent>
-          </Card>
+          {kpiCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Card key={card.label}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{card.label}</CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? (
+                      <div className="h-7 w-20 animate-pulse bg-muted rounded" />
+                    ) : hideMetrics ? (
+                      "•••"
+                    ) : (
+                      card.value
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    {!loading && card.trend && (
+                      card.trendUp
+                        ? <ArrowUp className="h-3 w-3 text-green-500 shrink-0" />
+                        : <ArrowDown className="h-3 w-3 text-red-500 shrink-0" />
+                    )}
+                    {hideMetrics ? "Hidden" : card.sub}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* Analytics Charts */}
+        {/* Charts Row */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* User Growth Chart */}
+          {/* User Signup Growth */}
           <Card>
             <CardHeader>
-              <CardTitle>User Growth Trends</CardTitle>
-              <CardDescription>
-                User acquisition and retention over time
-              </CardDescription>
+              <CardTitle>User Signup Trend</CardTitle>
+              <CardDescription>New users per month (last 7 months)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {userGrowthData.map((data, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 text-sm font-medium truncate">
-                        {data.period}
-                      </div>
-                      <div className="flex-1 bg-muted rounded-full h-2 relative min-w-[100px]">
+              {loading ? (
+                <div className="space-y-3">
+                  {[...Array(7)].map((_, i) => (
+                    <div key={i} className="h-6 w-full animate-pulse bg-muted rounded" />
+                  ))}
+                </div>
+              ) : monthlySignups.length === 0 || monthlySignups.every((m) => m.count === 0) ? (
+                <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
+                  No signup data available yet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {monthlySignups.map((m, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-sm font-medium w-14 shrink-0 text-muted-foreground">
+                        {m.month}
+                      </span>
+                      <div className="flex-1 bg-muted rounded-full h-2">
                         <div
-                          className="bg-blue-500 h-2 rounded-full transition-all"
-                          style={{
-                            width: `${Math.max((data.users / 3000) * 100, 10)}%`,
-                          }}
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max((m.count / maxMonthlyCount) * 100, m.count > 0 ? 4 : 0)}%` }}
                         />
                       </div>
+                      <span className="text-sm font-semibold w-6 text-right">{m.count}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium w-12 text-right">
-                        {data.users.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-green-600 w-10">
-                        {data.growth}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Platform Usage Analytics */}
+          {/* Platform Stats */}
           <Card>
             <CardHeader>
-              <CardTitle>Platform Usage</CardTitle>
-              <CardDescription>
-                Real-time system activity and engagement
-              </CardDescription>
+              <CardTitle>Platform Overview</CardTitle>
+              <CardDescription>Key counts from your database</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {usageMetrics.map((metric, index) => {
-                  const Icon = metric.icon;
+              <div className="space-y-3">
+                {platformStats.map((stat) => {
+                  const Icon = stat.icon;
                   return (
                     <div
-                      key={index}
+                      key={stat.label}
                       className="flex items-center justify-between p-3 bg-muted rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="h-5 w-5 text-blue-500" />
-                        <div>
-                          <p className="font-medium">{metric.label}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {metric.value} total
-                          </p>
-                        </div>
+                        <span className="font-medium">{stat.label}</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {metric.trend === "up" ? (
-                          <ArrowUp className="h-3 w-3 text-green-500" />
-                        ) : (
-                          <ArrowDown className="h-3 w-3 text-red-500" />
-                        )}
-                        <span
-                          className={`text-sm ${
-                            metric.trend === "up"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {metric.change}
+                      {loading ? (
+                        <div className="h-5 w-12 animate-pulse bg-background rounded" />
+                      ) : (
+                        <span className="font-bold text-lg">
+                          {hideMetrics ? "•••" : stat.value}
                         </span>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -374,9 +439,7 @@ export default function SuperAdmin() {
                 <Users className="h-5 w-5" />
                 User Management
               </CardTitle>
-              <CardDescription>
-                Manage all users and their accounts
-              </CardDescription>
+              <CardDescription>Manage all users and their accounts</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -402,9 +465,7 @@ export default function SuperAdmin() {
                 <Building2 className="h-5 w-5" />
                 Business Management
               </CardTitle>
-              <CardDescription>
-                Manage all businesses and their accounts
-              </CardDescription>
+              <CardDescription>Manage all businesses and their accounts</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -430,9 +491,7 @@ export default function SuperAdmin() {
                 <Building2 className="h-5 w-5" />
                 Agency Management
               </CardTitle>
-              <CardDescription>
-                Manage marketing agencies and partners
-              </CardDescription>
+              <CardDescription>Manage marketing agencies and partners</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -458,9 +517,7 @@ export default function SuperAdmin() {
                 <BarChart3 className="h-5 w-5" />
                 Analytics & Reports
               </CardTitle>
-              <CardDescription>
-                Financial metrics and system insights
-              </CardDescription>
+              <CardDescription>Financial metrics and system insights</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
