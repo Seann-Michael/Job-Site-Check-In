@@ -242,7 +242,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* ── LEFT: Login Form ── */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-center px-8 py-12 bg-background">
+      <div className="w-full lg:w-[38%] flex flex-col justify-center px-8 py-12 bg-background">
         <div className="mx-auto w-full max-w-sm">
 
           {/* Logo */}
@@ -410,7 +410,7 @@ export default function Login() {
 
       {/* ── RIGHT: Feature Slides ── */}
       <div
-        className={`hidden lg:flex lg:w-[55%] bg-gradient-to-br ${slide.color} transition-all duration-700 flex-col relative overflow-hidden`}
+        className={`hidden lg:flex lg:w-[62%] bg-gradient-to-br ${slide.color} transition-all duration-700 flex-col relative overflow-hidden`}
       >
         {/* Background decoration */}
         <div className="absolute inset-0 opacity-10">
