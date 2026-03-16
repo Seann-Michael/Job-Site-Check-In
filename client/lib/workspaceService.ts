@@ -212,7 +212,7 @@ class WorkspaceService {
       }
 
       if (existing) {
-        let subAccountId = ensureFormattedId(existing.sub_account_id);
+        let subAccountId = ensureFormattedId(existing.sub_account_id as string);
         if (subAccountId !== existing.sub_account_id) {
           // Update the stored ID to the formatted version
           await supabase
@@ -221,10 +221,10 @@ class WorkspaceService {
             .eq("id", userId);
         }
         return {
-          id: existing.id,
-          email: existing.email,
-          name: existing.name,
-          role: existing.role,
+          id: existing.id as string,
+          email: existing.email as string,
+          name: existing.name as string,
+          role: existing.role as string,
           subAccountId,
         };
       }
@@ -256,11 +256,11 @@ class WorkspaceService {
       }
 
       return {
-        id: inserted.id,
-        email: inserted.email,
-        name: inserted.name,
-        role: inserted.role,
-        subAccountId: ensureFormattedId(inserted.sub_account_id) ?? subAccountId,
+        id: inserted.id as string,
+        email: inserted.email as string,
+        name: inserted.name as string,
+        role: inserted.role as string,
+        subAccountId: ensureFormattedId(inserted.sub_account_id as string) ?? subAccountId,
       };
     } catch (err) {
       console.warn(

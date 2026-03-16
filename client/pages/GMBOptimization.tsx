@@ -226,12 +226,12 @@ export default function GMBOptimization() {
         supabase.from("gmb_audit_results").select("*").eq("business_id", bid).order("scanned_at", { ascending: false }).limit(20),
       ]);
 
-      if (profRes.data) setProfile(profRes.data as GMBProfile);
-      if (hoursRes.data) setHours(hoursRes.data as GMBHour[]);
-      if (qaRes.data) setQAs(qaRes.data as GMBQA[]);
-      if (catRes.data) setCategories(catRes.data as GMBCategory[]);
-      if (svcRes.data) setServices(svcRes.data as GMBService[]);
-      if (auditRes.data) setAuditResults(auditRes.data as AuditResult[]);
+      if (profRes.data) setProfile(profRes.data as unknown as GMBProfile);
+      if (hoursRes.data) setHours(hoursRes.data as unknown as GMBHour[]);
+      if (qaRes.data) setQAs(qaRes.data as unknown as GMBQA[]);
+      if (catRes.data) setCategories(catRes.data as unknown as GMBCategory[]);
+      if (svcRes.data) setServices(svcRes.data as unknown as GMBService[]);
+      if (auditRes.data) setAuditResults(auditRes.data as unknown as AuditResult[]);
     } catch (err) {
       console.error("Error loading GMB profile:", err);
     } finally {
@@ -308,7 +308,7 @@ export default function GMBOptimization() {
         });
 
         await supabase.from("gmb_hours").delete().eq("business_id", businessId);
-        await supabase.from("gmb_hours").insert(hoursData);
+        await supabase.from("gmb_hours").insert(hoursData as any[]);
         setHours(hoursData.map((h, i) => ({ ...h, id: String(i) })));
       }
 
@@ -325,8 +325,8 @@ export default function GMBOptimization() {
       const score = Math.round((good / auditItems.length) * 100);
       await supabase.from("gmb_profiles").update({ overall_score: score }).eq("business_id", businessId);
 
-      setProfile({ ...(savedProfile as GMBProfile), overall_score: score });
-      if (savedAudit) setAuditResults(savedAudit as AuditResult[]);
+      setProfile({ ...(savedProfile as unknown as GMBProfile), overall_score: score });
+      if (savedAudit) setAuditResults(savedAudit as unknown as AuditResult[]);
       setShowConnectFlow(false);
       setSelectedPlace(null);
       toast.success("Google My Business profile connected!");
@@ -388,7 +388,7 @@ export default function GMBOptimization() {
         .from("gmb_audit_results")
         .insert(auditItems.map((a) => ({ ...a, business_id: businessId })))
         .select();
-      if (savedAudit) setAuditResults(savedAudit as AuditResult[]);
+      if (savedAudit) setAuditResults(savedAudit as unknown as AuditResult[]);
 
       toast.success("Profile scanned and updated!");
     } catch (err: any) {
@@ -439,7 +439,7 @@ export default function GMBOptimization() {
         .insert({ business_id: businessId, question: newQA.question, answer: newQA.answer, author: "Business Owner", source: "manual" })
         .select().single();
       if (error) throw error;
-      setQAs((prev) => [data as GMBQA, ...prev]);
+      setQAs((prev) => [data as unknown as GMBQA, ...prev]);
       setNewQA({ question: "", answer: "" });
       toast.success("Q&A added!");
     } catch {
@@ -470,7 +470,7 @@ export default function GMBOptimization() {
         .insert({ business_id: businessId, ...newService, description: desc })
         .select().single();
       if (error) throw error;
-      setServices((prev) => [...prev, data as GMBService]);
+      setServices((prev) => [...prev, data as unknown as GMBService]);
       setNewService({ name: "", description: "", price: "", category: "", image_url: "" });
       toast.success("Service added!");
     } catch {
@@ -495,7 +495,7 @@ export default function GMBOptimization() {
         .insert({ business_id: businessId, name: newCategory, is_primary: false })
         .select().single();
       if (error) throw error;
-      setCategories((prev) => [...prev, data as GMBCategory]);
+      setCategories((prev) => [...prev, data as unknown as GMBCategory]);
       setNewCategory("");
       toast.success("Category added!");
     } catch {

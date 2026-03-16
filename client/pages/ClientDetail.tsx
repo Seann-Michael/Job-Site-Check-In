@@ -147,7 +147,7 @@ export default function ClientDetail() {
         .eq("id", id)
         .single();
       if (error) throw error;
-      setClient(data);
+      setClient(data as any);
 
       // Load linked projects
       const { data: projectData } = await supabase
@@ -155,7 +155,7 @@ export default function ClientDetail() {
         .select("id, name, status, type, created_at")
         .eq("client_id", id)
         .order("created_at", { ascending: false });
-      setProjects(projectData || []);
+      setProjects((projectData || []) as any);
 
       // Load media across all linked projects
       // Always load client-level media (no job)
@@ -180,13 +180,13 @@ export default function ClientDetail() {
             .in("project_id", projectIds).order("created_at", { ascending: false }),
         ]);
 
-        setMedia([...(clientImgData.data || []), ...(jobImgData.data || [])]);
-        setVideos([...(clientVidData.data || []), ...(jobVidData.data || [])]);
-        setDocuments([...(clientDocData.data || []), ...(jobDocData.data || [])]);
+        setMedia([...(clientImgData.data || []), ...(jobImgData.data || [])] as any);
+        setVideos([...(clientVidData.data || []), ...(jobVidData.data || [])] as any);
+        setDocuments([...(clientDocData.data || []), ...(jobDocData.data || [])] as any);
       } else {
-        setMedia(clientImgData.data || []);
-        setVideos(clientVidData.data || []);
-        setDocuments(clientDocData.data || []);
+        setMedia((clientImgData.data || []) as any);
+        setVideos((clientVidData.data || []) as any);
+        setDocuments((clientDocData.data || []) as any);
       }
 
       // Load reviews by client email match
@@ -196,7 +196,7 @@ export default function ClientDetail() {
           .select("id, rating, text, author, platform, date")
           .order("date", { ascending: false })
           .limit(20);
-        setReviews(reviewData || []);
+        setReviews((reviewData || []) as any);
       }
     } catch (err) {
       console.error(err);

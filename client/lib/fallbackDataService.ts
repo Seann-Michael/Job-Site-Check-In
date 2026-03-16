@@ -445,6 +445,7 @@ export class FallbackDataService {
       file_path: URL.createObjectURL(file),
       file_size: file.size,
       mime_type: file.type,
+      media_type: file.type.startsWith('video/') ? 'video' : 'image',
       category: metadata.category || 'general',
       description: metadata.description,
       is_featured: metadata.is_featured || false,

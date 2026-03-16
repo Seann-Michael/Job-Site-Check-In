@@ -637,7 +637,7 @@ export function SmartMediaUploader({
       if (fileExtension === "webp") return "image/webp";
       return "image/*";
     }
-    return file.file.type || "application/octet-stream";
+    return file.type || "application/octet-stream";
   }, []);
 
   // Get file icon (extension-first for macOS compatibility)
