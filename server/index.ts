@@ -9,10 +9,6 @@ import {
   handleMediaMetadata
 } from "./routes/media";
 import {
-  handleDataForSEOProxy,
-  handleDataForSEOStatus
-} from "./routes/dataforseo";
-import {
   handleSendSMS,
   handleTwilioWebhook,
   handleTwilioTest,
@@ -54,10 +50,6 @@ export function createServer() {
   // Public Media Routes
   app.get("/public/media/:publicId/:filename", handlePublicMedia);
   app.get("/public/media/thumbs/:size/:publicId/:filename", handleThumbnails);
-
-  // DataForSEO Routes
-  app.post("/api/dataforseo/proxy", handleDataForSEOProxy);
-  app.get("/api/dataforseo/status", handleDataForSEOStatus);
 
   // Twilio Routes
   app.post("/api/twilio/sms/send", handleSendSMS);

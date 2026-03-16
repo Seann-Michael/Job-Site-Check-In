@@ -221,7 +221,6 @@ export interface Review {
   platform:
     | "google"
     | "yelp"
-    | "facebook"
     | "tripadvisor"
     | "better_business_bureau"
     | "glassdoor"

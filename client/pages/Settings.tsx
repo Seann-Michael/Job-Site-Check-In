@@ -130,7 +130,6 @@ interface SettingsData {
   timeFormat: string; // 12h or 24h
 
   // Project Settings
-  autoPostFacebook: boolean;
   autoPostGoogleMyBusiness: boolean;
   autoPostRssFeed: boolean;
   aiPromptForDescriptions: boolean;
@@ -138,7 +137,6 @@ interface SettingsData {
   autoArchiveDays: number;
 
   // Integrations
-  facebookConnected: boolean;
   googleMyBusinessConnected: boolean;
   goHighLevelApiKey: string;
   webhooks: WebhookItem[];
@@ -332,7 +330,6 @@ const createDefaultSettings = (): SettingsData => ({
   timeFormat: "12h", // Added time format
 
   // Project Settings
-  autoPostFacebook: false,
   autoPostGoogleMyBusiness: true,
   autoPostRssFeed: false,
   aiPromptForDescriptions: true,
@@ -341,7 +338,6 @@ const createDefaultSettings = (): SettingsData => ({
   autoArchiveDays: 30,
 
   // Integrations
-  facebookConnected: false,
   googleMyBusinessConnected: true,
   goHighLevelApiKey: "",
   webhooks: [],
@@ -1316,21 +1312,6 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Auto-post to Facebook</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Automatically post completed projects to Facebook
-                        </p>
-                      </div>
-                      <Switch
-                        checked={settings.autoPostFacebook || false}
-                        onCheckedChange={(checked) =>
-                          updateSetting("autoPostFacebook", checked)
-                        }
-                      />
-                    </div>
-
                     <div className="flex items-center justify-between">
                       <div>
                         <Label>Auto-post to Google My Business</Label>

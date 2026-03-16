@@ -234,21 +234,6 @@ const availableApps = [
       },
     ],
   },
-  {
-    type: "action",
-    app: "facebook",
-    name: "Facebook",
-    icon: MessageSquare,
-    color: "bg-blue-600",
-    actions: [
-      {
-        id: "post_to_facebook",
-        name: "Post to Facebook",
-        description: "Create a post on Facebook",
-      },
-    ],
-  },
-
   // Actions - Workflow Management
   {
     type: "action",

@@ -50,7 +50,6 @@ const sampleBusinesses: Business[] = [
       sunday: { open: '12:00', close: '21:00', closed: false }
     },
     social_media: {
-      facebook: 'https://facebook.com/tonysitalian',
       instagram: 'https://instagram.com/tonysitalian',
       yelp: 'https://yelp.com/biz/tonys-italian-restaurant'
     },
