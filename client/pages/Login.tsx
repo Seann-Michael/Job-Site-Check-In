@@ -254,7 +254,7 @@ export default function Login() {
           </div>
 
           <h1 className="text-3xl font-bold mb-1">Welcome back</h1>
-          <p className="text-muted-foreground mb-8">Sign in to manage your Google Business Profile</p>
+          <p className="text-muted-foreground mb-8">Sign in to manage your account</p>
 
           {/* ── Google Sign-In (primary) ── */}
           <Button
@@ -371,10 +371,10 @@ export default function Login() {
             </Link>
           </p>
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-sm">
             Don't have an account?{" "}
-            <Link to="/signup" className="text-primary font-medium hover:underline">
-              Get started free
+            <Link to="/signup" className="text-primary font-semibold hover:underline text-base">
+              Sign Up Here
             </Link>
           </p>
 
