@@ -66,13 +66,23 @@ interface MessageTemplate {
   variables: string[] | null;
 }
 
-const EMPTY_FORM = {
+interface TemplateForm {
+  name: string;
+  subject: string;
+  content: string;
+  type: "email" | "sms" | "push" | "in-app";
+  category: "welcome" | "notification" | "marketing" | "transactional";
+  status: "active" | "draft" | "archived";
+  variables: string;
+}
+
+const EMPTY_FORM: TemplateForm = {
   name: "",
   subject: "",
   content: "",
-  type: "email" as const,
-  category: "notification" as const,
-  status: "draft" as const,
+  type: "email",
+  category: "notification",
+  status: "draft",
   variables: "",
 };
 
@@ -88,7 +98,7 @@ export default function SuperAdminMessageTemplatesEmbedded() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [formData, setFormData] = useState<TemplateForm>(EMPTY_FORM);
 
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
@@ -320,7 +330,7 @@ export default function SuperAdminMessageTemplatesEmbedded() {
                   <Label htmlFor="template-type">Type</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(v: any) => setFormData((p) => ({ ...p, type: v }))}
+                    onValueChange={(v: TemplateForm["type"]) => setFormData((p) => ({ ...p, type: v }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -337,7 +347,7 @@ export default function SuperAdminMessageTemplatesEmbedded() {
                   <Label htmlFor="template-category">Category</Label>
                   <Select
                     value={formData.category}
-                    onValueChange={(v: any) => setFormData((p) => ({ ...p, category: v }))}
+                    onValueChange={(v: TemplateForm["category"]) => setFormData((p) => ({ ...p, category: v }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -354,7 +364,7 @@ export default function SuperAdminMessageTemplatesEmbedded() {
                   <Label htmlFor="template-status">Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(v: any) => setFormData((p) => ({ ...p, status: v }))}
+                    onValueChange={(v: TemplateForm["status"]) => setFormData((p) => ({ ...p, status: v }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
