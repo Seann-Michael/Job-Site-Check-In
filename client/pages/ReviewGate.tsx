@@ -8,7 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Copy, CheckCircle, Star, MapPin, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "sonner";
 
-// ── YouTube / video helpers ───────────────────────────────────────────────────
+// ── Video helpers ─────────────────────────────────────────────────────────────
+function extractIframeSrc(input: string): string | null {
+  if (!input || !input.trim().startsWith("<")) return null;
+  const match = input.match(/src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
+
 function getYouTubeVideoId(url: string): string | null {
   if (!url) return null;
   const watchMatch = url.match(/[?&]v=([^&#]+)/);
@@ -21,6 +27,21 @@ function getYouTubeVideoId(url: string): string | null {
 }
 
 function VideoPlayer({ src }: { src: string }) {
+  // 1. Raw <iframe> embed code — extract src and use directly
+  const iframeSrc = extractIframeSrc(src);
+  if (iframeSrc) {
+    return (
+      <iframe
+        src={iframeSrc}
+        className="w-full rounded-lg aspect-video"
+        allowFullScreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        title="Business owner video"
+      />
+    );
+  }
+
+  // 2. YouTube watch / short URL — convert to embed
   const ytId = getYouTubeVideoId(src);
   if (ytId) {
     return (
@@ -28,11 +49,13 @@ function VideoPlayer({ src }: { src: string }) {
         src={`https://www.youtube.com/embed/${ytId}`}
         className="w-full rounded-lg aspect-video"
         allowFullScreen
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         title="Business owner video"
       />
     );
   }
+
+  // 3. Direct video file
   return (
     <video controls className="w-full rounded-lg shadow-lg bg-black aspect-video">
       <source src={src} type="video/mp4" />

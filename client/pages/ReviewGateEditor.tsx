@@ -29,7 +29,15 @@ import {
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
 
-// ── YouTube helpers ───────────────────────────────────────────────────────────
+// ── Video helpers ─────────────────────────────────────────────────────────────
+
+/** Extract the src attribute from a raw <iframe ...> embed code string. */
+function extractIframeSrc(input: string): string | null {
+  if (!input || !input.trim().startsWith("<")) return null;
+  const match = input.match(/src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
+
 function getYouTubeVideoId(url: string): string | null {
   if (!url) return null;
   // youtube.com/watch?v=ID
@@ -38,7 +46,7 @@ function getYouTubeVideoId(url: string): string | null {
   // youtu.be/ID
   const shortMatch = url.match(/youtu\.be\/([^?&#]+)/);
   if (shortMatch) return shortMatch[1];
-  // youtube.com/embed/ID (already an embed)
+  // youtube.com/embed/ID  (already an embed URL or from iframe src)
   const embedMatch = url.match(/youtube\.com\/embed\/([^?&#]+)/);
   if (embedMatch) return embedMatch[1];
   return null;
@@ -53,35 +61,52 @@ function isDirectVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg|avi)($|\?)/i.test(url);
 }
 
-// ── VideoEmbed — renders correctly for YouTube or direct video ────────────────
-function VideoEmbed({ url }: { url: string }) {
-  const embedUrl = getYouTubeEmbedUrl(url);
+/**
+ * Resolve whatever the user pasted (watch URL, short URL, iframe code, direct
+ * file URL) into a renderable embed URL or a direct src string.
+ * Returns { type: "iframe" | "video", src }.
+ */
+function resolveVideoInput(raw: string): { type: "iframe" | "video"; src: string } | null {
+  if (!raw) return null;
 
-  if (embedUrl) {
+  // 1. Raw <iframe> embed code → extract src directly
+  const iframeSrc = extractIframeSrc(raw);
+  if (iframeSrc) return { type: "iframe", src: iframeSrc };
+
+  // 2. YouTube watch / short / embed URL → convert to embed
+  const ytEmbed = getYouTubeEmbedUrl(raw);
+  if (ytEmbed) return { type: "iframe", src: ytEmbed };
+
+  // 3. Direct video file or Supabase storage URL
+  if (isDirectVideoUrl(raw) || raw.startsWith("blob:") || raw.includes("supabase")) {
+    return { type: "video", src: raw };
+  }
+
+  // 4. Any other URL — try as a video src
+  return { type: "video", src: raw };
+}
+
+// ── VideoEmbed — renders correctly for any supported input ────────────────────
+function VideoEmbed({ url }: { url: string }) {
+  const resolved = resolveVideoInput(url);
+  if (!resolved) return null;
+
+  if (resolved.type === "iframe") {
     return (
       <iframe
-        src={embedUrl}
+        src={resolved.src}
         className="w-full rounded-lg aspect-video"
         allowFullScreen
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         title="Business owner video"
       />
     );
   }
 
-  if (isDirectVideoUrl(url) || url.startsWith("blob:") || url.includes("supabase")) {
-    return (
-      <video controls className="w-full rounded-lg aspect-video bg-black">
-        <source src={url} />
-        Your browser does not support the video tag.
-      </video>
-    );
-  }
-
-  // Unknown URL — try as video anyway
   return (
     <video controls className="w-full rounded-lg aspect-video bg-black">
-      <source src={url} />
+      <source src={resolved.src} />
+      Your browser does not support the video tag.
     </video>
   );
 }
@@ -747,21 +772,27 @@ export default function ReviewGateEditor() {
                   </div>
                 )}
 
-                {/* YouTube / URL input */}
+                {/* YouTube / iframe / URL input */}
                 <Field
-                  label="Paste a YouTube or video URL"
-                  hint={getYouTubeVideoId(settings.reviewGateVideoUrl) ? "✓ YouTube video detected — will embed automatically" : "YouTube, direct MP4/WebM/MOV links supported"}
+                  label="Paste a video URL or embed code"
+                  hint={
+                    extractIframeSrc(settings.reviewGateVideoUrl)
+                      ? "✓ Iframe embed code detected — will render directly"
+                      : getYouTubeVideoId(settings.reviewGateVideoUrl)
+                      ? "✓ YouTube video detected — will embed automatically"
+                      : "YouTube URL, YouTube iframe embed code, or direct MP4/WebM link"
+                  }
                 >
                   <div className="relative">
                     <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
-                      {getYouTubeVideoId(settings.reviewGateVideoUrl)
+                      {extractIframeSrc(settings.reviewGateVideoUrl) || getYouTubeVideoId(settings.reviewGateVideoUrl)
                         ? <Youtube className="h-4 w-4 text-red-500" />
                         : <Film className="h-4 w-4 text-muted-foreground" />}
                     </div>
                     <Input
                       value={settings.reviewGateVideoUrl}
                       onChange={(e) => update("reviewGateVideoUrl", e.target.value)}
-                      placeholder="https://youtube.com/watch?v=... or direct video URL"
+                      placeholder='https://youtube.com/watch?v=... or paste <iframe src="..."> embed code'
                       className="pl-8"
                     />
                   </div>
