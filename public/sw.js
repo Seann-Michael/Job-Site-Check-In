@@ -1,8 +1,10 @@
-const CACHE_NAME = "local-seo-ranker-v2.0.0";
-const STATIC_CACHE = "lsr-static-v2";
-const DYNAMIC_CACHE = "lsr-dynamic-v2";
-const IMAGE_CACHE = "lsr-images-v2";
-const API_CACHE = "lsr-api-v2";
+// v3 — bumped to evict cached JS chunks that contained a mismatched react-is@19
+// which caused "Invalid hook call" / duplicate React instance errors.
+const CACHE_NAME = "local-seo-ranker-v3.0.0";
+const STATIC_CACHE = "lsr-static-v3";
+const DYNAMIC_CACHE = "lsr-dynamic-v3";
+const IMAGE_CACHE = "lsr-images-v3";
+const API_CACHE = "lsr-api-v3";
 
 // Enhanced cache configuration
 const CACHE_CONFIG = {

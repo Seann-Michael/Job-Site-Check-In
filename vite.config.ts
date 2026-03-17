@@ -69,7 +69,18 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       entries: ["index.html"],
       exclude: ["test-google-maps.html", "public/offline.html"],
-      include: ["recharts"],
+      // Explicitly include React packages to ensure Vite pre-bundles them as a
+      // single unified chunk, preventing the "Invalid hook call" error that
+      // occurs when multiple React instances exist (e.g. from a stale cache or
+      // a nested react-is version shipped by prop-types).
+      include: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react-is",
+        "react-router-dom",
+        "recharts",
+      ],
     },
   };
 });
