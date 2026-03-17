@@ -72,8 +72,16 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests and chrome-extension requests
-  if (request.method !== "GET" || url.protocol === "chrome-extension:") {
+  // Skip non-GET requests, chrome-extension requests, and cross-origin requests.
+  // Cross-origin requests (e.g. Supabase REST API at *.supabase.co) must NOT be
+  // intercepted here — applying a timeout and falling back to cached HTML would
+  // return the wrong content-type and cause "Load failed" / "Unexpected token '<'"
+  // errors in the consuming code.
+  if (
+    request.method !== "GET" ||
+    url.protocol === "chrome-extension:" ||
+    url.origin !== self.location.origin
+  ) {
     return;
   }
 

@@ -568,7 +568,19 @@ export default function KnowledgeBase() {
                 <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">No articles published yet</p>
                 {isSuper && (
-                  <Button className="mt-3 gap-2" size="sm" onClick={() => setIsCreating(true)}>
+                  <Button
+                    className="mt-3 gap-2"
+                    size="sm"
+                    onClick={() => {
+                      setEditingArticle({
+                        id: "", title: "", description: "", category: "getting-started",
+                        user_type: "all", content: "", tags: [], status: "published",
+                        views: 0, rating: 0, is_popular: false, created_by: "",
+                        created_at: "", updated_at: "",
+                      });
+                      setIsCreating(true);
+                    }}
+                  >
                     <Plus className="h-4 w-4" /> Create First Article
                   </Button>
                 )}
