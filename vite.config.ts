@@ -80,6 +80,16 @@ export default defineConfig(({ mode }) => {
         "react-is",
         "react-router-dom",
         "recharts",
+        // Radix UI primitives — pre-bundle so Vite doesn't trigger a
+        // "new dependencies optimized: reloading" cycle mid-import which
+        // causes "Importing a module script failed" in lazy-loaded pages.
+        "@radix-ui/react-slider",
+        "@radix-ui/react-separator",
+        "@radix-ui/react-tooltip",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-select",
+        "@radix-ui/react-tabs",
+        "@radix-ui/react-dropdown-menu",
       ],
     },
   };
