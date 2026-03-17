@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { StarRating } from "@/components/StarRating";
 import {
   Save,
@@ -16,16 +17,189 @@ import {
   Copy,
   Star,
   Building2,
-  Link,
   FileText,
-  Settings2,
-  ImageIcon,
   Video,
   RefreshCw,
-  CheckCircle,
   Smartphone,
+  Upload,
+  X,
+  Youtube,
+  Film,
 } from "lucide-react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
+
+// ── YouTube helpers ───────────────────────────────────────────────────────────
+function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  // youtube.com/watch?v=ID
+  const watchMatch = url.match(/[?&]v=([^&#]+)/);
+  if (watchMatch) return watchMatch[1];
+  // youtu.be/ID
+  const shortMatch = url.match(/youtu\.be\/([^?&#]+)/);
+  if (shortMatch) return shortMatch[1];
+  // youtube.com/embed/ID (already an embed)
+  const embedMatch = url.match(/youtube\.com\/embed\/([^?&#]+)/);
+  if (embedMatch) return embedMatch[1];
+  return null;
+}
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  const id = getYouTubeVideoId(url);
+  return id ? `https://www.youtube.com/embed/${id}` : null;
+}
+
+function isDirectVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|mov|ogg|avi)($|\?)/i.test(url);
+}
+
+// ── VideoEmbed — renders correctly for YouTube or direct video ────────────────
+function VideoEmbed({ url }: { url: string }) {
+  const embedUrl = getYouTubeEmbedUrl(url);
+
+  if (embedUrl) {
+    return (
+      <iframe
+        src={embedUrl}
+        className="w-full rounded-lg aspect-video"
+        allowFullScreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        title="Business owner video"
+      />
+    );
+  }
+
+  if (isDirectVideoUrl(url) || url.startsWith("blob:") || url.includes("supabase")) {
+    return (
+      <video controls className="w-full rounded-lg aspect-video bg-black">
+        <source src={url} />
+        Your browser does not support the video tag.
+      </video>
+    );
+  }
+
+  // Unknown URL — try as video anyway
+  return (
+    <video controls className="w-full rounded-lg aspect-video bg-black">
+      <source src={url} />
+    </video>
+  );
+}
+
+// ── VideoUploader ─────────────────────────────────────────────────────────────
+function VideoUploader({
+  onUpload,
+  onClear,
+  currentUrl,
+}: {
+  onUpload: (url: string) => void;
+  onClear: () => void;
+  currentUrl: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith("video/")) {
+      toast.error("Please select a video file (MP4, WebM, or MOV)");
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("File must be under 100 MB");
+      return;
+    }
+
+    // Show local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreview(objectUrl);
+
+    setUploading(true);
+    setProgress(10);
+    try {
+      const ext = file.name.split(".").pop() ?? "mp4";
+      const path = `review-gate-videos/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${ext}`;
+
+      setProgress(30);
+      const { error } = await supabaseClient.storage
+        .from("media")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+
+      if (error) throw error;
+      setProgress(80);
+
+      const {
+        data: { publicUrl },
+      } = supabaseClient.storage.from("media").getPublicUrl(path);
+
+      setProgress(100);
+      onUpload(publicUrl);
+      toast.success("Video uploaded!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + (err?.message ?? "Unknown error"));
+      setLocalPreview(null);
+    } finally {
+      setUploading(false);
+      setTimeout(() => setProgress(0), 800);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div
+        className={`relative border-2 border-dashed rounded-lg transition-colors ${
+          uploading
+            ? "border-primary/40 bg-primary/5"
+            : "border-muted-foreground/25 hover:border-primary/50 cursor-pointer"
+        }`}
+        onClick={() => !uploading && inputRef.current?.click()}
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,video/ogg"
+          className="hidden"
+          onChange={handleInputChange}
+          disabled={uploading}
+        />
+        <div className="flex flex-col items-center gap-2 p-5 text-center">
+          <div className="p-2 bg-muted rounded-full">
+            <Upload className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xs font-medium">
+              {uploading ? "Uploading…" : "Click or drag a video file here"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              MP4, WebM, MOV · max 100 MB
+            </p>
+          </div>
+        </div>
+        {uploading && (
+          <div className="px-4 pb-4">
+            <Progress value={progress} className="h-1.5" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── Settings shape ────────────────────────────────────────────────────────────
 interface ReviewGateSettings {
@@ -124,9 +298,7 @@ function ReviewGatePreview({ s }: { s: ReviewGateSettings }) {
             <p className="text-xs font-medium text-blue-900 text-center mb-2">
               A Message from {s.businessName}
             </p>
-            <div className="bg-gray-100 rounded-lg aspect-video flex items-center justify-center">
-              <Video className="h-8 w-8 text-gray-400" />
-            </div>
+            <VideoEmbed url={s.reviewGateVideoUrl} />
           </div>
         )}
 
@@ -556,20 +728,58 @@ export default function ReviewGateEditor() {
 
             <Separator />
 
-            {/* Advanced */}
+            {/* Video */}
             <div>
-              <SectionHeader icon={Video} title="Optional Video Message" />
+              <SectionHeader icon={Video} title="Business Owner Video (Optional)" />
               <div className="space-y-4">
+
+                {/* Current video preview (small) */}
+                {settings.reviewGateVideoUrl && (
+                  <div className="rounded-lg overflow-hidden border border-border relative">
+                    <VideoEmbed url={settings.reviewGateVideoUrl} />
+                    <button
+                      onClick={() => update("reviewGateVideoUrl", "")}
+                      className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                      title="Remove video"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* YouTube / URL input */}
                 <Field
-                  label="Business Owner Video URL"
-                  hint="Direct link to an MP4 video file. Leave blank to hide the video section."
+                  label="Paste a YouTube or video URL"
+                  hint={getYouTubeVideoId(settings.reviewGateVideoUrl) ? "✓ YouTube video detected — will embed automatically" : "YouTube, direct MP4/WebM/MOV links supported"}
                 >
-                  <Input
-                    value={settings.reviewGateVideoUrl}
-                    onChange={(e) => update("reviewGateVideoUrl", e.target.value)}
-                    placeholder="https://example.com/video.mp4"
-                  />
+                  <div className="relative">
+                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+                      {getYouTubeVideoId(settings.reviewGateVideoUrl)
+                        ? <Youtube className="h-4 w-4 text-red-500" />
+                        : <Film className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                    <Input
+                      value={settings.reviewGateVideoUrl}
+                      onChange={(e) => update("reviewGateVideoUrl", e.target.value)}
+                      placeholder="https://youtube.com/watch?v=... or direct video URL"
+                      className="pl-8"
+                    />
+                  </div>
                 </Field>
+
+                {/* Divider */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">or upload a file</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+
+                {/* File uploader */}
+                <VideoUploader
+                  currentUrl={settings.reviewGateVideoUrl}
+                  onUpload={(url) => update("reviewGateVideoUrl", url)}
+                  onClear={() => update("reviewGateVideoUrl", "")}
+                />
               </div>
             </div>
 

@@ -8,6 +8,40 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Copy, CheckCircle, Star, MapPin, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "sonner";
 
+// ── YouTube / video helpers ───────────────────────────────────────────────────
+function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  const watchMatch = url.match(/[?&]v=([^&#]+)/);
+  if (watchMatch) return watchMatch[1];
+  const shortMatch = url.match(/youtu\.be\/([^?&#]+)/);
+  if (shortMatch) return shortMatch[1];
+  const embedMatch = url.match(/youtube\.com\/embed\/([^?&#]+)/);
+  if (embedMatch) return embedMatch[1];
+  return null;
+}
+
+function VideoPlayer({ src }: { src: string }) {
+  const ytId = getYouTubeVideoId(src);
+  if (ytId) {
+    return (
+      <iframe
+        src={`https://www.youtube.com/embed/${ytId}`}
+        className="w-full rounded-lg aspect-video"
+        allowFullScreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        title="Business owner video"
+      />
+    );
+  }
+  return (
+    <video controls className="w-full rounded-lg shadow-lg bg-black aspect-video">
+      <source src={src} type="video/mp4" />
+      <source src={src} />
+      Your browser does not support the video tag.
+    </video>
+  );
+}
+
 interface ReviewRequest {
   id: string;
   businessName: string;
@@ -252,17 +286,7 @@ export default function ReviewGate() {
               </h3>
             </div>
             <div className="max-w-lg mx-auto">
-              <video
-                controls
-                className="w-full rounded-lg shadow-lg"
-                poster="/api/placeholder/600/400"
-              >
-                <source
-                  src={reviewRequest.businessOwnerVideo}
-                  type="video/mp4"
-                />
-                Your browser does not support the video tag.
-              </video>
+              <VideoPlayer src={reviewRequest.businessOwnerVideo!} />
             </div>
           </div>
         )}
