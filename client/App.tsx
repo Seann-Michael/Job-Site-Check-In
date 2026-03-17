@@ -46,6 +46,7 @@ const Support = lazy(() => import("./pages/Support"));
 const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const ReviewGate = lazy(() => import("./pages/ReviewGate"));
+const ReviewGateEditor = lazy(() => import("./pages/ReviewGateEditor"));
 const AdminReviews = lazy(() => import("./pages/AdminReviews"));
 const ReviewDetail = lazy(() => import("./pages/ReviewDetail"));
 const IdeaDetail = lazy(() => import("./pages/IdeaDetail"));
@@ -137,6 +138,14 @@ const App = () => (
                 <Route path="/public/job/:id" element={<PublicProject />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
+                <Route
+                  path="/admin/review-gate-editor"
+                  element={
+                    <ProtectedRoute>
+                      <ReviewGateEditor />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/onboard/agency/:agencyToken"
                   element={<PublicOnboarding />}
