@@ -52,6 +52,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   RefreshCw,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -732,6 +733,10 @@ export default function AdminReviews() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/admin/review-gate-editor")} className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Edit Review Gate
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/review-demo")} className="gap-2">
                   <ExternalLink className="h-4 w-4" />
                   Preview Review Gate
