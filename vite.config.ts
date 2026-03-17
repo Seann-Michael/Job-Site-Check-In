@@ -62,6 +62,9 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./client"),
         "@shared": path.resolve(__dirname, "./shared"),
       },
+      // Force a single copy of React packages to prevent "Invalid hook call"
+      // errors caused by mismatched React versions (e.g. react-is@19 vs react@18)
+      dedupe: ["react", "react-dom", "react-is", "react-router-dom"],
     },
     optimizeDeps: {
       entries: ["index.html"],
