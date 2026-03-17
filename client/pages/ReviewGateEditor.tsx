@@ -25,6 +25,7 @@ import {
   X,
   Youtube,
   Film,
+  Code,
 } from "lucide-react";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
@@ -241,6 +242,7 @@ interface ReviewGateSettings {
   reviewGateSeoKeywords: string;
   serviceCategory: string;
   reviewGateVideoUrl: string;
+  reviewGateIframeCode: string;
   reviewGateThankYouMessage: string;
   reviewGateButtonText: string;
 }
@@ -260,6 +262,7 @@ const DEFAULTS: ReviewGateSettings = {
   reviewGateSeoKeywords: "kitchen renovation, custom cabinets, home remodeling, Springfield contractor",
   serviceCategory: "Home Renovation",
   reviewGateVideoUrl: "",
+  reviewGateIframeCode: "",
   reviewGateThankYouMessage: "",
   reviewGateButtonText: "Submit My Review",
 };
@@ -317,13 +320,15 @@ function ReviewGatePreview({ s }: { s: ReviewGateSettings }) {
           </h2>
         </div>
 
-        {/* Video (if set) */}
-        {s.reviewGateVideoUrl && (
+        {/* Iframe / Video embed (if set) */}
+        {(s.reviewGateIframeCode || s.reviewGateVideoUrl) && (
           <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-100 mb-6">
             <p className="text-xs font-medium text-blue-900 text-center mb-2">
               A Message from {s.businessName}
             </p>
-            <VideoEmbed url={s.reviewGateVideoUrl} />
+            {s.reviewGateIframeCode
+              ? <IframeEmbed code={s.reviewGateIframeCode} />
+              : <VideoEmbed url={s.reviewGateVideoUrl} />}
           </div>
         )}
 
@@ -440,6 +445,27 @@ function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: 
   );
 }
 
+// ── IframeEmbed — safely renders a pasted <iframe> embed code ───────────────
+function IframeEmbed({ code }: { code: string }) {
+  const src = extractIframeSrc(code);
+  if (!src) {
+    return (
+      <div className="w-full rounded-lg aspect-video bg-muted flex items-center justify-center text-xs text-muted-foreground">
+        Invalid embed code — make sure it contains a src attribute.
+      </div>
+    );
+  }
+  return (
+    <iframe
+      src={src}
+      className="w-full rounded-lg aspect-video"
+      allowFullScreen
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      title="Custom embed"
+    />
+  );
+}
+
 // ── Field Component ───────────────────────────────────────────────────────────
 function Field({
   label,
@@ -486,6 +512,7 @@ export default function ReviewGateEditor() {
           reviewGateSeoKeywords: saved.reviewGateSeoKeywords || DEFAULTS.reviewGateSeoKeywords,
           serviceCategory: saved.businessTypes?.[0] || saved.serviceCategory || DEFAULTS.serviceCategory,
           reviewGateVideoUrl: saved.reviewGateVideoUrl || DEFAULTS.reviewGateVideoUrl,
+          reviewGateIframeCode: saved.reviewGateIframeCode || DEFAULTS.reviewGateIframeCode,
           reviewGateThankYouMessage: saved.reviewGateThankYouMessage || DEFAULTS.reviewGateThankYouMessage,
           reviewGateButtonText: saved.reviewGateButtonText || DEFAULTS.reviewGateButtonText,
         });
@@ -529,6 +556,7 @@ export default function ReviewGateEditor() {
         reviewGateSeoKeywords: settings.reviewGateSeoKeywords,
         serviceCategory: settings.serviceCategory,
         reviewGateVideoUrl: settings.reviewGateVideoUrl,
+        reviewGateIframeCode: settings.reviewGateIframeCode,
         reviewGateThankYouMessage: settings.reviewGateThankYouMessage,
         reviewGateButtonText: settings.reviewGateButtonText,
       };
@@ -811,6 +839,51 @@ export default function ReviewGateEditor() {
                   onUpload={(url) => update("reviewGateVideoUrl", url)}
                   onClear={() => update("reviewGateVideoUrl", "")}
                 />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Custom iframe embed */}
+            <div>
+              <SectionHeader icon={Code} title="Custom Iframe Embed (Optional)" />
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Paste any <code className="bg-muted px-1 rounded">&lt;iframe&gt;</code> embed code here — YouTube, Loom, Vimeo, or any other platform.
+                  This takes priority over the video URL above.
+                </p>
+
+                {/* Live preview of pasted iframe */}
+                {settings.reviewGateIframeCode && extractIframeSrc(settings.reviewGateIframeCode) && (
+                  <div className="rounded-lg overflow-hidden border border-border relative">
+                    <IframeEmbed code={settings.reviewGateIframeCode} />
+                    <button
+                      onClick={() => update("reviewGateIframeCode", "")}
+                      className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                      title="Remove embed"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <Field
+                  label="Paste iframe embed code"
+                  hint={
+                    extractIframeSrc(settings.reviewGateIframeCode)
+                      ? `✓ Valid embed detected — src: ${extractIframeSrc(settings.reviewGateIframeCode)!.slice(0, 50)}…`
+                      : settings.reviewGateIframeCode
+                      ? "⚠ Could not find a src attribute in the embed code"
+                      : 'Example: <iframe src="https://..." allowfullscreen></iframe>'
+                  }
+                >
+                  <Textarea
+                    value={settings.reviewGateIframeCode}
+                    onChange={(e) => update("reviewGateIframeCode", e.target.value)}
+                    placeholder={'<iframe src="https://www.youtube.com/embed/VIDEO_ID" title="..." frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'}
+                    className="min-h-[90px] resize-none font-mono text-xs"
+                  />
+                </Field>
               </div>
             </div>
 
