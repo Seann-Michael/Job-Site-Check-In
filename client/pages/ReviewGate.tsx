@@ -80,6 +80,7 @@ interface ReviewRequest {
   businessState: string;
   serviceCategory: string;
   businessOwnerVideo?: string;
+  iframeCode?: string;
 }
 
 export default function ReviewGate() {
@@ -140,6 +141,7 @@ export default function ReviewGate() {
         businessState: saved.state || "Illinois",
         serviceCategory: (saved.businessTypes?.[0]) || "Home Renovation",
         businessOwnerVideo: saved.reviewGateVideoUrl || undefined,
+        iframeCode: saved.reviewGateIframeCode || undefined,
       };
 
       // Load copy/text settings
@@ -300,8 +302,8 @@ export default function ReviewGate() {
           <h2 className="text-3xl font-bold text-blue-900">{gateSettings.heading}</h2>
         </div>
 
-        {/* Business Owner Video */}
-        {reviewRequest.businessOwnerVideo && (
+        {/* Business Owner Video / Custom Iframe */}
+        {(reviewRequest.iframeCode || reviewRequest.businessOwnerVideo) && (
           <div className="bg-white rounded-xl p-6 shadow-md border border-blue-100 mb-8">
             <div className="text-center mb-4">
               <h3 className="font-semibold text-blue-900 mb-2">
@@ -309,7 +311,20 @@ export default function ReviewGate() {
               </h3>
             </div>
             <div className="max-w-lg mx-auto">
-              <VideoPlayer src={reviewRequest.businessOwnerVideo!} />
+              {reviewRequest.iframeCode
+                ? (() => {
+                    const src = extractIframeSrc(reviewRequest.iframeCode!);
+                    return src ? (
+                      <iframe
+                        src={src}
+                        className="w-full rounded-lg aspect-video"
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        title="A message from the business"
+                      />
+                    ) : null;
+                  })()
+                : <VideoPlayer src={reviewRequest.businessOwnerVideo!} />}
             </div>
           </div>
         )}
