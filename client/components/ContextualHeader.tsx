@@ -89,12 +89,6 @@ export function ContextualHeader() {
 }
 
 function getPageConfig(pathname: string): PageConfig | null {
-  // Mock data - in real app, this could come from an API or context
-  const mockStats = {
-    projects: { total: "23", active: "8", revenue: "$147K" },
-    leads: { total: "15", qualified: "6", pipeline: "$89K" },
-  };
-
   switch (true) {
     case pathname === "/admin/jobs":
       return {
@@ -111,19 +105,7 @@ function getPageConfig(pathname: string): PageConfig | null {
           { label: "Filter Jobs", icon: Filter, onClick: () => {} },
           { label: "Refresh", icon: RefreshCw, onClick: () => {} },
         ],
-        quickStats: [
-          { label: "Total", value: mockStats.projects.total },
-          {
-            label: "Active",
-            value: mockStats.projects.active,
-            color: "success",
-          },
-          {
-            label: "Revenue",
-            value: mockStats.projects.revenue,
-            color: "success",
-          },
-        ],
+        quickStats: [],
         breadcrumbs: [
           { label: "Dashboard", href: "/admin/jobs" },
           { label: "Jobs" },
@@ -145,11 +127,7 @@ function getPageConfig(pathname: string): PageConfig | null {
           { label: "Profit Analysis", icon: BarChart3, onClick: () => {} },
           { label: "Export Data", icon: Download, onClick: () => {} },
         ],
-        quickStats: [
-          { label: "Total Revenue", value: "$247K", color: "success" },
-          { label: "Profit Margin", value: "28.5%", color: "success" },
-          { label: "Outstanding", value: "$45K", color: "warning" },
-        ],
+        quickStats: [],
         breadcrumbs: [
           { label: "Dashboard", href: "/admin/jobs" },
           { label: "Job Value" },

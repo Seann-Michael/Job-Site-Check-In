@@ -62,82 +62,12 @@ interface ErrorLog {
   resolved: boolean;
 }
 
-const mockErrorLogs: ErrorLog[] = [
-  {
-    id: "err_001",
-    timestamp: "2024-01-15T10:30:22Z",
-    severity: "critical",
-    component: "Settings Module",
-    message: "Cannot read property 'reviewSmsTemplate' of undefined",
-    stack:
-      "TypeError: Cannot read property 'reviewSmsTemplate' of undefined\n    at SettingsComponent.tsx:234:12\n    at updateState\n    at Object.useState",
-    userId: "user_123",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    url: "/admin/settings",
-    count: 23,
-    resolved: false,
-  },
-  {
-    id: "err_002",
-    timestamp: "2024-01-15T10:25:15Z",
-    severity: "error",
-    component: "Project Detail",
-    message: "Warning: Each child in a list should have a unique key prop",
-    stack: "React warning in ProjectDetail.tsx:187",
-    userId: "user_456",
-    userAgent:
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
-    url: "/admin/jobs/proj_abc123",
-    count: 45,
-    resolved: true,
-  },
-  {
-    id: "err_003",
-    timestamp: "2024-01-15T10:20:08Z",
-    severity: "critical",
-    component: "API Client",
-    message: "Network Error: Failed to fetch user data",
-    stack:
-      "AxiosError: Network Error\n    at settle\n    at XMLHttpRequest.handleLoad",
-    userId: "user_789",
-    userAgent:
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15",
-    url: "/admin/dashboard",
-    count: 12,
-    resolved: false,
-  },
-  {
-    id: "err_004",
-    timestamp: "2024-01-15T10:15:33Z",
-    severity: "warning",
-    component: "Gallery Component",
-    message: "Image failed to load: timeout exceeded",
-    userId: "user_321",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    url: "/admin/gallery",
-    count: 8,
-    resolved: false,
-  },
-  {
-    id: "err_005",
-    timestamp: "2024-01-15T10:10:45Z",
-    severity: "info",
-    component: "Authentication",
-    message: "Session expired - user redirected to login",
-    userId: "user_654",
-    userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-    url: "/admin/jobs",
-    count: 156,
-    resolved: false,
-  },
-];
-
 function CrashLogs() {
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [componentFilter, setComponentFilter] = useState<string>("all");
   const [resolvedFilter, setResolvedFilter] = useState<string>("all");
-  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>(mockErrorLogs);
+  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 

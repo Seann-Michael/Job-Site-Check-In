@@ -43,57 +43,11 @@ export function NotificationDropdown() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Load notifications (mock data for now)
+  // Notifications are loaded from the backend when available.
+  // Initialized as empty — no mock data.
   useEffect(() => {
-    const mockNotifications: Notification[] = [
-      {
-        id: "1",
-        type: "info",
-        title: "System Update",
-        message: "System maintenance scheduled for tonight at 11 PM EST. Expected downtime: 30 minutes.",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
-        read: false,
-        source: "system",
-        priority: "normal",
-        category: "system",
-      },
-      {
-        id: "2",
-        type: "success",
-        title: "Project Completed",
-        message: "Coffee Shop SEO project has been completed successfully. All tasks finished.",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-        read: false,
-        source: "system",
-        priority: "normal",
-        category: "project",
-      },
-      {
-        id: "4",
-        type: "info",
-        title: "New Report Available",
-        message: "Your SEO audit report for Smith Construction is ready for review.",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-        read: true,
-        source: "system",
-        priority: "normal",
-        category: "project",
-      },
-      {
-        id: "5",
-        type: "error",
-        title: "Scan Failed",
-        message: "Geo grid scan for downtown area failed due to API rate limits. Please try again later.",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-        read: true,
-        source: "api",
-        priority: "high",
-        category: "system",
-      },
-    ];
-
-    setNotifications(mockNotifications);
-    setUnreadCount(mockNotifications.filter(n => !n.read).length);
+    setNotifications([]);
+    setUnreadCount(0);
   }, []);
 
   const getIcon = (type: Notification["type"]) => {

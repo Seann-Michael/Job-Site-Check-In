@@ -64,9 +64,10 @@ import {
   MessageSquare,
   CreditCard,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface BusinessUser {
   id: string;
@@ -136,194 +137,89 @@ export default function BusinessDetail() {
   const [newPassword, setNewPassword] = useState("");
   const [newUsername, setNewUsername] = useState("");
 
-  // Mock business data
   const [businessData, setBusinessData] = useState({
-    id: businessId || "1",
-    name: "Smith Construction LLC",
-    adminFirstName: "John",
-    adminLastName: "Smith",
-    email: "john@smithconstruction.com",
-    phone: "(555) 123-4567",
-    address: "123 Main St, Springfield, IL 62701",
-    plan: "Pro",
-    status: "Active",
-    signupDate: "2023-08-15",
-    lastActivity: "2 hours ago",
-    users: 8,
-    photos: 1247,
-    videos: 89,
-    projects: 34,
-    reviewsRequested: 156,
-    storage: "2.4GB",
-    storageLimit: "50GB",
-    revenue: 348,
-    billingDate: "15th of each month",
-    lastFourCard: "4532",
+    id: businessId || "",
+    name: "",
+    adminFirstName: "",
+    adminLastName: "",
+    email: "",
+    phone: "",
+    address: "",
+    plan: "",
+    status: "",
+    signupDate: "",
+    lastActivity: "",
+    users: 0,
+    photos: 0,
+    videos: 0,
+    projects: 0,
+    reviewsRequested: 0,
+    storage: "—",
+    storageLimit: "—",
+    revenue: 0,
+    billingDate: "—",
+    lastFourCard: "",
     planDetails: {
-      currentPlan: "Pro",
-      monthlyPrice: 29,
-      features: ["Unlimited Projects", "50GB Storage", "Priority Support"],
-      nextBilling: "2024-02-15",
+      currentPlan: "",
+      monthlyPrice: 0,
+      features: [] as string[],
+      nextBilling: "",
     },
   });
+  const [loadingBusiness, setLoadingBusiness] = useState(true);
 
-  const [users, setUsers] = useState<BusinessUser[]>([
-    {
-      id: "1",
-      name: "John Smith",
-      email: "john@smithconstruction.com",
-      role: "admin",
-      status: "Active",
-      lastLogin: "2 hours ago",
-      photosUploaded: 456,
-      videosUploaded: 23,
-      projectsCreated: 12,
-      joinedDate: "2023-08-15",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@smithconstruction.com",
-      role: "editor",
-      status: "Active",
-      lastLogin: "1 day ago",
-      photosUploaded: 789,
-      videosUploaded: 45,
-      projectsCreated: 18,
-      joinedDate: "2023-09-01",
-    },
-    {
-      id: "3",
-      name: "Mike Johnson",
-      email: "mike@smithconstruction.com",
-      role: "viewer",
-      status: "Inactive",
-      lastLogin: "1 week ago",
-      photosUploaded: 2,
-      videosUploaded: 21,
-      projectsCreated: 4,
-      joinedDate: "2023-10-15",
-    },
-  ]);
+  useEffect(() => {
+    if (!businessId) return;
+    const loadBusiness = async () => {
+      setLoadingBusiness(true);
+      try {
+        const { data, error } = await supabaseClient
+          .from("businesses")
+          .select("*, owner:owner_id(name, email, phone)")
+          .eq("id", businessId)
+          .single();
+        if (error || !data) return;
+        const ownerName: string = data.owner?.name ?? "";
+        const nameParts = ownerName.split(" ");
+        const addrObj = data.address as Record<string, string> | null;
+        const addr = addrObj
+          ? [addrObj.street, addrObj.city, addrObj.state].filter(Boolean).join(", ")
+          : "";
+        setBusinessData({
+          id: data.id,
+          name: data.name,
+          adminFirstName: nameParts[0] ?? "",
+          adminLastName: nameParts.slice(1).join(" "),
+          email: data.owner?.email ?? data.email ?? "",
+          phone: data.phone ?? "",
+          address: addr,
+          plan: (data.metadata as any)?.plan ?? "",
+          status: data.status === "active" ? "Active" : data.status ?? "",
+          signupDate: data.created_at ? new Date(data.created_at).toISOString().slice(0, 10) : "",
+          lastActivity: data.updated_at ? new Date(data.updated_at).toLocaleDateString() : "—",
+          users: 0, photos: 0, videos: 0, projects: 0, reviewsRequested: 0,
+          storage: "—", storageLimit: "—", revenue: 0, billingDate: "—", lastFourCard: "",
+          planDetails: { currentPlan: (data.metadata as any)?.plan ?? "", monthlyPrice: 0, features: [], nextBilling: "" },
+        });
+      } catch {
+        // keep blank
+      } finally {
+        setLoadingBusiness(false);
+      }
+    };
+    loadBusiness();
+  }, [businessId]);
 
-  const [activityLog] = useState<ActivityLog[]>([
-    {
-      id: "1",
-      user: "John Smith",
-      action: "Created new project",
-      timestamp: "2 hours ago",
-      details: "Kitchen Renovation - 123 Oak St",
-    },
-    {
-      id: "2",
-      user: "Jane Smith",
-      action: "Uploaded 5 photos",
-      timestamp: "4 hours ago",
-      details: "Added to Bathroom Remodel project",
-    },
-    {
-      id: "3",
-      user: "John Smith",
-      action: "Updated business profile",
-      timestamp: "1 day ago",
-      details: "Changed phone number",
-    },
-    {
-      id: "4",
-      user: "Mike Johnson",
-      action: "Completed project",
-      timestamp: "3 days ago",
-      details: "Deck Installation - 456 Pine Ave",
-    },
-  ]);
+  const [users, setUsers] = useState<BusinessUser[]>([]);
 
-  const [financialHistory] = useState<FinancialRecord[]>([
-    {
-      id: "1",
-      date: "2024-01-15",
-      description: "Pro Plan Subscription",
-      amount: 29.0,
-      type: "charge",
-      status: "completed",
-    },
-    {
-      id: "2",
-      date: "2023-12-15",
-      description: "Pro Plan Subscription",
-      amount: 29.0,
-      type: "charge",
-      status: "completed",
-    },
-    {
-      id: "3",
-      date: "2023-11-15",
-      description: "Pro Plan Subscription",
-      amount: 29.0,
-      type: "charge",
-      status: "completed",
-    },
-    {
-      id: "4",
-      date: "2023-10-20",
-      description: "Upgrade Credit",
-      amount: -10.0,
-      type: "credit",
-      status: "completed",
-    },
-  ]);
+  const [activityLog] = useState<ActivityLog[]>([]);
 
-  const [timestampedNotes, setTimestampedNotes] = useState<TimestampedNote[]>([
-    {
-      id: "1",
-      note: "Great customer, always pays on time. Upgraded to Pro plan after 2 months.",
-      timestamp: "2024-01-15T10:30:00Z",
-      adminUser: "Admin User",
-    },
-    {
-      id: "2",
-      note: "Customer requested additional storage. Considering Enterprise upgrade.",
-      timestamp: "2024-01-10T14:15:00Z",
-      adminUser: "Admin User",
-    },
-  ]);
+  const [financialHistory] = useState<FinancialRecord[]>([]);
 
-  const [invoices] = useState<Invoice[]>([
-    {
-      id: "1",
-      invoiceNumber: "INV-2024-001",
-      date: "2024-01-15",
-      amount: 29.0,
-      status: "paid",
-      dueDate: "2024-01-30",
-    },
-    {
-      id: "2",
-      invoiceNumber: "INV-2023-012",
-      date: "2023-12-15",
-      amount: 29.0,
-      status: "paid",
-      dueDate: "2023-12-30",
-    },
-  ]);
+  const [timestampedNotes, setTimestampedNotes] = useState<TimestampedNote[]>([]);
 
-  const [payments] = useState<Payment[]>([
-    {
-      id: "1",
-      date: "2024-01-15",
-      amount: 29.0,
-      method: "Credit Card ****4532",
-      transactionId: "txn_1234567890",
-      status: "completed",
-    },
-    {
-      id: "2",
-      date: "2023-12-15",
-      amount: 29.0,
-      method: "Credit Card ****4532",
-      transactionId: "txn_0987654321",
-      status: "completed",
-    },
-  ]);
+  const [invoices] = useState<Invoice[]>([]);
+  const [payments] = useState<Payment[]>([]);
 
   const handleSaveBusiness = () => {
     setIsEditing(false);

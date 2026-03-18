@@ -143,65 +143,7 @@ export default function Support() {
     }
     // Super admin sees all tickets
 
-    // Add sample tickets if none exist
-    if (existingTickets.length === 0) {
-      const sampleTickets: SupportTicket[] = [
-        {
-          id: "1",
-          title: "Cannot access billing dashboard",
-          category: "Technical Issue",
-          priority: "high",
-          status: "open",
-          description:
-            "When I try to access the billing dashboard, I get a 404 error. This started happening yesterday after the system update.",
-          createdDate: "2024-03-12",
-          updatedDate: "2024-03-12",
-          submittedBy: "admin@joespizza.com",
-          responses: [],
-        },
-        {
-          id: "2",
-          title: "Request for API integration documentation",
-          category: "Integration Help",
-          priority: "medium",
-          status: "in-progress",
-          description:
-            "We need detailed documentation for integrating our POS system with your API. Specifically looking for webhook endpoints and authentication methods.",
-          createdDate: "2024-03-10",
-          updatedDate: "2024-03-11",
-          submittedBy: "tech@sarahssalon.com",
-          assignedTo: "Support Team",
-          responses: [
-            {
-              id: "1",
-              message:
-                "Thank you for your request. I'll gather the API documentation and send it to you within 24 hours.",
-              timestamp: "2024-03-11 10:30",
-              author: "Support Team",
-              isStaff: true,
-            },
-          ],
-        },
-        {
-          id: "3",
-          title: "Feature request: Dark mode",
-          category: "Feature Request",
-          priority: "low",
-          status: "open",
-          description:
-            "It would be great to have a dark mode option for the dashboard. Many of our staff work evening shifts and would prefer a darker interface.",
-          createdDate: "2024-03-08",
-          updatedDate: "2024-03-08",
-          submittedBy: "admin@mikesauto.com",
-          responses: [],
-        },
-      ];
-
-      localStorage.setItem("support_tickets", JSON.stringify(sampleTickets));
-      setTickets(sampleTickets);
-    } else {
-      setTickets(existingTickets);
-    }
+    setTickets(existingTickets);
   };
 
   const handleCreateTicket = () => {

@@ -66,6 +66,7 @@ import {
   Target,
 } from "lucide-react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 import {
   GMBLead,
   GMBLeadDisplay,
@@ -77,110 +78,21 @@ import {
   GMB_CATEGORIES,
 } from "@/types/leads";
 
-// Mock data for development
-const mockLeads: GMBLeadDisplay[] = [
-  {
-    id: "1",
-    google_cid: "12345678901234567890",
-    business_name: "Joe's Pizza Palace",
-    phone: "+1-555-0123",
-    email: "contact@joespizza.com",
-    website: "https://joespizza.com",
-    street_address: "123 Main St",
-    city: "New York",
-    state: "NY",
-    zip_code: "10001",
-    gmb_rating: 4.5,
-    gmb_reviews_count: 247,
-    gmb_category: "Restaurant",
-    gmb_verified: true,
-    price_range: "$$",
-    lead_score: 85,
-    lead_quality: "hot",
-    data_completeness_score: 92,
-    is_unlocked: false,
-    unlock_credits_cost: 5,
-    created_at: "2024-01-15T10:00:00Z",
-    scan_location: "Times Square, NY",
-    found_position: 3,
-  },
-  {
-    id: "2",
-    google_cid: "09876543210987654321",
-    business_name: "Elite Auto Repair",
-    phone: "+1-555-0456",
-    email: "info@eliteauto.com",
-    website: "https://eliteauto.com",
-    street_address: "456 Oak Ave",
-    city: "Los Angeles",
-    state: "CA",
-    zip_code: "90210",
-    gmb_rating: 4.8,
-    gmb_reviews_count: 89,
-    gmb_category: "Auto Repair",
-    gmb_verified: true,
-    price_range: "$$$",
-    lead_score: 78,
-    lead_quality: "warm",
-    data_completeness_score: 87,
-    is_unlocked: true,
-    unlock_credits_cost: 5,
-    created_at: "2024-01-14T14:30:00Z",
-    scan_location: "Beverly Hills, CA",
-    found_position: 1,
-  },
-  {
-    id: "3",
-    google_cid: "11111111111111111111",
-    business_name: "Sunrise Dental Care",
-    phone: "+1-555-0789",
-    email: "appointments@sunrisedental.com",
-    website: "https://sunrisedental.com",
-    street_address: "789 Pine St",
-    city: "Chicago",
-    state: "IL",
-    zip_code: "60601",
-    gmb_rating: 4.2,
-    gmb_reviews_count: 156,
-    gmb_category: "Dentist",
-    gmb_verified: false,
-    price_range: "$$$",
-    lead_score: 72,
-    lead_quality: "warm",
-    data_completeness_score: 94,
-    is_unlocked: false,
-    unlock_credits_cost: 5,
-    created_at: "2024-01-13T09:15:00Z",
-    scan_location: "Downtown Chicago, IL",
-    found_position: 5,
-  },
-];
 
-const mockStats: LeadStats = {
-  total_leads: 15847,
-  unlocked_leads: 3421,
-  leads_by_quality: {
-    hot: 2156,
-    warm: 5847,
-    cold: 4821,
-    unscored: 3023,
-  },
-  leads_by_category: [
-    { category: "Restaurant", count: 3245 },
-    { category: "Auto Repair", count: 2156 },
-    { category: "Real Estate", count: 1987 },
-    { category: "Dentist", count: 1654 },
-    { category: "Hair Salon", count: 1432 },
-  ],
-  average_rating: 4.2,
-  leads_with_phone: 14523,
-  leads_with_email: 12156,
-  leads_with_website: 9876,
+const EMPTY_STATS: LeadStats = {
+  total_leads: 0,
+  unlocked_leads: 0,
+  leads_by_quality: { hot: 0, warm: 0, cold: 0, unscored: 0 },
+  leads_by_category: [],
+  average_rating: 0,
+  leads_with_phone: 0,
+  leads_with_email: 0,
+  leads_with_website: 0,
 };
 
 export default function SuperAdminLeads() {
-  const [leads, setLeads] = useState<GMBLeadDisplay[]>(mockLeads);
-  const [stats, setStats] = useState<LeadStats>(mockStats);
+  const [leads, setLeads] = useState<GMBLeadDisplay[]>([]);
+  const [stats, setStats] = useState<LeadStats>(EMPTY_STATS);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<LeadFilters>({});
   const [sortOptions, setSortOptions] = useState<LeadSortOptions>({
@@ -193,16 +105,68 @@ export default function SuperAdminLeads() {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage] = useState(25);
 
-  // Fetch leads data
+  // Fetch leads from gmb_profiles table
   const fetchLeads = async () => {
     setIsLoading(true);
     try {
-      // In real implementation, call your API here
-      // const response = await fetch('/api/super-admin/leads', { ... });
-      // setLeads(response.leads);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-    } catch (error) {
-      toast.error("Failed to fetch leads");
+      const { data, error } = await supabaseClient
+        .from("gmb_profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const mapped: GMBLeadDisplay[] = (data ?? []).map((p: any) => {
+        const score = p.overall_score ?? 0;
+        const quality = score >= 80 ? "hot" : score >= 60 ? "warm" : "cold";
+        return {
+          id: p.id,
+          google_cid: p.place_id ?? p.id,
+          business_name: p.business_name,
+          phone: p.phone ?? "—",
+          email: "—",
+          website: p.website ?? "—",
+          street_address: p.address ?? "—",
+          city: "",
+          state: "",
+          zip_code: "",
+          gmb_rating: p.rating ? Number(p.rating) : undefined,
+          gmb_reviews_count: p.review_count ?? 0,
+          gmb_category: p.types?.[0] ?? "—",
+          gmb_verified: true,
+          price_range: undefined,
+          lead_score: score,
+          lead_quality: quality as any,
+          data_completeness_score: score,
+          is_unlocked: true,
+          unlock_credits_cost: 0,
+          created_at: p.created_at ?? new Date().toISOString(),
+          scan_location: p.address ?? undefined,
+          found_position: undefined,
+        };
+      });
+      setLeads(mapped);
+      // Compute stats from real data
+      const byQuality = { hot: 0, warm: 0, cold: 0, unscored: 0 };
+      let totalRating = 0;
+      let withPhone = 0; let withEmail = 0; let withWebsite = 0;
+      mapped.forEach((l) => {
+        if (l.lead_quality in byQuality) (byQuality as any)[l.lead_quality]++;
+        if (l.gmb_rating) totalRating += l.gmb_rating;
+        if (l.phone && l.phone !== "—") withPhone++;
+        if (l.email && l.email !== "—") withEmail++;
+        if (l.website && l.website !== "—") withWebsite++;
+      });
+      setStats({
+        total_leads: mapped.length,
+        unlocked_leads: mapped.filter(l => l.is_unlocked).length,
+        leads_by_quality: byQuality,
+        leads_by_category: [],
+        average_rating: mapped.length ? +(totalRating / mapped.length).toFixed(1) : 0,
+        leads_with_phone: withPhone,
+        leads_with_email: withEmail,
+        leads_with_website: withWebsite,
+      });
+    } catch (error: any) {
+      toast.error("Failed to fetch leads: " + (error?.message ?? "Unknown error"));
     } finally {
       setIsLoading(false);
     }

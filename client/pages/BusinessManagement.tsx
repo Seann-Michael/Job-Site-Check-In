@@ -38,9 +38,10 @@ import {
   ArrowDown,
   Columns,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface Business {
   id: string;
@@ -63,8 +64,17 @@ interface Business {
 type SortKey = keyof Business;
 type SortDirection = "asc" | "desc" | null;
 
+function mapDbStatus(dbStatus: string): Business["status"] {
+  if (dbStatus === "suspended") return "Suspended";
+  if (dbStatus === "pending_verification") return "Trial";
+  if (dbStatus === "inactive" || dbStatus === "deleted") return "Canceled";
+  return "Active";
+}
+
 export default function BusinessManagement() {
   const navigate = useNavigate();
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -79,89 +89,40 @@ export default function BusinessManagement() {
     lastActivity: true,
   });
 
-  const mockBusinesses: Business[] = [
-    {
-      id: "1",
-      name: "Smith Construction LLC",
-      admin: "John Smith",
-      email: "john@smithconstruction.com",
-      users: 8,
-      photos: 1247,
-      videos: 89,
-      projects: 34,
-      storage: "2.4GB",
-      plan: "Pro",
-      status: "Active",
-      lastActivity: "2 hours ago",
-      signupDate: "2023-08-15",
-      revenue: 348,
-    },
-    {
-      id: "2",
-      name: "Premier Renovations",
-      admin: "Sarah Johnson",
-      email: "sarah@premierrenovations.com",
-      users: 12,
-      photos: 2156,
-      videos: 156,
-      projects: 67,
-      storage: "4.1GB",
-      plan: "Enterprise",
-      status: "Active",
-      lastActivity: "1 hour ago",
-      signupDate: "2023-06-22",
-      revenue: 1197,
-    },
-    {
-      id: "3",
-      name: "Quick Fix Contractors",
-      admin: "Mike Wilson",
-      email: "mike@quickfixcontractors.com",
-      users: 3,
-      photos: 423,
-      videos: 12,
-      projects: 18,
-      storage: "890MB",
-      plan: "Free",
-      status: "Trial",
-      lastActivity: "1 day ago",
-      signupDate: "2024-01-10",
-      revenue: 0,
-    },
-    {
-      id: "4",
-      name: "Elite Roofing Solutions",
-      admin: "David Rodriguez",
-      email: "david@eliteroofing.com",
-      users: 15,
-      photos: 3892,
-      videos: 234,
-      projects: 89,
-      storage: "7.2GB",
-      plan: "Enterprise",
-      status: "Active",
-      lastActivity: "30 minutes ago",
-      signupDate: "2023-03-12",
-      revenue: 1595,
-    },
-    {
-      id: "5",
-      name: "Budget Builders",
-      admin: "Lisa Chen",
-      email: "lisa@budgetbuilders.com",
-      users: 4,
-      photos: 156,
-      videos: 8,
-      projects: 12,
-      storage: "340MB",
-      plan: "Free",
-      status: "Canceled",
-      lastActivity: "2 weeks ago",
-      signupDate: "2023-11-08",
-      canceledDate: "2024-01-15",
-      revenue: 87,
-    },
-  ];
+  useEffect(() => {
+    const fetchBusinesses = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabaseClient
+          .from("businesses")
+          .select(`id, name, email, phone, status, created_at, updated_at, metadata, owner:owner_id(name, email)`)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        const mapped: Business[] = (data ?? []).map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          admin: b.owner?.name ?? b.owner?.email ?? "—",
+          email: b.owner?.email ?? b.email ?? "—",
+          users: 0,
+          photos: 0,
+          videos: 0,
+          projects: 0,
+          storage: "—",
+          plan: (b.metadata?.plan as Business["plan"]) ?? "Free",
+          status: mapDbStatus(b.status),
+          lastActivity: b.updated_at ? new Date(b.updated_at).toLocaleDateString() : "—",
+          signupDate: b.created_at ? new Date(b.created_at).toISOString().slice(0, 10) : "—",
+          revenue: 0,
+        }));
+        setBusinesses(mapped);
+      } catch (err: any) {
+        toast.error("Failed to load businesses: " + (err?.message ?? "Unknown error"));
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBusinesses();
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -185,7 +146,7 @@ export default function BusinessManagement() {
     return <ArrowUpDown className="h-4 w-4" />;
   };
 
-  const sortedBusinesses = [...mockBusinesses].sort((a, b) => {
+  const sortedBusinesses = [...businesses].sort((a, b) => {
     if (!sortKey || !sortDirection) return 0;
 
     const aVal = a[sortKey];
@@ -215,7 +176,7 @@ export default function BusinessManagement() {
   });
 
   const impersonateUser = (businessId: string) => {
-    const targetBusiness = mockBusinesses.find((b) => b.id === businessId);
+    const targetBusiness = businesses.find((b) => b.id === businessId);
     if (targetBusiness) {
       toast.success(`Signing in as ${targetBusiness.admin}...`);
       localStorage.setItem(
@@ -235,6 +196,14 @@ export default function BusinessManagement() {
       navigate("/admin/jobs", { replace: true });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48 text-muted-foreground">
+        <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading businesses…
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-none overflow-x-auto min-w-0">

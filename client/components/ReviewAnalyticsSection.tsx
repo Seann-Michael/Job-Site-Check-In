@@ -61,36 +61,12 @@ interface ReviewSnapshot {
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
-function generateMockData(months: number): ReviewDataPoint[] {
-  const points: ReviewDataPoint[] = [];
-  const now = new Date();
-  const startCount = 42;
-  const startRating = 4.1;
-  for (let i = months; i >= 0; i--) {
-    const date = new Date(now);
-    date.setMonth(date.getMonth() - i);
-    const monthProgress = (months - i) / months;
-    const reviewGrowth = Math.round(
-      startCount + monthProgress * 85 + Math.sin(i * 0.8) * 3
-    );
-    const ratingDrift =
-      startRating + monthProgress * 0.6 + Math.sin(i * 0.5) * 0.05;
-    points.push({
-      date: date.toISOString().slice(0, 7),
-      label: date.toLocaleString("default", { month: "short" }) + " '" + date.toLocaleString("default", { year: "2-digit" }),
-      reviewCount: Math.max(startCount, reviewGrowth),
-      rating: Math.min(5, Math.max(3.5, parseFloat(ratingDrift.toFixed(1)))),
-    });
-  }
-  return points;
-}
-
-const MOCK_SNAPSHOT: ReviewSnapshot = {
-  connectedAt: "2024-03-01",
-  connectedCount: 42,
-  connectedRating: 4.1,
-  currentCount: 127,
-  currentRating: 4.7,
+const EMPTY_SNAPSHOT: ReviewSnapshot = {
+  connectedAt: "",
+  connectedCount: 0,
+  connectedRating: 0,
+  currentCount: 0,
+  currentRating: 0,
 };
 
 // ─── Chart tooltips ───────────────────────────────────────────────────────────
@@ -149,9 +125,9 @@ interface ReviewAnalyticsSectionProps {
 
 export function ReviewAnalyticsSection({ timeRange, refreshTrigger = 0 }: ReviewAnalyticsSectionProps) {
   const [chartData, setChartData] = useState<ReviewDataPoint[]>([]);
-  const [snapshot, setSnapshot] = useState<ReviewSnapshot>(MOCK_SNAPSHOT);
+  const [snapshot, setSnapshot] = useState<ReviewSnapshot>(EMPTY_SNAPSHOT);
   const [isLoading, setIsLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<"live" | "demo">("demo");
+  const [dataSource, setDataSource] = useState<"live" | "none">("none");
 
   useEffect(() => {
     loadData();
@@ -206,16 +182,14 @@ export function ReviewAnalyticsSection({ timeRange, refreshTrigger = 0 }: Review
           });
         }
       } else {
-        const mockMonths = timeRange === "all" ? 24 : parseInt(timeRange, 10);
-        setChartData(generateMockData(mockMonths));
-        setSnapshot(MOCK_SNAPSHOT);
-        setDataSource("demo");
+        setChartData([]);
+        setSnapshot(EMPTY_SNAPSHOT);
+        setDataSource("none");
       }
     } catch {
-      const mockMonths = timeRange === "all" ? 24 : parseInt(timeRange, 10);
-      setChartData(generateMockData(mockMonths));
-      setSnapshot(MOCK_SNAPSHOT);
-      setDataSource("demo");
+      setChartData([]);
+      setSnapshot(EMPTY_SNAPSHOT);
+      setDataSource("none");
     } finally {
       setIsLoading(false);
     }

@@ -582,11 +582,10 @@ export default function AdminReviews() {
     method: "sms" | "email" | "both",
     message: string,
   ) => {
-    // Mock customer data for demo
-    const customerName = "New Customer";
-    const customerPhone = "(555) 123-4567";
-    const customerEmail = "customer@email.com";
-    const projectName = "Recent Project";
+    const customerName = "";
+    const customerPhone = "";
+    const customerEmail = "";
+    const projectName = "";
 
     if (method === "sms" || method === "both") {
       const phoneUrl = `sms:${customerPhone}?body=${encodeURIComponent(message)}`;

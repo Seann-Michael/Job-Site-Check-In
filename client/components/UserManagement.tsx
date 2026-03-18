@@ -53,6 +53,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface User {
   id: string;
@@ -153,59 +155,8 @@ const userGroups: UserGroup[] = [
   },
 ];
 
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john@smithconstruction.com",
-    role: "admin",
-    status: "active",
-    lastLogin: "2024-01-20",
-    createdAt: "2024-01-01",
-    permissions:
-      userGroups.find((g) => g.id === "admin")?.permissions ||
-      defaultPermissions,
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    email: "sarah@smithconstruction.com",
-    role: "manager",
-    status: "active",
-    lastLogin: "2024-01-19",
-    createdAt: "2024-01-05",
-    permissions:
-      userGroups.find((g) => g.id === "manager")?.permissions ||
-      defaultPermissions,
-  },
-  {
-    id: "3",
-    name: "Mike Wilson",
-    email: "mike@smithconstruction.com",
-    role: "worker",
-    status: "active",
-    lastLogin: "2024-01-20",
-    createdAt: "2024-01-10",
-    permissions:
-      userGroups.find((g) => g.id === "worker")?.permissions ||
-      defaultPermissions,
-  },
-  {
-    id: "4",
-    name: "David Brown",
-    email: "david@client.com",
-    role: "client",
-    status: "pending",
-    lastLogin: "Never",
-    createdAt: "2024-01-18",
-    permissions:
-      userGroups.find((g) => g.id === "client")?.permissions ||
-      defaultPermissions,
-  },
-];
-
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -213,6 +164,43 @@ export function UserManagement() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const { data, error } = await supabaseClient
+          .from("users")
+          .select("id, name, email, role, last_login, created_at")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        const roleToGroup: Record<string, string> = {
+          super_admin: "admin",
+          agency_admin: "admin",
+          business_owner: "admin",
+          staff: "worker",
+          viewer: "client",
+        };
+        const mapped: User[] = (data ?? []).map((u: any) => ({
+          id: u.id,
+          name: u.name ?? u.email,
+          email: u.email,
+          role: roleToGroup[u.role] ?? "worker",
+          status: "active" as const,
+          lastLogin: u.last_login ? new Date(u.last_login).toLocaleDateString() : "Never",
+          createdAt: u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : "",
+          permissions: userGroups.find((g) => g.id === (roleToGroup[u.role] ?? "worker"))?.permissions ?? defaultPermissions,
+        }));
+        setUsers(mapped);
+      } catch {
+        // leave empty on error
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    loadUsers();
+  }, []);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",

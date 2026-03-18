@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import supabaseClient from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -146,124 +147,64 @@ interface ExecutionHistory {
   progress: number;
 }
 
-// Mock data for workflows
-const mockWorkflows: Workflow[] = [
-  {
-    id: "workflow-1",
-    name: "Lead Nurturing Campaign",
-    description: "Automated email sequence for new leads",
-    status: "active",
-    nodes: [],
-    connections: [],
-    triggers: [],
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-20"),
-    lastRun: new Date("2024-01-20T10:30:00"),
-    runCount: 152,
-  },
-  {
-    id: "workflow-2",
-    name: "Review Follow-up",
-    description: "Send review requests after project completion",
-    status: "active",
-    nodes: [],
-    connections: [],
-    triggers: [],
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-18"),
-    lastRun: new Date("2024-01-20T09:15:00"),
-    runCount: 89,
-  },
-  {
-    id: "workflow-3",
-    name: "Client Onboarding",
-    description: "Welcome sequence for new clients",
-    status: "draft",
-    nodes: [],
-    connections: [],
-    triggers: [],
-    createdAt: new Date("2024-01-18"),
-    updatedAt: new Date("2024-01-19"),
-    runCount: 0,
-  },
-];
-
-const mockStats: WorkflowStats = {
-  totalRuns: 241,
-  successfulRuns: 234,
-  failedRuns: 7,
-  avgExecutionTime: 3.2,
-  lastRun: new Date("2024-01-20T10:30:00"),
-  averagePerDay: 12.5,
-};
-
-// Mock execution history data
-const mockExecutions: ExecutionHistory[] = [
-  {
-    id: "exec-1",
-    workflowId: "workflow-1",
-    workflowName: "Lead Nurturing Campaign",
-    status: "success",
-    startTime: new Date("2024-01-20T10:30:00"),
-    endTime: new Date("2024-01-20T10:32:15"),
-    duration: 135,
-    trigger: "New lead added",
-    progress: 100,
-  },
-  {
-    id: "exec-2",
-    workflowId: "workflow-2",
-    workflowName: "Review Follow-up",
-    status: "success",
-    startTime: new Date("2024-01-20T09:15:00"),
-    endTime: new Date("2024-01-20T09:16:30"),
-    duration: 90,
-    trigger: "Project completed",
-    progress: 100,
-  },
-  {
-    id: "exec-3",
-    workflowId: "workflow-1",
-    workflowName: "Lead Nurturing Campaign",
-    status: "failed",
-    startTime: new Date("2024-01-20T08:45:00"),
-    endTime: new Date("2024-01-20T08:45:45"),
-    duration: 45,
-    trigger: "New lead added",
-    errorMessage: "Email service timeout",
-    progress: 60,
-  },
-  {
-    id: "exec-4",
-    workflowId: "workflow-2",
-    workflowName: "Review Follow-up",
-    status: "running",
-    startTime: new Date("2024-01-20T11:00:00"),
-    trigger: "Manual trigger",
-    progress: 75,
-  },
-  {
-    id: "exec-5",
-    workflowId: "workflow-1",
-    workflowName: "Lead Nurturing Campaign",
-    status: "success",
-    startTime: new Date("2024-01-19T16:20:00"),
-    endTime: new Date("2024-01-19T16:22:10"),
-    duration: 130,
-    trigger: "Scheduled run",
-    progress: 100,
-  },
-];
-
 export default function Automation() {
   const navigate = useNavigate();
-  const [workflows, setWorkflows] = useState<Workflow[]>(mockWorkflows);
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
-    null,
-  );
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState("executions");
-  const [executionHistory, setExecutionHistory] =
-    useState<ExecutionHistory[]>(mockExecutions);
+  const [executionHistory, setExecutionHistory] = useState<ExecutionHistory[]>([]);
+  const [loadingWorkflows, setLoadingWorkflows] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingWorkflows(true);
+      try {
+        const { data: wfData } = await supabaseClient
+          .from("workflows")
+          .select("*")
+          .order("created_at", { ascending: false });
+        const mapped: Workflow[] = (wfData ?? []).map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          description: w.description ?? "",
+          status: w.is_published && w.is_active ? "active" : w.is_published && !w.is_active ? "paused" : "draft",
+          nodes: [],
+          connections: [],
+          triggers: [],
+          createdAt: new Date(w.created_at),
+          updatedAt: new Date(w.updated_at),
+          runCount: 0,
+        }));
+        setWorkflows(mapped);
+
+        const { data: exData } = await supabaseClient
+          .from("workflow_executions")
+          .select("*, workflow:workflow_id(name)")
+          .order("started_at", { ascending: false })
+          .limit(50);
+        const exMapped: ExecutionHistory[] = (exData ?? []).map((e: any) => ({
+          id: e.id,
+          workflowId: e.workflow_id,
+          workflowName: e.workflow?.name ?? "Unknown",
+          status: e.status ?? "success",
+          startTime: new Date(e.started_at),
+          endTime: e.completed_at ? new Date(e.completed_at) : undefined,
+          duration: e.completed_at && e.started_at
+            ? Math.round((new Date(e.completed_at).getTime() - new Date(e.started_at).getTime()) / 1000)
+            : undefined,
+          trigger: (e.trigger_data as any)?.trigger ?? "manual",
+          errorMessage: e.error_message ?? undefined,
+          progress: e.status === "completed" ? 100 : e.status === "failed" ? 0 : 50,
+        }));
+        setExecutionHistory(exMapped);
+      } catch {
+        // leave arrays empty on error
+      } finally {
+        setLoadingWorkflows(false);
+      }
+    };
+    loadData();
+  }, []);
   const [isNewWorkflowOpen, setIsNewWorkflowOpen] = useState(false);
   const [newWorkflow, setNewWorkflow] = useState({
     name: "",

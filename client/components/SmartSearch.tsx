@@ -33,8 +33,9 @@ import {
   MapPin,
   Calendar,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface SearchResult {
   id: string;
@@ -61,128 +62,81 @@ export function SmartSearch({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [liveJobs, setLiveJobs] = useState<any[]>([]);
   const navigate = useNavigate();
 
-  // Mock data - in real app, this would come from your APIs
-  const searchData = useMemo(
-    () => ({
-      projects: [
-        {
-          id: "proj-1",
-          name: "Downtown Office Renovation",
-          client: "Johnson Corp",
-          status: "In Progress",
-          value: "$75,000",
-          type: "Commercial",
-        },
-        {
-          id: "proj-2",
-          name: "Kitchen Remodel - Wilson",
-          client: "Mike Wilson",
-          status: "Completed",
-          value: "$26,800",
-          type: "Residential",
-        },
-      ],
-      quickActions: [
-        { label: "New Job", href: "/admin/add-job", icon: Plus },
-        {
-          label: "Revenue Report",
-          href: "/admin/project-value?tab=analytics",
-          icon: DollarSign,
-        },
-      ],
-      pages: [
-        { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
-        {
-          label: "Project Value",
-          href: "/admin/project-value",
-          icon: DollarSign,
-        },
-        { label: "Gallery", href: "/admin/gallery", icon: Camera },
-        { label: "Reviews", href: "/admin/reviews", icon: Star },
-        { label: "Settings", href: "/admin/settings", icon: Settings },
-      ],
-    }),
-    [],
-  );
+  const quickActions = useMemo(() => [
+    { label: "New Job", href: "/admin/add-job", icon: Plus },
+    { label: "Revenue Report", href: "/admin/project-value?tab=analytics", icon: DollarSign },
+  ], []);
+
+  const pages = useMemo(() => [
+    { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
+    { label: "Project Value", href: "/admin/project-value", icon: DollarSign },
+    { label: "Gallery", href: "/admin/gallery", icon: Camera },
+    { label: "Reviews", href: "/admin/reviews", icon: Star },
+    { label: "Settings", href: "/admin/settings", icon: Settings },
+  ], []);
+
+  // Load real jobs from Supabase when search opens
+  useEffect(() => {
+    if (!open) return;
+    const loadJobs = async () => {
+      try {
+        const { data } = await supabaseClient
+          .from("jobs")
+          .select("id, name, status, type, client_contact")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        setLiveJobs(data ?? []);
+      } catch {
+        setLiveJobs([]);
+      }
+    };
+    loadJobs();
+  }, [open]);
 
   useEffect(() => {
     if (!query) {
-      // Show recent/popular items when no query
       setResults([
-        ...searchData.quickActions.map((action) => ({
-          id: `action-${action.label}`,
-          title: action.label,
-          subtitle: "Quick Action",
-          type: "action" as const,
-          icon: action.icon,
-          href: action.href,
-        })),
-        ...searchData.pages.slice(0, 4).map((page) => ({
-          id: `page-${page.label}`,
-          title: page.label,
-          subtitle: "Page",
-          type: "page" as const,
-          icon: page.icon,
-          href: page.href,
-        })),
+        ...quickActions.map((a) => ({ id: `action-${a.label}`, title: a.label, subtitle: "Quick Action", type: "action" as const, icon: a.icon, href: a.href })),
+        ...pages.slice(0, 4).map((p) => ({ id: `page-${p.label}`, title: p.label, subtitle: "Page", type: "page" as const, icon: p.icon, href: p.href })),
       ]);
       return;
     }
 
-    const lowerQuery = query.toLowerCase();
+    const lq = query.toLowerCase();
     const filtered: SearchResult[] = [];
 
-    // Search projects
-    searchData.projects.forEach((project) => {
-      if (
-        project.name.toLowerCase().includes(lowerQuery) ||
-        project.client.toLowerCase().includes(lowerQuery) ||
-        project.type.toLowerCase().includes(lowerQuery)
-      ) {
+    liveJobs.forEach((job) => {
+      const clientName = job.client_contact?.name ?? "";
+      if (job.name?.toLowerCase().includes(lq) || clientName.toLowerCase().includes(lq) || job.type?.toLowerCase().includes(lq)) {
         filtered.push({
-          id: project.id,
-          title: project.name,
-          subtitle: `${project.client} • ${project.status} • ${project.value}`,
+          id: job.id,
+          title: job.name,
+          subtitle: [clientName, job.status, job.type].filter(Boolean).join(" • "),
           type: "project",
           icon: FolderOpen,
-          href: `/job/${project.id}`,
-          metadata: project,
+          href: `/job/${job.id}`,
+          metadata: job,
         });
       }
     });
 
-    // Search actions
-    searchData.quickActions.forEach((action) => {
-      if (action.label.toLowerCase().includes(lowerQuery)) {
-        filtered.push({
-          id: `action-${action.label}`,
-          title: action.label,
-          subtitle: "Quick Action",
-          type: "action",
-          icon: action.icon,
-          href: action.href,
-        });
+    quickActions.forEach((a) => {
+      if (a.label.toLowerCase().includes(lq)) {
+        filtered.push({ id: `action-${a.label}`, title: a.label, subtitle: "Quick Action", type: "action", icon: a.icon, href: a.href });
       }
     });
 
-    // Search pages
-    searchData.pages.forEach((page) => {
-      if (page.label.toLowerCase().includes(lowerQuery)) {
-        filtered.push({
-          id: `page-${page.label}`,
-          title: page.label,
-          subtitle: "Page",
-          type: "page",
-          icon: page.icon,
-          href: page.href,
-        });
+    pages.forEach((p) => {
+      if (p.label.toLowerCase().includes(lq)) {
+        filtered.push({ id: `page-${p.label}`, title: p.label, subtitle: "Page", type: "page", icon: p.icon, href: p.href });
       }
     });
 
     setResults(filtered);
-  }, [query, searchData]);
+  }, [query, liveJobs, quickActions, pages]);
 
   const handleSelect = (result: SearchResult) => {
     if (result.action) {

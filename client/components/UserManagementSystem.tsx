@@ -60,6 +60,8 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
+import supabaseClient from "@/lib/supabaseClient";
 import { UserGroupsManager } from "./UserGroupsManager";
 
 interface User {
@@ -89,38 +91,10 @@ interface UserGroup {
 }
 
 const mockGroups: UserGroup[] = [
-  {
-    id: "admin",
-    name: "System Administrators",
-    description: "Full system access",
-    color: "bg-red-100 text-red-800 border-red-200",
-    userCount: 2,
-    permissions: ["all"],
-  },
-  {
-    id: "manager",
-    name: "Project Managers",
-    description: "Project and client management",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
-    userCount: 5,
-    permissions: ["projects", "clients", "media"],
-  },
-  {
-    id: "worker",
-    name: "Field Workers",
-    description: "Photo uploads and updates",
-    color: "bg-green-100 text-green-800 border-green-200",
-    userCount: 8,
-    permissions: ["projects.view", "media.upload"],
-  },
-  {
-    id: "client",
-    name: "Clients",
-    description: "View-only access",
-    color: "bg-gray-100 text-gray-800 border-gray-200",
-    userCount: 12,
-    permissions: ["projects.view"],
-  },
+  { id: "admin", name: "System Administrators", description: "Full system access", color: "bg-red-100 text-red-800 border-red-200", userCount: 0, permissions: ["all"] },
+  { id: "manager", name: "Project Managers", description: "Project and client management", color: "bg-blue-100 text-blue-800 border-blue-200", userCount: 0, permissions: ["projects", "clients", "media"] },
+  { id: "worker", name: "Field Workers", description: "Photo uploads and updates", color: "bg-green-100 text-green-800 border-green-200", userCount: 0, permissions: ["projects.view", "media.upload"] },
+  { id: "client", name: "Clients", description: "View-only access", color: "bg-gray-100 text-gray-800 border-gray-200", userCount: 0, permissions: ["projects.view"] },
 ];
 
 const permissionCategories = {
@@ -161,60 +135,36 @@ const permissionCategories = {
   system: ["system_settings", "backup_restore", "api_access", "integrations"],
 };
 
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john@smithconstruction.com",
-    role: "admin",
-    status: "active",
-    lastLogin: "2024-01-20",
-    createdAt: "2024-01-01",
-    phone: "+1 (555) 123-4567",
-    department: "Management",
-    hasCustomPermissions: false,
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    email: "sarah@smithconstruction.com",
-    role: "manager",
-    status: "active",
-    lastLogin: "2024-01-19",
-    createdAt: "2024-01-05",
-    phone: "+1 (555) 234-5678",
-    department: "Operations",
-    hasCustomPermissions: false,
-  },
-  {
-    id: "3",
-    name: "Mike Wilson",
-    email: "mike@smithconstruction.com",
-    role: "worker",
-    status: "active",
-    lastLogin: "2024-01-20",
-    createdAt: "2024-01-10",
-    phone: "+1 (555) 345-6789",
-    department: "Field Operations",
-    hasCustomPermissions: true,
-  },
-  {
-    id: "4",
-    name: "David Brown",
-    email: "david@client.com",
-    role: "client",
-    status: "pending",
-    lastLogin: "Never",
-    createdAt: "2024-01-18",
-    phone: "+1 (555) 456-7890",
-    department: "External",
-    hasCustomPermissions: false,
-  },
-];
-
 export function UserManagementSystem() {
   const [activeTab, setActiveTab] = useState("users");
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { data } = await supabaseClient
+          .from("users")
+          .select("id, name, email, role, phone, last_login, created_at")
+          .order("created_at", { ascending: false });
+        const roleMap: Record<string, string> = { super_admin: "admin", agency_admin: "manager", business_owner: "admin", staff: "worker", viewer: "client" };
+        setUsers((data ?? []).map((u: any) => ({
+          id: u.id,
+          name: u.name ?? u.email,
+          email: u.email,
+          role: roleMap[u.role] ?? "worker",
+          status: "active" as const,
+          lastLogin: u.last_login ? new Date(u.last_login).toLocaleDateString() : "Never",
+          createdAt: u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : "",
+          phone: u.phone ?? "",
+          department: "",
+          hasCustomPermissions: false,
+        })));
+      } catch {
+        setUsers([]);
+      }
+    };
+    loadUsers();
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");

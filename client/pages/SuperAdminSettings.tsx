@@ -152,71 +152,9 @@ export default function SuperAdminSettings() {
   const [showPromoDialog, setShowPromoDialog] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState<any>(null);
   const [editingPlan, setEditingPlan] = useState<any>(null);
-  const [workspaces, setWorkspaces] = useState([
-    {
-      id: "1",
-      name: "Marketing Pro",
-      users: 15,
-      storage: "8.5 GB",
-      modules: ["Projects", "Gallery"],
-    },
-    {
-      id: "2",
-      name: "Sales Team",
-      users: 8,
-      storage: "3.2 GB",
-      modules: ["Projects"],
-    },
-    {
-      id: "3",
-      name: "Enterprise Corp",
-      users: 50,
-      storage: "25 GB",
-      modules: ["Projects", "Gallery"],
-    },
-  ]);
-  const [plans, setPlans] = useState([
-    {
-      id: "1",
-      name: "Starter",
-      price: "$29",
-      features: ["5 Users", "10GB Storage", "Basic Support"],
-    },
-    {
-      id: "2",
-      name: "Professional",
-      price: "$79",
-      features: [
-        "25 Users",
-        "100GB Storage",
-        "Priority Support",
-        "Advanced Features",
-      ],
-    },
-    {
-      id: "3",
-      name: "Enterprise",
-      price: "$199",
-      features: [
-        "Unlimited Users",
-        "1TB Storage",
-        "24/7 Support",
-        "Custom Integration",
-      ],
-    },
-  ]);
-  const [promoCodes, setPromoCodes] = useState([
-    {
-      id: "1",
-      name: "New Year",
-      code: "NEWYEAR2024",
-      discount: "20",
-      discountType: "%",
-      usageLimit: "100",
-      expiryDate: "2024-12-31",
-      used: 45,
-    },
-  ]);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [promoCodes, setPromoCodes] = useState<any[]>([]);
 
   const [settings, setSettings] = useState<SuperAdminSettings>({
     // System Information

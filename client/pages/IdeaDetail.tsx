@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentUser } from "@/lib/auth";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface Comment {
   id: string;
@@ -66,57 +67,43 @@ export default function IdeaDetail() {
     loadIdea();
   }, [id]);
 
-  const loadIdea = () => {
-    // Mock data - in real app this would be an API call
-    const mockIdea: Idea = {
-      id: id || "1",
-      title: "Dark Mode Support",
-      description: `Add a comprehensive dark theme option for better usability in low light environments. This would include:
-
-• System-wide dark theme that respects user's OS preference
-• Toggle option in user settings
-• High contrast mode for accessibility
-• Custom theme colors for branding
-• Automatic switching based on time of day
-
-The implementation should ensure all components, modals, and pages properly support dark mode without breaking the existing design system. We should also consider user preferences and provide smooth transitions between light and dark modes.
-
-This feature has been highly requested by our user base, especially those who work in low-light environments or prefer dark interfaces for reduced eye strain during extended usage sessions.`,
-      category: "ui-ux",
-      status: "planned",
-      upvotes: 156,
-      downvotes: 14,
-      userVote: null,
-      author: "John Smith",
-      createdAt: "2024-01-15T10:30:00Z",
-      comments: [
-        {
-          id: "c1",
-          author: "Sarah Johnson",
-          content:
-            "This would be amazing! I use the app a lot in the evening and a dark mode would really help reduce eye strain.",
-          createdAt: "2024-01-16T09:15:00Z",
-        },
-        {
-          id: "c2",
-          author: "Admin Team",
-          content:
-            "Thanks for the feedback! We're currently evaluating the technical requirements for this feature. We'll need to update our design system to support dual themes across all components.",
-          createdAt: "2024-01-17T14:22:00Z",
-          isAdmin: true,
-        },
-        {
-          id: "c3",
-          author: "Mike Chen",
-          content:
-            "Please also consider high contrast mode for accessibility. Some users with visual impairments would benefit greatly from this.",
-          createdAt: "2024-01-18T11:30:00Z",
-        },
-      ],
-      priority: "high",
-    };
-    setIdea(mockIdea);
-    setLoading(false);
+  const loadIdea = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabaseClient
+        .from("ideas")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error || !data) {
+        setIdea(null);
+        return;
+      }
+      const statusMap: Record<string, Idea["status"]> = {
+        pending: "submitted",
+        approved: "planned",
+        rejected: "declined",
+        roadmap: "in-progress",
+      };
+      setIdea({
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        status: statusMap[data.status] ?? "submitted",
+        upvotes: data.upvotes ?? 0,
+        downvotes: data.downvotes ?? 0,
+        userVote: null,
+        author: data.author_name,
+        createdAt: data.created_at,
+        comments: [],
+        priority: data.priority ?? "medium",
+      });
+    } catch {
+      setIdea(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVote = (voteType: "up" | "down") => {

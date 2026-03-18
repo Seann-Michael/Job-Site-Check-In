@@ -35,7 +35,9 @@ import {
   LogIn,
   Mail,
 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface Agency {
   id: string;
@@ -50,68 +52,6 @@ interface Agency {
   revenue: number;
 }
 
-const mockAgencies: Agency[] = [
-  {
-    id: "1",
-    name: "Apex Digital Agency",
-    owner: "Lisa Martinez",
-    email: "lisa@apexdigital.com",
-    clients: 24,
-    plan: "Agency",
-    status: "Active",
-    lastActivity: "1 hour ago",
-    signupDate: "2023-07-10",
-    revenue: 1497,
-  },
-  {
-    id: "2",
-    name: "Bright Media Group",
-    owner: "Tom Harris",
-    email: "tom@brightmedia.com",
-    clients: 11,
-    plan: "Growth",
-    status: "Active",
-    lastActivity: "3 hours ago",
-    signupDate: "2023-09-02",
-    revenue: 597,
-  },
-  {
-    id: "3",
-    name: "NorthStar Marketing",
-    owner: "Carla Nguyen",
-    email: "carla@northstarmarketing.com",
-    clients: 38,
-    plan: "Enterprise",
-    status: "Active",
-    lastActivity: "30 min ago",
-    signupDate: "2023-04-18",
-    revenue: 2997,
-  },
-  {
-    id: "4",
-    name: "GrowthPoint Agency",
-    owner: "Derek Flynn",
-    email: "derek@growthpoint.io",
-    clients: 6,
-    plan: "Starter",
-    status: "Trial",
-    lastActivity: "2 days ago",
-    signupDate: "2024-01-15",
-    revenue: 0,
-  },
-  {
-    id: "5",
-    name: "Redline Creative",
-    owner: "Jasmine Park",
-    email: "jasmine@redlinecreative.com",
-    clients: 0,
-    plan: "Growth",
-    status: "Suspended",
-    lastActivity: "2 weeks ago",
-    signupDate: "2023-11-20",
-    revenue: 297,
-  },
-];
 
 const STATUS_COLORS: Record<Agency["status"], string> = {
   Active: "bg-green-100 text-green-700",
@@ -128,7 +68,41 @@ const PLAN_COLORS: Record<Agency["plan"], string> = {
 };
 
 export default function SuperAdminAgencyManagement() {
-  const [agencies, setAgencies] = useState<Agency[]>(mockAgencies);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [loadingAgencies, setLoadingAgencies] = useState(true);
+
+  useEffect(() => {
+    const loadAgencies = async () => {
+      setLoadingAgencies(true);
+      try {
+        // Query users with agency_admin role as agencies
+        const { data, error } = await supabaseClient
+          .from("users")
+          .select("id, name, email, role, created_at, updated_at, metadata")
+          .eq("role", "agency_admin")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        const mapped: Agency[] = (data ?? []).map((u: any) => ({
+          id: u.id,
+          name: u.metadata?.agency_name ?? u.name ?? u.email,
+          owner: u.name ?? u.email,
+          email: u.email,
+          clients: u.metadata?.client_count ?? 0,
+          plan: (u.metadata?.plan as Agency["plan"]) ?? "Starter",
+          status: "Active" as Agency["status"],
+          lastActivity: u.updated_at ? new Date(u.updated_at).toLocaleDateString() : "—",
+          signupDate: u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : "—",
+          revenue: u.metadata?.revenue ?? 0,
+        }));
+        setAgencies(mapped);
+      } catch {
+        // leave empty
+      } finally {
+        setLoadingAgencies(false);
+      }
+    };
+    loadAgencies();
+  }, []);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
