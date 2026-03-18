@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface Notification {
   id: string;
@@ -43,11 +44,32 @@ export function NotificationDropdown() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Notifications are loaded from the backend when available.
-  // Initialized as empty — no mock data.
   useEffect(() => {
-    setNotifications([]);
-    setUnreadCount(0);
+    const loadNotifications = async () => {
+      const { data } = await supabaseClient
+        .from("notifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (data) {
+        const mapped: Notification[] = data.map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.created_at),
+          read: n.read,
+          actionUrl: n.action_url ?? undefined,
+          actionLabel: n.action_label ?? undefined,
+          source: n.source ?? undefined,
+          priority: n.priority ?? undefined,
+          category: n.category ?? undefined,
+        }));
+        setNotifications(mapped);
+        setUnreadCount(mapped.filter((n) => !n.read).length);
+      }
+    };
+    loadNotifications();
   }, []);
 
   const getIcon = (type: Notification["type"]) => {
@@ -79,22 +101,34 @@ export function NotificationDropdown() {
     return timestamp.toLocaleDateString();
   };
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(n => 
+  const markAsRead = async (notificationId: string) => {
+    await supabaseClient
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", notificationId);
+    setNotifications(prev =>
+      prev.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
       )
     );
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    await supabaseClient
+      .from("notifications")
+      .update({ read: true })
+      .eq("read", false);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
     toast.success("All notifications marked as read");
   };
 
-  const deleteNotification = (notificationId: string) => {
+  const deleteNotification = async (notificationId: string) => {
+    await supabaseClient
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId);
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
     const notification = notifications.find(n => n.id === notificationId);
     if (notification && !notification.read) {
@@ -103,7 +137,9 @@ export function NotificationDropdown() {
     toast.success("Notification deleted");
   };
 
-  const clearAllNotifications = () => {
+  const clearAllNotifications = async () => {
+    // Delete all notifications for current user (no user filter = delete all)
+    await supabaseClient.from("notifications").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     setNotifications([]);
     setUnreadCount(0);
     toast.success("All notifications cleared");

@@ -219,6 +219,46 @@ export default function SuperAdminSettings() {
     }
   }, []);
 
+  useEffect(() => {
+    const loadData = async () => {
+      const [wsRes, plRes, pcRes] = await Promise.all([
+        supabaseClient.from("workspaces").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("plans").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("promo_codes").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (wsRes.data) {
+        setWorkspaces(wsRes.data.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          users: w.user_count,
+          storage: w.storage_used,
+          modules: w.modules ?? [],
+        })));
+      }
+      if (plRes.data) {
+        setPlans(plRes.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          features: p.features ?? [],
+        })));
+      }
+      if (pcRes.data) {
+        setPromoCodes(pcRes.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          code: p.code,
+          discount: p.discount,
+          discountType: p.discount_type,
+          usageLimit: p.usage_limit,
+          expiryDate: p.expiry_date ?? "",
+          used: p.used,
+        })));
+      }
+    };
+    loadData();
+  }, []);
+
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -697,16 +737,16 @@ export default function SuperAdminSettings() {
                             Cancel
                           </Button>
                           <Button
-                            onClick={() => {
+                            onClick={async () => {
                               if (!editingWorkspace) {
-                                const newWorkspace = {
-                                  id: Date.now().toString(),
-                                  name: "New Workspace",
-                                  users: 0,
-                                  storage: "0 GB",
-                                  modules: ["Projects", "Gallery"],
-                                };
-                                setWorkspaces([...workspaces, newWorkspace]);
+                                const { data } = await supabaseClient
+                                  .from("workspaces")
+                                  .insert({ name: "New Workspace", user_count: 0, storage_used: "0 GB", modules: ["Projects", "Gallery"] })
+                                  .select()
+                                  .single();
+                                if (data) {
+                                  setWorkspaces((prev) => [...prev, { id: data.id, name: data.name, users: data.user_count, storage: data.storage_used, modules: data.modules }]);
+                                }
                               }
                               setShowWorkspaceDialog(false);
                               toast.success(
@@ -768,11 +808,13 @@ export default function SuperAdminSettings() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setWorkspaces(
-                                  workspaces.filter(
-                                    (w) => w.id !== workspace.id,
-                                  ),
+                              onClick={async () => {
+                                await supabaseClient
+                                  .from("workspaces")
+                                  .delete()
+                                  .eq("id", workspace.id);
+                                setWorkspaces((prev) =>
+                                  prev.filter((w) => w.id !== workspace.id),
                                 );
                                 toast.success("Workspace deleted");
                               }}
@@ -914,15 +956,16 @@ export default function SuperAdminSettings() {
                               Cancel
                             </Button>
                             <Button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (!editingPlan) {
-                                  const newPlan = {
-                                    id: Date.now().toString(),
-                                    name: "New Plan",
-                                    price: "$0",
-                                    features: ["New Feature"],
-                                  };
-                                  setPlans([...plans, newPlan]);
+                                  const { data } = await supabaseClient
+                                    .from("plans")
+                                    .insert({ name: "New Plan", price: "$0", features: ["New Feature"] })
+                                    .select()
+                                    .single();
+                                  if (data) {
+                                    setPlans((prev) => [...prev, { id: data.id, name: data.name, price: data.price, features: data.features }]);
+                                  }
                                 }
                                 setShowPlanDialog(false);
                                 toast.success(
@@ -967,13 +1010,15 @@ export default function SuperAdminSettings() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                const clonedPlan = {
-                                  ...plan,
-                                  id: Date.now().toString(),
-                                  name: plan.name + " Copy",
-                                };
-                                setPlans([...plans, clonedPlan]);
+                              onClick={async () => {
+                                const { data } = await supabaseClient
+                                  .from("plans")
+                                  .insert({ name: plan.name + " Copy", price: plan.price, features: plan.features })
+                                  .select()
+                                  .single();
+                                if (data) {
+                                  setPlans((prev) => [...prev, { id: data.id, name: data.name, price: data.price, features: data.features }]);
+                                }
                                 toast.success("Plan cloned!");
                               }}
                             >
@@ -1057,18 +1102,15 @@ export default function SuperAdminSettings() {
                               Cancel
                             </Button>
                             <Button
-                              onClick={() => {
-                                const newPromo = {
-                                  id: Date.now().toString(),
-                                  name: "New Promo",
-                                  code: "NEWCODE",
-                                  discount: "10",
-                                  discountType: "%",
-                                  usageLimit: "100",
-                                  expiryDate: "2024-12-31",
-                                  used: 0,
-                                };
-                                setPromoCodes([...promoCodes, newPromo]);
+                              onClick={async () => {
+                                const { data } = await supabaseClient
+                                  .from("promo_codes")
+                                  .insert({ name: "New Promo", code: "NEWCODE_" + Date.now(), discount: "10", discount_type: "%", usage_limit: "100", expiry_date: null, used: 0 })
+                                  .select()
+                                  .single();
+                                if (data) {
+                                  setPromoCodes((prev) => [...prev, { id: data.id, name: data.name, code: data.code, discount: data.discount, discountType: data.discount_type, usageLimit: data.usage_limit, expiryDate: data.expiry_date ?? "", used: data.used }]);
+                                }
                                 setShowPromoDialog(false);
                                 toast.success("Promo code created!");
                               }}
@@ -1095,9 +1137,13 @@ export default function SuperAdminSettings() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setPromoCodes(
-                                  promoCodes.filter((p) => p.id !== promo.id),
+                              onClick={async () => {
+                                await supabaseClient
+                                  .from("promo_codes")
+                                  .delete()
+                                  .eq("id", promo.id);
+                                setPromoCodes((prev) =>
+                                  prev.filter((p) => p.id !== promo.id),
                                 );
                                 toast.success("Promo code deleted");
                               }}

@@ -47,6 +47,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface ErrorLog {
   id: string;
@@ -70,6 +71,34 @@ function CrashLogs() {
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const loadLogs = async () => {
+    const { data } = await supabaseClient
+      .from("crash_logs")
+      .select("*")
+      .order("timestamp", { ascending: false });
+    if (data) {
+      setErrorLogs(
+        data.map((r: any) => ({
+          id: r.id,
+          timestamp: r.timestamp,
+          severity: r.severity,
+          component: r.component,
+          message: r.message,
+          stack: r.stack ?? undefined,
+          userId: r.user_id ?? undefined,
+          userAgent: r.user_agent,
+          url: r.url,
+          count: r.count,
+          resolved: r.resolved,
+        })),
+      );
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, []);
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -126,8 +155,7 @@ function CrashLogs() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await loadLogs();
     setRefreshing(false);
     toast.success("Error logs refreshed");
   };
@@ -184,10 +212,17 @@ ${log.stack ? `Stack Trace:\n${log.stack}` : ""}
     toast.success("Error details copied to clipboard");
   };
 
-  const toggleErrorResolution = (errorId: string) => {
+  const toggleErrorResolution = async (errorId: string) => {
+    const log = errorLogs.find((l) => l.id === errorId);
+    if (!log) return;
+    const newResolved = !log.resolved;
+    await supabaseClient
+      .from("crash_logs")
+      .update({ resolved: newResolved })
+      .eq("id", errorId);
     setErrorLogs((prev) =>
-      prev.map((log) =>
-        log.id === errorId ? { ...log, resolved: !log.resolved } : log,
+      prev.map((l) =>
+        l.id === errorId ? { ...l, resolved: newResolved } : l,
       ),
     );
     toast.success("Error status updated");
