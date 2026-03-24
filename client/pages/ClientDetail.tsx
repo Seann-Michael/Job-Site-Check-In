@@ -107,6 +107,96 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "destructive",
 };
 
+interface InlineFieldProps {
+  field: string;
+  label: string;
+  value?: string;
+  icon: any;
+  multiline?: boolean;
+  placeholder?: string;
+  addressAutocomplete?: boolean;
+  editingField: string | null;
+  fieldValue: string;
+  setFieldValue: (v: string) => void;
+  saveField: () => void;
+  cancelEdit: () => void;
+  startEdit: (field: string, value: string) => void;
+}
+
+function InlineField({
+  field,
+  label,
+  value,
+  icon: Icon,
+  multiline = false,
+  placeholder,
+  addressAutocomplete = false,
+  editingField,
+  fieldValue,
+  setFieldValue,
+  saveField,
+  cancelEdit,
+  startEdit,
+}: InlineFieldProps) {
+  const isEditing = editingField === field;
+  return (
+    <div className="flex items-start gap-3 group">
+      <span className="text-sm text-muted-foreground w-28 flex-shrink-0 pt-1.5">{label}</span>
+      <div className="flex-1 min-w-0">
+        {isEditing ? (
+          <div className="flex items-start gap-2">
+            {addressAutocomplete ? (
+              <div className="flex-1">
+                <AddressAutocomplete
+                  value={fieldValue}
+                  onChange={(address) => setFieldValue(address)}
+                  placeholder={placeholder || "Enter address..."}
+                />
+              </div>
+            ) : multiline ? (
+              <Textarea
+                autoFocus
+                rows={3}
+                value={fieldValue}
+                onChange={(e) => setFieldValue(e.target.value)}
+                className="text-sm"
+              />
+            ) : (
+              <Input
+                autoFocus
+                value={fieldValue}
+                onChange={(e) => setFieldValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveField();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                className="text-sm h-8"
+              />
+            )}
+            <Button size="sm" className="h-8 px-2" onClick={saveField}>
+              <Save className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={cancelEdit}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <div
+            className="flex items-center gap-2 cursor-pointer group/field"
+            onClick={() => startEdit(field, value || "")}
+          >
+            <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground/50 italic"}`}>
+              {value || placeholder || `Add ${label.toLowerCase()}`}
+            </span>
+            <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/field:opacity-100 transition-opacity" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -376,83 +466,7 @@ export default function ClientDetail() {
   const initials = (name: string) =>
     name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 
-  const InlineField = ({
-    field,
-    label,
-    value,
-    icon: Icon,
-    multiline = false,
-    placeholder,
-    addressAutocomplete = false,
-  }: {
-    field: string;
-    label: string;
-    value?: string;
-    icon: any;
-    multiline?: boolean;
-    placeholder?: string;
-    addressAutocomplete?: boolean;
-  }) => {
-    const isEditing = editingField === field;
-    return (
-      <div className="flex items-start gap-3 group">
-        {/* Fixed-width label on the left */}
-        <span className="text-sm text-muted-foreground w-28 flex-shrink-0 pt-1.5">{label}</span>
-        {/* Field */}
-        <div className="flex-1 min-w-0">
-          {isEditing ? (
-            <div className="flex items-start gap-2">
-              {addressAutocomplete ? (
-                <div className="flex-1">
-                  <AddressAutocomplete
-                    value={fieldValue}
-                    onChange={(address) => setFieldValue(address)}
-                    placeholder={placeholder || "Enter address..."}
-                  />
-                </div>
-              ) : multiline ? (
-                <Textarea
-                  autoFocus
-                  rows={3}
-                  value={fieldValue}
-                  onChange={(e) => setFieldValue(e.target.value)}
-                  className="text-sm"
-                />
-              ) : (
-                <Input
-                  autoFocus
-                  value={fieldValue}
-                  onChange={(e) => setFieldValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveField();
-                    if (e.key === "Escape") cancelEdit();
-                  }}
-                  className="text-sm h-8"
-                />
-              )}
-              <Button size="sm" className="h-8 px-2" onClick={saveField}>
-                <Save className="h-3.5 w-3.5" />
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 px-2" onClick={cancelEdit}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ) : (
-            <div
-              className="flex items-center gap-2 cursor-pointer group/field"
-              onClick={() => startEdit(field, value || "")}
-            >
-              <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground/50 italic"}`}>
-                {value || placeholder || `Add ${label.toLowerCase()}`}
-              </span>
-              <Edit className="h-3 w-3 text-muted-foreground opacity-0 group-hover/field:opacity-100 transition-opacity" />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const inlineFieldProps = { editingField, fieldValue, setFieldValue, saveField, cancelEdit, startEdit };
 
   return (
     <AppLayout>
@@ -546,18 +560,18 @@ export default function ClientDetail() {
                 <CardTitle className="text-base">Contact Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <InlineField field="business_name" label="Business Name" value={client.business_name} icon={Building2} placeholder="Add business name" />
+                <InlineField field="business_name" label="Business Name" value={client.business_name} icon={Building2} placeholder="Add business name" {...inlineFieldProps} />
                 <div className="flex gap-2 items-start">
                   <div className="flex-1 min-w-0">
-                    <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" />
+                    <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" {...inlineFieldProps} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" />
+                    <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" {...inlineFieldProps} />
                   </div>
                 </div>
-                <InlineField field="phone" label="Phone" value={client.phone} icon={Phone} placeholder="Add phone number" />
-                <InlineField field="email" label="Email" value={client.email} icon={Mail} placeholder="Add email address" />
-                <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Search address..." addressAutocomplete />
+                <InlineField field="phone" label="Phone" value={client.phone} icon={Phone} placeholder="Add phone number" {...inlineFieldProps} />
+                <InlineField field="email" label="Email" value={client.email} icon={Mail} placeholder="Add email address" {...inlineFieldProps} />
+                <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Search address..." addressAutocomplete {...inlineFieldProps} />
               </CardContent>
             </Card>
 
@@ -576,6 +590,7 @@ export default function ClientDetail() {
                   icon={MessageSquare}
                   multiline
                   placeholder="Add notes about this client..."
+                  {...inlineFieldProps}
                 />
               </CardContent>
             </Card>
