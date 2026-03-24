@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
+import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
@@ -206,11 +207,24 @@ export default function ClientDetail() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [fieldValue, setFieldValue] = useState("");
 
+  const { user } = useAuth();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [videos, setVideos] = useState<MediaItem[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+
+  interface ClientNote {
+    id: string;
+    content: string;
+    created_by_id: string;
+    created_by_name: string;
+    created_at: string;
+  }
+  const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
+  const [newNoteText, setNewNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
@@ -297,9 +311,55 @@ export default function ClientDetail() {
     }
   };
 
+  const loadNotes = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("client_notes")
+      .select("*")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false });
+    setClientNotes((data || []) as any);
+  };
+
   useEffect(() => {
     loadClient();
+    loadNotes();
   }, [id]);
+
+  const addNote = async () => {
+    if (!newNoteText.trim() || !id) return;
+    setSavingNote(true);
+    try {
+      const { data, error } = await supabase
+        .from("client_notes")
+        .insert({
+          client_id: id,
+          content: newNoteText.trim(),
+          created_by_id: user?.id || "unknown",
+          created_by_name: user?.name || user?.email || "Unknown",
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setClientNotes((prev) => [data as any, ...prev]);
+      setNewNoteText("");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add note");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    try {
+      await supabase.from("client_notes").delete().eq("id", noteId);
+      setClientNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete note");
+    }
+  };
 
   const startEdit = (field: string, value: string) => {
     setEditingField(field);
@@ -580,18 +640,95 @@ export default function ClientDetail() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
                   Notes
+                  {clientNotes.length > 0 && (
+                    <span className="ml-auto text-xs font-normal text-muted-foreground">{clientNotes.length} note{clientNotes.length !== 1 ? "s" : ""}</span>
+                  )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <InlineField
-                  field="notes"
-                  label=""
-                  value={client.notes}
-                  icon={MessageSquare}
-                  multiline
-                  placeholder="Add notes about this client..."
-                  {...inlineFieldProps}
-                />
+              <CardContent className="space-y-4">
+                {/* Add new note */}
+                <div className="space-y-2">
+                  <Textarea
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    placeholder="Add a note about this client..."
+                    rows={3}
+                    className="text-sm resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addNote();
+                    }}
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">⌘+Enter to save</p>
+                    <Button
+                      size="sm"
+                      onClick={addNote}
+                      disabled={!newNoteText.trim() || savingNote}
+                      className="gap-2"
+                    >
+                      {savingNote ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Plus className="h-3.5 w-3.5" />
+                      )}
+                      Add Note
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Notes feed */}
+                {clientNotes.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t">
+                    {clientNotes.map((note) => {
+                      const initials = note.created_by_name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase();
+                      const isOwn = note.created_by_id === user?.id;
+                      return (
+                        <div key={note.id} className="flex gap-3 group">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                            {initials || "?"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium">{note.created_by_name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(note.created_at).toLocaleString(undefined, {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+                          </div>
+                          {isOwn && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
+                              onClick={() => deleteNote(note.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {clientNotes.length === 0 && (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No notes yet. Add the first one above.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
