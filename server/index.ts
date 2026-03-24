@@ -25,6 +25,7 @@ import { handleResolveUrl } from "./routes/resolveUrl";
 import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
 import { handleGoogleAuthorize, handleGoogleCallback } from "./routes/googleOAuth";
 import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
+import { handleStripeCheckout, handlePaypalCheckout, handlePaymentStatus } from "./routes/payments";
 
 export function createServer() {
   const app = express();
@@ -75,6 +76,11 @@ export function createServer() {
   // RSS Feed Routes
   app.get("/api/rss/:workflowId", handleGetRssFeed);
   app.post("/api/rss/:workflowId/items", handleAddRssItem);
+
+  // Payment Routes
+  app.get("/api/payments/status", handlePaymentStatus);
+  app.post("/api/create-checkout-stripe", handleStripeCheckout);
+  app.post("/api/create-checkout-paypal", handlePaypalCheckout);
 
   // Workflow Routes
   app.post("/api/webhooks/register", handleRegisterWebhook);

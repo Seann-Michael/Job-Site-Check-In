@@ -94,10 +94,10 @@ const CATEGORIES = [
   { id: "documentation", name: "Documentation",             description: "Improve guides, tutorials, and help content",  icon: FileText,   color: "bg-gray-500" },
 ];
 
-// localStorage key for tracking user votes
+// localStorage key for tracking user votes (used as fallback)
 const VOTED_KEY = "ideas_voted";
 
-const getVoted = (): Set<string> => {
+const getVotedLocal = (): Set<string> => {
   try {
     const raw = localStorage.getItem(VOTED_KEY);
     return new Set(raw ? JSON.parse(raw) : []);
@@ -106,10 +106,19 @@ const getVoted = (): Set<string> => {
   }
 };
 
-const saveVoted = (voted: Set<string>) => {
+const saveVotedLocal = (voted: Set<string>) => {
   try {
     localStorage.setItem(VOTED_KEY, JSON.stringify([...voted]));
   } catch {}
+};
+
+const getCurrentUserEmail = (): string => {
+  try {
+    const user = JSON.parse(localStorage.getItem("auth_user") || "{}");
+    return user.email || "";
+  } catch {
+    return "";
+  }
 };
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -126,7 +135,7 @@ export default function Ideas() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("boards");
 
-  const [votedIds, setVotedIds] = useState<Set<string>>(getVoted);
+  const [votedIds, setVotedIds] = useState<Set<string>>(getVotedLocal);
 
   // suggestion form
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
@@ -188,34 +197,73 @@ export default function Ideas() {
     }
   }, []);
 
+  // ── Load user's existing votes from Supabase ────────────────────────────────
+  const fetchUserVotes = useCallback(async () => {
+    const userEmail = getCurrentUserEmail();
+    if (!userEmail) return; // anonymous — keep localStorage votes only
+    try {
+      const { data } = await supabaseClient
+        .from("idea_votes")
+        .select("idea_id")
+        .eq("user_email", userEmail);
+      if (data && data.length > 0) {
+        const dbVoted = new Set(data.map((r: any) => r.idea_id as string));
+        setVotedIds(dbVoted);
+        saveVotedLocal(dbVoted); // keep localStorage in sync
+      }
+    } catch (err) {
+      console.warn("Could not load votes from DB, using localStorage", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchIdeas();
     fetchChangelog();
-  }, [fetchIdeas, fetchChangelog]);
+    fetchUserVotes();
+  }, [fetchIdeas, fetchChangelog, fetchUserVotes]);
 
   // ── Vote ─────────────────────────────────────────────────────────────────────
   const handleVote = async (idea: Idea) => {
     const alreadyVoted = votedIds.has(idea.id);
     const newUpvotes = alreadyVoted ? idea.upvotes - 1 : idea.upvotes + 1;
+    const userEmail = getCurrentUserEmail();
 
     // Optimistic update
     setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: newUpvotes } : i));
     const newVoted = new Set(votedIds);
     if (alreadyVoted) newVoted.delete(idea.id); else newVoted.add(idea.id);
     setVotedIds(newVoted);
-    saveVoted(newVoted);
+    saveVotedLocal(newVoted);
 
     try {
+      // Update the upvote count on the idea
       const { error } = await supabaseClient
         .from("ideas")
         .update({ upvotes: newUpvotes })
         .eq("id", idea.id);
       if (error) throw error;
+
+      // Persist the user's vote decision to idea_votes (if we have an email)
+      if (userEmail) {
+        if (alreadyVoted) {
+          // Remove the vote record
+          await supabaseClient
+            .from("idea_votes")
+            .delete()
+            .eq("idea_id", idea.id)
+            .eq("user_email", userEmail);
+        } else {
+          // Insert a vote record (ignore conflict — already voted)
+          await supabaseClient
+            .from("idea_votes")
+            .upsert({ idea_id: idea.id, user_email: userEmail }, { onConflict: "idea_id,user_email" });
+        }
+      }
     } catch (err: any) {
       // Revert on failure
       setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: idea.upvotes } : i));
       setVotedIds(votedIds);
-      saveVoted(votedIds);
+      saveVotedLocal(votedIds);
       toast.error("Failed to record vote");
     }
   };
