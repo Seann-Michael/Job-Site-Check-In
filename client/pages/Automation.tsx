@@ -416,9 +416,9 @@ export default function Automation() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStats.totalRuns}</div>
+              <div className="text-2xl font-bold">{executionHistory.length}</div>
               <p className="text-xs text-muted-foreground">
-                {mockStats.averagePerDay} per day avg
+                {executionHistory.length > 0 ? Math.round(executionHistory.length / 30) : 0} per day avg
               </p>
             </CardContent>
           </Card>
@@ -432,13 +432,12 @@ export default function Automation() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {Math.round(
-                  (mockStats.successfulRuns / mockStats.totalRuns) * 100,
-                )}
-                %
+                {executionHistory.length > 0
+                  ? Math.round((executionHistory.filter((e) => e.status === "success").length / executionHistory.length) * 100)
+                  : 0}%
               </div>
               <p className="text-xs text-muted-foreground">
-                {mockStats.failedRuns} failures
+                {executionHistory.filter((e) => e.status === "failed").length} failures
               </p>
             </CardContent>
           </Card>
@@ -452,7 +451,9 @@ export default function Automation() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockStats.avgExecutionTime}s
+                {executionHistory.filter((e) => e.duration != null).length > 0
+                  ? Math.round(executionHistory.filter((e) => e.duration != null).reduce((sum, e) => sum + (e.duration ?? 0), 0) / executionHistory.filter((e) => e.duration != null).length)
+                  : 0}s
               </div>
               <p className="text-xs text-muted-foreground">Last 30 days</p>
             </CardContent>
