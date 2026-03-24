@@ -520,7 +520,7 @@ export default function AdminReviews() {
   }, []);
 
   const loadReviewData = async () => {
-    // Load reviews from Supabase
+    // Load completed reviews from Supabase
     const { data: supabaseReviews } = await supabase
       .from("reviews")
       .select("id, business_id, platform, rating, title, text, author, date, created_at")
@@ -541,6 +541,23 @@ export default function AdminReviews() {
       redirectedToGoogle: r.platform === "google",
     }));
 
+    // Load pending/sent/viewed review requests from Supabase
+    const { data: pendingRows } = await supabase
+      .from("review_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const pendingReviews: ReviewRequest[] = (pendingRows ?? []).map((r: any) => ({
+      id: r.id,
+      customerName: r.customer_name,
+      customerPhone: r.customer_phone ?? "N/A",
+      projectName: r.project_name ?? "Project",
+      status: r.status as ReviewRequest["status"],
+      sentAt: r.sent_at,
+      viewedAt: r.viewed_at,
+      linkClicked: r.status === "viewed",
+    }));
+
     // Merge with localStorage-submitted review requests (from Send Review Request flow)
     const submissions = JSON.parse(localStorage.getItem("reviewSubmissions") || "[]");
     const localReviews: ReviewRequest[] = submissions.map((sub: any) => ({
@@ -557,7 +574,7 @@ export default function AdminReviews() {
       redirectedToGoogle: sub.redirectedToGoogle,
     }));
 
-    const allRequests = [...dbReviews, ...localReviews];
+    const allRequests = [...pendingReviews, ...dbReviews, ...localReviews];
     setReviewRequests(allRequests);
 
     // Calculate stats from real data
