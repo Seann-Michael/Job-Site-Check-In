@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
@@ -382,6 +383,7 @@ export default function ClientDetail() {
     icon: Icon,
     multiline = false,
     placeholder,
+    addressAutocomplete = false,
   }: {
     field: string;
     label: string;
@@ -389,6 +391,7 @@ export default function ClientDetail() {
     icon: any;
     multiline?: boolean;
     placeholder?: string;
+    addressAutocomplete?: boolean;
   }) => {
     const isEditing = editingField === field;
     return (
@@ -399,7 +402,15 @@ export default function ClientDetail() {
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <div className="flex items-start gap-2">
-              {multiline ? (
+              {addressAutocomplete ? (
+                <div className="flex-1">
+                  <AddressAutocomplete
+                    value={fieldValue}
+                    onChange={(address) => setFieldValue(address)}
+                    placeholder={placeholder || "Enter address..."}
+                  />
+                </div>
+              ) : multiline ? (
                 <Textarea
                   autoFocus
                   rows={3}
@@ -546,7 +557,7 @@ export default function ClientDetail() {
                 </div>
                 <InlineField field="phone" label="Phone" value={client.phone} icon={Phone} placeholder="Add phone number" />
                 <InlineField field="email" label="Email" value={client.email} icon={Mail} placeholder="Add email address" />
-                <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Add address" />
+                <InlineField field="address" label="Address" value={client.address} icon={MapPin} placeholder="Search address..." addressAutocomplete />
               </CardContent>
             </Card>
 
