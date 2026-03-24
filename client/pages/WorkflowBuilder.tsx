@@ -207,6 +207,25 @@ const availableApps = [
   // Actions - Communication
   {
     type: "action",
+    app: "communication",
+    name: "Communication",
+    icon: Phone,
+    color: "bg-violet-500",
+    actions: [
+      {
+        id: "send_sms",
+        name: "Send SMS",
+        description: "Send an SMS message to a contact",
+      },
+      {
+        id: "send_email",
+        name: "Send Email",
+        description: "Send an email to a contact",
+      },
+    ],
+  },
+  {
+    type: "action",
     app: "webhook",
     name: "Webhook",
     icon: Webhook,
