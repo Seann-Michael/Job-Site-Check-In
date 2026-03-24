@@ -420,9 +420,15 @@ export default function WorkflowBuilder() {
   };
 
   const getStepName = (app: string, action: string) => {
-    const appData = availableApps.find((a) => a.app === app);
-    const actionData = appData?.actions.find((act) => act.id === action);
-    return actionData?.name || "Unknown Action";
+    // availableApps has duplicate app identifiers (e.g. "reviews" as trigger & action),
+    // so we must check ALL entries with a matching app, not just the first.
+    for (const appData of availableApps) {
+      if (appData.app === app) {
+        const actionData = appData.actions.find((act) => act.id === action);
+        if (actionData) return actionData.name;
+      }
+    }
+    return "Unknown Action";
   };
 
   const canAddTrigger = steps.filter((s) => s.type === "trigger").length === 0;
