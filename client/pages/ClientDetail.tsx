@@ -536,11 +536,11 @@ export default function ClientDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <InlineField field="business_name" label="Business Name" value={client.business_name} icon={Building2} placeholder="Add business name" />
-                <div className="flex gap-2">
-                  <div className="w-1/3">
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1 min-w-0">
                     <InlineField field="first_name" label="First Name" value={client.first_name} icon={User} placeholder="First name" />
                   </div>
-                  <div className="w-1/3">
+                  <div className="flex-1 min-w-0">
                     <InlineField field="last_name" label="Last Name" value={client.last_name} icon={User} placeholder="Last name" />
                   </div>
                 </div>
