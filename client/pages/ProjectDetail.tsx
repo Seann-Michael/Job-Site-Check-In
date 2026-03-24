@@ -164,13 +164,6 @@ interface Project {
   completionDate?: string;
 }
 
-// Mock users for assignment
-const mockUsers = [
-  { id: "1", name: "John Smith", email: "john@company.com" },
-  { id: "2", name: "Sarah Johnson", email: "sarah@company.com" },
-  { id: "3", name: "Mike Wilson", email: "mike@company.com" },
-  { id: "4", name: "Lisa Davis", email: "lisa@company.com" },
-];
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -216,11 +209,30 @@ export default function ProjectDetail() {
   const [editContactEmail, setEditContactEmail] = useState("");
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [staffUsers, setStaffUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
   const [showMediaUploader, setShowMediaUploader] = useState(false);
   const [showDocumentUploader, setShowDocumentUploader] = useState(false);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load real staff/users from Supabase
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { data } = await supabase
+          .from("users")
+          .select("id, name, email")
+          .order("name", { ascending: true });
+        if (data && data.length > 0) {
+          setStaffUsers(data.map((u: any) => ({ id: u.id, name: u.name || u.email, email: u.email })));
+        }
+      } catch (err) {
+        console.error("Failed to load staff users:", err);
+      }
+    };
+    loadUsers();
+  }, []);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -981,7 +993,7 @@ export default function ProjectDetail() {
     setNewNote(value);
   };
 
-  const insertMention = (user: (typeof mockUsers)[0]) => {
+  const insertMention = (user: (typeof staffUsers)[0]) => {
     const cursorPos = newNote.lastIndexOf("@" + mentionQuery);
     const beforeMention = newNote.substring(0, cursorPos);
     const afterMention = newNote.substring(cursorPos + mentionQuery.length + 1);
@@ -1265,7 +1277,7 @@ export default function ProjectDetail() {
   };
 
   const getFilteredUsers = () => {
-    return mockUsers.filter((user) =>
+    return staffUsers.filter((user) =>
       user.name.toLowerCase().includes(mentionQuery.toLowerCase()),
     );
   };
@@ -2322,7 +2334,7 @@ export default function ProjectDetail() {
                                   <SelectValue placeholder="Assign to..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {mockUsers.map((user) => (
+                                  {staffUsers.map((user) => (
                                     <SelectItem key={user.id} value={user.name}>
                                       {user.name}
                                     </SelectItem>
@@ -2397,7 +2409,7 @@ export default function ProjectDetail() {
                                               <SelectValue placeholder="Assign to..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              {mockUsers.map((user) => (
+                                              {staffUsers.map((user) => (
                                                 <SelectItem
                                                   key={user.id}
                                                   value={user.name}

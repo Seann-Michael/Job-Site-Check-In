@@ -57,6 +57,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { isAgencyAdmin, isSuperAdmin } from "@/lib/auth";
 import { ArrowUpDown } from "lucide-react";
+import { supabase } from "@/lib/dataService";
 
 interface SupportTicket {
   id: string;
@@ -110,9 +111,7 @@ export default function Support() {
   ];
 
   useEffect(() => {
-    // Load tickets based on user role
-    const userRole = getCurrentUserRole();
-    loadTicketsForRole(userRole);
+    loadTickets();
   }, []);
 
   const getCurrentUserRole = () => {
@@ -121,32 +120,48 @@ export default function Support() {
     return "admin";
   };
 
-  const loadTicketsForRole = (role: string) => {
-    let existingTickets = JSON.parse(
-      localStorage.getItem("support_tickets") || "[]",
-    );
-
-    // Filter tickets based on role
-    if (role === "admin") {
-      // Business admin only sees their own tickets
+  const loadTickets = async () => {
+    try {
+      const role = getCurrentUserRole();
       const currentUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-      existingTickets = existingTickets.filter(
-        (ticket: SupportTicket) => ticket.submittedBy === currentUser.email,
-      );
-    } else if (role === "agency-admin") {
-      // Agency admin sees tickets from their business owners and their own
-      existingTickets = existingTickets.filter(
-        (ticket: SupportTicket) =>
-          ticket.submittedBy.includes("agency") ||
-          !ticket.submittedBy.includes("super"),
-      );
-    }
-    // Super admin sees all tickets
 
-    setTickets(existingTickets);
+      let query = supabase
+        .from("support_tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      // Business admin only sees their own tickets
+      if (role === "admin" && currentUser.email) {
+        query = query.eq("submitted_by", currentUser.email);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const mapped: SupportTicket[] = (data || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        category: r.category,
+        priority: r.priority,
+        status: r.status,
+        description: r.description,
+        createdDate: r.created_at,
+        updatedDate: r.updated_at,
+        submittedBy: r.submitted_by,
+        assignedTo: r.assigned_to,
+        responses: [],
+      }));
+
+      setTickets(mapped);
+    } catch (err) {
+      console.error("Failed to load tickets:", err);
+      // Fallback to localStorage
+      const existingTickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
+      setTickets(existingTickets);
+    }
   };
 
-  const handleCreateTicket = () => {
+  const handleCreateTicket = async () => {
     if (!formData.title || !formData.category || !formData.description) {
       toast({
         title: "Error",
@@ -157,42 +172,55 @@ export default function Support() {
     }
 
     const currentUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-    const newTicket: SupportTicket = {
-      id: Date.now().toString(),
-      title: formData.title,
-      category: formData.category,
-      priority: formData.priority,
-      status: "open",
-      description: formData.description,
-      createdDate: new Date().toISOString().split("T")[0],
-      updatedDate: new Date().toISOString().split("T")[0],
-      submittedBy: currentUser.email || "user@example.com",
-      responses: [],
-    };
+    const submittedBy = currentUser.email || "user@example.com";
+    const role = getCurrentUserRole();
 
-    // Load existing tickets, add new one
-    const existingTickets = JSON.parse(
-      localStorage.getItem("support_tickets") || "[]",
-    );
-    existingTickets.push(newTicket);
-    localStorage.setItem("support_tickets", JSON.stringify(existingTickets));
+    try {
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .insert({
+          title: formData.title,
+          category: formData.category,
+          priority: formData.priority,
+          description: formData.description,
+          status: "open",
+          submitted_by: submittedBy,
+          user_type: role,
+        })
+        .select()
+        .single();
 
-    // Update local state
-    setTickets([newTicket, ...tickets]);
+      if (error) throw error;
 
-    // Reset form
-    setFormData({
-      title: "",
-      category: "",
-      priority: "medium",
-      description: "",
-    });
-    setShowCreateForm(false);
+      const newTicket: SupportTicket = {
+        id: data.id,
+        title: data.title,
+        category: data.category,
+        priority: data.priority,
+        status: data.status,
+        description: data.description,
+        createdDate: data.created_at,
+        updatedDate: data.updated_at,
+        submittedBy: data.submitted_by,
+        responses: [],
+      };
 
-    toast({
-      title: "Ticket Created",
-      description: `Support ticket #${newTicket.id} has been created successfully.`,
-    });
+      setTickets([newTicket, ...tickets]);
+      setFormData({ title: "", category: "", priority: "medium", description: "" });
+      setShowCreateForm(false);
+
+      toast({
+        title: "Ticket Created",
+        description: `Support ticket has been created successfully.`,
+      });
+    } catch (err) {
+      console.error("Failed to create ticket:", err);
+      toast({
+        title: "Error",
+        description: "Failed to create ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -261,11 +289,6 @@ export default function Support() {
 
   const handleRowClick = (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
-    // Here you could navigate to ticket detail page or open modal
-    toast({
-      title: "Opening Ticket",
-      description: `Opening ticket #${ticket.id}: ${ticket.title}`,
-    });
   };
 
   const getLayoutComponent = () => {

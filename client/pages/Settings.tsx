@@ -1,6 +1,7 @@
 // @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect } from "react";
 import { workspaceService } from "@/lib/workspaceService";
+import { supabase } from "@/lib/dataService";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -604,35 +605,60 @@ export default function Settings() {
     }
   };
 
-  // Safe data loading — reads subAccountId from Supabase workspace
+  // Safe data loading — reads from Supabase businesses table + localStorage fallback
   useEffect(() => {
     const loadSettings = async () => {
       try {
+        // 1. Get workspace / business context
+        let wsState = workspaceService.getState();
+        if (!wsState.initialized) {
+          wsState = await workspaceService.initialize();
+        }
+
+        // 2. Start from defaults merged with localStorage as a fallback
         const saved = localStorage.getItem("business_settings");
         const loadedSettings = saved
           ? { ...createDefaultSettings(), ...JSON.parse(saved) }
           : createDefaultSettings();
 
-        // Always prefer the authoritative sub_account_id from Supabase
-        let wsState = workspaceService.getState();
-        if (!wsState.initialized) {
-          wsState = await workspaceService.initialize();
+        // 3. Load from Supabase if we have a business ID
+        if (wsState.currentBusinessId) {
+          const { data: biz } = await supabase
+            .from("businesses")
+            .select("name, phone, email, website, address, settings")
+            .eq("id", wsState.currentBusinessId)
+            .single();
+
+          if (biz) {
+            if (biz.name) loadedSettings.businessName = biz.name;
+            if (biz.phone) loadedSettings.phone = biz.phone;
+            if (biz.email) loadedSettings.email = biz.email;
+            if (biz.website) loadedSettings.website = biz.website;
+            if (biz.address && typeof biz.address === "object") {
+              if (biz.address.street) loadedSettings.address = biz.address.street;
+              if (biz.address.city) loadedSettings.city = biz.address.city;
+              if (biz.address.state) loadedSettings.state = biz.address.state;
+              if (biz.address.zip) loadedSettings.zipCode = biz.address.zip;
+              if (biz.address.country) loadedSettings.country = biz.address.country;
+            }
+            // Merge extra settings blob
+            if (biz.settings && typeof biz.settings === "object") {
+              Object.assign(loadedSettings, biz.settings);
+            }
+          }
         }
+
+        // 4. Always prefer the authoritative sub_account_id
         if (wsState.user?.subAccountId) {
           loadedSettings.subAccountId = wsState.user.subAccountId;
         } else if (loadedSettings.subAccountId && !loadedSettings.subAccountId.includes("-")) {
-          // Format any legacy unformatted ID in localStorage
           const d = loadedSettings.subAccountId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0");
           loadedSettings.subAccountId = `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6, 9)}`;
         }
 
         setSettings(loadedSettings);
         localStorage.setItem("business_settings", JSON.stringify(loadedSettings));
-        // Also save business name to separate localStorage key
-        localStorage.setItem(
-          "business_name",
-          loadedSettings.businessName || "",
-        );
+        localStorage.setItem("business_name", loadedSettings.businessName || "");
       } catch (error) {
         console.error(
           "Failed to load settings:",
@@ -670,9 +696,86 @@ export default function Settings() {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Always keep localStorage in sync (fast local read)
       localStorage.setItem("business_settings", JSON.stringify(settings));
       localStorage.setItem("business_name", settings.businessName || "");
+
+      // Persist to Supabase
+      const wsState = workspaceService.getState();
+      if (wsState.currentBusinessId) {
+        const addressBlob = {
+          street: settings.address || "",
+          city: settings.city || "",
+          state: settings.state || "",
+          zip: settings.zipCode || "",
+          country: settings.country || "United States",
+        };
+
+        // Fields stored on the businesses row directly
+        const directFields: Record<string, any> = {
+          name: settings.businessName,
+          phone: settings.phone,
+          email: settings.email,
+          website: settings.website,
+          address: addressBlob,
+          updated_at: new Date().toISOString(),
+        };
+        if (settings.googlePlaceId) directFields.google_place_id = settings.googlePlaceId;
+
+        // Extra settings stored in the settings blob
+        const settingsBlob: Record<string, any> = {
+          firstName: settings.firstName,
+          lastName: settings.lastName,
+          timezone: settings.timezone,
+          currency: settings.currency,
+          dateFormat: settings.dateFormat,
+          timeFormat: settings.timeFormat,
+          autoPostGoogleMyBusiness: settings.autoPostGoogleMyBusiness,
+          autoPostRssFeed: settings.autoPostRssFeed,
+          aiPromptForDescriptions: settings.aiPromptForDescriptions,
+          aiProjectRewritePrompt: settings.aiProjectRewritePrompt,
+          autoArchiveDays: settings.autoArchiveDays,
+          goHighLevelApiKey: settings.goHighLevelApiKey,
+          aiPromptTemplate: settings.aiPromptTemplate,
+          aiInstructions: settings.aiInstructions,
+          aiVariables: settings.aiVariables,
+          businessTags: settings.businessTags,
+          seoKeywords: settings.seoKeywords,
+          allowedImageTypes: settings.allowedImageTypes,
+          allowedVideoTypes: settings.allowedVideoTypes,
+          maxFileSize: settings.maxFileSize,
+          reviewReminderEnabled: settings.reviewReminderEnabled,
+          reviewReminderDays: settings.reviewReminderDays,
+          autoRequestReviews: settings.autoRequestReviews,
+          reviewEmailTemplate: settings.reviewEmailTemplate,
+          reviewSmsTemplate: settings.reviewSmsTemplate,
+          minimumProjectValue: settings.minimumProjectValue,
+          reviewAiPrompt: settings.reviewAiPrompt,
+          reviewGateLogoUrl: settings.reviewGateLogoUrl,
+          reviewGateHeading: settings.reviewGateHeading,
+          reviewGateTitle: settings.reviewGateTitle,
+          reviewGateDescription: settings.reviewGateDescription,
+          reviewGateThreshold: settings.reviewGateThreshold,
+          reviewGateGoogleUrl: settings.reviewGateGoogleUrl,
+          reviewGateSeoKeywords: settings.reviewGateSeoKeywords,
+          reviewGateButtonText: settings.reviewGateButtonText,
+          reviewGateThankYouMessage: settings.reviewGateThankYouMessage,
+          reviewGateVideoUrl: settings.reviewGateVideoUrl,
+          enableNotifications: settings.enableNotifications,
+          enableSounds: settings.enableSounds,
+          desktopNotifications: settings.desktopNotifications,
+          notificationFrequency: settings.notificationFrequency,
+          businessLogo: settings.businessLogo,
+          businessTypes: settings.businessTypes,
+          rssIncludeImages: settings.rssIncludeImages,
+        };
+
+        await supabase
+          .from("businesses")
+          .update({ ...directFields, settings: settingsBlob })
+          .eq("id", wsState.currentBusinessId);
+      }
+
       toast.success("Settings saved successfully!");
     } catch (error) {
       console.error(
