@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Images, MapPin, CalendarDays, Tag } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface TaggedPhoto {
   url: string;
@@ -27,19 +28,30 @@ export default function PublicProject() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    const projects = JSON.parse(localStorage.getItem("projects") || "[]");
-    const foundProject = projects.find((p: Project) => p.id === id);
-    if (foundProject) {
-      // Only include public information
-      setProject({
-        id: foundProject.id,
-        name: foundProject.name,
-        description: foundProject.description,
-        photos: foundProject.photos,
-        keywords: foundProject.keywords,
-        createdAt: foundProject.createdAt,
-      });
-    }
+    if (!id) return;
+    const loadProject = async () => {
+      try {
+        const { data, error } = await supabaseClient
+          .from("projects")
+          .select("id, name, description, photos, keywords, created_at, media")
+          .eq("id", id)
+          .single();
+
+        if (!error && data) {
+          setProject({
+            id: data.id,
+            name: data.name,
+            description: data.description ?? "",
+            photos: data.photos ?? data.media ?? [],
+            keywords: data.keywords ?? [],
+            createdAt: data.created_at,
+          });
+        }
+      } catch {
+        // Project not found — show "not found" state
+      }
+    };
+    loadProject();
   }, [id]);
 
   const getPhotoUrl = (photo: TaggedPhoto | string): string => {

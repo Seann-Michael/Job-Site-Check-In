@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 const GOOGLE_API_KEY =
   process.env.VITE_GOOGLE_MAPS_API_KEY ||
   process.env.GOOGLE_MAPS_API_KEY ||
-  "REDACTED_GOOGLE_MAPS_API_KEY";
+  "";
 
 /** Follow redirects to expand a short URL */
 async function resolveUrl(url: string): Promise<string> {
@@ -116,6 +116,10 @@ async function getPlaceDetails(placeId: string): Promise<any | null> {
  * Accepts any Google Maps URL format and returns the business profile.
  */
 export async function handleGooglePlaceLookup(req: Request, res: Response) {
+  if (!GOOGLE_API_KEY) {
+    return res.status(503).json({ error: "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY or VITE_GOOGLE_MAPS_API_KEY environment variable." });
+  }
+
   const { url } = req.body as { url?: string };
 
   if (!url) {

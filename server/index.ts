@@ -1,5 +1,57 @@
 import express from "express";
 import cors from "cors";
+
+// ── Startup-time environment validation ─────────────────────────────────────
+function validateEnv() {
+  const REQUIRED: string[] = [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ];
+
+  const OPTIONAL_WITH_FEATURE: Array<[string, string]> = [
+    ["STRIPE_SECRET_KEY",         "Payments (Stripe)"],
+    ["PAYPAL_CLIENT_ID",          "Payments (PayPal)"],
+    ["PAYPAL_CLIENT_SECRET",      "Payments (PayPal)"],
+    ["TWILIO_ACCOUNT_SID",        "SMS / Review Requests"],
+    ["TWILIO_AUTH_TOKEN",         "SMS / Review Requests"],
+    ["TWILIO_PHONE_NUMBER",       "SMS / Review Requests"],
+    ["OPENAI_API_KEY",            "AI Review Responses"],
+    ["GOOGLE_MAPS_API_KEY",       "Google Maps / Place Lookup"],
+    ["GOOGLE_OAUTH_CLIENT_ID",    "Google Business Profile OAuth"],
+    ["GOOGLE_OAUTH_CLIENT_SECRET","Google Business Profile OAuth"],
+    ["VITE_APP_URL",              "Payment redirect URLs"],
+  ];
+
+  const missing: string[] = [];
+  for (const key of REQUIRED) {
+    if (!process.env[key]) missing.push(key);
+  }
+
+  if (missing.length) {
+    console.error("\n\x1b[31m[ENV] CRITICAL — Missing required environment variables:\x1b[0m");
+    missing.forEach((k) => console.error(`  \x1b[31m✗ ${k}\x1b[0m`));
+    console.error("Server will start but database features may be broken.\n");
+  }
+
+  const missingOptional: Array<[string, string]> = [];
+  for (const [key, feature] of OPTIONAL_WITH_FEATURE) {
+    if (!process.env[key]) missingOptional.push([key, feature]);
+  }
+
+  if (missingOptional.length) {
+    console.warn("\n\x1b[33m[ENV] Optional variables not set (affected features listed):\x1b[0m");
+    missingOptional.forEach(([k, f]) =>
+      console.warn(`  \x1b[33m⚠ ${k.padEnd(32)} → ${f}\x1b[0m`),
+    );
+    console.warn("");
+  }
+
+  if (!missing.length && !missingOptional.length) {
+    console.log("\x1b[32m[ENV] All environment variables configured ✓\x1b[0m");
+  }
+}
+
+validateEnv();
 import { handleDemo } from "./routes/demo";
 import {
   handleSecureMedia,

@@ -28,6 +28,7 @@ import {
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "@/lib/auth";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface SupportResponse {
   id: string;
@@ -68,22 +69,56 @@ export default function SupportTicketDetail() {
       return;
     }
 
-    // Load ticket from localStorage
-    const existingTickets = JSON.parse(
-      localStorage.getItem("support_tickets") || "[]",
-    );
-    const foundTicket = existingTickets.find(
-      (t: SupportTicket) => t.id === ticketId,
-    );
+    const loadTicket = async () => {
+      try {
+        const { data: ticketData, error: ticketError } = await supabaseClient
+          .from("support_tickets")
+          .select("*")
+          .eq("id", ticketId)
+          .single();
 
-    if (!foundTicket) {
-      toast.error("Ticket not found");
-      navigate("/support");
-      return;
-    }
+        if (ticketError || !ticketData) {
+          toast.error("Ticket not found");
+          navigate("/support");
+          return;
+        }
 
-    setTicket(foundTicket);
-    setLoading(false);
+        const { data: responseData } = await supabaseClient
+          .from("ticket_responses")
+          .select("*")
+          .eq("ticket_id", ticketId)
+          .order("created_at", { ascending: true });
+
+        const responses: SupportResponse[] = (responseData ?? []).map((r: any) => ({
+          id: r.id,
+          message: r.message,
+          author: r.author ?? "Support",
+          authorRole: r.is_staff ? "Support Staff" : "Business Owner",
+          timestamp: r.created_at,
+          attachments: r.attachments ?? [],
+        }));
+
+        setTicket({
+          id: ticketData.id,
+          title: ticketData.title,
+          category: ticketData.category,
+          priority: ticketData.priority,
+          status: ticketData.status,
+          description: ticketData.description,
+          createdDate: ticketData.created_at,
+          updatedDate: ticketData.updated_at,
+          submittedBy: ticketData.submitted_by,
+          responses,
+        });
+      } catch (err: any) {
+        toast.error("Failed to load ticket");
+        navigate("/support");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTicket();
   }, [ticketId, navigate]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,36 +135,44 @@ export default function SupportTicketDetail() {
 
     setIsSubmitting(true);
     try {
+      const author = currentUser?.name || currentUser?.email || "User";
+      const { data, error } = await supabaseClient
+        .from("ticket_responses")
+        .insert({
+          ticket_id: ticket.id,
+          message: newMessage.trim(),
+          author,
+          is_staff: false,
+          attachments: newAttachments.map((f) => f.name),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update ticket updated_at
+      await supabaseClient
+        .from("support_tickets")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", ticket.id);
+
       const newResponse: SupportResponse = {
-        id: Date.now().toString(),
-        message: newMessage,
-        author: currentUser?.name || "User",
+        id: data.id,
+        message: data.message,
+        author,
         authorRole: "Business Owner",
-        timestamp: new Date().toISOString(),
-        attachments: newAttachments.map((file) => file.name),
+        timestamp: data.created_at,
+        attachments: data.attachments ?? [],
       };
 
-      const updatedTicket = {
-        ...ticket,
-        responses: [...ticket.responses, newResponse],
-        updatedDate: new Date().toISOString().split("T")[0],
-      };
-
-      // Update localStorage
-      const existingTickets = JSON.parse(
-        localStorage.getItem("support_tickets") || "[]",
+      setTicket((prev) =>
+        prev ? { ...prev, responses: [...prev.responses, newResponse], updatedDate: new Date().toISOString() } : prev
       );
-      const updatedTickets = existingTickets.map((t: SupportTicket) =>
-        t.id === ticket.id ? updatedTicket : t,
-      );
-      localStorage.setItem("support_tickets", JSON.stringify(updatedTickets));
-
-      setTicket(updatedTicket);
       setNewMessage("");
       setNewAttachments([]);
       toast.success("Response added successfully!");
-    } catch (error) {
-      toast.error("Failed to add response. Please try again.");
+    } catch (err: any) {
+      toast.error("Failed to add response: " + (err?.message ?? "Unknown error"));
     } finally {
       setIsSubmitting(false);
     }

@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { getSupabaseClient } from "../supabaseClient";
 
 /**
  * Interface for media file metadata stored on server
@@ -25,12 +26,67 @@ interface ServerMediaFile {
   };
 }
 
-/**
- * In-memory storage for demo purposes
- * In production, this would be a database
- */
-const mediaFiles = new Map<string, ServerMediaFile>();
-const publicUrlMappings = new Map<string, string>(); // Maps public URLs to media IDs
+// ── Supabase helpers ─────────────────────────────────────────────────────────
+async function dbGetMedia(mediaId: string): Promise<ServerMediaFile | null> {
+  const db = getSupabaseClient();
+  if (!db) return null;
+  const { data } = await db
+    .from("server_media_metadata")
+    .select("*")
+    .eq("id", mediaId)
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    originalName: data.original_name,
+    storedPath: data.stored_path,
+    mimeType: data.mime_type,
+    size: data.size,
+    accountId: data.account_id,
+    projectId: data.project_id ?? undefined,
+    mediaType: data.media_type,
+    isPublic: data.is_public,
+    uploadedAt: new Date(data.uploaded_at),
+    uploadedBy: data.uploaded_by,
+    thumbnails: data.thumbnail_small
+      ? { small: data.thumbnail_small, medium: data.thumbnail_medium, large: data.thumbnail_large }
+      : undefined,
+  };
+}
+
+async function dbGetMediaByPublicUrl(publicUrlKey: string): Promise<ServerMediaFile | null> {
+  const db = getSupabaseClient();
+  if (!db) return null;
+  const { data } = await db
+    .from("server_media_metadata")
+    .select("*")
+    .eq("public_url_id", publicUrlKey)
+    .single();
+  if (!data) return null;
+  return dbGetMedia(data.id);
+}
+
+async function dbSaveMedia(mediaFile: ServerMediaFile, publicUrlId?: string): Promise<void> {
+  const db = getSupabaseClient();
+  if (!db) return;
+  await db.from("server_media_metadata").upsert({
+    id: mediaFile.id,
+    original_name: mediaFile.originalName,
+    stored_path: mediaFile.storedPath,
+    mime_type: mediaFile.mimeType,
+    size: mediaFile.size,
+    account_id: mediaFile.accountId,
+    project_id: mediaFile.projectId ?? null,
+    media_type: mediaFile.mediaType,
+    is_public: mediaFile.isPublic,
+    public_url_id: publicUrlId ?? null,
+    uploaded_at: mediaFile.uploadedAt.toISOString(),
+    uploaded_by: mediaFile.uploadedBy,
+    thumbnail_small: mediaFile.thumbnails?.small ?? null,
+    thumbnail_medium: mediaFile.thumbnails?.medium ?? null,
+    thumbnail_large: mediaFile.thumbnails?.large ?? null,
+  });
+}
 
 /**
  * Serve secure media files (authenticated access)
@@ -44,13 +100,12 @@ export const handleSecureMedia: RequestHandler = async (req, res) => {
     }
 
     // Get media file record
-    const mediaFile = mediaFiles.get(mediaId);
+    const mediaFile = await dbGetMedia(mediaId);
     if (!mediaFile) {
       return res.status(404).json({ error: "Media file not found" });
     }
 
     // Validate access permissions
-    // In a real app, you'd check user authentication and permissions here
     const userAccountId = req.headers['x-account-id'] as string || 'default';
     if (mediaFile.accountId !== userAccountId) {
       return res.status(403).json({ error: "Access denied" });
@@ -99,13 +154,8 @@ export const handlePublicMedia: RequestHandler = async (req, res) => {
       return res.status(400).json({ error: "Missing public ID or filename" });
     }
 
-    // Get media ID from public URL mapping
-    const mediaId = publicUrlMappings.get(`${publicId}/${filename}`);
-    if (!mediaId) {
-      return res.status(404).json({ error: "Media file not found" });
-    }
-
-    const mediaFile = mediaFiles.get(mediaId);
+    // Get media by public URL
+    const mediaFile = await dbGetMediaByPublicUrl(`${publicId}/${filename}`);
     if (!mediaFile || !mediaFile.isPublic) {
       return res.status(404).json({ error: "Media file not found or not public" });
     }
@@ -169,14 +219,9 @@ export const handleThumbnails: RequestHandler = async (req, res) => {
     let mediaFile: ServerMediaFile | undefined;
 
     if (isPublic) {
-      // For public thumbnails, get media ID from mapping
-      const realMediaId = publicUrlMappings.get(`${mediaId}/${filename}`);
-      if (realMediaId) {
-        mediaFile = mediaFiles.get(realMediaId);
-      }
+      mediaFile = await dbGetMediaByPublicUrl(`${mediaId}/${filename}`) ?? undefined;
     } else {
-      // For secure thumbnails, use media ID directly
-      mediaFile = mediaFiles.get(mediaId);
+      mediaFile = await dbGetMedia(mediaId) ?? undefined;
     }
 
     if (!mediaFile) {
@@ -291,8 +336,8 @@ export const handleMediaUpload: RequestHandler = async (req, res) => {
       }
     };
 
-    // Store in memory (in production, save to database)
-    mediaFiles.set(mediaId, mediaFile);
+    // Persist metadata to Supabase
+    await dbSaveMedia(mediaFile, publicUrlId || undefined);
 
     // Generate URLs
     const secureUrl = `/api/media/${mediaId}/${encodeURIComponent(mockFile.originalname)}`;

@@ -559,7 +559,8 @@ export default function AdminReviews() {
     }));
 
     // Merge with localStorage-submitted review requests (from Send Review Request flow)
-    const submissions = JSON.parse(localStorage.getItem("reviewSubmissions") || "[]");
+    let submissions: any[] = [];
+    try { submissions = JSON.parse(localStorage.getItem("reviewSubmissions") || "[]"); } catch { submissions = []; }
     const localReviews: ReviewRequest[] = submissions.map((sub: any) => ({
       id: sub.requestId,
       customerName: sub.customerName,

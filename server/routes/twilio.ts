@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { getSupabaseClient } from "../supabaseClient";
 
 // Twilio Configuration
 interface TwilioConfig {
@@ -91,13 +92,22 @@ export const handleSendSMS = async (req: Request, res: Response) => {
       throw new Error(`Twilio API error: ${data.message || response.status}`);
     }
 
-    // TODO: Store message record in database
-    console.log('SMS sent successfully:', {
-      messageId: data.sid,
-      to,
-      campaignId,
-      businessId
-    });
+    // Persist SMS log to Supabase
+    const db = getSupabaseClient();
+    if (db) {
+      await db.from("sms_logs").insert({
+        twilio_sid: data.sid,
+        direction: "outbound",
+        to_number: to,
+        from_number: config.phoneNumber,
+        message,
+        status: data.status ?? "sent",
+        campaign_id: campaignId ?? null,
+        business_id: businessId ?? null,
+      }).then(({ error }) => {
+        if (error) console.error("[twilio] Failed to log SMS:", error.message);
+      });
+    }
 
     res.json({
       success: true,
@@ -126,8 +136,22 @@ export const handleTwilioWebhook = async (req: Request, res: Response) => {
       errorMessage: ErrorMessage
     });
 
-    // TODO: Update message status in database
-    // const updateResult = await updateMessageStatus(MessageSid, MessageStatus, ErrorCode, ErrorMessage);
+    // Update message status in Supabase
+    const db = getSupabaseClient();
+    if (db && MessageSid) {
+      await db
+        .from("sms_logs")
+        .update({
+          status: MessageStatus ?? "unknown",
+          error_code: ErrorCode ?? null,
+          error_message: ErrorMessage ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("twilio_sid", MessageSid)
+        .then(({ error }) => {
+          if (error) console.error("[twilio] Failed to update SMS status:", error.message);
+        });
+    }
 
     // Respond to Twilio
     res.status(200).send('OK');
