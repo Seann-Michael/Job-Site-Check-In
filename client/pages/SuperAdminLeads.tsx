@@ -196,12 +196,17 @@ export default function SuperAdminLeads() {
 
   const handleBulkDelete = async () => {
     if (selectedLeads.size === 0) return;
-    
+
     try {
-      // In real implementation, call delete API
+      const ids = Array.from(selectedLeads);
+      const { error } = await supabaseClient
+        .from("gmb_profiles")
+        .delete()
+        .in("id", ids);
+      if (error) throw error;
       setLeads(leads.filter(lead => !selectedLeads.has(lead.id)));
       setSelectedLeads(new Set());
-      toast.success(`Deleted ${selectedLeads.size} leads`);
+      toast.success(`Deleted ${ids.length} leads`);
     } catch (error) {
       toast.error("Failed to delete leads");
     }
@@ -210,15 +215,29 @@ export default function SuperAdminLeads() {
   const handleBulkQualityUpdate = async (quality: string) => {
     if (selectedLeads.size === 0) return;
 
+    // Map quality label to a representative overall_score
+    const scoreByQuality: Record<string, number> = {
+      hot: 85,
+      warm: 70,
+      cold: 40,
+      unscored: 0,
+    };
+    const newScore = scoreByQuality[quality] ?? 0;
+
     try {
-      // In real implementation, call update API
-      setLeads(leads.map(lead => 
-        selectedLeads.has(lead.id) 
-          ? { ...lead, lead_quality: quality as any }
+      const ids = Array.from(selectedLeads);
+      const { error } = await supabaseClient
+        .from("gmb_profiles")
+        .update({ overall_score: newScore })
+        .in("id", ids);
+      if (error) throw error;
+      setLeads(leads.map(lead =>
+        selectedLeads.has(lead.id)
+          ? { ...lead, lead_quality: quality as any, lead_score: newScore }
           : lead
       ));
       setSelectedLeads(new Set());
-      toast.success(`Updated quality for ${selectedLeads.size} leads`);
+      toast.success(`Updated quality to "${quality}" for ${ids.length} leads`);
     } catch (error) {
       toast.error("Failed to update lead quality");
     }

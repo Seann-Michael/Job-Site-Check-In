@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Users,
   Building2,
   Shield,
@@ -44,9 +63,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Ban,
-  Trash2,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import supabaseClient from "@/lib/supabaseClient";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -94,6 +114,7 @@ const ROLE_ICONS: Record<DbRole, React.ReactNode> = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function SuperAdminUsers() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<DbUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -103,6 +124,19 @@ export default function SuperAdminUsers() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<string>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // Edit dialog
+  const [editingUser, setEditingUser] = useState<DbUser | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "" as DbRole });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Suspend confirm
+  const [suspendTarget, setSuspendTarget] = useState<DbUser | null>(null);
+
+  // Add user dialog
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", email: "", role: "viewer" as DbRole });
+  const [savingAdd, setSavingAdd] = useState(false);
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
@@ -178,6 +212,82 @@ export default function SuperAdminUsers() {
       : <ArrowDown className="h-3.5 w-3.5 ml-1 text-primary" />;
   };
 
+  // ── Action handlers ───────────────────────────────────────────────────────────
+  const openEdit = (user: DbUser) => {
+    setEditingUser(user);
+    setEditForm({ name: user.name ?? "", email: user.email, phone: user.phone ?? "", role: user.role });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabaseClient
+        .from("users")
+        .update({ name: editForm.name, email: editForm.email, phone: editForm.phone || null, role: editForm.role })
+        .eq("id", editingUser.id);
+      if (error) throw error;
+      setUsers((prev) => prev.map((u) => u.id === editingUser.id
+        ? { ...u, name: editForm.name, email: editForm.email, phone: editForm.phone || null, role: editForm.role }
+        : u
+      ));
+      setEditingUser(null);
+      toast.success("User updated");
+    } catch (err: any) {
+      toast.error("Failed to update user: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleSuspend = async (user: DbUser) => {
+    try {
+      const { error } = await supabaseClient
+        .from("users")
+        .update({ is_active: false })
+        .eq("id", user.id);
+      if (error) throw error;
+      // Remove from list (suspended users won't show in active listing)
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      setTotal((t) => t - 1);
+      setSuspendTarget(null);
+      toast.success(`${user.name ?? user.email} has been suspended`);
+    } catch (err: any) {
+      toast.error("Failed to suspend user: " + (err?.message ?? "Unknown error"));
+    }
+  };
+
+  const handleSendEmail = (user: DbUser) => {
+    window.open(`mailto:${user.email}`, "_blank");
+  };
+
+  const handleAddUser = async () => {
+    if (!addForm.email.trim()) return;
+    setSavingAdd(true);
+    try {
+      const { data, error } = await supabaseClient
+        .from("users")
+        .insert({ name: addForm.name || null, email: addForm.email.trim(), role: addForm.role, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      const newUser: DbUser = {
+        id: data.id, email: data.email, name: data.name, role: data.role,
+        created_at: data.created_at, last_login: null, email_verified: false,
+        phone: null, avatar_url: null,
+      };
+      setUsers((prev) => [newUser, ...prev]);
+      setTotal((t) => t + 1);
+      setShowAddUser(false);
+      setAddForm({ name: "", email: "", role: "viewer" });
+      toast.success("User added");
+    } catch (err: any) {
+      toast.error("Failed to add user: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSavingAdd(false);
+    }
+  };
+
   const handleExport = () => {
     const csv = [
       ["Name", "Email", "Role", "Business", "Joined", "Last Login", "Email Verified"].join(","),
@@ -229,7 +339,7 @@ export default function SuperAdminUsers() {
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2" onClick={() => setShowAddUser(true)}>
               <UserPlus className="h-4 w-4" />
               Add User
             </Button>
@@ -408,20 +518,24 @@ export default function SuperAdminUsers() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const biz = user.business_name;
+                                // Navigate to business detail if they have one
+                                toast.info(`User: ${user.name ?? user.email} — ${user.email}`);
+                              }}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEdit(user)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit User
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSendEmail(user)}>
                                 <Mail className="mr-2 h-4 w-4" />
                                 Send Email
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onClick={() => setSuspendTarget(user)}>
                                 <Ban className="mr-2 h-4 w-4" />
                                 Suspend
                               </DropdownMenuItem>
@@ -468,6 +582,132 @@ export default function SuperAdminUsers() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Edit User Dialog ───────────────────────────────────────────────── */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Update the user's profile information and role.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="Email address"
+                type="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="Phone number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={editForm.role} onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as DbRole }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="agency_admin">Agency Admin</SelectItem>
+                  <SelectItem value="business_owner">Business Owner</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingUser(null)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add User Dialog ────────────────────────────────────────────────── */}
+      <Dialog open={showAddUser} onOpenChange={setShowAddUser}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>Create a new user account in the system.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input
+                value={addForm.name}
+                onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email *</Label>
+              <Input
+                value={addForm.email}
+                onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="Email address"
+                type="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={addForm.role} onValueChange={(v) => setAddForm((f) => ({ ...f, role: v as DbRole }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="agency_admin">Agency Admin</SelectItem>
+                  <SelectItem value="business_owner">Business Owner</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddUser(false)}>Cancel</Button>
+            <Button onClick={handleAddUser} disabled={savingAdd || !addForm.email.trim()}>
+              {savingAdd ? "Adding…" : "Add User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Suspend Confirm ────────────────────────────────────────────────── */}
+      <AlertDialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspend User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to suspend <strong>{suspendTarget?.name ?? suspendTarget?.email}</strong>?
+              They will lose access to the platform immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => suspendTarget && handleSuspend(suspendTarget)}
+            >
+              Suspend
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 }

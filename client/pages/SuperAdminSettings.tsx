@@ -156,6 +156,11 @@ export default function SuperAdminSettings() {
   const [plans, setPlans] = useState<any[]>([]);
   const [promoCodes, setPromoCodes] = useState<any[]>([]);
 
+  // Controlled form state for create/edit dialogs
+  const [workspaceForm, setWorkspaceForm] = useState({ name: "", storageLimit: "10", userLimit: "5" });
+  const [planForm, setPlanForm] = useState({ name: "", price: "", features: "" });
+  const [promoForm, setPromoForm] = useState({ name: "", code: "", discount: "", discountType: "%", usageLimit: "100", expiryDate: "" });
+
   const [settings, setSettings] = useState<SuperAdminSettings>({
     // System Information
     systemName: "Local GMB Booster",
@@ -212,11 +217,26 @@ export default function SuperAdminSettings() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Load settings from localStorage
-    const savedSettings = localStorage.getItem("super_admin_settings");
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
+    const loadSettings = async () => {
+      try {
+        const { data } = await supabaseClient
+          .from("system_settings")
+          .select("value")
+          .eq("key", "global")
+          .single();
+        if (data?.value && Object.keys(data.value).length > 0) {
+          setSettings((prev) => ({ ...prev, ...data.value }));
+          return;
+        }
+      } catch {
+        // fall through to localStorage cache
+      }
+      const cached = localStorage.getItem("super_admin_settings");
+      if (cached) {
+        try { setSettings(JSON.parse(cached)); } catch {}
+      }
+    };
+    loadSettings();
   }, []);
 
   useEffect(() => {
@@ -262,12 +282,12 @@ export default function SuperAdminSettings() {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Save to localStorage
+      const { error } = await supabaseClient
+        .from("system_settings")
+        .update({ value: settings, updated_at: new Date().toISOString() })
+        .eq("key", "global");
+      if (error) throw error;
       localStorage.setItem("super_admin_settings", JSON.stringify(settings));
-
       toast.success("Settings saved successfully!");
     } catch (error) {
       toast.error("Failed to save settings. Please try again.");
@@ -702,30 +722,26 @@ export default function SuperAdminSettings() {
                             <Label>Workspace Name</Label>
                             <Input
                               placeholder="Enter workspace name"
-                              defaultValue={editingWorkspace?.name}
+                              value={workspaceForm.name}
+                              onChange={(e) => setWorkspaceForm((f) => ({ ...f, name: e.target.value }))}
                             />
                           </div>
                           <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                               <Label>Storage Limit (GB)</Label>
-                              <Input type="number" defaultValue="10" />
+                              <Input
+                                type="number"
+                                value={workspaceForm.storageLimit}
+                                onChange={(e) => setWorkspaceForm((f) => ({ ...f, storageLimit: e.target.value }))}
+                              />
                             </div>
                             <div className="space-y-2">
                               <Label>User Limit</Label>
-                              <Input type="number" defaultValue="5" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Available Modules</Label>
-                            <div className="grid gap-2">
-                              <div className="flex items-center justify-between p-2 border rounded">
-                                <span className="text-sm">Projects</span>
-                                <Switch defaultChecked />
-                              </div>
-                              <div className="flex items-center justify-between p-2 border rounded">
-                                <span className="text-sm">Gallery</span>
-                                <Switch defaultChecked />
-                              </div>
+                              <Input
+                                type="number"
+                                value={workspaceForm.userLimit}
+                                onChange={(e) => setWorkspaceForm((f) => ({ ...f, userLimit: e.target.value }))}
+                              />
                             </div>
                           </div>
                         </div>
@@ -738,22 +754,23 @@ export default function SuperAdminSettings() {
                           </Button>
                           <Button
                             onClick={async () => {
-                              if (!editingWorkspace) {
+                              const name = workspaceForm.name.trim() || "New Workspace";
+                              if (editingWorkspace) {
+                                const { error } = await supabaseClient
+                                  .from("workspaces")
+                                  .update({ name, user_count: parseInt(workspaceForm.userLimit) || 5, storage_used: workspaceForm.storageLimit + " GB" })
+                                  .eq("id", editingWorkspace.id);
+                                if (!error) setWorkspaces((prev) => prev.map((w) => w.id === editingWorkspace.id ? { ...w, name, users: parseInt(workspaceForm.userLimit) || 5, storage: workspaceForm.storageLimit + " GB" } : w));
+                              } else {
                                 const { data } = await supabaseClient
                                   .from("workspaces")
-                                  .insert({ name: "New Workspace", user_count: 0, storage_used: "0 GB", modules: ["Projects", "Gallery"] })
-                                  .select()
-                                  .single();
-                                if (data) {
-                                  setWorkspaces((prev) => [...prev, { id: data.id, name: data.name, users: data.user_count, storage: data.storage_used, modules: data.modules }]);
-                                }
+                                  .insert({ name, user_count: parseInt(workspaceForm.userLimit) || 5, storage_used: workspaceForm.storageLimit + " GB", modules: ["Projects", "Gallery"] })
+                                  .select().single();
+                                if (data) setWorkspaces((prev) => [...prev, { id: data.id, name: data.name, users: data.user_count, storage: data.storage_used, modules: data.modules ?? [] }]);
                               }
                               setShowWorkspaceDialog(false);
-                              toast.success(
-                                editingWorkspace
-                                  ? "Workspace updated!"
-                                  : "Workspace created!",
-                              );
+                              setWorkspaceForm({ name: "", storageLimit: "10", userLimit: "5" });
+                              toast.success(editingWorkspace ? "Workspace updated!" : "Workspace created!");
                             }}
                           >
                             {editingWorkspace ? "Update" : "Create"}
@@ -790,6 +807,7 @@ export default function SuperAdminSettings() {
                               size="sm"
                               onClick={() => {
                                 setEditingWorkspace(workspace);
+                                setWorkspaceForm({ name: workspace.name, storageLimit: String(workspace.storage?.replace(" GB", "") ?? "10"), userLimit: String(workspace.users ?? 5) });
                                 setShowWorkspaceDialog(true);
                               }}
                             >
@@ -929,14 +947,16 @@ export default function SuperAdminSettings() {
                                 <Label>Plan Name</Label>
                                 <Input
                                   placeholder="Plan name"
-                                  defaultValue={editingPlan?.name}
+                                  value={planForm.name}
+                                  onChange={(e) => setPlanForm((f) => ({ ...f, name: e.target.value }))}
                                 />
                               </div>
                               <div className="space-y-2">
                                 <Label>Price</Label>
                                 <Input
                                   placeholder="$99"
-                                  defaultValue={editingPlan?.price}
+                                  value={planForm.price}
+                                  onChange={(e) => setPlanForm((f) => ({ ...f, price: e.target.value }))}
                                 />
                               </div>
                             </div>
@@ -945,6 +965,8 @@ export default function SuperAdminSettings() {
                               <Textarea
                                 placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
                                 rows={4}
+                                value={planForm.features}
+                                onChange={(e) => setPlanForm((f) => ({ ...f, features: e.target.value }))}
                               />
                             </div>
                           </div>
@@ -957,22 +979,21 @@ export default function SuperAdminSettings() {
                             </Button>
                             <Button
                               onClick={async () => {
-                                if (!editingPlan) {
-                                  const { data } = await supabaseClient
-                                    .from("plans")
-                                    .insert({ name: "New Plan", price: "$0", features: ["New Feature"] })
-                                    .select()
-                                    .single();
-                                  if (data) {
-                                    setPlans((prev) => [...prev, { id: data.id, name: data.name, price: data.price, features: data.features }]);
-                                  }
+                                const name = planForm.name.trim() || "New Plan";
+                                const price = planForm.price.trim() || "$0";
+                                const features = planForm.features.trim()
+                                  ? planForm.features.split("\n").map((f) => f.trim()).filter(Boolean)
+                                  : ["New Feature"];
+                                if (editingPlan) {
+                                  const { error } = await supabaseClient.from("plans").update({ name, price, features }).eq("id", editingPlan.id);
+                                  if (!error) setPlans((prev) => prev.map((p) => p.id === editingPlan.id ? { ...p, name, price, features } : p));
+                                } else {
+                                  const { data } = await supabaseClient.from("plans").insert({ name, price, features }).select().single();
+                                  if (data) setPlans((prev) => [...prev, { id: data.id, name: data.name, price: data.price, features: data.features }]);
                                 }
                                 setShowPlanDialog(false);
-                                toast.success(
-                                  editingPlan
-                                    ? "Plan updated!"
-                                    : "Plan created!",
-                                );
+                                setPlanForm({ name: "", price: "", features: "" });
+                                toast.success(editingPlan ? "Plan updated!" : "Plan created!");
                               }}
                             >
                               {editingPlan ? "Update" : "Create"}
@@ -1002,6 +1023,7 @@ export default function SuperAdminSettings() {
                               size="sm"
                               onClick={() => {
                                 setEditingPlan(plan);
+                                setPlanForm({ name: plan.name, price: plan.price, features: (plan.features ?? []).join("\n") });
                                 setShowPlanDialog(true);
                               }}
                             >
@@ -1056,42 +1078,61 @@ export default function SuperAdminSettings() {
                             <div className="grid gap-4 md:grid-cols-2">
                               <div className="space-y-2">
                                 <Label>Promo Name</Label>
-                                <Input placeholder="Summer Sale" />
+                                <Input
+                                  placeholder="Summer Sale"
+                                  value={promoForm.name}
+                                  onChange={(e) => setPromoForm((f) => ({ ...f, name: e.target.value }))}
+                                />
                               </div>
                               <div className="space-y-2">
                                 <Label>Promo Code</Label>
-                                <Input placeholder="SUMMER2024" />
+                                <Input
+                                  placeholder="SUMMER2024"
+                                  value={promoForm.code}
+                                  onChange={(e) => setPromoForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                                />
                               </div>
                             </div>
                             <div className="grid gap-4 md:grid-cols-3">
                               <div className="space-y-2">
                                 <Label>Discount Amount</Label>
-                                <Input placeholder="20" type="number" />
+                                <Input
+                                  placeholder="20"
+                                  type="number"
+                                  value={promoForm.discount}
+                                  onChange={(e) => setPromoForm((f) => ({ ...f, discount: e.target.value }))}
+                                />
                               </div>
                               <div className="space-y-2">
                                 <Label>Discount Type</Label>
-                                <Select defaultValue="%">
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
+                                <Select
+                                  value={promoForm.discountType}
+                                  onValueChange={(v) => setPromoForm((f) => ({ ...f, discountType: v }))}
+                                >
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="%">
-                                      Percentage (%)
-                                    </SelectItem>
-                                    <SelectItem value="$">
-                                      Fixed Amount ($)
-                                    </SelectItem>
+                                    <SelectItem value="%">Percentage (%)</SelectItem>
+                                    <SelectItem value="$">Fixed Amount ($)</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
                               <div className="space-y-2">
                                 <Label>Usage Limit</Label>
-                                <Input placeholder="100" type="number" />
+                                <Input
+                                  placeholder="100"
+                                  type="number"
+                                  value={promoForm.usageLimit}
+                                  onChange={(e) => setPromoForm((f) => ({ ...f, usageLimit: e.target.value }))}
+                                />
                               </div>
                             </div>
                             <div className="space-y-2">
                               <Label>Expiry Date</Label>
-                              <Input type="date" />
+                              <Input
+                                type="date"
+                                value={promoForm.expiryDate}
+                                onChange={(e) => setPromoForm((f) => ({ ...f, expiryDate: e.target.value }))}
+                              />
                             </div>
                           </div>
                           <DialogFooter>
@@ -1103,15 +1144,17 @@ export default function SuperAdminSettings() {
                             </Button>
                             <Button
                               onClick={async () => {
+                                const name = promoForm.name.trim() || "New Promo";
+                                const code = promoForm.code.trim() || ("CODE" + Date.now());
                                 const { data } = await supabaseClient
                                   .from("promo_codes")
-                                  .insert({ name: "New Promo", code: "NEWCODE_" + Date.now(), discount: "10", discount_type: "%", usage_limit: "100", expiry_date: null, used: 0 })
-                                  .select()
-                                  .single();
+                                  .insert({ name, code, discount: promoForm.discount || "10", discount_type: promoForm.discountType, usage_limit: promoForm.usageLimit || "100", expiry_date: promoForm.expiryDate || null, used: 0 })
+                                  .select().single();
                                 if (data) {
                                   setPromoCodes((prev) => [...prev, { id: data.id, name: data.name, code: data.code, discount: data.discount, discountType: data.discount_type, usageLimit: data.usage_limit, expiryDate: data.expiry_date ?? "", used: data.used }]);
                                 }
                                 setShowPromoDialog(false);
+                                setPromoForm({ name: "", code: "", discount: "", discountType: "%", usageLimit: "100", expiryDate: "" });
                                 toast.success("Promo code created!");
                               }}
                             >

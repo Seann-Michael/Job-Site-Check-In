@@ -37,7 +37,28 @@ import {
   ArrowUp,
   ArrowDown,
   Columns,
+  Ban,
+  Trash2,
+  MoreVertical,
+  CheckCircle,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -174,6 +195,48 @@ export default function BusinessManagement() {
       statusFilter === "all" || business.status.toLowerCase() === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const [suspendTarget, setSuspendTarget] = useState<Business | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Business | null>(null);
+
+  const handleSuspend = async (business: Business) => {
+    try {
+      const newStatus = business.status === "Suspended" ? "active" : "suspended";
+      const { error } = await supabaseClient
+        .from("businesses")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", business.id);
+      if (error) throw error;
+      setBusinesses((prev) =>
+        prev.map((b) =>
+          b.id === business.id ? { ...b, status: mapDbStatus(newStatus) } : b,
+        ),
+      );
+      setSuspendTarget(null);
+      toast.success(
+        newStatus === "suspended"
+          ? `${business.name} has been suspended`
+          : `${business.name} has been reactivated`,
+      );
+    } catch (err: any) {
+      toast.error("Failed: " + (err?.message ?? "Unknown error"));
+    }
+  };
+
+  const handleDelete = async (business: Business) => {
+    try {
+      const { error } = await supabaseClient
+        .from("businesses")
+        .update({ status: "deleted", updated_at: new Date().toISOString() })
+        .eq("id", business.id);
+      if (error) throw error;
+      setBusinesses((prev) => prev.filter((b) => b.id !== business.id));
+      setDeleteTarget(null);
+      toast.success(`${business.name} has been deleted`);
+    } catch (err: any) {
+      toast.error("Failed: " + (err?.message ?? "Unknown error"));
+    }
+  };
 
   const impersonateUser = (businessId: string) => {
     const targetBusiness = businesses.find((b) => b.id === businessId);
@@ -460,6 +523,30 @@ export default function BusinessManagement() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setSuspendTarget(business)}>
+                                {business.status === "Suspended" ? (
+                                  <><CheckCircle className="mr-2 h-4 w-4" />Reactivate</>
+                                ) : (
+                                  <><Ban className="mr-2 h-4 w-4" />Suspend</>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget(business)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -470,6 +557,53 @@ export default function BusinessManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Suspend Confirm */}
+      <AlertDialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {suspendTarget?.status === "Suspended" ? "Reactivate Business" : "Suspend Business"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {suspendTarget?.status === "Suspended"
+                ? `Reactivate ${suspendTarget?.name}? They will regain full access.`
+                : `Suspend ${suspendTarget?.name}? Users will lose access immediately.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={suspendTarget?.status === "Suspended" ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+              onClick={() => suspendTarget && handleSuspend(suspendTarget)}
+            >
+              {suspendTarget?.status === "Suspended" ? "Reactivate" : "Suspend"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirm */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Business</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
+              This marks the business as deleted and cannot be easily undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
