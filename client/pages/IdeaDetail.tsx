@@ -70,21 +70,37 @@ export default function IdeaDetail() {
   const loadIdea = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabaseClient
-        .from("ideas")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error || !data) {
+      // Load idea and comments in parallel
+      const [ideaRes, commentsRes] = await Promise.all([
+        supabaseClient.from("ideas").select("*").eq("id", id).single(),
+        supabaseClient
+          .from("idea_comments")
+          .select("*")
+          .eq("idea_id", id)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      if (ideaRes.error || !ideaRes.data) {
         setIdea(null);
         return;
       }
+
+      const data = ideaRes.data;
       const statusMap: Record<string, Idea["status"]> = {
         pending: "submitted",
         approved: "planned",
         rejected: "declined",
         roadmap: "in-progress",
       };
+
+      const comments: Comment[] = (commentsRes.data ?? []).map((c: any) => ({
+        id: c.id,
+        author: c.author_name,
+        content: c.content,
+        createdAt: c.created_at,
+        isAdmin: c.is_admin ?? false,
+      }));
+
       setIdea({
         id: data.id,
         title: data.title,
@@ -96,7 +112,7 @@ export default function IdeaDetail() {
         userVote: null,
         author: data.author_name,
         createdAt: data.created_at,
-        comments: [],
+        comments,
         priority: data.priority ?? "medium",
       });
     } catch {
@@ -106,39 +122,45 @@ export default function IdeaDetail() {
     }
   };
 
-  const handleVote = (voteType: "up" | "down") => {
+  const handleVote = async (voteType: "up" | "down") => {
     if (!idea) return;
 
     let newUpvotes = idea.upvotes;
     let newDownvotes = idea.downvotes;
     let newUserVote: "up" | "down" | null = voteType;
 
-    // Remove existing vote if any
-    if (idea.userVote === "up") {
-      newUpvotes--;
-    } else if (idea.userVote === "down") {
-      newDownvotes--;
-    }
+    if (idea.userVote === "up") newUpvotes--;
+    else if (idea.userVote === "down") newDownvotes--;
 
-    // If clicking the same vote type, remove the vote
     if (idea.userVote === voteType) {
       newUserVote = null;
     } else {
-      // Add new vote
-      if (voteType === "up") {
-        newUpvotes++;
-      } else {
-        newDownvotes++;
-      }
+      if (voteType === "up") newUpvotes++;
+      else newDownvotes++;
     }
 
-    setIdea({
-      ...idea,
-      upvotes: newUpvotes,
-      downvotes: newDownvotes,
-      userVote: newUserVote,
-    });
-    toast.success("Vote recorded!");
+    // Optimistic UI update
+    setIdea({ ...idea, upvotes: newUpvotes, downvotes: newDownvotes, userVote: newUserVote });
+
+    try {
+      const userEmail = (() => {
+        try { return JSON.parse(localStorage.getItem("auth_user") || "{}").email || ""; } catch { return ""; }
+      })();
+
+      await supabaseClient.from("ideas").update({ upvotes: newUpvotes, downvotes: newDownvotes }).eq("id", idea.id);
+
+      if (userEmail) {
+        if (newUserVote === null) {
+          await supabaseClient.from("idea_votes").delete().eq("idea_id", idea.id).eq("user_email", userEmail);
+        } else {
+          await supabaseClient.from("idea_votes").upsert({ idea_id: idea.id, user_email: userEmail }, { onConflict: "idea_id,user_email" });
+        }
+      }
+      toast.success("Vote recorded!");
+    } catch (err) {
+      console.error("Vote failed:", err);
+      toast.error("Failed to record vote");
+    }
   };
 
   const handleSubmitComment = async () => {
@@ -149,41 +171,55 @@ export default function IdeaDetail() {
       return;
     }
 
-    if (!captchaVerified) {
-      setShowCaptcha(true);
-      toast.error("Please complete the captcha verification");
-      return;
-    }
-
     setIsSubmittingComment(true);
+    try {
+      const authorName = currentUser.name || currentUser.email || "User";
+      const authorEmail = (() => {
+        try { return JSON.parse(localStorage.getItem("auth_user") || "{}").email || ""; } catch { return ""; }
+      })();
 
-    // Mock API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
+      const { data, error } = await supabaseClient
+        .from("idea_comments")
+        .insert({
+          idea_id: idea.id,
+          author_name: authorName,
+          author_email: authorEmail,
+          content: newComment.trim(),
+          is_admin: currentUser.role === "super_admin" || currentUser.role === "admin",
+        })
+        .select()
+        .single();
 
-    const comment: Comment = {
-      id: `c${Date.now()}`,
-      author: currentUser.name || "You",
-      content: newComment,
-      createdAt: new Date().toISOString(),
-    };
+      if (error) throw error;
 
-    setIdea({
-      ...idea,
-      comments: [...idea.comments, comment],
-    });
+      const comment: Comment = {
+        id: data.id,
+        author: data.author_name,
+        content: data.content,
+        createdAt: data.created_at,
+        isAdmin: data.is_admin,
+      };
 
-    setNewComment("");
-    setCaptchaVerified(false);
-    setShowCaptcha(false);
-    setIsSubmittingComment(false);
-    toast.success("Comment added!");
+      // Increment comments_count on the idea
+      await supabaseClient
+        .from("ideas")
+        .update({ comments_count: (idea.comments?.length ?? 0) + 1 })
+        .eq("id", idea.id);
+
+      setIdea({ ...idea, comments: [...idea.comments, comment] });
+      setNewComment("");
+      toast.success("Comment added!");
+    } catch (err: any) {
+      console.error("Comment failed:", err);
+      toast.error("Failed to post comment. Please try again.");
+    } finally {
+      setIsSubmittingComment(false);
+    }
   };
 
   const handleCaptchaVerify = () => {
-    // Mock captcha verification
     setCaptchaVerified(true);
     setShowCaptcha(false);
-    toast.success("Captcha verified!");
   };
 
   const getStatusBadge = (status: string) => {

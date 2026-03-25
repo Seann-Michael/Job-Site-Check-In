@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatSystemDate } from "@/lib/dateUtils";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface MessageTemplate {
   id: string;
@@ -241,38 +242,48 @@ export default function SuperAdminMessageTemplates() {
     loadTemplateData();
   }, []);
 
-  const loadTemplateData = () => {
-    const storedTemplates = localStorage.getItem("messageTemplates");
-    let allTemplates: MessageTemplate[];
+  const loadTemplateData = async () => {
+    try {
+      const { data, error } = await supabaseClient
+        .from("notification_templates")
+        .select("*")
+        .order("created_at", { ascending: true });
 
-    if (storedTemplates) {
-      const stored = JSON.parse(storedTemplates);
-      // Merge with defaults, ensuring defaults exist
-      const existingIds = stored.map((t: MessageTemplate) => t.id);
-      const missingDefaults = DEFAULT_TEMPLATES.filter(
-        (def) => !existingIds.includes(def.id),
-      );
-      allTemplates = [...stored, ...missingDefaults];
-    } else {
-      allTemplates = DEFAULT_TEMPLATES;
-    }
+      if (error) throw error;
 
-    setTemplates(allTemplates);
+      const allTemplates: MessageTemplate[] = (data ?? []).map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        title: r.title,
+        content: r.content,
+        type: r.type,
+        category: r.category,
+        variables: r.variables ?? [],
+        version: r.version ?? 1,
+        isActive: r.is_active ?? false,
+        isDefault: r.is_default ?? false,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        createdBy: r.created_by ?? "Super Admin",
+        approvalStatus: r.approval_status ?? "pending",
+        approvedBy: r.approved_by,
+        approvedAt: r.approved_at,
+        usageCount: r.usage_count ?? 0,
+        description: r.description,
+      }));
 
-    // Calculate stats
-    const totalUsage = allTemplates.reduce((sum, t) => sum + t.usageCount, 0);
-    setStats({
-      totalTemplates: allTemplates.length,
-      activeTemplates: allTemplates.filter((t) => t.isActive).length,
-      pendingApproval: allTemplates.filter(
-        (t) => t.approvalStatus === "pending",
-      ).length,
-      totalUsage,
-    });
+      setTemplates(allTemplates);
 
-    // Save to localStorage if not already there
-    if (!storedTemplates) {
-      localStorage.setItem("messageTemplates", JSON.stringify(allTemplates));
+      const totalUsage = allTemplates.reduce((sum, t) => sum + t.usageCount, 0);
+      setStats({
+        totalTemplates: allTemplates.length,
+        activeTemplates: allTemplates.filter((t) => t.isActive).length,
+        pendingApproval: allTemplates.filter((t) => t.approvalStatus === "pending").length,
+        totalUsage,
+      });
+    } catch (err: any) {
+      console.error("Failed to load templates:", err?.message);
+      toast.error("Failed to load templates");
     }
   };
 
@@ -302,50 +313,40 @@ export default function SuperAdminMessageTemplates() {
     return variables;
   };
 
-  const handleCreateTemplate = () => {
-    if (
-      !formData.name.trim() ||
-      !formData.title.trim() ||
-      !formData.content.trim()
-    ) {
+  const handleCreateTemplate = async () => {
+    if (!formData.name.trim() || !formData.title.trim() || !formData.content.trim()) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    // Auto-extract variables from title and content
     const titleVars = extractVariables(formData.title);
     const contentVars = extractVariables(formData.content);
-    const allVariables = [
-      ...new Set([...titleVars, ...contentVars, ...formData.variables]),
-    ];
+    const allVariables = [...new Set([...titleVars, ...contentVars, ...formData.variables])];
 
-    const newTemplate: MessageTemplate = {
-      id: Date.now().toString(),
-      name: formData.name,
-      title: formData.title,
-      content: formData.content,
-      type: formData.type,
-      category: formData.category,
-      variables: allVariables,
-      version: 1,
-      isActive: false,
-      isDefault: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "Super Admin",
-      approvalStatus: "pending",
-      usageCount: 0,
-      description: formData.description,
-    };
-
-    const updatedTemplates = [...templates, newTemplate];
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-
-    toast.success("Template created and submitted for approval!");
-    setShowCreateDialog(false);
-    resetForm();
-    loadTemplateData();
+    try {
+      const { error } = await supabaseClient.from("notification_templates").insert({
+        name: formData.name,
+        title: formData.title,
+        content: formData.content,
+        type: formData.type,
+        category: formData.category,
+        variables: allVariables,
+        version: 1,
+        is_active: false,
+        is_default: false,
+        approval_status: "pending",
+        created_by: "Super Admin",
+        usage_count: 0,
+        description: formData.description,
+      });
+      if (error) throw error;
+      toast.success("Template created and submitted for approval!");
+      setShowCreateDialog(false);
+      resetForm();
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to create template: " + (err?.message ?? "Unknown error"));
+    }
   };
 
   const handleEditTemplate = (template: MessageTemplate) => {
@@ -363,119 +364,131 @@ export default function SuperAdminMessageTemplates() {
     setShowCreateDialog(true);
   };
 
-  const handleUpdateTemplate = () => {
+  const handleUpdateTemplate = async () => {
     if (!editingTemplate) return;
 
-    // Auto-extract variables
     const titleVars = extractVariables(formData.title);
     const contentVars = extractVariables(formData.content);
-    const allVariables = [
-      ...new Set([...titleVars, ...contentVars, ...formData.variables]),
-    ];
+    const allVariables = [...new Set([...titleVars, ...contentVars, ...formData.variables])];
 
-    const updatedTemplate: MessageTemplate = {
-      ...editingTemplate,
-      name: formData.name,
-      title: formData.title,
-      content: formData.content,
-      type: formData.type,
-      category: formData.category,
-      variables: allVariables,
-      version: editingTemplate.version + 1,
-      updatedAt: new Date().toISOString(),
-      approvalStatus: editingTemplate.isDefault ? "approved" : "pending",
-      description: formData.description,
-    };
-
-    const updatedTemplates = templates.map((t) =>
-      t.id === editingTemplate.id ? updatedTemplate : t,
-    );
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-
-    toast.success("Template updated successfully!");
-    setShowCreateDialog(false);
-    resetForm();
-    loadTemplateData();
+    try {
+      const { error } = await supabaseClient
+        .from("notification_templates")
+        .update({
+          name: formData.name,
+          title: formData.title,
+          content: formData.content,
+          type: formData.type,
+          category: formData.category,
+          variables: allVariables,
+          version: editingTemplate.version + 1,
+          updated_at: new Date().toISOString(),
+          approval_status: editingTemplate.isDefault ? "approved" : "pending",
+          description: formData.description,
+        })
+        .eq("id", editingTemplate.id);
+      if (error) throw error;
+      toast.success("Template updated successfully!");
+      setShowCreateDialog(false);
+      resetForm();
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to update template: " + (err?.message ?? "Unknown error"));
+    }
   };
 
-  const handleApproveTemplate = (templateId: string) => {
-    const updatedTemplates = templates.map((t) =>
-      t.id === templateId
-        ? {
-            ...t,
-            approvalStatus: "approved" as const,
-            isActive: true,
-            approvedBy: "Super Admin",
-            approvedAt: new Date().toISOString(),
-          }
-        : t,
-    );
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-    toast.success("Template approved and activated!");
-    loadTemplateData();
+  const handleApproveTemplate = async (templateId: string) => {
+    try {
+      const { error } = await supabaseClient
+        .from("notification_templates")
+        .update({
+          approval_status: "approved",
+          is_active: true,
+          approved_by: "Super Admin",
+          approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", templateId);
+      if (error) throw error;
+      toast.success("Template approved and activated!");
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to approve template");
+    }
   };
 
-  const handleRejectTemplate = (templateId: string) => {
-    const updatedTemplates = templates.map((t) =>
-      t.id === templateId
-        ? {
-            ...t,
-            approvalStatus: "rejected" as const,
-            isActive: false,
-          }
-        : t,
-    );
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-    toast.success("Template rejected!");
-    loadTemplateData();
+  const handleRejectTemplate = async (templateId: string) => {
+    try {
+      const { error } = await supabaseClient
+        .from("notification_templates")
+        .update({ approval_status: "rejected", is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", templateId);
+      if (error) throw error;
+      toast.success("Template rejected!");
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to reject template");
+    }
   };
 
-  const handleToggleActive = (templateId: string) => {
-    const updatedTemplates = templates.map((t) =>
-      t.id === templateId ? { ...t, isActive: !t.isActive } : t,
-    );
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-    toast.success("Template status updated!");
-    loadTemplateData();
+  const handleToggleActive = async (templateId: string) => {
+    const t = templates.find((t) => t.id === templateId);
+    if (!t) return;
+    try {
+      const { error } = await supabaseClient
+        .from("notification_templates")
+        .update({ is_active: !t.isActive, updated_at: new Date().toISOString() })
+        .eq("id", templateId);
+      if (error) throw error;
+      toast.success("Template status updated!");
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to update template status");
+    }
   };
 
-  const handleDeleteTemplate = (templateId: string) => {
+  const handleDeleteTemplate = async (templateId: string) => {
     const template = templates.find((t) => t.id === templateId);
     if (template?.isDefault) {
       toast.error("Cannot delete default templates");
       return;
     }
-
-    const updatedTemplates = templates.filter((t) => t.id !== templateId);
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-    toast.success("Template deleted successfully!");
-    loadTemplateData();
+    try {
+      const { error } = await supabaseClient
+        .from("notification_templates")
+        .delete()
+        .eq("id", templateId);
+      if (error) throw error;
+      toast.success("Template deleted successfully!");
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to delete template");
+    }
   };
 
-  const handleDuplicateTemplate = (template: MessageTemplate) => {
-    const duplicatedTemplate: MessageTemplate = {
-      ...template,
-      id: Date.now().toString(),
-      name: `${template.name} (Copy)`,
-      version: 1,
-      isActive: false,
-      isDefault: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      approvalStatus: "pending",
-      usageCount: 0,
-    };
-
-    const updatedTemplates = [...templates, duplicatedTemplate];
-    setTemplates(updatedTemplates);
-    localStorage.setItem("messageTemplates", JSON.stringify(updatedTemplates));
-    toast.success("Template duplicated successfully!");
-    loadTemplateData();
+  const handleDuplicateTemplate = async (template: MessageTemplate) => {
+    try {
+      const { error } = await supabaseClient.from("notification_templates").insert({
+        name: `${template.name} (Copy)`,
+        title: template.title,
+        content: template.content,
+        type: template.type,
+        category: template.category,
+        variables: template.variables,
+        version: 1,
+        is_active: false,
+        is_default: false,
+        approval_status: "pending",
+        created_by: "Super Admin",
+        usage_count: 0,
+        description: template.description,
+      });
+      if (error) throw error;
+      toast.success("Template duplicated successfully!");
+      loadTemplateData();
+    } catch (err: any) {
+      toast.error("Failed to duplicate template");
+    }
   };
 
   const addVariable = () => {
