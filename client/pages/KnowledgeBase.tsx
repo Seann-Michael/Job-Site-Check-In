@@ -109,6 +109,7 @@ const CATEGORIES = [
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function KnowledgeBase() {
+  const currentUserEmail = getCurrentUser()?.email ?? "";
   const currentUser = getCurrentUser();
   const location = useLocation();
   const isSuper = isSuperAdmin();
@@ -165,13 +166,13 @@ export default function KnowledgeBase() {
 
   // ── Fetch tickets ─────────────────────────────────────────────────────────
   const fetchTickets = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUserEmail) return;
     setTicketsLoading(true);
     try {
       const { data, error } = await supabaseClient
         .from("support_tickets")
         .select("id, ticket_number, title, category, priority, status, description, submitted_by, created_at, updated_at")
-        .eq("submitted_by", currentUser.email ?? "")
+        .eq("submitted_by", currentUserEmail)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
@@ -182,7 +183,7 @@ export default function KnowledgeBase() {
     } finally {
       setTicketsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUserEmail]);
 
   useEffect(() => {
     fetchArticles();
