@@ -195,10 +195,11 @@ export default function ReviewDetail() {
       // Try to save the response on the reviews row (id is a UUID from Supabase)
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (uuidPattern.test(id)) {
-        await supabase
+        const { error: reviewError } = await supabase
           .from("reviews")
           .update({ response: responseBlob, updated_at: new Date().toISOString() })
           .eq("id", id);
+        if (reviewError) throw reviewError;
       }
 
       // Also try updating the review_request status if this was a pending request

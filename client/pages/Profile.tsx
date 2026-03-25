@@ -138,32 +138,25 @@ export default function Profile() {
     try {
       const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
 
-      // Save to Supabase users table if we have a user id
-      if (userId) {
-        const { error } = await supabase
-          .from("users")
-          .update({
-            name: fullName,
-            first_name: profileData.firstName,
-            last_name: profileData.lastName,
-            phone: profileData.phone,
-            avatar_url: profileData.avatar || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
-
-        if (error) throw error;
+      if (!userId) {
+        toast.error("Cannot save — no user session found. Please log in again.");
+        return;
       }
 
-      // Keep localStorage in sync
-      localStorage.setItem("userProfile", JSON.stringify(profileData));
-      const currentUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-      localStorage.setItem("auth_user", JSON.stringify({
-        ...currentUser,
-        name: fullName,
-        firstName: profileData.firstName,
-        lastName: profileData.lastName,
-      }));
+      // Save to Supabase users table
+      const { error } = await supabase
+        .from("users")
+        .update({
+          name: fullName,
+          first_name: profileData.firstName,
+          last_name: profileData.lastName,
+          phone: profileData.phone,
+          avatar_url: profileData.avatar || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (error) throw error;
 
       toast.success("Profile updated successfully!");
     } catch (error) {

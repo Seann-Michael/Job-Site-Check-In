@@ -210,7 +210,6 @@ export default function Index() {
   }, [track]);
 
   const handleAdvancedSearch = (searchCriteria: any) => {
-    console.log("Advanced search:", searchCriteria);
     setShowAdvancedSearch(false);
     trackFeatureUsage("advanced_search_used", searchCriteria);
   };

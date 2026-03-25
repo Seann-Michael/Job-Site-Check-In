@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { isAgencyAdmin, isSuperAdmin } from "@/lib/auth";
+import { isAgencyAdmin, isSuperAdmin, getCurrentUser } from "@/lib/auth";
 import { ArrowUpDown } from "lucide-react";
 import { supabase } from "@/lib/dataService";
 
@@ -171,8 +171,16 @@ export default function Support() {
       return;
     }
 
-    const currentUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-    const submittedBy = currentUser.email || "user@example.com";
+    const currentUser = getCurrentUser();
+    const submittedBy = currentUser?.email;
+    if (!submittedBy) {
+      toast({
+        title: "Error",
+        description: "Could not identify your account. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
     const role = getCurrentUserRole();
 
     try {

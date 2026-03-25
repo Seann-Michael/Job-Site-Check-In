@@ -298,7 +298,6 @@ export default function Automation() {
         ),
     );
 
-    console.log(`${action} workflow ${workflowId}`);
   };
 
   const getStatusBadge = (status: Workflow["status"]) => {
@@ -1174,8 +1173,6 @@ export default function Automation() {
                   className="cursor-pointer hover:border-primary transition-colors"
                   onClick={() => {
                     setNewWorkflow({ ...newWorkflow, type: "email" });
-                    // Navigate to workflow builder
-                    console.log("Creating Email Automation workflow");
                   }}
                 >
                   <CardContent className="p-6">
@@ -1196,7 +1193,6 @@ export default function Automation() {
                   className="cursor-pointer hover:border-primary transition-colors"
                   onClick={() => {
                     setNewWorkflow({ ...newWorkflow, type: "review" });
-                    console.log("Creating Review Request workflow");
                   }}
                 >
                   <CardContent className="p-6">
@@ -1217,7 +1213,6 @@ export default function Automation() {
                   className="cursor-pointer hover:border-primary transition-colors"
                   onClick={() => {
                     setNewWorkflow({ ...newWorkflow, type: "notification" });
-                    console.log("Creating Notification workflow");
                   }}
                 >
                   <CardContent className="p-6">
@@ -1238,7 +1233,6 @@ export default function Automation() {
                   className="cursor-pointer hover:border-primary transition-colors"
                   onClick={() => {
                     setNewWorkflow({ ...newWorkflow, type: "custom" });
-                    console.log("Creating Custom workflow");
                   }}
                 >
                   <CardContent className="p-6">
@@ -1279,7 +1273,6 @@ export default function Automation() {
                       };
                       setWorkflows([...workflows, newWorkflowData]);
                       setIsNewWorkflowOpen(false);
-                      console.log("Created Lead Nurturing workflow");
                     }}
                   >
                     <Mail className="mr-2 h-4 w-4" />
@@ -1304,7 +1297,6 @@ export default function Automation() {
                       };
                       setWorkflows([...workflows, newWorkflowData]);
                       setIsNewWorkflowOpen(false);
-                      console.log("Created Project Completion workflow");
                     }}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" />
@@ -1330,7 +1322,6 @@ export default function Automation() {
                       };
                       setWorkflows([...workflows, newWorkflowData]);
                       setIsNewWorkflowOpen(false);
-                      console.log("Created Client Onboarding workflow");
                     }}
                   >
                     <Users className="mr-2 h-4 w-4" />
@@ -1348,7 +1339,6 @@ export default function Automation() {
                 </Button>
                 <Button
                   onClick={() => {
-                    console.log("Opening Workflow Builder...");
                     setIsNewWorkflowOpen(false);
                     // Here you would navigate to a workflow builder page
                     // For now, we'll just show a message

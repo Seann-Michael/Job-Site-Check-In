@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Copy, CheckCircle, Star, MapPin, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 // ── Video helpers ─────────────────────────────────────────────────────────────
 function extractIframeSrc(input: string): string | null {
@@ -109,54 +110,80 @@ export default function ReviewGate() {
   });
 
   useEffect(() => {
-    const loadReviewRequest = () => {
-      // Load saved business settings from localStorage (set in Settings page)
-      let saved: Record<string, any> = {};
-      try {
-        const raw = localStorage.getItem("business_settings");
-        if (raw) saved = JSON.parse(raw);
-      } catch {
-        // ignore parse errors
-      }
-
+    const buildFromSettings = (saved: Record<string, any>, requestId: string, customerName?: string, projectName?: string) => {
       const keywords = saved.reviewGateSeoKeywords
-        ? saved.reviewGateSeoKeywords
-            .split(",")
-            .map((k: string) => k.trim())
-            .filter(Boolean)
-        : ["kitchen renovation", "custom cabinets", "home remodeling", "Springfield contractor"];
+        ? saved.reviewGateSeoKeywords.split(",").map((k: string) => k.trim()).filter(Boolean)
+        : [];
 
       const request: ReviewRequest = {
-        id: id || "demo",
-        businessName: saved.businessName || "Smith Construction LLC",
+        id: requestId,
+        businessName: saved.businessName || "",
         businessLogo: saved.reviewGateLogoUrl || saved.businessLogo || undefined,
-        businessAddress: [saved.address, saved.city, saved.state].filter(Boolean).join(", ") || "123 Main St, Springfield, IL 62701",
-        customerName: "John",
-        projectName: "Kitchen Renovation",
-        projectDescription: "Complete kitchen remodel with custom cabinets and granite countertops",
+        businessAddress: [saved.address, saved.city, saved.state].filter(Boolean).join(", ") || "",
+        customerName: customerName || "Valued Customer",
+        projectName: projectName || saved.projectName || "",
+        projectDescription: saved.projectDescription || "",
         threshold: saved.reviewGateThreshold ?? 4,
-        googleReviewUrl: saved.reviewGateGoogleUrl || saved.googleBusinessUrl || "https://g.page/r/CdWWUaI_IBAoEBM/review",
+        googleReviewUrl: saved.reviewGateGoogleUrl || saved.googleBusinessUrl || "",
         seoKeywords: keywords,
-        businessCity: saved.city || "Springfield",
-        businessState: saved.state || "Illinois",
-        serviceCategory: (saved.businessTypes?.[0]) || "Home Renovation",
+        businessCity: saved.city || "",
+        businessState: saved.state || "",
+        serviceCategory: saved.businessTypes?.[0] || saved.serviceCategory || "",
         businessOwnerVideo: saved.reviewGateVideoUrl || undefined,
         iframeCode: saved.reviewGateIframeCode || undefined,
       };
 
-      // Load copy/text settings
       setGateSettings({
         heading: saved.reviewGateHeading || "How did we do?",
         thankYouMessage: saved.reviewGateThankYouMessage || "",
         buttonText: saved.reviewGateButtonText || "Submit My Review",
       });
 
-      setTimeout(() => {
-        setReviewRequest(request);
-      }, 100);
+      setReviewRequest(request);
     };
 
-    loadReviewRequest();
+    const load = async () => {
+      const requestId = id || "demo";
+
+      // 1. Try loading from Supabase review_requests + businesses
+      if (requestId !== "demo") {
+        try {
+          const { data: reviewReq } = await supabaseClient
+            .from("review_requests")
+            .select("id, business_id, customer_name, project_name")
+            .eq("id", requestId)
+            .single();
+
+          if (reviewReq?.business_id) {
+            const { data: biz } = await supabaseClient
+              .from("businesses")
+              .select("name, settings")
+              .eq("id", reviewReq.business_id)
+              .single();
+
+            if (biz) {
+              const s = { ...(biz.settings || {}), businessName: biz.name } as Record<string, any>;
+              buildFromSettings(s, requestId, reviewReq.customer_name, reviewReq.project_name);
+              return;
+            }
+          }
+        } catch {
+          // fall through to localStorage cache
+        }
+      }
+
+      // 2. localStorage cache fallback (set by Settings/ReviewGateEditor page)
+      let saved: Record<string, any> = {};
+      try {
+        const raw = localStorage.getItem("business_settings");
+        if (raw) saved = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+      buildFromSettings(saved, requestId);
+    };
+
+    load();
   }, [id]);
 
   const generateSeoReview = (originalText: string, request: ReviewRequest) => {

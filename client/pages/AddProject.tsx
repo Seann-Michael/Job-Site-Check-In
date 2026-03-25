@@ -39,7 +39,6 @@ import { compatibleDataService as dataService } from "@/lib/compatibleDataServic
 import { Business } from "@/lib/dataService";
 import {
   getGoogleMapsApiKey,
-  validateGoogleMapsApiKey,
   createStreetViewEmbedUrl,
   checkStreetViewAvailability,
 } from "@/lib/googleMaps";
@@ -108,53 +107,11 @@ export default function AddProject() {
     loadBusinesses();
   }, []);
 
-  // Debug Google Maps API setup on page load
-  useEffect(() => {
-    const debugGoogleMapsSetup = async () => {
-      console.log("🔧 AddProject: Starting Google Maps API debug...");
-
-      // Check environment variable directly
-      const envApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      console.log(
-        "🌍 Environment variable VITE_GOOGLE_MAPS_API_KEY:",
-        envApiKey
-          ? `${envApiKey.substring(0, 10)}...${envApiKey.substring(envApiKey.length - 6)}`
-          : "Not Set",
-      );
-
-      // Test getGoogleMapsApiKey function
-      const apiKey = getGoogleMapsApiKey();
-      console.log(
-        "🔑 getGoogleMapsApiKey() returned:",
-        apiKey
-          ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 6)}`
-          : "No Key",
-      );
-
-      // Test API key validation if we have one
-      if (apiKey) {
-        console.log("🧪 Testing API key validation...");
-        try {
-          const validation = await validateGoogleMapsApiKey(apiKey);
-          console.log("✅ API Key Validation Result:", validation);
-        } catch (error) {
-          console.error("❌ API Key Validation Error:", error);
-        }
-      } else {
-        console.log("⚠️ No Google Maps API key found - address features disabled");
-      }
-    };
-
-    debugGoogleMapsSetup();
-  }, []);
-
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleAddressSelect = async (address: any) => {
-    console.log("🗺️ Address selected:", address);
-
     const updatedFormData = {
       ...formData,
       addressSearch: address.formatted_address || "",
@@ -192,9 +149,7 @@ export default function AddProject() {
             hasStreetView: true,
           }));
 
-          console.log("📍 Street View available and URL generated");
         } else {
-          console.log("📍 Street View not available for this location");
           setFormData((prev) => ({
             ...prev,
             streetViewUrl: "",

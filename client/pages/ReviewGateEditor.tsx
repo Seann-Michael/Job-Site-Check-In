@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
+import { workspaceService } from "@/lib/workspaceService";
 
 // ── Video helpers ─────────────────────────────────────────────────────────────
 
@@ -492,34 +493,59 @@ export default function ReviewGateEditor() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load from localStorage on mount
+  // Load from Supabase (businesses.settings) with localStorage cache fallback
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("business_settings");
-      if (raw) {
-        const saved = JSON.parse(raw);
-        setSettings({
-          businessName: saved.businessName || DEFAULTS.businessName,
-          businessLogo: saved.reviewGateLogoUrl || saved.businessLogo || DEFAULTS.businessLogo,
-          city: saved.city || DEFAULTS.city,
-          state: saved.state || DEFAULTS.state,
-          address: saved.address || DEFAULTS.address,
-          googleReviewUrl: saved.reviewGateGoogleUrl || saved.googleBusinessUrl || DEFAULTS.googleReviewUrl,
-          reviewGateHeading: saved.reviewGateHeading || DEFAULTS.reviewGateHeading,
-          projectName: saved.projectName || DEFAULTS.projectName,
-          projectDescription: saved.projectDescription || DEFAULTS.projectDescription,
-          reviewGateThreshold: saved.reviewGateThreshold ?? DEFAULTS.reviewGateThreshold,
-          reviewGateSeoKeywords: saved.reviewGateSeoKeywords || DEFAULTS.reviewGateSeoKeywords,
-          serviceCategory: saved.businessTypes?.[0] || saved.serviceCategory || DEFAULTS.serviceCategory,
-          reviewGateVideoUrl: saved.reviewGateVideoUrl || DEFAULTS.reviewGateVideoUrl,
-          reviewGateIframeCode: saved.reviewGateIframeCode || DEFAULTS.reviewGateIframeCode,
-          reviewGateThankYouMessage: saved.reviewGateThankYouMessage || DEFAULTS.reviewGateThankYouMessage,
-          reviewGateButtonText: saved.reviewGateButtonText || DEFAULTS.reviewGateButtonText,
-        });
+    const applySettings = (s: Record<string, any>, bizName?: string) => {
+      setSettings({
+        businessName: bizName || s.businessName || DEFAULTS.businessName,
+        businessLogo: s.reviewGateLogoUrl || s.businessLogo || DEFAULTS.businessLogo,
+        city: s.city || DEFAULTS.city,
+        state: s.state || DEFAULTS.state,
+        address: s.address || DEFAULTS.address,
+        googleReviewUrl: s.reviewGateGoogleUrl || s.googleBusinessUrl || DEFAULTS.googleReviewUrl,
+        reviewGateHeading: s.reviewGateHeading || DEFAULTS.reviewGateHeading,
+        projectName: s.projectName || DEFAULTS.projectName,
+        projectDescription: s.projectDescription || DEFAULTS.projectDescription,
+        reviewGateThreshold: s.reviewGateThreshold ?? DEFAULTS.reviewGateThreshold,
+        reviewGateSeoKeywords: s.reviewGateSeoKeywords || DEFAULTS.reviewGateSeoKeywords,
+        serviceCategory: s.businessTypes?.[0] || s.serviceCategory || DEFAULTS.serviceCategory,
+        reviewGateVideoUrl: s.reviewGateVideoUrl || DEFAULTS.reviewGateVideoUrl,
+        reviewGateIframeCode: s.reviewGateIframeCode || DEFAULTS.reviewGateIframeCode,
+        reviewGateThankYouMessage: s.reviewGateThankYouMessage || DEFAULTS.reviewGateThankYouMessage,
+        reviewGateButtonText: s.reviewGateButtonText || DEFAULTS.reviewGateButtonText,
+      });
+    };
+
+    const load = async () => {
+      // 1. Try Supabase first
+      try {
+        let wsState = workspaceService.getState();
+        if (!wsState.initialized) wsState = await workspaceService.initialize();
+        if (wsState.currentBusinessId) {
+          const { data: biz } = await supabaseClient
+            .from("businesses")
+            .select("name, settings")
+            .eq("id", wsState.currentBusinessId)
+            .single();
+          if (biz) {
+            applySettings((biz.settings || {}) as Record<string, any>, biz.name);
+            return;
+          }
+        }
+      } catch {
+        // fall through to localStorage cache
       }
-    } catch {
-      // keep defaults
-    }
+
+      // 2. localStorage cache fallback
+      try {
+        const raw = localStorage.getItem("business_settings");
+        if (raw) applySettings(JSON.parse(raw));
+      } catch {
+        // keep defaults
+      }
+    };
+
+    load();
   }, []);
 
   const update = useCallback(<K extends keyof ReviewGateSettings>(
@@ -533,15 +559,7 @@ export default function ReviewGateEditor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Merge with existing settings to avoid wiping unrelated fields
-      let existing: Record<string, any> = {};
-      try {
-        const raw = localStorage.getItem("business_settings");
-        if (raw) existing = JSON.parse(raw);
-      } catch {}
-
-      const merged = {
-        ...existing,
+      const patch: Record<string, any> = {
         businessName: settings.businessName,
         reviewGateLogoUrl: settings.businessLogo,
         city: settings.city,
@@ -561,9 +579,39 @@ export default function ReviewGateEditor() {
         reviewGateButtonText: settings.reviewGateButtonText,
       };
 
-      localStorage.setItem("business_settings", JSON.stringify(merged));
+      // 1. Persist to Supabase (primary)
+      let savedToSupabase = false;
+      try {
+        let wsState = workspaceService.getState();
+        if (!wsState.initialized) wsState = await workspaceService.initialize();
+        if (wsState.currentBusinessId) {
+          const { data: biz } = await supabaseClient
+            .from("businesses")
+            .select("settings")
+            .eq("id", wsState.currentBusinessId)
+            .single();
+          const merged = { ...(biz?.settings || {}), ...patch };
+          const { error } = await supabaseClient
+            .from("businesses")
+            .update({ settings: merged, updated_at: new Date().toISOString() })
+            .eq("id", wsState.currentBusinessId);
+          if (error) throw error;
+          savedToSupabase = true;
+        }
+      } catch (err) {
+        console.error("[ReviewGateEditor] Supabase save failed:", err);
+      }
+
+      // 2. Keep localStorage in sync as a fast-read cache
+      let existing: Record<string, any> = {};
+      try {
+        const raw = localStorage.getItem("business_settings");
+        if (raw) existing = JSON.parse(raw);
+      } catch {}
+      localStorage.setItem("business_settings", JSON.stringify({ ...existing, ...patch }));
+
       setHasChanges(false);
-      toast.success("Review gate settings saved!");
+      toast.success(savedToSupabase ? "Review gate settings saved!" : "Settings saved locally (Supabase unavailable).");
     } catch {
       toast.error("Failed to save settings");
     } finally {

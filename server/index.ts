@@ -78,6 +78,14 @@ import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
 import { handleGoogleAuthorize, handleGoogleCallback } from "./routes/googleOAuth";
 import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
 import { handleStripeCheckout, handlePaypalCheckout, handlePaymentStatus } from "./routes/payments";
+import {
+  handleLogin,
+  handleLogout,
+  handleChangePassword,
+  handleEnableMFA,
+  handleVerifyMFA,
+} from "./routes/authApi";
+import { handleAIReviewResponse } from "./routes/aiReview";
 
 export function createServer() {
   const app = express();
@@ -133,6 +141,16 @@ export function createServer() {
   app.get("/api/payments/status", handlePaymentStatus);
   app.post("/api/create-checkout-stripe", handleStripeCheckout);
   app.post("/api/create-checkout-paypal", handlePaypalCheckout);
+
+  // Auth API Routes
+  app.post("/api/auth/login", handleLogin);
+  app.post("/api/auth/logout", handleLogout);
+  app.post("/api/auth/change-password", handleChangePassword);
+  app.post("/api/auth/enable-mfa", handleEnableMFA);
+  app.post("/api/auth/verify-mfa", handleVerifyMFA);
+
+  // AI Review Response
+  app.post("/api/ai-review-response", handleAIReviewResponse);
 
   // Workflow Routes
   app.post("/api/webhooks/register", handleRegisterWebhook);

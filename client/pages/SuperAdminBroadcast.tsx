@@ -200,11 +200,12 @@ export default function SuperAdminBroadcast() {
     setTemplateVariables(vars);
     setShowTemplateVars((template.variables || []).length > 0);
 
-    // Increment usage count
-    await supabaseClient
+    // Increment usage count (non-critical — log but don't block the UI)
+    const { error: usageError } = await supabaseClient
       .from("message_templates")
       .update({ usage_count: (template.usage_count || 0) + 1, last_used: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", templateId);
+    if (usageError) console.error("[Broadcast] Failed to update template usage count:", usageError.message);
 
     toast.success(`Template "${template.name}" applied!`);
     fetchTemplates();
