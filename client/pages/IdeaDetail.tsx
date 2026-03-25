@@ -185,7 +185,7 @@ export default function IdeaDetail() {
           author_name: authorName,
           author_email: authorEmail,
           content: newComment.trim(),
-          is_admin: currentUser.role === "super_admin" || currentUser.role === "admin",
+          is_admin: ["super_admin", "superadmin", "admin"].includes(currentUser.role as string),
         })
         .select()
         .single();
