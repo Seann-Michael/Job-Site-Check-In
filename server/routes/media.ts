@@ -36,20 +36,21 @@ async function dbGetMedia(mediaId: string): Promise<ServerMediaFile | null> {
     .eq("id", mediaId)
     .single();
   if (!data) return null;
+  const row = data as any;
   return {
-    id: data.id,
-    originalName: data.original_name,
-    storedPath: data.stored_path,
-    mimeType: data.mime_type,
-    size: data.size,
-    accountId: data.account_id,
-    projectId: data.project_id ?? undefined,
-    mediaType: data.media_type,
-    isPublic: data.is_public,
-    uploadedAt: new Date(data.uploaded_at),
-    uploadedBy: data.uploaded_by,
-    thumbnails: data.thumbnail_small
-      ? { small: data.thumbnail_small, medium: data.thumbnail_medium, large: data.thumbnail_large }
+    id: row.id as string,
+    originalName: row.original_name as string,
+    storedPath: row.stored_path as string,
+    mimeType: row.mime_type as string,
+    size: row.size as number,
+    accountId: row.account_id as string,
+    projectId: (row.project_id ?? undefined) as string | undefined,
+    mediaType: row.media_type as string,
+    isPublic: row.is_public as boolean,
+    uploadedAt: new Date(row.uploaded_at as string),
+    uploadedBy: row.uploaded_by as string,
+    thumbnails: row.thumbnail_small
+      ? { small: row.thumbnail_small as string, medium: row.thumbnail_medium as string, large: row.thumbnail_large as string }
       : undefined,
   };
 }
@@ -63,7 +64,7 @@ async function dbGetMediaByPublicUrl(publicUrlKey: string): Promise<ServerMediaF
     .eq("public_url_id", publicUrlKey)
     .single();
   if (!data) return null;
-  return dbGetMedia(data.id);
+  return dbGetMedia((data as any).id as string);
 }
 
 async function dbSaveMedia(mediaFile: ServerMediaFile, publicUrlId?: string): Promise<void> {
@@ -312,8 +313,7 @@ export const handleMediaUpload: RequestHandler = async (req, res) => {
       
       publicUrlId = `${accountHash}_${projectHash}_${timestampBase36}_${randomId}`.replace(/__/g, '_');
       
-      // Store mapping
-      publicUrlMappings.set(`${publicUrlId}/${mockFile.originalname}`, mediaId);
+      // public_url_id is saved with the mediaFile record below
     }
 
     // Create media file record
@@ -372,7 +372,7 @@ export const handleMediaMetadata: RequestHandler = async (req, res) => {
   try {
     const { mediaId } = req.params;
     
-    const mediaFile = mediaFiles.get(mediaId);
+    const mediaFile = await dbGetMedia(mediaId);
     if (!mediaFile) {
       return res.status(404).json({ error: "Media file not found" });
     }
