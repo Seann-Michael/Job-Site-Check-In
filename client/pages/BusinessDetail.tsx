@@ -211,15 +211,95 @@ export default function BusinessDetail() {
   }, [businessId]);
 
   const [users, setUsers] = useState<BusinessUser[]>([]);
-
   const [activityLog] = useState<ActivityLog[]>([]);
-
   const [financialHistory] = useState<FinancialRecord[]>([]);
-
   const [timestampedNotes, setTimestampedNotes] = useState<TimestampedNote[]>([]);
-
   const [invoices] = useState<Invoice[]>([]);
   const [payments] = useState<Payment[]>([]);
+  const [savingNote, setSavingNote] = useState(false);
+
+  // Load notes + users for this business from Supabase
+  useEffect(() => {
+    if (!businessId) return;
+    const loadRelated = async () => {
+      try {
+        const [notesRes, usersRes] = await Promise.all([
+          supabaseClient
+            .from("business_notes")
+            .select("*")
+            .eq("business_id", businessId)
+            .order("created_at", { ascending: false }),
+          supabaseClient
+            .from("users")
+            .select("id, name, email, role, last_login, created_at")
+            .eq("id",
+              // sub-query: owner or any user associated with this business
+              // We'll load the owner via the business, and also fetch users whose
+              // metadata contains this business_id — for now load by business owner
+              businessId
+            ),
+        ]);
+
+        // Map notes
+        const notes: TimestampedNote[] = (notesRes.data ?? []).map((r: any) => ({
+          id: r.id,
+          note: r.note,
+          timestamp: r.created_at,
+          adminUser: r.admin_user,
+        }));
+        setTimestampedNotes(notes);
+
+        // Load users for this business via businesses.owner_id
+        const { data: bizUsers } = await supabaseClient
+          .from("users")
+          .select("id, name, email, role, last_login, created_at, avatar_url")
+          .in("id", [
+            // We need to get all users that belong to this business
+            // Since we don't have a direct user->business link table,
+            // we load the owner from the business record
+            businessId, // placeholder — will be filtered out if not a user
+          ]);
+
+        // Actually load via a join approach
+        const { data: businessOwner } = await supabaseClient
+          .from("businesses")
+          .select("owner_id")
+          .eq("id", businessId)
+          .single();
+
+        if (businessOwner?.owner_id) {
+          const { data: ownerUser } = await supabaseClient
+            .from("users")
+            .select("id, name, email, role, last_login, created_at")
+            .eq("id", businessOwner.owner_id)
+            .single();
+
+          if (ownerUser) {
+            const mapped: BusinessUser = {
+              id: ownerUser.id,
+              name: ownerUser.name || ownerUser.email,
+              email: ownerUser.email,
+              role: (ownerUser.role === "business_owner" ? "admin" : ownerUser.role) as any,
+              status: "Active",
+              lastLogin: ownerUser.last_login
+                ? new Date(ownerUser.last_login).toLocaleDateString()
+                : "Never",
+              photosUploaded: 0,
+              videosUploaded: 0,
+              projectsCreated: 0,
+              joinedDate: ownerUser.created_at
+                ? new Date(ownerUser.created_at).toLocaleDateString()
+                : "Unknown",
+            };
+            setUsers([mapped]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load business related data:", err);
+      }
+    };
+    loadRelated();
+  }, [businessId]);
 
   const handleSaveBusiness = () => {
     setIsEditing(false);
@@ -258,33 +338,53 @@ export default function BusinessDetail() {
     }
   };
 
-  const addTimestampedNote = () => {
-    if (!newNote.trim()) return;
-
-    const note: TimestampedNote = {
-      id: Date.now().toString(),
-      note: newNote,
-      timestamp: new Date().toISOString(),
-      adminUser: "Current Admin",
-    };
-
-    setTimestampedNotes((prev) => [note, ...prev]);
-    setNewNote("");
-    toast.success("Note added successfully");
+  const addTimestampedNote = async () => {
+    if (!newNote.trim() || !businessId) return;
+    setSavingNote(true);
+    try {
+      const adminUser = (() => {
+        try { return JSON.parse(localStorage.getItem("auth_user") || "{}").name || "Super Admin"; } catch { return "Super Admin"; }
+      })();
+      const { data, error } = await supabaseClient
+        .from("business_notes")
+        .insert({ business_id: businessId, note: newNote.trim(), admin_user: adminUser })
+        .select()
+        .single();
+      if (error) throw error;
+      const note: TimestampedNote = { id: data.id, note: data.note, timestamp: data.created_at, adminUser: data.admin_user };
+      setTimestampedNotes((prev) => [note, ...prev]);
+      setNewNote("");
+      toast.success("Note added successfully");
+    } catch (err: any) {
+      toast.error("Failed to save note");
+    } finally {
+      setSavingNote(false);
+    }
   };
 
-  const editNote = (noteId: string, newText: string) => {
-    setTimestampedNotes((prev) =>
-      prev.map((note) =>
-        note.id === noteId ? { ...note, note: newText } : note,
-      ),
-    );
-    toast.success("Note updated successfully");
+  const editNote = async (noteId: string, newText: string) => {
+    try {
+      const { error } = await supabaseClient
+        .from("business_notes")
+        .update({ note: newText, updated_at: new Date().toISOString() })
+        .eq("id", noteId);
+      if (error) throw error;
+      setTimestampedNotes((prev) => prev.map((n) => n.id === noteId ? { ...n, note: newText } : n));
+      toast.success("Note updated successfully");
+    } catch {
+      toast.error("Failed to update note");
+    }
   };
 
-  const deleteNote = (noteId: string) => {
-    setTimestampedNotes((prev) => prev.filter((note) => note.id !== noteId));
-    toast.success("Note deleted successfully");
+  const deleteNote = async (noteId: string) => {
+    try {
+      const { error } = await supabaseClient.from("business_notes").delete().eq("id", noteId);
+      if (error) throw error;
+      setTimestampedNotes((prev) => prev.filter((n) => n.id !== noteId));
+      toast.success("Note deleted successfully");
+    } catch {
+      toast.error("Failed to delete note");
+    }
   };
 
   const handlePasswordChange = () => {

@@ -41,9 +41,10 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import supabaseClient from "@/lib/supabaseClient";
 
 interface UserDetail {
   id: string;
@@ -78,143 +79,71 @@ export default function UserManagement() {
   const [showUserDetail, setShowUserDetail] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [allUsers, setAllUsers] = useState<UserDetail[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock users data
-  const allUsers: UserDetail[] = [
-    {
-      id: "1",
-      name: "John Smith",
-      email: "john@smithconstruction.com",
-      role: "admin",
-      businessId: "1",
-      businessName: "Smith Construction LLC",
-      status: "Active",
-      lastLogin: "2 hours ago",
-      joinedDate: "2023-08-15",
-      totalLogins: 247,
-      photosUploaded: 456,
-      videosUploaded: 23,
-      projectsCreated: 12,
-      storageUsed: "1.2GB",
-      accountAge: "5 months",
-      activityLevel: "High",
-      plan: "Pro",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@smithconstruction.com",
-      role: "editor",
-      businessId: "1",
-      businessName: "Smith Construction LLC",
-      status: "Active",
-      lastLogin: "1 day ago",
-      joinedDate: "2023-09-01",
-      totalLogins: 89,
-      photosUploaded: 789,
-      videosUploaded: 45,
-      projectsCreated: 18,
-      storageUsed: "890MB",
-      accountAge: "4 months",
-      activityLevel: "High",
-      plan: "Pro",
-    },
-    {
-      id: "3",
-      name: "Sarah Johnson",
-      email: "sarah@premierrenovations.com",
-      role: "admin",
-      businessId: "2",
-      businessName: "Premier Renovations",
-      status: "Active",
-      lastLogin: "1 hour ago",
-      joinedDate: "2023-06-22",
-      totalLogins: 342,
-      photosUploaded: 1234,
-      videosUploaded: 78,
-      projectsCreated: 45,
-      storageUsed: "2.1GB",
-      accountAge: "7 months",
-      activityLevel: "High",
-      plan: "Enterprise",
-    },
-    {
-      id: "4",
-      name: "Mike Wilson",
-      email: "mike@quickfixcontractors.com",
-      role: "admin",
-      businessId: "3",
-      businessName: "Quick Fix Contractors",
-      status: "Active",
-      lastLogin: "1 day ago",
-      joinedDate: "2024-01-10",
-      totalLogins: 45,
-      photosUploaded: 156,
-      videosUploaded: 8,
-      projectsCreated: 6,
-      storageUsed: "340MB",
-      accountAge: "2 weeks",
-      activityLevel: "Medium",
-      plan: "Free",
-    },
-    {
-      id: "5",
-      name: "Lisa Chen",
-      email: "lisa@budgetbuilders.com",
-      role: "admin",
-      businessId: "5",
-      businessName: "Budget Builders",
-      status: "Suspended",
-      lastLogin: "2 weeks ago",
-      joinedDate: "2023-11-08",
-      totalLogins: 23,
-      photosUploaded: 45,
-      videosUploaded: 2,
-      projectsCreated: 3,
-      storageUsed: "120MB",
-      accountAge: "2 months",
-      activityLevel: "Low",
-      plan: "Free",
-    },
-    {
-      id: "6",
-      name: "Tom Rodriguez",
-      email: "tom@premierrenovations.com",
-      role: "editor",
-      businessId: "2",
-      businessName: "Premier Renovations",
-      status: "Active",
-      lastLogin: "3 hours ago",
-      joinedDate: "2023-07-15",
-      totalLogins: 156,
-      photosUploaded: 567,
-      videosUploaded: 34,
-      projectsCreated: 22,
-      storageUsed: "1.5GB",
-      accountAge: "6 months",
-      activityLevel: "High",
-      plan: "Enterprise",
-    },
-    {
-      id: "7",
-      name: "Amy Davis",
-      email: "amy@eliteroofing.com",
-      role: "admin",
-      businessId: "4",
-      businessName: "Elite Roofing Solutions",
-      status: "Active",
-      lastLogin: "30 minutes ago",
-      joinedDate: "2023-03-12",
-      totalLogins: 456,
-      photosUploaded: 2341,
-      videosUploaded: 123,
-      projectsCreated: 67,
-      storageUsed: "4.2GB",
-      accountAge: "10 months",
-      activityLevel: "High",
-      plan: "Enterprise",
-    },
-  ];
+  useEffect(() => {
+    const loadUsers = async () => {
+      setIsLoading(true);
+      try {
+        const { data: usersData, error } = await supabaseClient
+          .from("users")
+          .select("id, name, email, role, last_login, created_at")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+
+        const { data: bizData } = await supabaseClient
+          .from("businesses")
+          .select("id, name, owner_id, status");
+        const bizByOwner: Record<string, { id: string; name: string; status: string }> = {};
+        (bizData ?? []).forEach((b: any) => {
+          if (b.owner_id) bizByOwner[b.owner_id] = { id: b.id, name: b.name, status: b.status };
+        });
+
+        const roleMap: Record<string, string> = {
+          super_admin: "admin", agency_admin: "admin",
+          business_owner: "admin", staff: "editor", viewer: "viewer",
+        };
+
+        const mapped: UserDetail[] = (usersData ?? []).map((u: any) => {
+          const biz = bizByOwner[u.id];
+          const lastLoginDate = u.last_login ? new Date(u.last_login) : null;
+          const daysSinceLogin = lastLoginDate
+            ? Math.floor((Date.now() - lastLoginDate.getTime()) / 86400000)
+            : 9999;
+          return {
+            id: u.id,
+            name: u.name || u.email,
+            email: u.email,
+            role: (roleMap[u.role] ?? "viewer") as UserDetail["role"],
+            businessId: biz?.id ?? "",
+            businessName: biz?.name ?? "No Business",
+            status: biz?.status === "suspended" ? "Suspended" : "Active" as UserDetail["status"],
+            lastLogin: lastLoginDate ? lastLoginDate.toLocaleDateString() : "Never",
+            joinedDate: u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : "",
+            totalLogins: 0,
+            photosUploaded: 0,
+            videosUploaded: 0,
+            projectsCreated: 0,
+            storageUsed: "—",
+            accountAge: u.created_at
+              ? `${Math.max(0, Math.floor((Date.now() - new Date(u.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30)))} months`
+              : "—",
+            activityLevel: daysSinceLogin <= 7 ? "High" : daysSinceLogin <= 30 ? "Medium" : "Low" as UserDetail["activityLevel"],
+            plan: "Pro" as UserDetail["plan"],
+          };
+        });
+        setAllUsers(mapped);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+        toast.error("Failed to load users");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadUsers();
+  }, []);
+
 
   const uniqueBusinesses = allUsers.reduce(
     (acc, user) => {

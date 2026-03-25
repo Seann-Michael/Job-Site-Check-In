@@ -121,6 +121,21 @@ const getCurrentUserEmail = (): string => {
   }
 };
 
+// Returns a stable device ID for anonymous users — persisted in localStorage
+const getOrCreateDeviceId = (): string => {
+  const KEY = "ideas_device_id";
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch {
+    return "";
+  }
+};
+
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Ideas() {
   const navigate = useNavigate();
@@ -200,16 +215,22 @@ export default function Ideas() {
   // ── Load user's existing votes from Supabase ────────────────────────────────
   const fetchUserVotes = useCallback(async () => {
     const userEmail = getCurrentUserEmail();
-    if (!userEmail) return; // anonymous — keep localStorage votes only
+    const deviceId = getOrCreateDeviceId();
     try {
+      // Try email first, fall back to device ID
+      const identifier = userEmail
+        ? { column: "user_email", value: userEmail }
+        : { column: "device_id", value: deviceId };
+
       const { data } = await supabaseClient
         .from("idea_votes")
         .select("idea_id")
-        .eq("user_email", userEmail);
+        .eq(identifier.column, identifier.value);
+
       if (data && data.length > 0) {
         const dbVoted = new Set(data.map((r: any) => r.idea_id as string));
         setVotedIds(dbVoted);
-        saveVotedLocal(dbVoted); // keep localStorage in sync
+        saveVotedLocal(dbVoted);
       }
     } catch (err) {
       console.warn("Could not load votes from DB, using localStorage", err);
@@ -227,6 +248,7 @@ export default function Ideas() {
     const alreadyVoted = votedIds.has(idea.id);
     const newUpvotes = alreadyVoted ? idea.upvotes - 1 : idea.upvotes + 1;
     const userEmail = getCurrentUserEmail();
+    const deviceId = getOrCreateDeviceId();
 
     // Optimistic update
     setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: newUpvotes } : i));
@@ -236,31 +258,34 @@ export default function Ideas() {
     saveVotedLocal(newVoted);
 
     try {
-      // Update the upvote count on the idea
       const { error } = await supabaseClient
         .from("ideas")
         .update({ upvotes: newUpvotes })
         .eq("id", idea.id);
       if (error) throw error;
 
-      // Persist the user's vote decision to idea_votes (if we have an email)
-      if (userEmail) {
-        if (alreadyVoted) {
-          // Remove the vote record
-          await supabaseClient
-            .from("idea_votes")
-            .delete()
-            .eq("idea_id", idea.id)
-            .eq("user_email", userEmail);
-        } else {
-          // Insert a vote record (ignore conflict — already voted)
-          await supabaseClient
-            .from("idea_votes")
-            .upsert({ idea_id: idea.id, user_email: userEmail }, { onConflict: "idea_id,user_email" });
+      // Persist vote — logged-in users keyed by email, anonymous by device_id
+      if (alreadyVoted) {
+        // Remove vote: delete by email if available, else by device_id
+        const deleteQuery = supabaseClient.from("idea_votes").delete().eq("idea_id", idea.id);
+        if (userEmail) {
+          await deleteQuery.eq("user_email", userEmail);
+        } else if (deviceId) {
+          await deleteQuery.eq("device_id", deviceId);
+        }
+      } else {
+        // Insert vote (ignore duplicate silently via try/catch)
+        try {
+          await supabaseClient.from("idea_votes").insert({
+            idea_id: idea.id,
+            user_email: userEmail || "",
+            device_id: deviceId || "",
+          });
+        } catch {
+          // Duplicate vote — already recorded, no-op
         }
       }
     } catch (err: any) {
-      // Revert on failure
       setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: idea.upvotes } : i));
       setVotedIds(votedIds);
       saveVotedLocal(votedIds);
