@@ -86,6 +86,12 @@ export function SuperAdminLayout({
       active: location.pathname.startsWith("/super-admin/users"),
     },
     {
+      label: "Workspaces",
+      href: "/super-admin/workspaces",
+      icon: Building2,
+      active: location.pathname.startsWith("/super-admin/workspaces"),
+    },
+    {
       label: "Super Admin Staff",
       href: "/super-admin/staff",
       icon: User,
