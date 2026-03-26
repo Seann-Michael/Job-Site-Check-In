@@ -94,6 +94,16 @@ const availableApps = [
         name: "Tag Removed",
         description: "When tag is removed from contact",
       },
+      {
+        id: "add_tag",
+        name: "Add Tag",
+        description: "Trigger workflow when a tag is applied to a contact",
+      },
+      {
+        id: "remove_tag",
+        name: "Remove Tag",
+        description: "Trigger workflow when a tag is removed from a contact",
+      },
     ],
   },
   {
