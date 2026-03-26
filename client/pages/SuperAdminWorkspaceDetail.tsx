@@ -378,7 +378,6 @@ export default function SuperAdminWorkspaceDetail() {
               <InfoRow label="Created"      value={fmtDate(workspace.created_at)} icon={Calendar} />
               <InfoRow label="Last Updated" value={fmtDateTime(workspace.updated_at)} icon={Activity} />
               {workspace.verified_at && <InfoRow label="Verified On" value={fmtDate(workspace.verified_at)} icon={CheckCircle} />}
-              {workspace.google_place_id && <InfoRow label="Google Place ID" value={<span className="font-mono text-xs">{workspace.google_place_id}</span>} />}
             </CardContent>
           </Card>
 
