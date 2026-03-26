@@ -36,7 +36,13 @@ import {
   Video,
   BarChart3,
   Link2 as LinkIcon,
+  CreditCard,
+  LifeBuoy,
+  StickyNote,
+  Plus,
+  Trash2,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabaseClient } from "@/lib/supabaseClient";
 
@@ -171,6 +177,10 @@ export default function SuperAdminWorkspaceDetail() {
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [workspaceUsers, setWorkspaceUsers] = useState<Owner[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
@@ -247,7 +257,26 @@ export default function SuperAdminWorkspaceDetail() {
       if (recentReviewsRes.status === "fulfilled" && !recentReviewsRes.value.error)
         setRecentReviews(recentReviewsRes.value.data ?? []);
 
-      // 4. Workspace users — owner + anyone assigned to jobs in this workspace
+      // 4. Support tickets matched by owner email or business name
+      if (biz.email || biz.name) {
+        const { data: ticketData } = await supabaseClient
+          .from("support_tickets")
+          .select("id, ticket_number, title, status, priority, submitted_by, created_at, updated_at")
+          .or(`submitted_by.ilike.%${biz.email ?? ""}%,organization.ilike.%${biz.name ?? ""}%`)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        setTickets(ticketData ?? []);
+      }
+
+      // 5. Internal notes
+      const { data: notesData } = await supabaseClient
+        .from("business_notes")
+        .select("id, note, admin_user, created_at")
+        .eq("business_id", id)
+        .order("created_at", { ascending: false });
+      setNotes(notesData ?? []);
+
+      // 6. Workspace users — owner + anyone assigned to jobs in this workspace
       const { data: jobAssignees } = await supabaseClient
         .from("jobs")
         .select("assigned_to")
@@ -671,6 +700,167 @@ export default function SuperAdminWorkspaceDetail() {
           </Card>
 
         </div>
+
+        {/* Billing + Support Tickets — 2-col grid */}
+        <div className="grid lg:grid-cols-2 gap-5">
+
+          {/* Billing */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-muted-foreground" /> Billing
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-0">
+              {(() => {
+                const meta = workspace.metadata ?? {};
+                const billing = [
+                  { label: "Plan",             value: meta.plan ?? meta.subscription_plan ?? "—" },
+                  { label: "Billing Cycle",    value: meta.billing_cycle ?? meta.billing_period ?? "—" },
+                  { label: "Next Renewal",     value: meta.next_renewal ?? meta.renewal_date ?? "—" },
+                  { label: "Trial Ends",       value: meta.trial_ends ?? meta.trial_end_date ?? null },
+                  { label: "Payment Method",   value: meta.payment_method ?? meta.payment_type ?? "—" },
+                  { label: "Amount",           value: meta.amount ?? meta.monthly_amount ?? "—" },
+                  { label: "Currency",         value: meta.currency ?? "—" },
+                  { label: "Billing Email",    value: meta.billing_email ?? workspace.email ?? "—" },
+                  { label: "Promo / Discount", value: meta.promo_code ?? meta.discount ?? "—" },
+                ].filter((r) => r.value && r.value !== "—");
+
+                if (billing.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground text-center py-8">No billing data recorded</p>
+                  );
+                }
+                return billing.map(({ label, value }) => (
+                  <InfoRow key={label} label={label} value={String(value)} />
+                ));
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Support Tickets */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LifeBuoy className="h-4 w-4 text-muted-foreground" /> Support Tickets
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {tickets.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No support tickets found</p>
+              ) : (
+                <div className="divide-y">
+                  {tickets.map((t) => {
+                    const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+                      open: "outline", "in-progress": "default", resolved: "secondary", closed: "secondary",
+                    };
+                    const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+                      urgent: "destructive", high: "default", medium: "outline", low: "secondary",
+                    };
+                    return (
+                      <div key={t.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{t.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              #{t.ticket_number} · {fmtDate(t.created_at)}
+                            </p>
+                          </div>
+                          <div className="flex gap-1.5 flex-shrink-0">
+                            <Badge variant={tPriority[t.priority] ?? "outline"} className="text-xs capitalize">{t.priority}</Badge>
+                            <Badge variant={tStatus[t.status] ?? "outline"} className="text-xs capitalize">{t.status.replace("-", " ")}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Internal Notes */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <StickyNote className="h-4 w-4 text-muted-foreground" /> Internal Notes
+              <span className="text-xs font-normal text-muted-foreground ml-1">(visible to super admins only)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Add note */}
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Add an internal note about this workspace…"
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                className="min-h-[80px] text-sm resize-none flex-1"
+              />
+              <Button
+                size="sm"
+                disabled={!newNote.trim() || savingNote}
+                className="self-end"
+                onClick={async () => {
+                  if (!newNote.trim() || !id) return;
+                  setSavingNote(true);
+                  try {
+                    const { data, error } = await supabaseClient
+                      .from("business_notes")
+                      .insert({ business_id: id, note: newNote.trim(), admin_user: "Super Admin" })
+                      .select("id, note, admin_user, created_at")
+                      .single();
+                    if (error) throw error;
+                    setNotes((prev) => [data, ...prev]);
+                    setNewNote("");
+                    toast.success("Note saved");
+                  } catch (err: any) {
+                    toast.error("Failed to save note: " + (err?.message ?? "Unknown"));
+                  } finally {
+                    setSavingNote(false);
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Existing notes */}
+            {notes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
+            ) : (
+              <div className="space-y-3">
+                {notes.map((note) => (
+                  <div key={note.id} className="rounded-lg bg-muted/40 border px-4 py-3 group relative">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">{note.admin_user}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{fmtDateTime(note.created_at)}</span>
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          onClick={async () => {
+                            try {
+                              const { error } = await supabaseClient.from("business_notes").delete().eq("id", note.id);
+                              if (error) throw error;
+                              setNotes((prev) => prev.filter((n) => n.id !== note.id));
+                              toast.success("Note deleted");
+                            } catch (err: any) {
+                              toast.error("Failed to delete note");
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{note.note}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Settings / Config (if present) */}
         {workspace.settings && Object.keys(workspace.settings).length > 0 && (
