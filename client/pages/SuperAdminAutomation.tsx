@@ -1,5 +1,5 @@
 // @ts-nocheck - Temporary suppression of type errors
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -148,6 +148,30 @@ export default function SuperAdminAutomation() {
   const [triggers, setTriggers] = useState<EventTrigger[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── Automation stats ───────────────────────────────────────────────────────
+  const [autoStats, setAutoStats] = useState({ totalWorkflows: 0, activeWorkflows: 0, executions: 0 });
+  const [autoStatsLoading, setAutoStatsLoading] = useState(true);
+  const autoStatsFetched = useRef(false);
+
+  useEffect(() => {
+    if (autoStatsFetched.current) return;
+    autoStatsFetched.current = true;
+    (async () => {
+      setAutoStatsLoading(true);
+      const [wfRes, wfActiveRes, execRes] = await Promise.allSettled([
+        supabaseClient.from("workflows").select("id", { count: "exact", head: true }),
+        supabaseClient.from("workflows").select("id", { count: "exact", head: true }).eq("is_active", true),
+        supabaseClient.from("workflow_executions").select("id", { count: "exact", head: true }),
+      ]);
+      setAutoStats({
+        totalWorkflows: wfRes.status === "fulfilled" && !wfRes.value.error ? (wfRes.value.count ?? 0) : 0,
+        activeWorkflows: wfActiveRes.status === "fulfilled" && !wfActiveRes.value.error ? (wfActiveRes.value.count ?? 0) : 0,
+        executions: execRes.status === "fulfilled" && !execRes.value.error ? (execRes.value.count ?? 0) : 0,
+      });
+      setAutoStatsLoading(false);
+    })();
+  }, []);
   const [showDialog, setShowDialog] = useState(false);
   const [editingTrigger, setEditingTrigger] = useState<EventTrigger | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -402,6 +426,26 @@ export default function SuperAdminAutomation() {
               <span className="sm:hidden">Create</span>
             </Button>
           </div>
+        </div>
+
+        {/* Automation Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          {[
+            { label: "Total Workflows", value: autoStats.totalWorkflows, sub: "All created" },
+            { label: "Active Workflows", value: autoStats.activeWorkflows, sub: "Currently enabled" },
+            { label: "Event Triggers", value: triggers.length, sub: "Configured triggers" },
+            { label: "Trigger Fires", value: triggers.reduce((s, t) => s + (t.trigger_count || 0), 0), sub: "All-time executions" },
+          ].map(({ label, value, sub }) => (
+            <div key={label} className="rounded-lg border bg-card p-4">
+              <p className="text-xs text-muted-foreground font-medium leading-snug">{label}</p>
+              {autoStatsLoading || isLoading ? (
+                <div className="h-7 w-12 mt-1 animate-pulse bg-muted rounded" />
+              ) : (
+                <p className="text-2xl font-bold mt-0.5">{value}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+            </div>
+          ))}
         </div>
 
         {/* Create / Edit Dialog */}

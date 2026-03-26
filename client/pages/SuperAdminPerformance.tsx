@@ -145,6 +145,10 @@ function statusFromMs(ms: number): "healthy" | "warning" | "error" {
 export default function SuperAdminPerformance() {
   const [activeTab, setActiveTab] = useState("overview");
 
+  // Platform health stats
+  const [platformStats, setPlatformStats] = useState({ workspaces: 0, users: 0, gmbProfiles: 0, newWorkspaces: 0 });
+  const [platformStatsLoading, setPlatformStatsLoading] = useState(true);
+
   // Health checks
   const [healthChecks, setHealthChecks] = useState<TableHealthCheck[]>([]);
   const [healthLoading, setHealthLoading] = useState(true);
@@ -239,6 +243,29 @@ export default function SuperAdminPerformance() {
     fetchScalingRules();
     fetchOptimizationJobs();
   }, [runHealthChecks, fetchScalingRules, fetchOptimizationJobs]);
+
+  // ── Platform health stats ──────────────────────────────────────────────────
+  useEffect(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoff = thirtyDaysAgo.toISOString();
+    (async () => {
+      setPlatformStatsLoading(true);
+      const [bizRes, usersRes, gmbRes, newBizRes] = await Promise.allSettled([
+        supabaseClient.from("businesses").select("id", { count: "exact", head: true }),
+        supabaseClient.from("users").select("id", { count: "exact", head: true }),
+        supabaseClient.from("gmb_profiles").select("id", { count: "exact", head: true }),
+        supabaseClient.from("businesses").select("id", { count: "exact", head: true }).gte("created_at", cutoff),
+      ]);
+      setPlatformStats({
+        workspaces: bizRes.status === "fulfilled" && !bizRes.value.error ? (bizRes.value.count ?? 0) : 0,
+        users: usersRes.status === "fulfilled" && !usersRes.value.error ? (usersRes.value.count ?? 0) : 0,
+        gmbProfiles: gmbRes.status === "fulfilled" && !gmbRes.value.error ? (gmbRes.value.count ?? 0) : 0,
+        newWorkspaces: newBizRes.status === "fulfilled" && !newBizRes.value.error ? (newBizRes.value.count ?? 0) : 0,
+      });
+      setPlatformStatsLoading(false);
+    })();
+  }, []);
 
   // ── Derived system health ──────────────────────────────────────────────────
   const avgMs =
@@ -443,6 +470,31 @@ export default function SuperAdminPerformance() {
             <RefreshCw className={`h-4 w-4 mr-2 ${healthLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+        </div>
+
+        {/* Platform Health Stats */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Database className="h-4 w-4" /> Platform Health
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: "Total Workspaces", value: platformStats.workspaces, sub: "Active businesses" },
+              { label: "New Workspaces (30d)", value: platformStats.newWorkspaces, sub: "Added last 30 days" },
+              { label: "Total Users", value: platformStats.users, sub: "All registered accounts" },
+              { label: "GMB Profiles Connected", value: platformStats.gmbProfiles, sub: "Google Business linked" },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="rounded-lg border bg-card p-4">
+                <p className="text-xs text-muted-foreground font-medium leading-snug">{label}</p>
+                {platformStatsLoading ? (
+                  <div className="h-7 w-12 mt-1 animate-pulse bg-muted rounded" />
+                ) : (
+                  <p className="text-2xl font-bold mt-0.5">{value}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* System Health Cards */}

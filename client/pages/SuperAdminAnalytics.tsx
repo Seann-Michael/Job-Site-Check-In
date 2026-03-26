@@ -12,7 +12,6 @@ import {
 import {
   Briefcase,
   Star,
-  MessageSquare,
   Image,
   Video,
   Users,
@@ -23,19 +22,20 @@ import {
   Send,
   CheckCircle,
   Minus,
-  Building2,
-  UserCheck,
-  MapPin,
-  Zap,
-  PlayCircle,
-  Activity,
-  LifeBuoy,
-  Lightbulb,
-  BookOpen,
   ThumbsUp,
   AlertTriangle,
   CheckSquare,
   Clock,
+  Eye,
+  BookOpen,
+  Megaphone,
+  Zap,
+  MapPin,
+  LogIn,
+  UserPlus,
+  Shield,
+  UserCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabaseClient } from "@/lib/supabaseClient";
@@ -48,11 +48,11 @@ interface MetricValue {
 }
 
 interface Metrics {
-  // ── Jobs ──────────────────────────────────────────────────────────────────
+  // Jobs
   jobsCreated: MetricValue;
   activeJobs: MetricValue;
   completedJobs: MetricValue;
-  // ── Reviews ───────────────────────────────────────────────────────────────
+  // Reviews
   totalReviews: MetricValue;
   avgReviewCountPerWorkspace: MetricValue;
   avgReviewRatingPerWorkspace: MetricValue;
@@ -62,28 +62,28 @@ interface Metrics {
   avgReviewRatingChange: MetricValue;
   fiveStarRate: MetricValue;
   negativeReviewRate: MetricValue;
-  // ── Media ─────────────────────────────────────────────────────────────────
+  // Media
   totalPhotos: MetricValue;
   avgPhotosPerWorkspace: MetricValue;
   totalVideos: MetricValue;
   avgVideosPerWorkspace: MetricValue;
-  // ── Clients ───────────────────────────────────────────────────────────────
+  // Clients
   totalClients: MetricValue;
   avgClientsPerWorkspace: MetricValue;
-  // ── Platform Health ───────────────────────────────────────────────────────
-  totalWorkspaces: MetricValue;
-  newWorkspaces: MetricValue;
-  totalUsers: MetricValue;
-  gmbProfilesConnected: MetricValue;
-  // ── Automation ────────────────────────────────────────────────────────────
-  totalWorkflows: MetricValue;
-  activeWorkflows: MetricValue;
-  workflowExecutions: MetricValue;
-  // ── Support & Engagement ──────────────────────────────────────────────────
-  totalSupportTickets: MetricValue;
-  openSupportTickets: MetricValue;
-  ideasSubmitted: MetricValue;
-  helpArticlesPublished: MetricValue;
+  // Engagement
+  engReviewViewRate: MetricValue;
+  engHelpCenterViews: MetricValue;
+  engBroadcastViews: MetricValue;
+  engTriggerFires: MetricValue;
+  engGmbAudits: MetricValue;
+  engIdeaUpvotes: MetricValue;
+  // Login / Auth
+  loginActive: MetricValue;
+  loginNewRegs: MetricValue;
+  loginVerified: MetricValue;
+  login2fa: MetricValue;
+  loginTotal: MetricValue;
+  loginAuthErrors: MetricValue;
 }
 
 const loading = (): MetricValue => ({ value: 0, loading: true });
@@ -106,17 +106,18 @@ const blankMetrics = (): Metrics => ({
   avgVideosPerWorkspace: loading(),
   totalClients: loading(),
   avgClientsPerWorkspace: loading(),
-  totalWorkspaces: loading(),
-  newWorkspaces: loading(),
-  totalUsers: loading(),
-  gmbProfilesConnected: loading(),
-  totalWorkflows: loading(),
-  activeWorkflows: loading(),
-  workflowExecutions: loading(),
-  totalSupportTickets: loading(),
-  openSupportTickets: loading(),
-  ideasSubmitted: loading(),
-  helpArticlesPublished: loading(),
+  engReviewViewRate: loading(),
+  engHelpCenterViews: loading(),
+  engBroadcastViews: loading(),
+  engTriggerFires: loading(),
+  engGmbAudits: loading(),
+  engIdeaUpvotes: loading(),
+  loginActive: loading(),
+  loginNewRegs: loading(),
+  loginVerified: loading(),
+  login2fa: loading(),
+  loginTotal: loading(),
+  loginAuthErrors: loading(),
 });
 
 function fmt(v: number, decimals = 1): string {
@@ -179,7 +180,15 @@ function MetricCard({
             ) : (
               <Minus className="h-3 w-3 text-muted-foreground" />
             )}
-            <span className={trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-muted-foreground"}>
+            <span
+              className={
+                trend === "up"
+                  ? "text-green-600"
+                  : trend === "down"
+                  ? "text-red-600"
+                  : "text-muted-foreground"
+              }
+            >
               {trend === "neutral" ? "No change" : trend === "up" ? "Trending up" : "Trending down"}
             </span>
           </div>
@@ -189,7 +198,6 @@ function MetricCard({
   );
 }
 
-// ── Section Header ─────────────────────────────────────────────────────────────
 function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -206,10 +214,7 @@ export default function SuperAdminAnalytics() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const setMetric = (key: keyof Metrics, value: number | string, error?: string) =>
-    setMetrics((prev) => ({
-      ...prev,
-      [key]: { value, loading: false, error },
-    }));
+    setMetrics((prev) => ({ ...prev, [key]: { value, loading: false, error } }));
 
   const fetchMetrics = useCallback(async () => {
     setIsRefreshing(true);
@@ -224,106 +229,81 @@ export default function SuperAdminAnalytics() {
     prevCutoff.setDate(prevCutoff.getDate() - days * 2);
     const prevCutoffStr = prevCutoff.toISOString();
 
-    // ── Fire all queries in parallel ──────────────────────────────────────────
     const [
       jobsRes,
       activeJobsRes,
       completedJobsRes,
       reviewsRes,
       reviewRequestsRes,
+      reviewRequestsViewedRes,
       businessesRes,
-      newWorkspacesRes,
       photosRes,
       videosRes,
       clientsRes,
       prevReviewsRes,
-      totalUsersRes,
-      gmbProfilesRes,
-      totalWorkflowsRes,
-      activeWorkflowsRes,
-      workflowExecutionsRes,
-      totalTicketsRes,
-      openTicketsRes,
-      ideasRes,
-      helpArticlesRes,
+      helpArticlesViewsRes,
+      broadcastViewsRes,
+      triggerFiresRes,
+      gmbAuditsRes,
+      ideaUpvotesRes,
+      loginTotalRes,
+      loginActiveRes,
+      loginNewRegsRes,
+      loginVerifiedRes,
+      login2faRes,
+      loginAuthErrorsRes,
     ] = await Promise.allSettled([
       // Jobs
       supabaseClient.from("jobs").select("id", { count: "exact", head: true }).gte("created_at", cutoffStr),
       supabaseClient.from("jobs").select("id", { count: "exact", head: true }).in("status", ["active", "in_progress"]),
       supabaseClient.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed"),
       // Reviews (full data for computed metrics)
-      supabaseClient.from("reviews").select("id, rating, response, created_at", { count: "exact" }).gte("created_at", cutoffStr),
+      supabaseClient.from("reviews").select("id, rating, response", { count: "exact" }).gte("created_at", cutoffStr),
       supabaseClient.from("review_requests").select("id", { count: "exact", head: true }).gte("created_at", cutoffStr),
-      // Workspaces
+      supabaseClient.from("review_requests").select("id", { count: "exact", head: true }).not("viewed_at", "is", null),
+      // Workspaces (divisor)
       supabaseClient.from("businesses").select("id", { count: "exact", head: true }),
-      supabaseClient.from("businesses").select("id", { count: "exact", head: true }).gte("created_at", cutoffStr),
       // Media (all-time)
       supabaseClient.from("job_media").select("id", { count: "exact", head: true }).eq("media_type", "image"),
       supabaseClient.from("job_media").select("id", { count: "exact", head: true }).eq("media_type", "video"),
       // Clients
       supabaseClient.from("users").select("id", { count: "exact", head: true }).eq("role", "admin"),
-      // Previous period reviews for growth/rating-change
-      supabaseClient.from("reviews").select("id, rating, created_at").gte("created_at", prevCutoffStr).lt("created_at", cutoffStr),
-      // Platform health
-      supabaseClient.from("users").select("id", { count: "exact", head: true }),
-      supabaseClient.from("gmb_profiles").select("id", { count: "exact", head: true }),
-      // Automation
-      supabaseClient.from("workflows").select("id", { count: "exact", head: true }),
-      supabaseClient.from("workflows").select("id", { count: "exact", head: true }).eq("is_active", true),
-      supabaseClient.from("workflow_executions").select("id", { count: "exact", head: true }).gte("started_at", cutoffStr),
-      // Support & Engagement
-      supabaseClient.from("support_tickets").select("id", { count: "exact", head: true }),
-      supabaseClient.from("support_tickets").select("id", { count: "exact", head: true }).in("status", ["open", "in-progress"]),
-      supabaseClient.from("ideas").select("id", { count: "exact", head: true }),
-      supabaseClient.from("help_articles").select("id", { count: "exact", head: true }).eq("status", "published"),
+      // Previous period reviews
+      supabaseClient.from("reviews").select("id, rating").gte("created_at", prevCutoffStr).lt("created_at", cutoffStr),
+      // Engagement
+      supabaseClient.from("help_articles").select("views"),
+      supabaseClient.from("broadcast_messages").select("view_count").eq("status", "sent"),
+      supabaseClient.from("event_triggers").select("trigger_count"),
+      supabaseClient.from("gmb_audit_results").select("id", { count: "exact", head: true }),
+      supabaseClient.from("ideas").select("upvotes"),
+      // Login / Auth
+      supabaseClient.from("audit_logs").select("id", { count: "exact", head: true }).eq("action", "login").gte("created_at", cutoffStr),
+      supabaseClient.from("users").select("id", { count: "exact", head: true }).not("last_login", "is", null).gte("last_login", cutoffStr),
+      supabaseClient.from("users").select("id", { count: "exact", head: true }).gte("created_at", cutoffStr),
+      supabaseClient.from("users").select("id", { count: "exact", head: true }).eq("email_verified", true),
+      supabaseClient.from("users").select("id", { count: "exact", head: true }).eq("is_2fa_enabled", true),
+      supabaseClient.from("crash_logs").select("id", { count: "exact", head: true }).gte("created_at", cutoffStr),
     ]);
 
-    // ── Workspace count (used as divisor) ─────────────────────────────────────
+    // Workspace divisor
     const businessCount =
       businessesRes.status === "fulfilled" && !businessesRes.value.error
         ? (businessesRes.value.count ?? 0)
         : 1;
     const workspaces = Math.max(businessCount, 1);
 
-    // ── Platform Health ───────────────────────────────────────────────────────
-    setMetric("totalWorkspaces", businessCount);
-
-    if (newWorkspacesRes.status === "fulfilled" && !newWorkspacesRes.value.error) {
-      setMetric("newWorkspaces", newWorkspacesRes.value.count ?? 0);
-    } else {
-      setMetric("newWorkspaces", "—", "Could not load");
-    }
-
-    if (totalUsersRes.status === "fulfilled" && !totalUsersRes.value.error) {
-      setMetric("totalUsers", totalUsersRes.value.count ?? 0);
-    } else {
-      setMetric("totalUsers", "—", "Could not load");
-    }
-
-    if (gmbProfilesRes.status === "fulfilled" && !gmbProfilesRes.value.error) {
-      setMetric("gmbProfilesConnected", gmbProfilesRes.value.count ?? 0);
-    } else {
-      setMetric("gmbProfilesConnected", "—", "Could not load");
-    }
-
     // ── Jobs ──────────────────────────────────────────────────────────────────
-    if (jobsRes.status === "fulfilled" && !jobsRes.value.error) {
+    if (jobsRes.status === "fulfilled" && !jobsRes.value.error)
       setMetric("jobsCreated", jobsRes.value.count ?? 0);
-    } else {
-      setMetric("jobsCreated", "—", "Could not load");
-    }
+    else setMetric("jobsCreated", "—", "Could not load");
 
-    if (activeJobsRes.status === "fulfilled" && !activeJobsRes.value.error) {
+    if (activeJobsRes.status === "fulfilled" && !activeJobsRes.value.error)
       setMetric("activeJobs", activeJobsRes.value.count ?? 0);
-    } else {
-      setMetric("activeJobs", "—", "Could not load");
-    }
+    else setMetric("activeJobs", "—", "Could not load");
 
-    if (completedJobsRes.status === "fulfilled" && !completedJobsRes.value.error) {
+    if (completedJobsRes.status === "fulfilled" && !completedJobsRes.value.error)
       setMetric("completedJobs", completedJobsRes.value.count ?? 0);
-    } else {
-      setMetric("completedJobs", "—", "Could not load");
-    }
+    else setMetric("completedJobs", "—", "Could not load");
 
     // ── Reviews ───────────────────────────────────────────────────────────────
     let reviews: any[] = [];
@@ -333,67 +313,38 @@ export default function SuperAdminAnalytics() {
       setMetric("totalReviews", total);
       setMetric("avgReviewCountPerWorkspace", total / workspaces);
 
-      const ratingsWithValue = reviews.filter((r) => r.rating != null);
+      const rated = reviews.filter((r) => r.rating != null);
       const avgRating =
-        ratingsWithValue.length > 0
-          ? ratingsWithValue.reduce((s: number, r: any) => s + Number(r.rating), 0) / ratingsWithValue.length
-          : 0;
+        rated.length > 0 ? rated.reduce((s: number, r: any) => s + Number(r.rating), 0) / rated.length : 0;
       setMetric("avgReviewRatingPerWorkspace", avgRating);
 
       const withResponse = reviews.filter(
         (r) => r.response && (typeof r.response === "object" ? r.response.text : r.response),
       ).length;
       setMetric("reviewResponseRate", total > 0 ? (withResponse / total) * 100 : 0);
-
-      // 5-star rate
-      const fiveStar = reviews.filter((r) => Number(r.rating) === 5).length;
-      setMetric("fiveStarRate", total > 0 ? (fiveStar / total) * 100 : 0);
-
-      // Negative review rate (1-2 stars)
-      const negative = reviews.filter((r) => Number(r.rating) <= 2).length;
-      setMetric("negativeReviewRate", total > 0 ? (negative / total) * 100 : 0);
+      setMetric("fiveStarRate", total > 0 ? (reviews.filter((r) => Number(r.rating) === 5).length / total) * 100 : 0);
+      setMetric("negativeReviewRate", total > 0 ? (reviews.filter((r) => Number(r.rating) <= 2).length / total) * 100 : 0);
     } else {
-      (
-        [
-          "totalReviews",
-          "avgReviewCountPerWorkspace",
-          "avgReviewRatingPerWorkspace",
-          "reviewResponseRate",
-          "fiveStarRate",
-          "negativeReviewRate",
-        ] as (keyof Metrics)[]
-      ).forEach((k) => setMetric(k, "—", "Could not load"));
+      (["totalReviews", "avgReviewCountPerWorkspace", "avgReviewRatingPerWorkspace", "reviewResponseRate", "fiveStarRate", "negativeReviewRate"] as (keyof Metrics)[])
+        .forEach((k) => setMetric(k, "—", "Could not load"));
     }
 
-    if (reviewRequestsRes.status === "fulfilled" && !reviewRequestsRes.value.error) {
+    if (reviewRequestsRes.status === "fulfilled" && !reviewRequestsRes.value.error)
       setMetric("totalReviewRequests", reviewRequestsRes.value.count ?? 0);
-    } else {
-      setMetric("totalReviewRequests", "—", "Could not load");
-    }
+    else setMetric("totalReviewRequests", "—", "Could not load");
 
-    // Growth & rating change vs previous period
     let prevReviews: any[] = [];
-    if (prevReviewsRes.status === "fulfilled" && !prevReviewsRes.value.error) {
+    if (prevReviewsRes.status === "fulfilled" && !prevReviewsRes.value.error)
       prevReviews = prevReviewsRes.value.data ?? [];
-    }
 
     if (reviews.length > 0 || prevReviews.length > 0) {
       const growthPct =
         prevReviews.length > 0
           ? ((reviews.length - prevReviews.length) / prevReviews.length) * 100
-          : reviews.length > 0
-          ? 100
-          : 0;
+          : reviews.length > 0 ? 100 : 0;
       setMetric("avgReviewGrowthPerWorkspace", growthPct / workspaces);
-
-      const curAvg =
-        reviews.length > 0
-          ? reviews.reduce((s: number, r: any) => s + Number(r.rating ?? 0), 0) / reviews.length
-          : 0;
-      const prevAvg =
-        prevReviews.length > 0
-          ? prevReviews.reduce((s: number, r: any) => s + Number(r.rating ?? 0), 0) / prevReviews.length
-          : 0;
+      const curAvg = reviews.length > 0 ? reviews.reduce((s: number, r: any) => s + Number(r.rating ?? 0), 0) / reviews.length : 0;
+      const prevAvg = prevReviews.length > 0 ? prevReviews.reduce((s: number, r: any) => s + Number(r.rating ?? 0), 0) / prevReviews.length : 0;
       setMetric("avgReviewRatingChange", curAvg - prevAvg);
     } else {
       setMetric("avgReviewGrowthPerWorkspace", 0);
@@ -402,103 +353,131 @@ export default function SuperAdminAnalytics() {
 
     // ── Media ─────────────────────────────────────────────────────────────────
     if (photosRes.status === "fulfilled" && !photosRes.value.error) {
-      const totalPhotos = photosRes.value.count ?? 0;
-      setMetric("totalPhotos", totalPhotos);
-      setMetric("avgPhotosPerWorkspace", totalPhotos / workspaces);
+      const n = photosRes.value.count ?? 0;
+      setMetric("totalPhotos", n);
+      setMetric("avgPhotosPerWorkspace", n / workspaces);
     } else {
-      const err =
-        photosRes.status === "fulfilled" ? photosRes.value.error?.message : (photosRes as any).reason?.message;
-      setMetric("totalPhotos", "—", err ?? "Could not load");
-      setMetric("avgPhotosPerWorkspace", "—", err ?? "Could not load");
+      setMetric("totalPhotos", "—", "Could not load");
+      setMetric("avgPhotosPerWorkspace", "—", "Could not load");
     }
 
     if (videosRes.status === "fulfilled" && !videosRes.value.error) {
-      const totalVideos = videosRes.value.count ?? 0;
-      setMetric("totalVideos", totalVideos);
-      setMetric("avgVideosPerWorkspace", totalVideos / workspaces);
+      const n = videosRes.value.count ?? 0;
+      setMetric("totalVideos", n);
+      setMetric("avgVideosPerWorkspace", n / workspaces);
     } else {
-      const err =
-        videosRes.status === "fulfilled" ? videosRes.value.error?.message : (videosRes as any).reason?.message;
-      setMetric("totalVideos", "—", err ?? "Could not load");
-      setMetric("avgVideosPerWorkspace", "—", err ?? "Could not load");
+      setMetric("totalVideos", "—", "Could not load");
+      setMetric("avgVideosPerWorkspace", "—", "Could not load");
     }
 
     // ── Clients ───────────────────────────────────────────────────────────────
     if (clientsRes.status === "fulfilled" && !clientsRes.value.error) {
-      const totalClients = clientsRes.value.count ?? 0;
-      setMetric("totalClients", totalClients);
-      setMetric("avgClientsPerWorkspace", totalClients / workspaces);
+      const n = clientsRes.value.count ?? 0;
+      setMetric("totalClients", n);
+      setMetric("avgClientsPerWorkspace", n / workspaces);
     } else {
       setMetric("totalClients", "—", "Could not load");
       setMetric("avgClientsPerWorkspace", "—", "Could not load");
     }
 
-    // ── Automation ────────────────────────────────────────────────────────────
-    if (totalWorkflowsRes.status === "fulfilled" && !totalWorkflowsRes.value.error) {
-      setMetric("totalWorkflows", totalWorkflowsRes.value.count ?? 0);
+    // ── Engagement ────────────────────────────────────────────────────────────
+    // Review request view rate
+    const rrTotal =
+      reviewRequestsRes.status === "fulfilled" && !reviewRequestsRes.value.error
+        ? (reviewRequestsRes.value.count ?? 0)
+        : null;
+    const rrViewed =
+      reviewRequestsViewedRes.status === "fulfilled" && !reviewRequestsViewedRes.value.error
+        ? (reviewRequestsViewedRes.value.count ?? 0)
+        : null;
+    if (rrTotal !== null && rrViewed !== null) {
+      setMetric("engReviewViewRate", rrTotal > 0 ? (rrViewed / rrTotal) * 100 : 0);
     } else {
-      setMetric("totalWorkflows", "—", "Could not load");
+      setMetric("engReviewViewRate", "—", "Could not load");
     }
 
-    if (activeWorkflowsRes.status === "fulfilled" && !activeWorkflowsRes.value.error) {
-      setMetric("activeWorkflows", activeWorkflowsRes.value.count ?? 0);
+    // Help center views
+    if (helpArticlesViewsRes.status === "fulfilled" && !helpArticlesViewsRes.value.error) {
+      const totalViews = (helpArticlesViewsRes.value.data ?? []).reduce(
+        (s: number, r: any) => s + (Number(r.views) || 0), 0,
+      );
+      setMetric("engHelpCenterViews", totalViews);
     } else {
-      setMetric("activeWorkflows", "—", "Could not load");
+      setMetric("engHelpCenterViews", "—", "Could not load");
     }
 
-    if (workflowExecutionsRes.status === "fulfilled" && !workflowExecutionsRes.value.error) {
-      setMetric("workflowExecutions", workflowExecutionsRes.value.count ?? 0);
+    // Broadcast message views
+    if (broadcastViewsRes.status === "fulfilled" && !broadcastViewsRes.value.error) {
+      const totalViews = (broadcastViewsRes.value.data ?? []).reduce(
+        (s: number, r: any) => s + (Number(r.view_count) || 0), 0,
+      );
+      setMetric("engBroadcastViews", totalViews);
     } else {
-      setMetric("workflowExecutions", "—", "Could not load");
+      setMetric("engBroadcastViews", "—", "Could not load");
     }
 
-    // ── Support & Engagement ──────────────────────────────────────────────────
-    if (totalTicketsRes.status === "fulfilled" && !totalTicketsRes.value.error) {
-      setMetric("totalSupportTickets", totalTicketsRes.value.count ?? 0);
+    // Event trigger fires
+    if (triggerFiresRes.status === "fulfilled" && !triggerFiresRes.value.error) {
+      const totalFires = (triggerFiresRes.value.data ?? []).reduce(
+        (s: number, r: any) => s + (Number(r.trigger_count) || 0), 0,
+      );
+      setMetric("engTriggerFires", totalFires);
     } else {
-      setMetric("totalSupportTickets", "—", "Could not load");
+      setMetric("engTriggerFires", "—", "Could not load");
     }
 
-    if (openTicketsRes.status === "fulfilled" && !openTicketsRes.value.error) {
-      setMetric("openSupportTickets", openTicketsRes.value.count ?? 0);
+    // GMB audits
+    if (gmbAuditsRes.status === "fulfilled" && !gmbAuditsRes.value.error)
+      setMetric("engGmbAudits", gmbAuditsRes.value.count ?? 0);
+    else setMetric("engGmbAudits", "—", "Could not load");
+
+    // Idea upvotes
+    if (ideaUpvotesRes.status === "fulfilled" && !ideaUpvotesRes.value.error) {
+      const totalVotes = (ideaUpvotesRes.value.data ?? []).reduce(
+        (s: number, r: any) => s + (Number(r.upvotes) || 0), 0,
+      );
+      setMetric("engIdeaUpvotes", totalVotes);
     } else {
-      setMetric("openSupportTickets", "—", "Could not load");
+      setMetric("engIdeaUpvotes", "—", "Could not load");
     }
 
-    if (ideasRes.status === "fulfilled" && !ideasRes.value.error) {
-      setMetric("ideasSubmitted", ideasRes.value.count ?? 0);
-    } else {
-      setMetric("ideasSubmitted", "—", "Could not load");
-    }
+    // ── Login / Auth ──────────────────────────────────────────────────────────
+    if (loginTotalRes.status === "fulfilled" && !loginTotalRes.value.error)
+      setMetric("loginTotal", loginTotalRes.value.count ?? 0);
+    else setMetric("loginTotal", "—", "Could not load");
 
-    if (helpArticlesRes.status === "fulfilled" && !helpArticlesRes.value.error) {
-      setMetric("helpArticlesPublished", helpArticlesRes.value.count ?? 0);
-    } else {
-      setMetric("helpArticlesPublished", "—", "Could not load");
-    }
+    if (loginActiveRes.status === "fulfilled" && !loginActiveRes.value.error)
+      setMetric("loginActive", loginActiveRes.value.count ?? 0);
+    else setMetric("loginActive", "—", "Could not load");
+
+    if (loginNewRegsRes.status === "fulfilled" && !loginNewRegsRes.value.error)
+      setMetric("loginNewRegs", loginNewRegsRes.value.count ?? 0);
+    else setMetric("loginNewRegs", "—", "Could not load");
+
+    if (loginVerifiedRes.status === "fulfilled" && !loginVerifiedRes.value.error)
+      setMetric("loginVerified", loginVerifiedRes.value.count ?? 0);
+    else setMetric("loginVerified", "—", "Could not load");
+
+    if (login2faRes.status === "fulfilled" && !login2faRes.value.error)
+      setMetric("login2fa", login2faRes.value.count ?? 0);
+    else setMetric("login2fa", "—", "Could not load");
+
+    if (loginAuthErrorsRes.status === "fulfilled" && !loginAuthErrorsRes.value.error)
+      setMetric("loginAuthErrors", loginAuthErrorsRes.value.count ?? 0);
+    else setMetric("loginAuthErrors", "—", "Could not load");
 
     setLastRefreshed(new Date());
     setIsRefreshing(false);
     toast.success("Analytics refreshed");
   }, [dateRange]);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [fetchMetrics]);
+  useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
 
-  const growthVal =
-    typeof metrics.avgReviewGrowthPerWorkspace.value === "number"
-      ? metrics.avgReviewGrowthPerWorkspace.value
-      : 0;
-  const growthTrend: "up" | "down" | "neutral" =
-    growthVal > 0 ? "up" : growthVal < 0 ? "down" : "neutral";
+  const growthVal = typeof metrics.avgReviewGrowthPerWorkspace.value === "number" ? metrics.avgReviewGrowthPerWorkspace.value : 0;
+  const growthTrend: "up" | "down" | "neutral" = growthVal > 0 ? "up" : growthVal < 0 ? "down" : "neutral";
 
-  const ratingChangeVal =
-    typeof metrics.avgReviewRatingChange.value === "number"
-      ? metrics.avgReviewRatingChange.value
-      : 0;
-  const ratingChangeTrend: "up" | "down" | "neutral" =
-    ratingChangeVal > 0 ? "up" : ratingChangeVal < 0 ? "down" : "neutral";
+  const ratingChangeVal = typeof metrics.avgReviewRatingChange.value === "number" ? metrics.avgReviewRatingChange.value : 0;
+  const ratingChangeTrend: "up" | "down" | "neutral" = ratingChangeVal > 0 ? "up" : ratingChangeVal < 0 ? "down" : "neutral";
 
   return (
     <SuperAdminLayout>
@@ -544,66 +523,13 @@ export default function SuperAdminAnalytics() {
           </div>
         </div>
 
-        {/* ── Platform Health ───────────────────────────────────────────────── */}
-        <section>
-          <SectionHeader icon={Building2} label="Platform Health" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total Workspaces"
-              metric={metrics.totalWorkspaces}
-              icon={Building2}
-              iconColor="bg-slate-500"
-              description="All-time active businesses"
-            />
-            <MetricCard
-              title="New Workspaces"
-              metric={metrics.newWorkspaces}
-              icon={Building2}
-              iconColor="bg-slate-400"
-              description={`Added in last ${dateRange} days`}
-            />
-            <MetricCard
-              title="Total Users"
-              metric={metrics.totalUsers}
-              icon={UserCheck}
-              iconColor="bg-indigo-600"
-              description="All registered users"
-            />
-            <MetricCard
-              title="GMB Profiles Connected"
-              metric={metrics.gmbProfilesConnected}
-              icon={MapPin}
-              iconColor="bg-red-500"
-              description="Google Business profiles linked"
-            />
-          </div>
-        </section>
-
         {/* ── Jobs ─────────────────────────────────────────────────────────── */}
         <section>
           <SectionHeader icon={Briefcase} label="Jobs" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <MetricCard
-              title="Jobs Created"
-              metric={metrics.jobsCreated}
-              icon={Briefcase}
-              iconColor="bg-blue-500"
-              description={`Past ${dateRange} days`}
-            />
-            <MetricCard
-              title="Active Jobs"
-              metric={metrics.activeJobs}
-              icon={Clock}
-              iconColor="bg-blue-400"
-              description="In progress or active right now"
-            />
-            <MetricCard
-              title="Completed Jobs"
-              metric={metrics.completedJobs}
-              icon={CheckSquare}
-              iconColor="bg-green-600"
-              description="All-time completed"
-            />
+            <MetricCard title="Jobs Created" metric={metrics.jobsCreated} icon={Briefcase} iconColor="bg-blue-500" description={`Past ${dateRange} days`} />
+            <MetricCard title="Active Jobs" metric={metrics.activeJobs} icon={Clock} iconColor="bg-blue-400" description="In progress or active right now" />
+            <MetricCard title="Completed Jobs" metric={metrics.completedJobs} icon={CheckSquare} iconColor="bg-green-600" description="All-time completed" />
           </div>
         </section>
 
@@ -611,77 +537,15 @@ export default function SuperAdminAnalytics() {
         <section>
           <SectionHeader icon={Star} label="Reviews" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total Reviews Captured"
-              metric={metrics.totalReviews}
-              icon={Star}
-              iconColor="bg-yellow-500"
-              description={`Past ${dateRange} days`}
-            />
-            <MetricCard
-              title="Avg Review Count Per Workspace"
-              metric={metrics.avgReviewCountPerWorkspace}
-              icon={BarChart3}
-              iconColor="bg-amber-500"
-              description="Reviews ÷ workspaces"
-            />
-            <MetricCard
-              title="Avg Review Rating Per Workspace"
-              metric={metrics.avgReviewRatingPerWorkspace}
-              icon={Star}
-              iconColor="bg-orange-500"
-              suffix=" ★"
-              description="Average star rating"
-            />
-            <MetricCard
-              title="Avg Review Growth Per Workspace"
-              metric={metrics.avgReviewGrowthPerWorkspace}
-              icon={TrendingUp}
-              iconColor="bg-green-500"
-              suffix="%"
-              trend={growthTrend}
-              description="vs. previous period"
-            />
-            <MetricCard
-              title="Total Review Requests"
-              metric={metrics.totalReviewRequests}
-              icon={Send}
-              iconColor="bg-indigo-500"
-              description={`Past ${dateRange} days`}
-            />
-            <MetricCard
-              title="Reviews Response Rate"
-              metric={metrics.reviewResponseRate}
-              icon={CheckCircle}
-              iconColor="bg-teal-500"
-              suffix="%"
-              description="Reviews with an owner response"
-            />
-            <MetricCard
-              title="Avg Review Rating Change"
-              metric={metrics.avgReviewRatingChange}
-              icon={TrendingUp}
-              iconColor="bg-purple-500"
-              suffix=" ★"
-              trend={ratingChangeTrend}
-              description="vs. previous period"
-            />
-            <MetricCard
-              title="5-Star Review Rate"
-              metric={metrics.fiveStarRate}
-              icon={ThumbsUp}
-              iconColor="bg-emerald-500"
-              suffix="%"
-              description="Percentage of 5-star reviews"
-            />
-            <MetricCard
-              title="Negative Review Rate"
-              metric={metrics.negativeReviewRate}
-              icon={AlertTriangle}
-              iconColor="bg-red-400"
-              suffix="%"
-              description="Reviews rated 1–2 stars"
-            />
+            <MetricCard title="Total Reviews Captured" metric={metrics.totalReviews} icon={Star} iconColor="bg-yellow-500" description={`Past ${dateRange} days`} />
+            <MetricCard title="Avg Review Count Per Workspace" metric={metrics.avgReviewCountPerWorkspace} icon={BarChart3} iconColor="bg-amber-500" description="Reviews ÷ workspaces" />
+            <MetricCard title="Avg Review Rating Per Workspace" metric={metrics.avgReviewRatingPerWorkspace} icon={Star} iconColor="bg-orange-500" suffix=" ★" description="Average star rating" />
+            <MetricCard title="Avg Review Growth Per Workspace" metric={metrics.avgReviewGrowthPerWorkspace} icon={TrendingUp} iconColor="bg-green-500" suffix="%" trend={growthTrend} description="vs. previous period" />
+            <MetricCard title="Total Review Requests" metric={metrics.totalReviewRequests} icon={Send} iconColor="bg-indigo-500" description={`Past ${dateRange} days`} />
+            <MetricCard title="Reviews Response Rate" metric={metrics.reviewResponseRate} icon={CheckCircle} iconColor="bg-teal-500" suffix="%" description="Reviews with an owner response" />
+            <MetricCard title="Avg Review Rating Change" metric={metrics.avgReviewRatingChange} icon={TrendingUp} iconColor="bg-purple-500" suffix=" ★" trend={ratingChangeTrend} description="vs. previous period" />
+            <MetricCard title="5-Star Review Rate" metric={metrics.fiveStarRate} icon={ThumbsUp} iconColor="bg-emerald-500" suffix="%" description="Percentage of 5-star reviews" />
+            <MetricCard title="Negative Review Rate" metric={metrics.negativeReviewRate} icon={AlertTriangle} iconColor="bg-red-400" suffix="%" description="Reviews rated 1–2 stars" />
           </div>
         </section>
 
@@ -689,34 +553,10 @@ export default function SuperAdminAnalytics() {
         <section>
           <SectionHeader icon={Image} label="Media" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total Photos"
-              metric={metrics.totalPhotos}
-              icon={Image}
-              iconColor="bg-pink-500"
-              description="All-time across all jobs"
-            />
-            <MetricCard
-              title="Avg Photos Per Workspace"
-              metric={metrics.avgPhotosPerWorkspace}
-              icon={Image}
-              iconColor="bg-rose-500"
-              description="Photos ÷ workspaces"
-            />
-            <MetricCard
-              title="Total Videos"
-              metric={metrics.totalVideos}
-              icon={Video}
-              iconColor="bg-violet-500"
-              description="All-time across all jobs"
-            />
-            <MetricCard
-              title="Avg Videos Per Workspace"
-              metric={metrics.avgVideosPerWorkspace}
-              icon={Video}
-              iconColor="bg-purple-500"
-              description="Videos ÷ workspaces"
-            />
+            <MetricCard title="Total Photos" metric={metrics.totalPhotos} icon={Image} iconColor="bg-pink-500" description="All-time across all jobs" />
+            <MetricCard title="Avg Photos Per Workspace" metric={metrics.avgPhotosPerWorkspace} icon={Image} iconColor="bg-rose-500" description="Photos ÷ workspaces" />
+            <MetricCard title="Total Videos" metric={metrics.totalVideos} icon={Video} iconColor="bg-violet-500" description="All-time across all jobs" />
+            <MetricCard title="Avg Videos Per Workspace" metric={metrics.avgVideosPerWorkspace} icon={Video} iconColor="bg-purple-500" description="Videos ÷ workspaces" />
           </div>
         </section>
 
@@ -724,82 +564,106 @@ export default function SuperAdminAnalytics() {
         <section>
           <SectionHeader icon={Users} label="Clients" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <MetricCard
-              title="Total Clients"
-              metric={metrics.totalClients}
-              icon={Users}
-              iconColor="bg-cyan-500"
-              description="Admin users across all workspaces"
-            />
-            <MetricCard
-              title="Avg Clients Per Workspace"
-              metric={metrics.avgClientsPerWorkspace}
-              icon={Users}
-              iconColor="bg-sky-500"
-              description="Clients ÷ workspaces"
-            />
+            <MetricCard title="Total Clients" metric={metrics.totalClients} icon={Users} iconColor="bg-cyan-500" description="Admin users across all workspaces" />
+            <MetricCard title="Avg Clients Per Workspace" metric={metrics.avgClientsPerWorkspace} icon={Users} iconColor="bg-sky-500" description="Clients ÷ workspaces" />
           </div>
         </section>
 
-        {/* ── Automation ───────────────────────────────────────────────────── */}
+        {/* ── Engagement Analytics ─────────────────────────────────────────── */}
         <section>
-          <SectionHeader icon={Zap} label="Automation" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <SectionHeader icon={BarChart3} label="Engagement Analytics" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <MetricCard
-              title="Total Workflows"
-              metric={metrics.totalWorkflows}
+              title="Review Request View Rate"
+              metric={metrics.engReviewViewRate}
+              icon={Eye}
+              iconColor="bg-indigo-500"
+              suffix="%"
+              description="Requests opened by customers (all-time)"
+            />
+            <MetricCard
+              title="Help Center Total Views"
+              metric={metrics.engHelpCenterViews}
+              icon={BookOpen}
+              iconColor="bg-teal-500"
+              description="Cumulative article page views"
+            />
+            <MetricCard
+              title="Broadcast Message Views"
+              metric={metrics.engBroadcastViews}
+              icon={Megaphone}
+              iconColor="bg-orange-500"
+              description="Total views on sent broadcasts"
+            />
+            <MetricCard
+              title="Automation Trigger Fires"
+              metric={metrics.engTriggerFires}
               icon={Zap}
               iconColor="bg-yellow-600"
-              description="All-time created"
+              description="Total times event triggers have fired"
             />
             <MetricCard
-              title="Active Workflows"
-              metric={metrics.activeWorkflows}
-              icon={PlayCircle}
-              iconColor="bg-lime-500"
-              description="Currently enabled"
+              title="GMB Audits Performed"
+              metric={metrics.engGmbAudits}
+              icon={MapPin}
+              iconColor="bg-red-500"
+              description="Google Business audit checks run"
             />
             <MetricCard
-              title="Workflow Executions"
-              metric={metrics.workflowExecutions}
-              icon={Activity}
-              iconColor="bg-orange-500"
-              description={`Runs in last ${dateRange} days`}
+              title="Total Idea Upvotes"
+              metric={metrics.engIdeaUpvotes}
+              icon={ThumbsUp}
+              iconColor="bg-emerald-500"
+              description="Community votes on feature ideas"
             />
           </div>
         </section>
 
-        {/* ── Support & Engagement ─────────────────────────────────────────── */}
+        {/* ── Login & Auth Analytics ───────────────────────────────────────── */}
         <section>
-          <SectionHeader icon={LifeBuoy} label="Support & Engagement" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SectionHeader icon={LogIn} label="Login & Auth Analytics" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <MetricCard
-              title="Total Support Tickets"
-              metric={metrics.totalSupportTickets}
-              icon={LifeBuoy}
+              title="Total Sign-ins"
+              metric={metrics.loginTotal}
+              icon={LogIn}
               iconColor="bg-blue-600"
-              description="All-time submitted"
+              description={`Audit log logins past ${dateRange} days`}
             />
             <MetricCard
-              title="Open Support Tickets"
-              metric={metrics.openSupportTickets}
-              icon={MessageSquare}
-              iconColor="bg-amber-600"
-              description="Open or in-progress"
+              title="Active Users"
+              metric={metrics.loginActive}
+              icon={UserCheck}
+              iconColor="bg-green-500"
+              description={`Users who logged in past ${dateRange} days`}
             />
             <MetricCard
-              title="Ideas Submitted"
-              metric={metrics.ideasSubmitted}
-              icon={Lightbulb}
-              iconColor="bg-yellow-500"
-              description="Feature requests & ideas"
+              title="New Registrations"
+              metric={metrics.loginNewRegs}
+              icon={UserPlus}
+              iconColor="bg-indigo-500"
+              description={`New user accounts past ${dateRange} days`}
             />
             <MetricCard
-              title="Help Articles Published"
-              metric={metrics.helpArticlesPublished}
-              icon={BookOpen}
-              iconColor="bg-teal-600"
-              description="Live knowledge base articles"
+              title="Email Verified Accounts"
+              metric={metrics.loginVerified}
+              icon={CheckCircle}
+              iconColor="bg-teal-500"
+              description="All-time verified users"
+            />
+            <MetricCard
+              title="2FA Enabled Users"
+              metric={metrics.login2fa}
+              icon={Shield}
+              iconColor="bg-purple-600"
+              description="Accounts with 2-factor auth on"
+            />
+            <MetricCard
+              title="Application Errors"
+              metric={metrics.loginAuthErrors}
+              icon={ShieldAlert}
+              iconColor="bg-red-500"
+              description={`Crash log entries past ${dateRange} days`}
             />
           </div>
         </section>

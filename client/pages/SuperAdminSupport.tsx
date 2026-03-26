@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,10 @@ import {
   XCircle,
   ArrowUpDown,
   Trash2,
+  Lightbulb,
+  BookOpen,
+  ThumbsUp,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
@@ -341,6 +345,41 @@ export default function SuperAdminSupport() {
       return 0;
     });
 
+  // ── Engagement stats ─────────────────────────────────────────────────────
+  const [engLoading, setEngLoading] = useState(true);
+  const [engStats, setEngStats] = useState({
+    totalIdeas: 0,
+    ideasOnRoadmap: 0,
+    totalUpvotes: 0,
+    helpPublished: 0,
+    helpViews: 0,
+  });
+  const engFetched = useRef(false);
+
+  useEffect(() => {
+    if (engFetched.current) return;
+    engFetched.current = true;
+    (async () => {
+      setEngLoading(true);
+      const [ideasRes, ideasRoadmapRes, helpRes] = await Promise.allSettled([
+        supabaseClient.from("ideas").select("upvotes"),
+        supabaseClient.from("ideas").select("id", { count: "exact", head: true }).eq("status", "roadmap"),
+        supabaseClient.from("help_articles").select("views, status"),
+      ]);
+      const ideas = ideasRes.status === "fulfilled" && !ideasRes.value.error ? ideasRes.value.data ?? [] : [];
+      const roadmapCount = ideasRoadmapRes.status === "fulfilled" && !ideasRoadmapRes.value.error ? ideasRoadmapRes.value.count ?? 0 : 0;
+      const articles = helpRes.status === "fulfilled" && !helpRes.value.error ? helpRes.value.data ?? [] : [];
+      setEngStats({
+        totalIdeas: ideas.length,
+        ideasOnRoadmap: roadmapCount,
+        totalUpvotes: ideas.reduce((s: number, r: any) => s + (Number(r.upvotes) || 0), 0),
+        helpPublished: articles.filter((a: any) => a.status === "published").length,
+        helpViews: articles.reduce((s: number, a: any) => s + (Number(a.views) || 0), 0),
+      });
+      setEngLoading(false);
+    })();
+  }, []);
+
   const openCount = tickets.filter((t) => t.status === "open").length;
   const inProgressCount = tickets.filter((t) => t.status === "in-progress").length;
   const urgentCount = tickets.filter((t) => t.priority === "urgent" && t.status !== "resolved" && t.status !== "closed").length;
@@ -461,6 +500,65 @@ export default function SuperAdminSupport() {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Engagement Stats */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Star className="h-4 w-4" /> Community & Engagement
+          </h2>
+          <div className="grid gap-4 md:grid-cols-5">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Ideas</CardTitle>
+                <Lightbulb className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{engLoading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : engStats.totalIdeas}</div>
+                <p className="text-xs text-muted-foreground">{engStats.ideasOnRoadmap} on roadmap</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Idea Upvotes</CardTitle>
+                <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{engLoading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : engStats.totalUpvotes}</div>
+                <p className="text-xs text-muted-foreground">Community votes</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Help Articles</CardTitle>
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{engLoading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : engStats.helpPublished}</div>
+                <p className="text-xs text-muted-foreground">Published articles</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Help Center Views</CardTitle>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{engLoading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : engStats.helpViews}</div>
+                <p className="text-xs text-muted-foreground">Total article views</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ideas on Roadmap</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{engLoading ? <div className="h-7 w-10 animate-pulse bg-muted rounded" /> : engStats.ideasOnRoadmap}</div>
+                <p className="text-xs text-muted-foreground">Planned or in-progress</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Filters */}
