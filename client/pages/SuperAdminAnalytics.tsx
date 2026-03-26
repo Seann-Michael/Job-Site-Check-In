@@ -104,7 +104,7 @@ function MetricCard({
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-muted-foreground font-medium truncate">{title}</p>
+            <p className="text-sm text-muted-foreground font-medium leading-snug">{title}</p>
             {metric.loading ? (
               <div className="h-8 w-24 mt-1 animate-pulse bg-muted rounded" />
             ) : (
