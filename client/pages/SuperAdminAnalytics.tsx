@@ -164,57 +164,55 @@ export default function SuperAdminAnalytics() {
 
     // ── Run all queries in parallel ──────────────────────────────────────────
 
-    // 1. Jobs Created (projects table)
+    // 1. Jobs Created (projects table — filtered by date range)
     const jobsQuery = supabaseClient
       .from("projects")
       .select("id", { count: "exact", head: true })
       .gte("created_at", cutoffStr);
 
-    // 2. Total Reviews Captured
+    // 2. Total Reviews Captured (filtered by date range)
     const reviewsQuery = supabaseClient
       .from("reviews")
-      .select("id, rating, business_id, created_at, response", { count: "exact" })
+      .select("id, rating, created_at, response", { count: "exact" })
       .gte("created_at", cutoffStr);
 
-    // 3. Total Review Requests
+    // 3. Total Review Requests (filtered by date range)
     const reviewRequestsQuery = supabaseClient
       .from("review_requests")
       .select("id", { count: "exact", head: true })
       .gte("created_at", cutoffStr);
 
-    // 4. Total Businesses (workspaces)
+    // 4. Total Businesses (workspaces — all time)
     const businessesQuery = supabaseClient
       .from("businesses")
       .select("id", { count: "exact", head: true });
 
-    // 5. Media (photos)
+    // 5. Photos — all-time total (project_media uses project_id, not business_id)
     const photosQuery = supabaseClient
       .from("project_media")
-      .select("id, media_type, business_id", { count: "exact" })
-      .eq("media_type", "image")
-      .gte("created_at", cutoffStr);
+      .select("id", { count: "exact", head: true })
+      .eq("media_type", "image");
 
-    // 6. Media (videos)
+    // 6. Videos — all-time total
     const videosQuery = supabaseClient
       .from("project_media")
-      .select("id, media_type, business_id", { count: "exact" })
-      .eq("media_type", "video")
-      .gte("created_at", cutoffStr);
+      .select("id", { count: "exact", head: true })
+      .eq("media_type", "video");
 
-    // 7. Clients (users with admin role)
+    // 7. Clients (users with admin role — all time)
     const clientsQuery = supabaseClient
       .from("users")
-      .select("id, business_id", { count: "exact" })
+      .select("id", { count: "exact", head: true })
       .eq("role", "admin");
 
-    // 8. Older reviews for growth comparison (previous period)
+    // 8. Older reviews for growth/rating-change comparison (previous period)
     const prevCutoff = new Date();
     prevCutoff.setDate(prevCutoff.getDate() - days * 2);
     const prevCutoffStr = prevCutoff.toISOString();
 
     const prevReviewsQuery = supabaseClient
       .from("reviews")
-      .select("id, rating, business_id, created_at")
+      .select("id, rating, created_at")
       .gte("created_at", prevCutoffStr)
       .lt("created_at", cutoffStr);
 
@@ -316,8 +314,10 @@ export default function SuperAdminAnalytics() {
       setMetric("totalPhotos", totalPhotos);
       setMetric("avgPhotosPerWorkspace", totalPhotos / workspaces);
     } else {
-      setMetric("totalPhotos", "—", "Could not load");
-      setMetric("avgPhotosPerWorkspace", "—", "Could not load");
+      const photoErr = photosRes.status === "fulfilled" ? photosRes.value.error?.message : photosRes.reason?.message;
+      console.error("[Analytics] Photos query failed:", photoErr);
+      setMetric("totalPhotos", "—", photoErr ?? "Could not load");
+      setMetric("avgPhotosPerWorkspace", "—", photoErr ?? "Could not load");
     }
 
     // ── Videos ────────────────────────────────────────────────────────────────
@@ -326,8 +326,10 @@ export default function SuperAdminAnalytics() {
       setMetric("totalVideos", totalVideos);
       setMetric("avgVideosPerWorkspace", totalVideos / workspaces);
     } else {
-      setMetric("totalVideos", "—", "Could not load");
-      setMetric("avgVideosPerWorkspace", "—", "Could not load");
+      const videoErr = videosRes.status === "fulfilled" ? videosRes.value.error?.message : videosRes.reason?.message;
+      console.error("[Analytics] Videos query failed:", videoErr);
+      setMetric("totalVideos", "—", videoErr ?? "Could not load");
+      setMetric("avgVideosPerWorkspace", "—", videoErr ?? "Could not load");
     }
 
     // ── Clients ───────────────────────────────────────────────────────────────
@@ -495,7 +497,7 @@ export default function SuperAdminAnalytics() {
               metric={metrics.totalPhotos}
               icon={Image}
               iconColor="bg-pink-500"
-              description={`Past ${dateRange} days`}
+              description="All-time across all projects"
             />
             <MetricCard
               title="Avg Photos Per Workspace"
@@ -509,7 +511,7 @@ export default function SuperAdminAnalytics() {
               metric={metrics.totalVideos}
               icon={Video}
               iconColor="bg-violet-500"
-              description={`Past ${dateRange} days`}
+              description="All-time across all projects"
             />
             <MetricCard
               title="Avg Videos Per Workspace"
