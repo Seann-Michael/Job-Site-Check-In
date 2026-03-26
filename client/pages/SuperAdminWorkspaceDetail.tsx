@@ -170,6 +170,7 @@ export default function SuperAdminWorkspaceDetail() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
+  const [workspaceUsers, setWorkspaceUsers] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
@@ -245,6 +246,22 @@ export default function SuperAdminWorkspaceDetail() {
         setRecentJobs(recentJobsRes.value.data ?? []);
       if (recentReviewsRes.status === "fulfilled" && !recentReviewsRes.value.error)
         setRecentReviews(recentReviewsRes.value.data ?? []);
+
+      // 4. Workspace users — owner + anyone assigned to jobs in this workspace
+      const { data: jobAssignees } = await supabaseClient
+        .from("jobs")
+        .select("assigned_to")
+        .eq("business_id", id)
+        .not("assigned_to", "is", null);
+      const assigneeIds = [...new Set((jobAssignees ?? []).map((j: any) => j.assigned_to).filter(Boolean))];
+      const allUserIds = [...new Set([biz.owner_id, ...assigneeIds].filter(Boolean))];
+      if (allUserIds.length > 0) {
+        const { data: usersData } = await supabaseClient
+          .from("users")
+          .select("id, name, email, role, sub_account_id, last_login, email_verified, is_2fa_enabled, created_at")
+          .in("id", allUserIds);
+        setWorkspaceUsers((usersData ?? []) as Owner[]);
+      }
     } catch (err: any) {
       toast.error("Failed to load workspace: " + (err?.message ?? "Unknown error"));
     } finally {
@@ -430,8 +447,8 @@ export default function SuperAdminWorkspaceDetail() {
 
         </div>
 
-        {/* Statistics + Connections — 2-col grid */}
-        <div className="grid lg:grid-cols-2 gap-5">
+        {/* Statistics + Users + Connections — 3-col grid */}
+        <div className="grid lg:grid-cols-3 gap-5">
 
           {/* Statistics */}
           <Card>
@@ -443,27 +460,57 @@ export default function SuperAdminWorkspaceDetail() {
             <CardContent className="p-0">
               <div className="grid grid-cols-2 gap-px bg-border">
                 {[
-                  { label: "Total Jobs",      value: stats?.jobs ?? 0,          sub: `${stats?.activeJobs ?? 0} active`,                           icon: Briefcase,   iconColor: "bg-blue-500" },
-                  { label: "Completed Jobs",  value: stats?.completedJobs ?? 0, sub: undefined,                                                    icon: CheckCircle, iconColor: "bg-green-500" },
-                  { label: "Total Reviews",   value: stats?.totalReviews ?? 0,  sub: stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)} ★ avg` : undefined, icon: Star, iconColor: "bg-yellow-500" },
-                  { label: "Review Requests", value: stats?.reviewRequests ?? 0, sub: undefined,                                                   icon: Send,        iconColor: "bg-indigo-500" },
-                  { label: "Clients",         value: stats?.clients ?? 0,       sub: undefined,                                                    icon: Users,       iconColor: "bg-cyan-500" },
-                  { label: "Photos",          value: stats?.photos ?? 0,        sub: "All-time",                                                   icon: Image,       iconColor: "bg-pink-500" },
-                  { label: "Videos",          value: stats?.videos ?? 0,        sub: "All-time",                                                   icon: Video,       iconColor: "bg-violet-500" },
-                  { label: "Documents",       value: stats?.documents ?? 0,     sub: "All-time",                                                   icon: FileText,    iconColor: "bg-slate-500" },
-                ].map(({ label, value, sub, icon: Icon, iconColor }) => (
-                  <div key={label} className="flex items-center gap-3 bg-card px-4 py-3">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 ${iconColor}`}>
-                      <Icon className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground leading-tight">{label}</p>
-                      <p className="text-lg font-bold leading-tight">{value}</p>
-                      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-                    </div>
+                  { label: "Total Jobs",      value: stats?.jobs ?? 0,          sub: `${stats?.activeJobs ?? 0} active` },
+                  { label: "Completed Jobs",  value: stats?.completedJobs ?? 0, sub: undefined },
+                  { label: "Total Reviews",   value: stats?.totalReviews ?? 0,  sub: stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)} ★ avg` : undefined },
+                  { label: "Review Requests", value: stats?.reviewRequests ?? 0, sub: undefined },
+                  { label: "Clients",         value: stats?.clients ?? 0,       sub: undefined },
+                  { label: "Photos",          value: stats?.photos ?? 0,        sub: "All-time" },
+                  { label: "Videos",          value: stats?.videos ?? 0,        sub: "All-time" },
+                  { label: "Documents",       value: stats?.documents ?? 0,     sub: "All-time" },
+                ].map(({ label, value, sub }) => (
+                  <div key={label} className="bg-card px-4 py-3">
+                    <p className="text-xs text-muted-foreground leading-tight">{label}</p>
+                    <p className="text-lg font-bold leading-tight">{value}</p>
+                    {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Users */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" /> Users
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {workspaceUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No users found</p>
+              ) : (
+                <div className="divide-y">
+                  {workspaceUsers.map((u) => {
+                    const isOwner = u.id === owner?.id;
+                    return (
+                      <div key={u.id} className="flex items-center gap-3 px-5 py-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted flex-shrink-0 text-sm font-semibold">
+                          {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{u.name ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          {isOwner && <Badge variant="default" className="text-xs">Owner</Badge>}
+                          <Badge variant="outline" className="text-xs capitalize">{u.role?.replace(/_/g, " ")}</Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
