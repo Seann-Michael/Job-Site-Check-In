@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,600 +10,605 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  BarChart3,
+  Briefcase,
+  Star,
+  MessageSquare,
+  Image,
+  Video,
+  Users,
   TrendingUp,
   TrendingDown,
-  Users,
-  Eye,
-  MessageSquare,
-  Clock,
-  Target,
-  Download,
+  BarChart3,
   RefreshCw,
-  AlertCircle,
+  Send,
   CheckCircle,
-  XCircle,
-  Info,
+  Minus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatSystemDate } from "@/lib/dateUtils";
 import { supabaseClient } from "@/lib/supabaseClient";
 
-interface BroadcastRow {
-  id: string;
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface MetricValue {
+  value: number | string;
+  loading: boolean;
+  error?: string;
+}
+
+interface Metrics {
+  jobsCreated: MetricValue;
+  totalReviews: MetricValue;
+  avgReviewCountPerWorkspace: MetricValue;
+  avgReviewRatingPerWorkspace: MetricValue;
+  avgReviewGrowthPerWorkspace: MetricValue;
+  totalReviewRequests: MetricValue;
+  reviewResponseRate: MetricValue;
+  totalPhotos: MetricValue;
+  avgPhotosPerWorkspace: MetricValue;
+  totalVideos: MetricValue;
+  avgVideosPerWorkspace: MetricValue;
+  totalClients: MetricValue;
+  avgClientsPerWorkspace: MetricValue;
+  avgReviewRatingChange: MetricValue;
+}
+
+const loading = (): MetricValue => ({ value: 0, loading: true });
+const blankMetrics = (): Metrics => ({
+  jobsCreated: loading(),
+  totalReviews: loading(),
+  avgReviewCountPerWorkspace: loading(),
+  avgReviewRatingPerWorkspace: loading(),
+  avgReviewGrowthPerWorkspace: loading(),
+  totalReviewRequests: loading(),
+  reviewResponseRate: loading(),
+  totalPhotos: loading(),
+  avgPhotosPerWorkspace: loading(),
+  totalVideos: loading(),
+  avgVideosPerWorkspace: loading(),
+  totalClients: loading(),
+  avgClientsPerWorkspace: loading(),
+  avgReviewRatingChange: loading(),
+});
+
+function fmt(v: number, decimals = 1): string {
+  if (!isFinite(v) || isNaN(v)) return "—";
+  return Number.isInteger(v) ? v.toString() : v.toFixed(decimals);
+}
+
+// ── Metric Card ────────────────────────────────────────────────────────────────
+function MetricCard({
+  title,
+  metric,
+  icon: Icon,
+  iconColor,
+  suffix = "",
+  trend,
+  description,
+}: {
   title: string;
-  content: string;
-  type: "info" | "warning" | "success" | "error";
-  target_audience: string;
-  category?: string;
-  created_at: string;
-  sent_at?: string;
-  status: string;
-  view_count: number;
-  dismiss_count: number;
-  is_active: boolean;
-}
-
-interface TypeStat {
-  type: string;
-  count: number;
-  views: number;
-  dismissals: number;
-  engagement: number;
-  color: string;
-}
-
-interface AudienceStat {
-  audience: string;
-  count: number;
-  views: number;
-  engagement: number;
-}
-
-interface TrendPoint {
-  period: string;
-  messages: number;
-  views: number;
-  dismissals: number;
-  engagement: number;
-}
-
-interface AnalyticsState {
-  totalMessages: number;
-  totalViews: number;
-  totalDismissals: number;
-  activeMessages: number;
-  engagementRate: number;
-  typeStats: TypeStat[];
-  audienceStats: AudienceStat[];
-  trends: TrendPoint[];
-  topMessages: BroadcastRow[];
-  lowMessages: BroadcastRow[];
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  info: "#3b82f6",
-  warning: "#f59e0b",
-  success: "#10b981",
-  error: "#ef4444",
-};
-
-function getTypeIcon(type: string) {
-  switch (type) {
-    case "info": return <Info className="h-4 w-4 text-blue-500" />;
-    case "warning": return <AlertCircle className="h-4 w-4 text-yellow-500" />;
-    case "success": return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case "error": return <XCircle className="h-4 w-4 text-red-500" />;
-    default: return <MessageSquare className="h-4 w-4" />;
-  }
-}
-
-function engagementOf(m: BroadcastRow) {
-  return m.view_count > 0
-    ? ((m.view_count - m.dismiss_count) / m.view_count) * 100
-    : 0;
-}
-
-function computeAnalytics(messages: BroadcastRow[], cutoff: Date): AnalyticsState {
-  const filtered = messages.filter((m) => new Date(m.created_at) >= cutoff);
-
-  const totalViews = filtered.reduce((s, m) => s + m.view_count, 0);
-  const totalDismissals = filtered.reduce((s, m) => s + m.dismiss_count, 0);
-  const engagementRate =
-    totalViews > 0 ? ((totalViews - totalDismissals) / totalViews) * 100 : 0;
-
-  // Type stats
-  const typeStats: TypeStat[] = ["info", "warning", "success", "error"].map((type) => {
-    const rows = filtered.filter((m) => m.type === type);
-    const views = rows.reduce((s, m) => s + m.view_count, 0);
-    const dismissals = rows.reduce((s, m) => s + m.dismiss_count, 0);
-    return {
-      type,
-      count: rows.length,
-      views,
-      dismissals,
-      engagement: views > 0 ? ((views - dismissals) / views) * 100 : 0,
-      color: TYPE_COLORS[type],
-    };
-  });
-
-  // Audience stats
-  const audienceKeys = ["all", "business-owners", "agency-admins", "staff"];
-  const audienceStats: AudienceStat[] = audienceKeys.map((audience) => {
-    const rows = filtered.filter((m) => m.target_audience === audience);
-    const views = rows.reduce((s, m) => s + m.view_count, 0);
-    const dismissals = rows.reduce((s, m) => s + m.dismiss_count, 0);
-    return {
-      audience,
-      count: rows.length,
-      views,
-      engagement: views > 0 ? ((views - dismissals) / views) * 100 : 0,
-    };
-  });
-
-  // 7-day trend
-  const trends: TrendPoint[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const start = new Date();
-    start.setDate(start.getDate() - i - 1);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setDate(end.getDate() - i);
-    end.setHours(23, 59, 59, 999);
-
-    const dayRows = filtered.filter((m) => {
-      const d = new Date(m.created_at);
-      return d >= start && d <= end;
-    });
-    const views = dayRows.reduce((s, m) => s + m.view_count, 0);
-    const dismissals = dayRows.reduce((s, m) => s + m.dismiss_count, 0);
-    trends.push({
-      period: start.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      messages: dayRows.length,
-      views,
-      dismissals,
-      engagement: views > 0 ? ((views - dismissals) / views) * 100 : 0,
-    });
-  }
-
-  const sorted = [...filtered].sort((a, b) => engagementOf(b) - engagementOf(a));
-
-  return {
-    totalMessages: filtered.length,
-    totalViews,
-    totalDismissals,
-    activeMessages: filtered.filter((m) => m.is_active).length,
-    engagementRate,
-    typeStats,
-    audienceStats,
-    trends,
-    topMessages: sorted.slice(0, 5),
-    lowMessages: sorted.slice(-5).reverse(),
-  };
-}
-
-function getCutoff(timeRange: string): Date {
-  const now = new Date();
-  switch (timeRange) {
-    case "24h": return new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    case "7d": return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    case "90d": return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    default: return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  }
-}
-
-export default function SuperAdminAnalytics() {
-  const [data, setData] = useState<AnalyticsState | null>(null);
-  const [timeRange, setTimeRange] = useState("30d");
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { data: rows, error } = await supabaseClient
-        .from("broadcast_messages")
-        .select("id, title, content, type, target_audience, category, created_at, sent_at, status, view_count, dismiss_count, is_active")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const cutoff = getCutoff(timeRange);
-      setData(computeAnalytics(rows || [], cutoff));
-      setLastUpdated(new Date());
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to load analytics");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [timeRange]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const exportReport = () => {
-    if (!data) return;
-    const report = { generatedAt: new Date().toISOString(), timeRange, data };
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `broadcast-analytics-${timeRange}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Analytics report exported!");
-  };
-
-  const audienceLabel = (audience: string) => {
-    switch (audience) {
-      case "all": return "All Users";
-      case "business-owners": return "Business Owners";
-      case "agency-admins": return "Agency Admins";
-      case "staff": return "Staff Members";
-      default: return audience;
-    }
-  };
-
-  if (isLoading && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading analytics data...</p>
-        </div>
-      </div>
-    );
-  }
+  metric: MetricValue;
+  icon: React.ElementType;
+  iconColor: string;
+  suffix?: string;
+  trend?: "up" | "down" | "neutral";
+  description?: string;
+}) {
+  const displayValue = metric.loading
+    ? null
+    : metric.error
+    ? "—"
+    : `${typeof metric.value === "number" ? fmt(metric.value) : metric.value}${suffix}`;
 
   return (
-    <div className="max-w-full overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6" />
-            Broadcast Analytics
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Insights into broadcast message performance and engagement
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="24h">Last 24 Hours</SelectItem>
-              <SelectItem value="7d">Last 7 Days</SelectItem>
-              <SelectItem value="30d">Last 30 Days</SelectItem>
-              <SelectItem value="90d">Last 90 Days</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={loadData} disabled={isLoading} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button onClick={exportReport} disabled={!data} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">
-        <Clock className="h-4 w-4" />
-        <span>Last updated: {lastUpdated.toLocaleString()}</span>
-      </div>
-
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Messages</p>
-                <p className="text-2xl font-bold">{data?.totalMessages ?? 0}</p>
-              </div>
-              <MessageSquare className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Views</p>
-                <p className="text-2xl font-bold">{(data?.totalViews ?? 0).toLocaleString()}</p>
-              </div>
-              <Eye className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Engagement Rate</p>
-                <p className="text-2xl font-bold">{Math.round(data?.engagementRate ?? 0)}%</p>
-              </div>
-              <Target className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Messages</p>
-                <p className="text-2xl font-bold">{data?.activeMessages ?? 0}</p>
-              </div>
-              <Users className="h-8 w-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="performance" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="audience">Audience</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-        </TabsList>
-
-        {/* Performance Tab */}
-        <TabsContent value="performance" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Message Types Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!data || data.totalMessages === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No broadcast data for this period.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {(data?.typeStats ?? []).map((stat) => (
-                    <div key={stat.type} className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        {getTypeIcon(stat.type)}
-                        <span className="font-medium capitalize">{stat.type}</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Messages:</span>
-                          <span className="font-medium">{stat.count}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Views:</span>
-                          <span className="font-medium">{stat.views}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Engagement:</span>
-                          <span className="font-medium">{Math.round(stat.engagement)}%</span>
-                        </div>
-                        <div className="mt-2 w-full bg-muted rounded-full h-1.5">
-                          <div
-                            className="h-1.5 rounded-full"
-                            style={{ width: `${Math.min(stat.engagement, 100)}%`, backgroundColor: stat.color }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Dismissal Rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!data || data.totalViews === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No view data yet.</p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Total Views</span>
-                    <span className="font-medium">{data.totalViews.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Total Dismissals</span>
-                    <span className="font-medium">{data.totalDismissals.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Dismiss Rate</span>
-                    <span className="font-medium">
-                      {data.totalViews > 0
-                        ? Math.round((data.totalDismissals / data.totalViews) * 100)
-                        : 0}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-3">
-                    <div
-                      className="bg-primary h-3 rounded-full"
-                      style={{
-                        width: `${Math.min(data.engagementRate, 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {Math.round(data.engagementRate)}% engagement rate (views not dismissed)
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Audience Tab */}
-        <TabsContent value="audience" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Audience Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!data || data.totalMessages === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No broadcast data for this period.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {(data?.audienceStats ?? []).map((stat) => (
-                    <div key={stat.audience} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{audienceLabel(stat.audience)}</h4>
-                        <Badge variant="secondary">{stat.count} messages</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Views: </span>
-                          <span className="font-medium">{stat.views.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Engagement: </span>
-                          <span className="font-medium">{Math.round(stat.engagement)}%</span>
-                        </div>
-                      </div>
-                      <div className="mt-2 w-full bg-muted rounded-full h-1.5">
-                        <div
-                          className="bg-primary h-1.5 rounded-full"
-                          style={{ width: `${Math.min(stat.engagement, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Content Tab */}
-        <TabsContent value="content" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                  Top Performing Messages
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {!data || data.topMessages.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-4">No data yet.</p>
-                ) : (
-                  data.topMessages.map((message, index) => (
-                    <div key={message.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                      <Badge variant="secondary" className="text-xs">
-                        #{index + 1}
-                      </Badge>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{message.title}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          {message.view_count} views • {message.dismiss_count} dismissed •{" "}
-                          {Math.round(engagementOf(message))}% engagement
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {getTypeIcon(message.type)}
-                          <span className="text-xs capitalize">{message.type}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5 text-red-500" />
-                  Needs Improvement
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {!data || data.lowMessages.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-4">No data yet.</p>
-                ) : (
-                  data.lowMessages.map((message, index) => (
-                    <div key={message.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                      <Badge variant="outline" className="text-xs">
-                        #{index + 1}
-                      </Badge>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{message.title}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          {message.view_count} views • {message.dismiss_count} dismissed •{" "}
-                          {Math.round(engagementOf(message))}% engagement
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {getTypeIcon(message.type)}
-                          <span className="text-xs capitalize">{message.type}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-muted-foreground font-medium truncate">{title}</p>
+            {metric.loading ? (
+              <div className="h-8 w-24 mt-1 animate-pulse bg-muted rounded" />
+            ) : (
+              <p className="text-2xl font-bold mt-0.5 tracking-tight">{displayValue}</p>
+            )}
+            {description && !metric.loading && (
+              <p className="text-xs text-muted-foreground mt-1">{description}</p>
+            )}
+            {metric.error && (
+              <p className="text-xs text-destructive mt-1">{metric.error}</p>
+            )}
           </div>
-        </TabsContent>
+          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ml-3 flex-shrink-0 ${iconColor}`}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+        </div>
+        {trend && !metric.loading && (
+          <div className="flex items-center gap-1 mt-3 text-xs">
+            {trend === "up" ? (
+              <TrendingUp className="h-3 w-3 text-green-500" />
+            ) : trend === "down" ? (
+              <TrendingDown className="h-3 w-3 text-red-500" />
+            ) : (
+              <Minus className="h-3 w-3 text-muted-foreground" />
+            )}
+            <span className={trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-muted-foreground"}>
+              {trend === "neutral" ? "No change" : trend === "up" ? "Trending up" : "Trending down"}
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-        {/* Trends Tab */}
-        <TabsContent value="trends" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>7-Day Activity Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!data || data.trends.every((t) => t.messages === 0 && t.views === 0) ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No broadcast activity in the selected period.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {(data?.trends ?? []).map((point) => (
-                    <div key={point.period} className="flex items-center gap-4 p-3 border rounded-lg">
-                      <div className="w-20 text-sm font-medium text-muted-foreground shrink-0">
-                        {point.period}
-                      </div>
-                      <div className="flex-1 grid grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Messages: </span>
-                          <span className="font-medium">{point.messages}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Views: </span>
-                          <span className="font-medium">{point.views}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Engagement: </span>
-                          <span className="font-medium">{Math.round(point.engagement)}%</span>
-                        </div>
-                      </div>
-                      <div className="w-24 bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${Math.min(point.engagement, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+// ── Main Component ─────────────────────────────────────────────────────────────
+export default function SuperAdminAnalytics() {
+  const [metrics, setMetrics] = useState<Metrics>(blankMetrics());
+  const [dateRange, setDateRange] = useState("30");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+
+  const setMetric = (key: keyof Metrics, value: number | string, error?: string) =>
+    setMetrics((prev) => ({
+      ...prev,
+      [key]: { value, loading: false, error },
+    }));
+
+  const fetchMetrics = useCallback(async () => {
+    setIsRefreshing(true);
+    setMetrics(blankMetrics());
+
+    const days = parseInt(dateRange, 10);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString();
+
+    // ── Run all queries in parallel ──────────────────────────────────────────
+
+    // 1. Jobs Created (projects table)
+    const jobsQuery = supabaseClient
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", cutoffStr);
+
+    // 2. Total Reviews Captured
+    const reviewsQuery = supabaseClient
+      .from("reviews")
+      .select("id, rating, business_id, created_at, response", { count: "exact" })
+      .gte("created_at", cutoffStr);
+
+    // 3. Total Review Requests
+    const reviewRequestsQuery = supabaseClient
+      .from("review_requests")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", cutoffStr);
+
+    // 4. Total Businesses (workspaces)
+    const businessesQuery = supabaseClient
+      .from("businesses")
+      .select("id", { count: "exact", head: true });
+
+    // 5. Media (photos)
+    const photosQuery = supabaseClient
+      .from("project_media")
+      .select("id, media_type, business_id", { count: "exact" })
+      .eq("media_type", "image")
+      .gte("created_at", cutoffStr);
+
+    // 6. Media (videos)
+    const videosQuery = supabaseClient
+      .from("project_media")
+      .select("id, media_type, business_id", { count: "exact" })
+      .eq("media_type", "video")
+      .gte("created_at", cutoffStr);
+
+    // 7. Clients (users with admin role)
+    const clientsQuery = supabaseClient
+      .from("users")
+      .select("id, business_id", { count: "exact" })
+      .eq("role", "admin");
+
+    // 8. Older reviews for growth comparison (previous period)
+    const prevCutoff = new Date();
+    prevCutoff.setDate(prevCutoff.getDate() - days * 2);
+    const prevCutoffStr = prevCutoff.toISOString();
+
+    const prevReviewsQuery = supabaseClient
+      .from("reviews")
+      .select("id, rating, business_id, created_at")
+      .gte("created_at", prevCutoffStr)
+      .lt("created_at", cutoffStr);
+
+    const [
+      jobsRes,
+      reviewsRes,
+      reviewRequestsRes,
+      businessesRes,
+      photosRes,
+      videosRes,
+      clientsRes,
+      prevReviewsRes,
+    ] = await Promise.allSettled([
+      jobsQuery,
+      reviewsQuery,
+      reviewRequestsQuery,
+      businessesQuery,
+      photosQuery,
+      videosQuery,
+      clientsQuery,
+      prevReviewsQuery,
+    ]);
+
+    const businessCount = businessesRes.status === "fulfilled" && !businessesRes.value.error
+      ? (businessesRes.value.count ?? 0)
+      : 1;
+    const workspaces = Math.max(businessCount, 1);
+
+    // ── Jobs Created ──────────────────────────────────────────────────────────
+    if (jobsRes.status === "fulfilled" && !jobsRes.value.error) {
+      setMetric("jobsCreated", jobsRes.value.count ?? 0);
+    } else {
+      setMetric("jobsCreated", "—", "Could not load");
+    }
+
+    // ── Reviews ──────────────────────────────────────────────────────────────
+    let reviews: any[] = [];
+    if (reviewsRes.status === "fulfilled" && !reviewsRes.value.error) {
+      reviews = reviewsRes.value.data ?? [];
+      const total = reviews.length;
+      setMetric("totalReviews", total);
+
+      // Avg review count per workspace
+      setMetric("avgReviewCountPerWorkspace", total / workspaces);
+
+      // Avg review rating per workspace
+      const ratingsWithValue = reviews.filter((r) => r.rating != null);
+      const avgRating = ratingsWithValue.length > 0
+        ? ratingsWithValue.reduce((s: number, r: any) => s + Number(r.rating), 0) / ratingsWithValue.length
+        : 0;
+      setMetric("avgReviewRatingPerWorkspace", avgRating);
+
+      // Response rate
+      const withResponse = reviews.filter((r) => r.response && (typeof r.response === "object" ? r.response.text : r.response)).length;
+      const responseRate = total > 0 ? (withResponse / total) * 100 : 0;
+      setMetric("reviewResponseRate", responseRate);
+    } else {
+      ["totalReviews", "avgReviewCountPerWorkspace", "avgReviewRatingPerWorkspace", "reviewResponseRate"].forEach((k) =>
+        setMetric(k as keyof Metrics, "—", "Could not load"),
+      );
+    }
+
+    // ── Review Requests ───────────────────────────────────────────────────────
+    if (reviewRequestsRes.status === "fulfilled" && !reviewRequestsRes.value.error) {
+      setMetric("totalReviewRequests", reviewRequestsRes.value.count ?? 0);
+    } else {
+      setMetric("totalReviewRequests", "—", "Could not load");
+    }
+
+    // ── Growth & Rating Change (compare vs previous period) ───────────────────
+    let prevReviews: any[] = [];
+    if (prevReviewsRes.status === "fulfilled" && !prevReviewsRes.value.error) {
+      prevReviews = prevReviewsRes.value.data ?? [];
+    }
+
+    if (reviews.length > 0 || prevReviews.length > 0) {
+      // Growth per workspace (percentage change in review count)
+      const growthPct = prevReviews.length > 0
+        ? ((reviews.length - prevReviews.length) / prevReviews.length) * 100
+        : reviews.length > 0 ? 100 : 0;
+      setMetric("avgReviewGrowthPerWorkspace", growthPct / workspaces);
+
+      // Rating change
+      const curAvg = reviews.length > 0
+        ? reviews.reduce((s: number, r: any) => s + Number(r.rating ?? 0), 0) / reviews.length
+        : 0;
+      const prevAvg = prevReviews.length > 0
+        ? prevReviews.reduce((s: number, r: any) => s + Number(r.rating ?? 0), 0) / prevReviews.length
+        : 0;
+      setMetric("avgReviewRatingChange", curAvg - prevAvg);
+    } else {
+      setMetric("avgReviewGrowthPerWorkspace", 0);
+      setMetric("avgReviewRatingChange", 0);
+    }
+
+    // ── Photos ────────────────────────────────────────────────────────────────
+    if (photosRes.status === "fulfilled" && !photosRes.value.error) {
+      const totalPhotos = photosRes.value.count ?? 0;
+      setMetric("totalPhotos", totalPhotos);
+      setMetric("avgPhotosPerWorkspace", totalPhotos / workspaces);
+    } else {
+      setMetric("totalPhotos", "—", "Could not load");
+      setMetric("avgPhotosPerWorkspace", "—", "Could not load");
+    }
+
+    // ── Videos ────────────────────────────────────────────────────────────────
+    if (videosRes.status === "fulfilled" && !videosRes.value.error) {
+      const totalVideos = videosRes.value.count ?? 0;
+      setMetric("totalVideos", totalVideos);
+      setMetric("avgVideosPerWorkspace", totalVideos / workspaces);
+    } else {
+      setMetric("totalVideos", "—", "Could not load");
+      setMetric("avgVideosPerWorkspace", "—", "Could not load");
+    }
+
+    // ── Clients ───────────────────────────────────────────────────────────────
+    if (clientsRes.status === "fulfilled" && !clientsRes.value.error) {
+      const totalClients = clientsRes.value.count ?? 0;
+      setMetric("totalClients", totalClients);
+      setMetric("avgClientsPerWorkspace", totalClients / workspaces);
+    } else {
+      setMetric("totalClients", "—", "Could not load");
+      setMetric("avgClientsPerWorkspace", "—", "Could not load");
+    }
+
+    setLastRefreshed(new Date());
+    setIsRefreshing(false);
+    toast.success("Analytics refreshed");
+  }, [dateRange]);
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
+
+  // Determine trend for review growth
+  const growthVal = typeof metrics.avgReviewGrowthPerWorkspace.value === "number"
+    ? metrics.avgReviewGrowthPerWorkspace.value : 0;
+  const growthTrend: "up" | "down" | "neutral" =
+    growthVal > 0 ? "up" : growthVal < 0 ? "down" : "neutral";
+
+  const ratingChangeVal = typeof metrics.avgReviewRatingChange.value === "number"
+    ? metrics.avgReviewRatingChange.value : 0;
+  const ratingChangeTrend: "up" | "down" | "neutral" =
+    ratingChangeVal > 0 ? "up" : ratingChangeVal < 0 ? "down" : "neutral";
+
+  return (
+    <SuperAdminLayout>
+      <div className="space-y-6 px-1">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <BarChart3 className="h-6 w-6 text-primary" />
+              Analytics
+            </h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Platform-wide metrics across all workspaces
+              {lastRefreshed && (
+                <span className="ml-2 text-xs opacity-60">
+                  · Last updated {lastRefreshed.toLocaleTimeString()}
+                </span>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+                <SelectItem value="365">Last 12 months</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchMetrics}
+              disabled={isRefreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Jobs ─────────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Briefcase className="h-4 w-4" /> Jobs
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MetricCard
+              title="Jobs Created"
+              metric={metrics.jobsCreated}
+              icon={Briefcase}
+              iconColor="bg-blue-500"
+              description={`Past ${dateRange} days`}
+            />
+          </div>
+        </section>
+
+        {/* ── Reviews ──────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Star className="h-4 w-4" /> Reviews
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <MetricCard
+              title="Total Reviews Captured"
+              metric={metrics.totalReviews}
+              icon={Star}
+              iconColor="bg-yellow-500"
+              description={`Past ${dateRange} days`}
+            />
+            <MetricCard
+              title="Avg Review Count Per Workspace"
+              metric={metrics.avgReviewCountPerWorkspace}
+              icon={BarChart3}
+              iconColor="bg-amber-500"
+              description="Reviews ÷ workspaces"
+            />
+            <MetricCard
+              title="Avg Review Rating Per Workspace"
+              metric={metrics.avgReviewRatingPerWorkspace}
+              icon={Star}
+              iconColor="bg-orange-500"
+              suffix=" ★"
+              description="Average star rating"
+            />
+            <MetricCard
+              title="Avg Review Growth Per Workspace"
+              metric={metrics.avgReviewGrowthPerWorkspace}
+              icon={TrendingUp}
+              iconColor="bg-green-500"
+              suffix="%"
+              trend={growthTrend}
+              description="vs. previous period"
+            />
+            <MetricCard
+              title="Total Review Requests"
+              metric={metrics.totalReviewRequests}
+              icon={Send}
+              iconColor="bg-indigo-500"
+              description={`Past ${dateRange} days`}
+            />
+            <MetricCard
+              title="Reviews Response Rate"
+              metric={metrics.reviewResponseRate}
+              icon={CheckCircle}
+              iconColor="bg-teal-500"
+              suffix="%"
+              description="Reviews with an owner response"
+            />
+            <MetricCard
+              title="Avg Review Rating Change"
+              metric={metrics.avgReviewRatingChange}
+              icon={TrendingUp}
+              iconColor="bg-purple-500"
+              suffix=" ★"
+              trend={ratingChangeTrend}
+              description="vs. previous period"
+            />
+          </div>
+        </section>
+
+        {/* ── Media ────────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Image className="h-4 w-4" /> Media
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <MetricCard
+              title="Total Photos"
+              metric={metrics.totalPhotos}
+              icon={Image}
+              iconColor="bg-pink-500"
+              description={`Past ${dateRange} days`}
+            />
+            <MetricCard
+              title="Avg Photos Per Workspace"
+              metric={metrics.avgPhotosPerWorkspace}
+              icon={Image}
+              iconColor="bg-rose-500"
+              description="Photos ÷ workspaces"
+            />
+            <MetricCard
+              title="Total Videos"
+              metric={metrics.totalVideos}
+              icon={Video}
+              iconColor="bg-violet-500"
+              description={`Past ${dateRange} days`}
+            />
+            <MetricCard
+              title="Avg Videos Per Workspace"
+              metric={metrics.avgVideosPerWorkspace}
+              icon={Video}
+              iconColor="bg-purple-500"
+              description="Videos ÷ workspaces"
+            />
+          </div>
+        </section>
+
+        {/* ── Clients ──────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4" /> Clients
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MetricCard
+              title="Total Clients"
+              metric={metrics.totalClients}
+              icon={Users}
+              iconColor="bg-cyan-500"
+              description="Admin users across all workspaces"
+            />
+            <MetricCard
+              title="Avg Clients Per Workspace"
+              metric={metrics.avgClientsPerWorkspace}
+              icon={Users}
+              iconColor="bg-sky-500"
+              description="Clients ÷ workspaces"
+            />
+          </div>
+        </section>
+
+        {/* Summary table */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Metric</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-muted-foreground">Value</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-muted-foreground hidden sm:table-cell">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: "Jobs Created", m: metrics.jobsCreated, suffix: "" },
+                    { label: "Total Reviews Captured", m: metrics.totalReviews, suffix: "" },
+                    { label: "Avg Review Count / Workspace", m: metrics.avgReviewCountPerWorkspace, suffix: "" },
+                    { label: "Avg Review Rating / Workspace", m: metrics.avgReviewRatingPerWorkspace, suffix: " ★" },
+                    { label: "Avg Review Growth / Workspace", m: metrics.avgReviewGrowthPerWorkspace, suffix: "%" },
+                    { label: "Total Review Requests", m: metrics.totalReviewRequests, suffix: "" },
+                    { label: "Reviews Response Rate", m: metrics.reviewResponseRate, suffix: "%" },
+                    { label: "Total Photos", m: metrics.totalPhotos, suffix: "" },
+                    { label: "Avg Photos / Workspace", m: metrics.avgPhotosPerWorkspace, suffix: "" },
+                    { label: "Total Videos", m: metrics.totalVideos, suffix: "" },
+                    { label: "Avg Videos / Workspace", m: metrics.avgVideosPerWorkspace, suffix: "" },
+                    { label: "Total Clients", m: metrics.totalClients, suffix: "" },
+                    { label: "Avg Clients / Workspace", m: metrics.avgClientsPerWorkspace, suffix: "" },
+                    { label: "Avg Review Rating Change", m: metrics.avgReviewRatingChange, suffix: " ★" },
+                  ].map(({ label, m, suffix }, i) => (
+                    <tr key={label} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
+                      <td className="px-4 py-2.5 font-medium">{label}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {m.loading ? (
+                          <div className="h-4 w-16 animate-pulse bg-muted rounded ml-auto" />
+                        ) : m.error ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span className="font-semibold">
+                            {typeof m.value === "number" ? fmt(m.value) : m.value}{suffix}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right hidden sm:table-cell">
+                        {m.loading ? (
+                          <div className="h-4 w-12 animate-pulse bg-muted rounded ml-auto" />
+                        ) : m.error ? (
+                          <Badge variant="destructive" className="text-xs">Error</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">OK</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </SuperAdminLayout>
   );
 }
