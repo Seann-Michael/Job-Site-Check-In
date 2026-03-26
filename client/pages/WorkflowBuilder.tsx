@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -1697,12 +1704,20 @@ function StepConfigForm({
             </div>
             <div>
               <Label htmlFor="unit">Unit</Label>
-              <Input
-                id="unit"
+              <Select
                 value={config.unit || "hours"}
-                onChange={(e) => updateConfig("unit", e.target.value)}
-                placeholder="minutes, hours, days"
-              />
+                onValueChange={(value) => updateConfig("unit", value)}
+              >
+                <SelectTrigger id="unit">
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="seconds">Seconds</SelectItem>
+                  <SelectItem value="minutes">Minutes</SelectItem>
+                  <SelectItem value="hours">Hours</SelectItem>
+                  <SelectItem value="days">Days</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         );
