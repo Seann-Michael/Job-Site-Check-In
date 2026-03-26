@@ -124,6 +124,54 @@ export default function SuperAdminIdeas() {
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+  // ── Add Idea ───────────────────────────────────────────────────────────────
+  const blankAddForm = () => ({
+    title: "",
+    description: "",
+    category: "Feature Request",
+    priority: "medium" as "low" | "medium" | "high",
+    status: "pending" as "pending" | "approved" | "rejected" | "roadmap",
+    author_name: "Super Admin",
+    author_email: "",
+    admin_notes: "",
+  });
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addForm, setAddForm] = useState(blankAddForm);
+
+  const handleAddIdea = async () => {
+    if (!addForm.title.trim() || !addForm.description.trim()) {
+      toast.error("Title and description are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabaseClient.from("ideas").insert({
+        title: addForm.title.trim(),
+        description: addForm.description.trim(),
+        category: addForm.category,
+        priority: addForm.priority,
+        status: addForm.status,
+        author_name: addForm.author_name.trim() || "Super Admin",
+        author_email: addForm.author_email.trim() || null,
+        admin_notes: addForm.admin_notes.trim() || null,
+        upvotes: 0,
+        downvotes: 0,
+        comments_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success("Idea added");
+      setShowAddDialog(false);
+      setAddForm(blankAddForm());
+      fetchIdeas();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to add idea");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchIdeas = useCallback(async () => {
     setLoading(true);
@@ -306,10 +354,16 @@ export default function SuperAdminIdeas() {
             <h1 className="text-2xl font-bold">Ideas Management</h1>
             <p className="text-muted-foreground">Review and manage user-submitted feature ideas</p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchIdeas} disabled={loading} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => { setAddForm(blankAddForm()); setShowAddDialog(true); }} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Idea
+            </Button>
+            <Button variant="outline" size="sm" onClick={fetchIdeas} disabled={loading} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -500,6 +554,107 @@ export default function SuperAdminIdeas() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Idea Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={(o) => { setShowAddDialog(o); if (!o) setAddForm(blankAddForm()); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Idea</DialogTitle>
+            <DialogDescription>Create a new idea on behalf of a user or from internal feedback.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Title <span className="text-destructive">*</span></Label>
+              <Input
+                placeholder="Idea title"
+                value={addForm.title}
+                onChange={(e) => setAddForm((p) => ({ ...p, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Describe the idea in detail…"
+                value={addForm.description}
+                onChange={(e) => setAddForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Select value={addForm.category} onValueChange={(v) => setAddForm((p) => ({ ...p, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Feature Request", "Bug Report", "Improvement", "Integration", "UI/UX", "Performance", "Other"].map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <Select value={addForm.priority} onValueChange={(v) => setAddForm((p) => ({ ...p, priority: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select value={addForm.status} onValueChange={(v) => setAddForm((p) => ({ ...p, status: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="roadmap">On Roadmap</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Author Name</Label>
+                <Input
+                  placeholder="Super Admin"
+                  value={addForm.author_name}
+                  onChange={(e) => setAddForm((p) => ({ ...p, author_name: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Author Email (optional)</Label>
+              <Input
+                type="email"
+                placeholder="author@example.com"
+                value={addForm.author_email}
+                onChange={(e) => setAddForm((p) => ({ ...p, author_email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Admin Notes (optional)</Label>
+              <Textarea
+                placeholder="Internal notes…"
+                value={addForm.admin_notes}
+                onChange={(e) => setAddForm((p) => ({ ...p, admin_notes: e.target.value }))}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddIdea} disabled={saving} className="gap-2">
+              {saving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+              <Plus className="h-4 w-4" />
+              Add Idea
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={(o) => { setShowEditDialog(o); if (!o) setEditingIdea(null); }}>
