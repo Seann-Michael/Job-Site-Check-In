@@ -373,13 +373,31 @@ export default function SuperAdminWorkspaceDetail() {
         </div>
 
         {/* Main content grid */}
-        <div className="grid lg:grid-cols-2 gap-5">
+        <div className="grid lg:grid-cols-3 gap-5">
+
+          {/* Account */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Hash className="h-4 w-4 text-muted-foreground" /> Account
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-0">
+              <InfoRow label="Account ID"   value={<span className="font-mono text-xs">{accountId}</span>} icon={Hash} />
+              <InfoRow label="Status"       value={<Badge variant={status.variant} className="text-xs">{status.label}</Badge>} />
+              <InfoRow label="Plan"         value={plan} icon={TrendingUp} />
+              <InfoRow label="Created"      value={fmtDate(workspace.created_at)} icon={Calendar} />
+              <InfoRow label="Last Updated" value={fmtDateTime(workspace.updated_at)} icon={Activity} />
+              {workspace.verified_at && <InfoRow label="Verified On" value={fmtDate(workspace.verified_at)} icon={CheckCircle} />}
+              {workspace.google_place_id && <InfoRow label="Google Place ID" value={<span className="font-mono text-xs">{workspace.google_place_id}</span>} />}
+            </CardContent>
+          </Card>
 
           {/* Business Info */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" /> Business Info
+                <Building2 className="h-4 w-4 text-muted-foreground" /> Business
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-0">
@@ -390,13 +408,6 @@ export default function SuperAdminWorkspaceDetail() {
               <InfoRow label="Phone"   value={workspace.phone}   icon={Phone} />
               {workspace.website && <InfoRow label="Website" value={<a href={workspace.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{workspace.website}</a>} icon={Globe} />}
               {addressStr && <InfoRow label="Address" value={addressStr} icon={MapPin} />}
-              <InfoRow label="Status"       value={<Badge variant={status.variant} className="text-xs">{status.label}</Badge>} />
-              <InfoRow label="Plan"         value={plan} icon={TrendingUp} />
-              <InfoRow label="Account ID"   value={<span className="font-mono text-xs">{accountId}</span>} icon={Hash} />
-              <InfoRow label="Created"      value={fmtDate(workspace.created_at)} icon={Calendar} />
-              <InfoRow label="Last Updated" value={fmtDateTime(workspace.updated_at)} icon={Activity} />
-              {workspace.verified_at && <InfoRow label="Verified On" value={fmtDate(workspace.verified_at)} icon={CheckCircle} />}
-              {workspace.google_place_id && <InfoRow label="Google Place ID" value={<span className="font-mono text-xs">{workspace.google_place_id}</span>} />}
             </CardContent>
           </Card>
 
@@ -432,6 +443,11 @@ export default function SuperAdminWorkspaceDetail() {
               )}
             </CardContent>
           </Card>
+
+        </div>
+
+        {/* Recent activity — 2-col grid */}
+        <div className="grid lg:grid-cols-2 gap-5">
 
           {/* Recent Jobs */}
           <Card>
