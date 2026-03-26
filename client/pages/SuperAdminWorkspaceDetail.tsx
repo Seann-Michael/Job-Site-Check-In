@@ -185,6 +185,8 @@ export default function SuperAdminWorkspaceDetail() {
   const [workspaceUsers, setWorkspaceUsers] = useState<Owner[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [billingRecords, setBillingRecords] = useState<any[]>([]);
+  const [planData, setPlanData] = useState<any | null>(null);
   const [notes, setNotes] = useState<any[]>([]);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -286,6 +288,27 @@ export default function SuperAdminWorkspaceDetail() {
         .order("created_at", { ascending: false })
         .limit(50);
       setTasks(tasksData ?? []);
+
+      // 4c. Billing records
+      const { data: billingData } = await supabaseClient
+        .from("billing_records")
+        .select("*")
+        .eq("business_id", id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      setBillingRecords(billingData ?? []);
+
+      // 4d. Plan data
+      const planName = biz.metadata?.plan ?? biz.metadata?.subscription_plan;
+      if (planName) {
+        const { data: planRow } = await supabaseClient
+          .from("plans")
+          .select("*")
+          .ilike("name", planName)
+          .limit(1)
+          .single();
+        setPlanData(planRow ?? null);
+      }
 
       // 5. Internal notes
       const { data: notesData } = await supabaseClient
@@ -735,33 +758,303 @@ export default function SuperAdminWorkspaceDetail() {
 
           {/* Billing */}
           <TabsContent value="billing" className="space-y-5 mt-0">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-muted-foreground" /> Billing Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-0">
-                {(() => {
-                  const meta = workspace.metadata ?? {};
-                  const billing = [
-                    { label: "Plan",             value: meta.plan ?? meta.subscription_plan ?? "—" },
-                    { label: "Billing Cycle",    value: meta.billing_cycle ?? meta.billing_period ?? "—" },
-                    { label: "Next Renewal",     value: meta.next_renewal ?? meta.renewal_date ?? "—" },
-                    { label: "Trial Ends",       value: meta.trial_ends ?? meta.trial_end_date ?? null },
-                    { label: "Payment Method",   value: meta.payment_method ?? meta.payment_type ?? "—" },
-                    { label: "Amount",           value: meta.amount ?? meta.monthly_amount ?? "—" },
-                    { label: "Currency",         value: meta.currency ?? "—" },
-                    { label: "Billing Email",    value: meta.billing_email ?? workspace.email ?? "—" },
-                    { label: "Promo / Discount", value: meta.promo_code ?? meta.discount ?? "—" },
-                  ].filter((r) => r.value && r.value !== "—");
-                  if (billing.length === 0) {
-                    return <p className="text-sm text-muted-foreground text-center py-8">No billing data recorded</p>;
-                  }
-                  return billing.map(({ label, value }) => <InfoRow key={label} label={label} value={String(value)} />);
-                })()}
-              </CardContent>
-            </Card>
+            {(() => {
+              const meta = workspace.metadata ?? {};
+              const plan = meta.plan ?? meta.subscription_plan ?? null;
+              const billingCycle = meta.billing_cycle ?? meta.billing_period ?? null;
+              const amount = meta.amount ?? meta.monthly_amount ?? null;
+              const currency = (meta.currency ?? "usd").toUpperCase();
+              const nextRenewal = meta.next_renewal ?? meta.renewal_date ?? null;
+              const trialEnds = meta.trial_ends ?? meta.trial_end_date ?? null;
+              const billingEmail = meta.billing_email ?? workspace.email ?? null;
+              const billingStatus = meta.billing_status ?? meta.subscription_status ?? workspace.status ?? null;
+              const stripeCustomerId = meta.stripe_customer_id ?? meta.stripe_id ?? null;
+              const stripeSubId = meta.stripe_subscription_id ?? meta.stripe_sub_id ?? null;
+              const paypalCustomerId = meta.paypal_customer_id ?? meta.paypal_payer_id ?? null;
+              const paypalSubId = meta.paypal_subscription_id ?? meta.paypal_agreement_id ?? null;
+              const primaryProvider = meta.primary_payment_provider ?? meta.payment_provider ?? (stripeCustomerId ? "stripe" : paypalCustomerId ? "paypal" : null);
+              const promoCode = meta.promo_code ?? meta.discount_code ?? null;
+              const discountAmount = meta.discount ?? meta.discount_amount ?? null;
+              const outstandingBalance = meta.outstanding_balance ?? meta.balance_due ?? null;
+
+              // summary stats
+              const billingStatusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+                active: "default", trialing: "default", past_due: "destructive",
+                cancelled: "secondary", paused: "outline", unpaid: "destructive", none: "secondary",
+              };
+
+              const txTypeColors: Record<string, string> = {
+                charge: "text-red-600", refund: "text-green-600", credit: "text-green-600",
+                dispute: "text-orange-600", subscription_start: "text-blue-600",
+                subscription_renewal: "text-blue-600", subscription_cancel: "text-muted-foreground",
+                plan_upgrade: "text-purple-600", plan_downgrade: "text-muted-foreground",
+                trial_start: "text-blue-600", trial_end: "text-muted-foreground",
+                subscription_pause: "text-orange-600", manual: "text-muted-foreground",
+              };
+              const txStatusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+                succeeded: "default", failed: "destructive", pending: "outline",
+                refunded: "secondary", disputed: "destructive", cancelled: "secondary",
+              };
+
+              const totalSpend = billingRecords
+                .filter((r) => r.type === "charge" && r.status === "succeeded")
+                .reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0);
+              const totalRefunds = billingRecords
+                .filter((r) => r.type === "refund")
+                .reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0);
+              const failedPayments = billingRecords.filter((r) => r.status === "failed").length;
+
+              return (
+                <>
+                  {/* Summary strip */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="rounded-lg border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">Billing Status</p>
+                      <div className="mt-1">
+                        <Badge variant={billingStatusVariant[billingStatus ?? ""] ?? "outline"} className="text-sm capitalize">
+                          {billingStatus?.replace(/_/g, " ") ?? "Unknown"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">Current Plan</p>
+                      <p className="text-lg font-bold mt-0.5 capitalize">{plan ?? "—"}</p>
+                      {billingCycle && <p className="text-xs text-muted-foreground capitalize">{billingCycle}</p>}
+                    </div>
+                    <div className="rounded-lg border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">Total Spend</p>
+                      <p className="text-lg font-bold mt-0.5">
+                        {totalSpend > 0 ? `${currency} ${totalSpend.toFixed(2)}` : "—"}
+                      </p>
+                      {totalRefunds > 0 && <p className="text-xs text-green-600">-{currency} {totalRefunds.toFixed(2)} refunded</p>}
+                    </div>
+                    <div className="rounded-lg border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">Failed Payments</p>
+                      <p className={`text-lg font-bold mt-0.5 ${failedPayments > 0 ? "text-destructive" : ""}`}>{failedPayments}</p>
+                      {outstandingBalance && <p className="text-xs text-destructive">{currency} {outstandingBalance} outstanding</p>}
+                    </div>
+                  </div>
+
+                  {/* Subscription + Payment Providers side by side */}
+                  <div className="grid lg:grid-cols-2 gap-5">
+                    {/* Subscription Details */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-muted-foreground" /> Subscription Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-0">
+                        <InfoRow label="Plan" value={plan ? <span className="capitalize font-semibold">{plan}</span> : "—"} />
+                        <InfoRow label="Status" value={
+                          billingStatus
+                            ? <Badge variant={billingStatusVariant[billingStatus] ?? "outline"} className="text-xs capitalize">{billingStatus.replace(/_/g, " ")}</Badge>
+                            : "—"
+                        } />
+                        <InfoRow label="Billing Cycle" value={billingCycle ? <span className="capitalize">{billingCycle}</span> : "—"} />
+                        <InfoRow label="Amount" value={amount ? `${currency} ${Number(amount).toFixed(2)} / ${billingCycle ?? "period"}` : "—"} />
+                        <InfoRow label="Next Renewal" value={nextRenewal ? fmtDate(nextRenewal) : "—"} />
+                        {trialEnds && <InfoRow label="Trial Ends" value={fmtDate(trialEnds)} />}
+                        <InfoRow label="Billing Email" value={billingEmail ?? "—"} />
+                        {promoCode && <InfoRow label="Promo Code" value={
+                          <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{promoCode}{discountAmount ? ` — ${discountAmount} off` : ""}</span>
+                        } />}
+                      </CardContent>
+                    </Card>
+
+                    {/* Payment Providers */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <LinkIcon className="h-4 w-4 text-muted-foreground" /> Payment Providers
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        {/* Stripe */}
+                        <div className="px-5 py-4 border-b">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded bg-[#635bff] text-white text-xs font-bold">S</div>
+                              <span className="text-sm font-medium">Stripe</span>
+                              <Badge variant="default" className="text-[10px] px-1.5 py-0">Primary</Badge>
+                            </div>
+                            <Badge variant={stripeCustomerId ? "default" : "secondary"} className="text-xs">
+                              {stripeCustomerId ? "Connected" : "Not connected"}
+                            </Badge>
+                          </div>
+                          {stripeCustomerId && (
+                            <div className="space-y-1 ml-9">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground w-28">Customer ID</span>
+                                <span className="text-xs font-mono">{stripeCustomerId}</span>
+                              </div>
+                              {stripeSubId && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-28">Subscription</span>
+                                  <span className="text-xs font-mono">{stripeSubId}</span>
+                                </div>
+                              )}
+                              {meta.stripe_payment_method && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-28">Payment Method</span>
+                                  <span className="text-xs capitalize">{meta.stripe_payment_method}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!stripeCustomerId && (
+                            <p className="text-xs text-muted-foreground ml-9">No Stripe account linked to this workspace</p>
+                          )}
+                        </div>
+                        {/* PayPal */}
+                        <div className="px-5 py-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded bg-[#003087] text-white text-[10px] font-bold">PP</div>
+                              <span className="text-sm font-medium">PayPal</span>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Backup</Badge>
+                            </div>
+                            <Badge variant={paypalCustomerId ? "default" : "secondary"} className="text-xs">
+                              {paypalCustomerId ? "Connected" : "Not connected"}
+                            </Badge>
+                          </div>
+                          {paypalCustomerId && (
+                            <div className="space-y-1 ml-9">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground w-28">Payer ID</span>
+                                <span className="text-xs font-mono">{paypalCustomerId}</span>
+                              </div>
+                              {paypalSubId && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-28">Agreement</span>
+                                  <span className="text-xs font-mono">{paypalSubId}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!paypalCustomerId && (
+                            <p className="text-xs text-muted-foreground ml-9">No PayPal account linked to this workspace</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Plan Limitations */}
+                  {(planData || plan) && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4 text-muted-foreground" /> Plan Limitations &amp; Features
+                          <span className="text-xs font-normal text-muted-foreground capitalize ml-1">({plan ?? planData?.name ?? "—"})</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid lg:grid-cols-2 gap-6">
+                          <div className="space-y-0">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Limits</p>
+                            <InfoRow label="Max Users" value={planData?.max_users != null ? String(planData.max_users) : (meta.max_users ?? "—")} />
+                            <InfoRow label="Max Businesses" value={planData?.max_businesses != null ? String(planData.max_businesses) : (meta.max_businesses ?? "—")} />
+                            <InfoRow label="Storage Limit" value={meta.storage_limit ?? planData?.storage_limit ?? "—"} />
+                            <InfoRow label="API Rate Limit" value={meta.api_rate_limit ?? planData?.api_rate_limit ?? "—"} />
+                            <InfoRow label="Plan Price" value={planData?.price != null ? planData.price : (amount ? `${currency} ${Number(amount).toFixed(2)}` : "—")} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Features</p>
+                            {planData?.features && planData.features.length > 0 ? (
+                              <ul className="space-y-1.5">
+                                {planData.features.map((f: string, i: number) => (
+                                  <li key={i} className="flex items-center gap-2 text-sm">
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                                    {f}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : meta.features ? (
+                              <pre className="text-xs bg-muted rounded p-3 overflow-x-auto">{JSON.stringify(meta.features, null, 2)}</pre>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No feature list recorded for this plan</p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Payment / Billing History */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" /> Payment &amp; Billing History
+                        {billingRecords.length > 0 && (
+                          <span className="ml-auto text-xs font-normal text-muted-foreground">{billingRecords.length} records</span>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {billingRecords.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8">No payment history recorded</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/40">
+                                <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Date</th>
+                                <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Description</th>
+                                <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Provider</th>
+                                <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Type</th>
+                                <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+                                <th className="text-right px-5 py-2.5 text-xs font-medium text-muted-foreground">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {billingRecords.map((rec) => {
+                                const isCredit = ["refund", "credit"].includes(rec.type);
+                                const fmtAmt = rec.amount != null
+                                  ? `${isCredit ? "+" : ""}${(rec.currency ?? "usd").toUpperCase()} ${Math.abs(Number(rec.amount)).toFixed(2)}`
+                                  : "—";
+                                return (
+                                  <tr key={rec.id} className="hover:bg-muted/30 transition-colors">
+                                    <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(rec.created_at)}</td>
+                                    <td className="px-5 py-3">
+                                      <p className="text-sm truncate max-w-[220px]">{rec.description ?? rec.plan_name ?? rec.type?.replace(/_/g, " ") ?? "—"}</p>
+                                      {rec.invoice_id && <p className="text-xs text-muted-foreground font-mono">#{rec.invoice_id}</p>}
+                                    </td>
+                                    <td className="px-5 py-3">
+                                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium capitalize`}>
+                                        <span className={`h-2 w-2 rounded-full ${
+                                          rec.payment_provider === "stripe" ? "bg-[#635bff]" :
+                                          rec.payment_provider === "paypal" ? "bg-[#003087]" : "bg-muted-foreground"
+                                        }`} />
+                                        {rec.payment_provider ?? "—"}
+                                      </span>
+                                    </td>
+                                    <td className="px-5 py-3">
+                                      <span className={`text-xs font-medium capitalize ${txTypeColors[rec.type] ?? "text-muted-foreground"}`}>
+                                        {rec.type?.replace(/_/g, " ") ?? "—"}
+                                      </span>
+                                    </td>
+                                    <td className="px-5 py-3">
+                                      <Badge variant={txStatusVariant[rec.status] ?? "outline"} className="text-xs capitalize">{rec.status ?? "—"}</Badge>
+                                    </td>
+                                    <td className={`px-5 py-3 text-right text-sm font-semibold whitespace-nowrap ${isCredit ? "text-green-600" : ""}`}>
+                                      {fmtAmt}
+                                      {rec.provider_receipt_url && (
+                                        <a href={rec.provider_receipt_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs text-primary hover:underline">View</a>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Support Tickets */}
