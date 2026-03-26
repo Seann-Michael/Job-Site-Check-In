@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,11 +103,14 @@ function ColHeader({
 }
 
 // ── Row ────────────────────────────────────────────────────────────────────────
-function WorkspaceRow({ ws }: { ws: Workspace }) {
+function WorkspaceRow({ ws, onClick }: { ws: Workspace; onClick: () => void }) {
   const status = STATUS_CONFIG[ws.status] ?? { label: ws.status, variant: "outline" as const };
   const accountId = ws.sub_account_id ?? shortId(ws.id);
   return (
-    <div className="grid grid-cols-[2fr_1.2fr_1fr_1fr_0.9fr_1fr] gap-3 items-center px-4 py-3 border-b hover:bg-muted/40 transition-colors text-sm">
+    <div
+      className="grid grid-cols-[2fr_1.2fr_1fr_1fr_0.9fr_1fr] gap-3 items-center px-4 py-3 border-b hover:bg-muted/40 transition-colors text-sm cursor-pointer"
+      onClick={onClick}
+    >
       {/* Business Name + owner */}
       <div className="min-w-0">
         <p className="font-medium truncate">{ws.name}</p>
@@ -134,6 +138,7 @@ function WorkspaceRow({ ws }: { ws: Workspace }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function SuperAdminWorkspaces() {
+  const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
@@ -369,7 +374,7 @@ export default function SuperAdminWorkspaces() {
                         height: ROW_HEIGHT,
                       }}
                     >
-                      <WorkspaceRow ws={ws} />
+                      <WorkspaceRow ws={ws} onClick={() => navigate(`/super-admin/workspaces/${ws.id}`)} />
                     </div>
                   );
                 })}

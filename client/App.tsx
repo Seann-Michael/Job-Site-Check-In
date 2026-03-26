@@ -71,6 +71,7 @@ const SuperAdminHelp = lazy(() => import("./pages/SuperAdminHelp"));
 const SuperAdminSupport = lazy(() => import("./pages/SuperAdminSupport"));
 const SuperAdminUsers = lazy(() => import("./pages/SuperAdminUsers"));
 const SuperAdminWorkspaces = lazy(() => import("./pages/SuperAdminWorkspaces"));
+const SuperAdminWorkspaceDetail = lazy(() => import("./pages/SuperAdminWorkspaceDetail"));
 const SuperAdminCommunications = lazy(
   () => import("./pages/SuperAdminCommunications"),
 );
@@ -626,6 +627,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <SuperAdminWorkspaces />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/workspaces/:id"
+                  element={
+                    <ProtectedRoute>
+                      <SuperAdminWorkspaceDetail />
                     </ProtectedRoute>
                   }
                 />
