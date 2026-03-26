@@ -132,11 +132,10 @@ function fmtDateTime(iso: string | null): string {
   return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-function InfoRow({ label, value, icon: Icon }: { label: string; value: React.ReactNode; icon?: React.ElementType }) {
+function InfoRow({ label, value }: { label: string; value: React.ReactNode; icon?: React.ElementType }) {
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b last:border-0">
-      {Icon && <Icon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />}
-      <span className="text-sm text-muted-foreground w-32 flex-shrink-0">{label}</span>
+    <div className="flex items-start py-2.5 border-b last:border-0">
+      <span className="text-sm text-muted-foreground w-36 flex-shrink-0">{label}</span>
       <span className="text-sm font-medium flex-1 min-w-0 break-words">{value ?? "—"}</span>
     </div>
   );
