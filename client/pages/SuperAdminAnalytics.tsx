@@ -164,7 +164,7 @@ export default function SuperAdminAnalytics() {
 
     // ── Run all queries in parallel ──────────────────────────────────────────
 
-    // 1. Jobs Created (projects table — filtered by date range)
+    // 1. Jobs Created
     const jobsQuery = supabaseClient
       .from("projects")
       .select("id", { count: "exact", head: true })
@@ -187,7 +187,7 @@ export default function SuperAdminAnalytics() {
       .from("businesses")
       .select("id", { count: "exact", head: true });
 
-    // 5. Photos — all-time total (project_media uses project_id, not business_id)
+    // 5. Photos — all-time total (media attached to jobs)
     const photosQuery = supabaseClient
       .from("project_media")
       .select("id", { count: "exact", head: true })
@@ -497,7 +497,7 @@ export default function SuperAdminAnalytics() {
               metric={metrics.totalPhotos}
               icon={Image}
               iconColor="bg-pink-500"
-              description="All-time across all projects"
+              description="All-time across all jobs"
             />
             <MetricCard
               title="Avg Photos Per Workspace"
@@ -511,7 +511,7 @@ export default function SuperAdminAnalytics() {
               metric={metrics.totalVideos}
               icon={Video}
               iconColor="bg-violet-500"
-              description="All-time across all projects"
+              description="All-time across all jobs"
             />
             <MetricCard
               title="Avg Videos Per Workspace"
