@@ -34,6 +34,8 @@ import {
   TrendingUp,
   FileText,
   Video,
+  BarChart3,
+  Link2 as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabaseClient } from "@/lib/supabaseClient";
@@ -56,6 +58,8 @@ interface WorkspaceDetail {
   settings: Record<string, any> | null;
   metadata: Record<string, any> | null;
   google_place_id: string | null;
+  google_my_business: Record<string, any> | null;
+  social_media: Record<string, any> | null;
   owner_id: string | null;
 }
 
@@ -357,21 +361,6 @@ export default function SuperAdminWorkspaceDetail() {
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatCard label="Total Jobs"       value={stats?.jobs ?? 0}          icon={Briefcase}    iconColor="bg-blue-500"    sub={`${stats?.activeJobs ?? 0} active`} />
-          <StatCard label="Completed Jobs"   value={stats?.completedJobs ?? 0}  icon={CheckCircle}  iconColor="bg-green-500" />
-          <StatCard label="Total Reviews"    value={stats?.totalReviews ?? 0}   icon={Star}         iconColor="bg-yellow-500"  sub={stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)} ★ avg` : undefined} />
-          <StatCard label="Review Requests"  value={stats?.reviewRequests ?? 0} icon={Send}         iconColor="bg-indigo-500" />
-          <StatCard label="Clients"          value={stats?.clients ?? 0}        icon={Users}        iconColor="bg-cyan-500" />
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="Photos"    value={stats?.photos ?? 0}    icon={Image}     iconColor="bg-pink-500"   sub="All-time uploaded" />
-          <StatCard label="Videos"    value={stats?.videos ?? 0}    icon={Video}     iconColor="bg-violet-500" sub="All-time uploaded" />
-          <StatCard label="Documents" value={stats?.documents ?? 0} icon={FileText}  iconColor="bg-slate-500"  sub="All-time uploaded" />
-        </div>
-
         {/* Main content grid */}
         <div className="grid lg:grid-cols-3 gap-5">
 
@@ -441,6 +430,130 @@ export default function SuperAdminWorkspaceDetail() {
               ) : (
                 <p className="text-sm text-muted-foreground py-4 text-center">No owner assigned</p>
               )}
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Statistics + Connections — 2-col grid */}
+        <div className="grid lg:grid-cols-2 gap-5">
+
+          {/* Statistics */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" /> Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2 gap-px bg-border">
+                {[
+                  { label: "Total Jobs",      value: stats?.jobs ?? 0,          sub: `${stats?.activeJobs ?? 0} active`,                           icon: Briefcase,   iconColor: "bg-blue-500" },
+                  { label: "Completed Jobs",  value: stats?.completedJobs ?? 0, sub: undefined,                                                    icon: CheckCircle, iconColor: "bg-green-500" },
+                  { label: "Total Reviews",   value: stats?.totalReviews ?? 0,  sub: stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)} ★ avg` : undefined, icon: Star, iconColor: "bg-yellow-500" },
+                  { label: "Review Requests", value: stats?.reviewRequests ?? 0, sub: undefined,                                                   icon: Send,        iconColor: "bg-indigo-500" },
+                  { label: "Clients",         value: stats?.clients ?? 0,       sub: undefined,                                                    icon: Users,       iconColor: "bg-cyan-500" },
+                  { label: "Photos",          value: stats?.photos ?? 0,        sub: "All-time",                                                   icon: Image,       iconColor: "bg-pink-500" },
+                  { label: "Videos",          value: stats?.videos ?? 0,        sub: "All-time",                                                   icon: Video,       iconColor: "bg-violet-500" },
+                  { label: "Documents",       value: stats?.documents ?? 0,     sub: "All-time",                                                   icon: FileText,    iconColor: "bg-slate-500" },
+                ].map(({ label, value, sub, icon: Icon, iconColor }) => (
+                  <div key={label} className="flex items-center gap-3 bg-card px-4 py-3">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 ${iconColor}`}>
+                      <Icon className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground leading-tight">{label}</p>
+                      <p className="text-lg font-bold leading-tight">{value}</p>
+                      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Connections */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LinkIcon className="h-4 w-4 text-muted-foreground" /> Connections
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {(() => {
+                  const sm = workspace.social_media as Record<string, any> | null ?? {};
+                  const gmb = workspace.google_my_business as Record<string, any> | null ?? {};
+                  const meta = workspace.metadata as Record<string, any> | null ?? {};
+
+                  const connections = [
+                    {
+                      name: "Google My Business",
+                      identifier: workspace.google_place_id ?? gmb?.placeId ?? gmb?.place_id ?? null,
+                      identifierLabel: "Place ID",
+                      connected: !!(workspace.google_place_id || gmb?.placeId || gmb?.place_id),
+                      color: "bg-red-500",
+                      letter: "G",
+                    },
+                    {
+                      name: "Facebook",
+                      identifier: sm?.facebook ?? sm?.facebook_page_id ?? meta?.facebook_page_id ?? null,
+                      identifierLabel: "Page",
+                      connected: !!(sm?.facebook || sm?.facebook_page_id || meta?.facebook_page_id),
+                      color: "bg-blue-600",
+                      letter: "f",
+                    },
+                    {
+                      name: "Instagram",
+                      identifier: sm?.instagram ?? sm?.instagram_handle ?? meta?.instagram_handle ?? null,
+                      identifierLabel: "Handle",
+                      connected: !!(sm?.instagram || sm?.instagram_handle || meta?.instagram_handle),
+                      color: "bg-gradient-to-br from-purple-500 to-pink-500",
+                      letter: "In",
+                    },
+                    {
+                      name: "GoHighLevel",
+                      identifier: meta?.ghl_location_id ?? meta?.gohighlevel_id ?? owner?.sub_account_id ?? null,
+                      identifierLabel: "Location ID",
+                      connected: !!(meta?.ghl_location_id || meta?.gohighlevel_id || owner?.sub_account_id),
+                      color: "bg-orange-500",
+                      letter: "GH",
+                    },
+                    {
+                      name: "WordPress",
+                      identifier: meta?.wordpress_url ?? meta?.wp_url ?? sm?.wordpress ?? null,
+                      identifierLabel: "Site URL",
+                      connected: !!(meta?.wordpress_url || meta?.wp_url || sm?.wordpress),
+                      color: "bg-sky-600",
+                      letter: "W",
+                    },
+                  ];
+
+                  return connections.map((conn) => (
+                    <div key={conn.name} className="flex items-center gap-3 px-5 py-3">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 text-white text-xs font-bold ${conn.color}`}>
+                        {conn.letter}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{conn.name}</p>
+                        {conn.connected && conn.identifier ? (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {conn.identifierLabel}: <span className="font-mono">{conn.identifier}</span>
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Not connected</p>
+                        )}
+                      </div>
+                      <Badge
+                        variant={conn.connected ? "default" : "secondary"}
+                        className="text-xs flex-shrink-0"
+                      >
+                        {conn.connected ? "Connected" : "Not connected"}
+                      </Badge>
+                    </div>
+                  ));
+                })()}
+              </div>
             </CardContent>
           </Card>
 
