@@ -1423,16 +1423,6 @@ function StepConfigForm({
                 placeholder="Select email template"
               />
             </div>
-            <div>
-              <Label htmlFor="delay_hours">Delay (hours)</Label>
-              <Input
-                id="delay_hours"
-                type="number"
-                value={config.delay_hours || "24"}
-                onChange={(e) => updateConfig("delay_hours", e.target.value)}
-                placeholder="24"
-              />
-            </div>
           </div>
         );
 
