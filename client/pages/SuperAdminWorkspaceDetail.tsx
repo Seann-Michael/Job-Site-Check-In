@@ -42,8 +42,13 @@ import {
   StickyNote,
   Plus,
   Trash2,
+  Search,
+  ChevronUp,
+  ChevronDown,
+  CheckSquare,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabaseClient } from "@/lib/supabaseClient";
 
@@ -179,11 +184,15 @@ export default function SuperAdminWorkspaceDetail() {
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [workspaceUsers, setWorkspaceUsers] = useState<Owner[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userSortKey, setUserSortKey] = useState<"name" | "email" | "role" | "last_login">("name");
+  const [userSortDir, setUserSortDir] = useState<"asc" | "desc">("asc");
 
   const fetchAll = useCallback(async () => {
     if (!id) return;
@@ -268,6 +277,15 @@ export default function SuperAdminWorkspaceDetail() {
           .limit(10);
         setTickets(ticketData ?? []);
       }
+
+      // 4b. Tasks
+      const { data: tasksData } = await supabaseClient
+        .from("tasks")
+        .select("id, title, status, priority, due_date, assigned_to, created_at")
+        .eq("business_id", id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setTasks(tasksData ?? []);
 
       // 5. Internal notes
       const { data: notesData } = await supabaseClient
@@ -412,6 +430,8 @@ export default function SuperAdminWorkspaceDetail() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="support">Support Tickets</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -515,31 +535,98 @@ export default function SuperAdminWorkspaceDetail() {
                     <Users className="h-4 w-4 text-muted-foreground" /> Users
                   </CardTitle>
                 </CardHeader>
+                <CardContent className="space-y-3 pb-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or email…"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                    />
+                  </div>
+                </CardContent>
                 <CardContent className="p-0">
                   {workspaceUsers.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">No users found</p>
-                  ) : (
-                    <div className="divide-y">
-                      {workspaceUsers.map((u) => {
-                        const isOwner = u.id === owner?.id;
-                        return (
-                          <div key={u.id} className="flex items-center gap-3 px-5 py-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted flex-shrink-0 text-sm font-semibold">
-                              {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{u.name ?? "—"}</p>
-                              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                              {isOwner && <Badge variant="default" className="text-xs">Owner</Badge>}
-                              <Badge variant="outline" className="text-xs capitalize">{u.role?.replace(/_/g, " ")}</Badge>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  ) : (() => {
+                    const q = userSearch.toLowerCase();
+                    const filtered = workspaceUsers.filter(
+                      (u) =>
+                        !q ||
+                        (u.name ?? "").toLowerCase().includes(q) ||
+                        (u.email ?? "").toLowerCase().includes(q)
+                    );
+                    const sorted = [...filtered].sort((a, b) => {
+                      let av: string = "";
+                      let bv: string = "";
+                      if (userSortKey === "name") { av = a.name ?? ""; bv = b.name ?? ""; }
+                      else if (userSortKey === "email") { av = a.email ?? ""; bv = b.email ?? ""; }
+                      else if (userSortKey === "role") { av = a.role ?? ""; bv = b.role ?? ""; }
+                      else if (userSortKey === "last_login") { av = a.last_login ?? ""; bv = b.last_login ?? ""; }
+                      const cmp = av.localeCompare(bv);
+                      return userSortDir === "asc" ? cmp : -cmp;
+                    });
+                    const toggleSort = (key: typeof userSortKey) => {
+                      if (userSortKey === key) setUserSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else { setUserSortKey(key); setUserSortDir("asc"); }
+                    };
+                    const SortIcon = ({ k }: { k: typeof userSortKey }) =>
+                      userSortKey === k ? (
+                        userSortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                      ) : null;
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/40">
+                              {([
+                                { key: "name", label: "Name" },
+                                { key: "email", label: "Email" },
+                                { key: "role", label: "Role" },
+                                { key: "last_login", label: "Last Login" },
+                              ] as { key: typeof userSortKey; label: string }[]).map((col) => (
+                                <th
+                                  key={col.key}
+                                  className="text-left px-4 py-2 text-xs font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground"
+                                  onClick={() => toggleSort(col.key)}
+                                >
+                                  <span className="inline-flex items-center gap-1">
+                                    {col.label}<SortIcon k={col.key} />
+                                  </span>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {sorted.length === 0 ? (
+                              <tr><td colSpan={4} className="text-center text-muted-foreground py-6 text-xs">No users match your search</td></tr>
+                            ) : sorted.map((u) => {
+                              const isOwner = u.id === owner?.id;
+                              return (
+                                <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted flex-shrink-0 text-xs font-semibold">
+                                        {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
+                                      </div>
+                                      <span className="font-medium truncate max-w-[120px]">{u.name ?? "—"}</span>
+                                      {isOwner && <Badge variant="default" className="text-[10px] px-1.5 py-0">Owner</Badge>}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-muted-foreground text-xs truncate max-w-[140px]">{u.email}</td>
+                                  <td className="px-4 py-3">
+                                    <Badge variant="outline" className="text-xs capitalize">{(u.role ?? "—").replace(/_/g, " ")}</Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">{u.last_login ? fmtDateTime(u.last_login) : "Never"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
@@ -644,41 +731,6 @@ export default function SuperAdminWorkspaceDetail() {
               </Card>
             </div>
 
-            {/* Support Tickets */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <LifeBuoy className="h-4 w-4 text-muted-foreground" /> Support Tickets
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {tickets.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No support tickets found</p>
-                ) : (
-                  <div className="divide-y">
-                    {tickets.map((t) => {
-                      const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = { open: "outline", "in-progress": "default", resolved: "secondary", closed: "secondary" };
-                      const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = { urgent: "destructive", high: "default", medium: "outline", low: "secondary" };
-                      return (
-                        <div key={t.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{t.title}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">#{t.ticket_number} · {fmtDate(t.created_at)}</p>
-                            </div>
-                            <div className="flex gap-1.5 flex-shrink-0">
-                              <Badge variant={tPriority[t.priority] ?? "outline"} className="text-xs capitalize">{t.priority}</Badge>
-                              <Badge variant={tStatus[t.status] ?? "outline"} className="text-xs capitalize">{t.status.replace("-", " ")}</Badge>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
           </TabsContent>
 
           {/* Billing */}
@@ -708,6 +760,109 @@ export default function SuperAdminWorkspaceDetail() {
                   }
                   return billing.map(({ label, value }) => <InfoRow key={label} label={label} value={String(value)} />);
                 })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Support Tickets */}
+          <TabsContent value="support" className="space-y-5 mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <LifeBuoy className="h-4 w-4 text-muted-foreground" /> Support Tickets
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {tickets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No support tickets found</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Ticket</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Submitted By</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Priority</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {tickets.map((t) => {
+                          const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = { open: "outline", "in-progress": "default", resolved: "secondary", closed: "secondary" };
+                          const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = { urgent: "destructive", high: "default", medium: "outline", low: "secondary" };
+                          return (
+                            <tr key={t.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="px-5 py-3">
+                                <p className="font-medium truncate max-w-[240px]">{t.title}</p>
+                                <p className="text-xs text-muted-foreground">#{t.ticket_number}</p>
+                              </td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{t.submitted_by ?? "—"}</td>
+                              <td className="px-5 py-3">
+                                <Badge variant={tPriority[t.priority] ?? "outline"} className="text-xs capitalize">{t.priority ?? "—"}</Badge>
+                              </td>
+                              <td className="px-5 py-3">
+                                <Badge variant={tStatus[t.status] ?? "outline"} className="text-xs capitalize">{(t.status ?? "—").replace("-", " ")}</Badge>
+                              </td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{fmtDate(t.created_at)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tasks */}
+          <TabsContent value="tasks" className="space-y-5 mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 text-muted-foreground" /> Tasks
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No tasks found for this workspace</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Priority</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Due Date</th>
+                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {tasks.map((task) => {
+                          const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = { urgent: "destructive", high: "default", medium: "outline", normal: "outline", low: "secondary" };
+                          const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = { completed: "secondary", done: "secondary", "in-progress": "default", in_progress: "default", open: "outline", pending: "outline", cancelled: "destructive" };
+                          return (
+                            <tr key={task.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="px-5 py-3">
+                                <p className="font-medium truncate max-w-[280px]">{task.title ?? "Untitled"}</p>
+                              </td>
+                              <td className="px-5 py-3">
+                                {task.priority ? <Badge variant={tPriority[task.priority] ?? "outline"} className="text-xs capitalize">{task.priority}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                              </td>
+                              <td className="px-5 py-3">
+                                {task.status ? <Badge variant={tStatus[task.status] ?? "outline"} className="text-xs capitalize">{task.status.replace(/_/g, " ")}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                              </td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{task.due_date ? fmtDate(task.due_date) : "—"}</td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{fmtDate(task.created_at)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
