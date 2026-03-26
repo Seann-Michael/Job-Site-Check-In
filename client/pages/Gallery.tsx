@@ -205,7 +205,7 @@ export default function Gallery() {
       for (const project of projectsData as any[]) {
         projectOptions.push({ id: project.id, name: project.name });
 
-        // Load media from the project_media Supabase table
+        // Load media from the job_media Supabase table
         const mediaItems = await dataService.getProjectPhotos(project.id);
 
         for (const media of mediaItems as any[]) {
@@ -405,7 +405,7 @@ export default function Gallery() {
         return;
       }
 
-      // Upload each file to Supabase storage and create a project_media record
+      // Upload each file to Supabase storage and create a job_media record
       const uploadPromises = files.map((fileData: any) =>
         dataService.uploadProjectPhoto(targetProject.id, fileData.file, {
           category: fileData.category || "general",

@@ -166,7 +166,7 @@ export default function SuperAdminAnalytics() {
 
     // 1. Jobs Created
     const jobsQuery = supabaseClient
-      .from("projects")
+      .from("jobs")
       .select("id", { count: "exact", head: true })
       .gte("created_at", cutoffStr);
 
@@ -189,13 +189,13 @@ export default function SuperAdminAnalytics() {
 
     // 5. Photos — all-time total (media attached to jobs)
     const photosQuery = supabaseClient
-      .from("project_media")
+      .from("job_media")
       .select("id", { count: "exact", head: true })
       .eq("media_type", "image");
 
     // 6. Videos — all-time total
     const videosQuery = supabaseClient
-      .from("project_media")
+      .from("job_media")
       .select("id", { count: "exact", head: true })
       .eq("media_type", "video");
 

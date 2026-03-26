@@ -265,24 +265,24 @@ export default function ClientDetail() {
       // Load media across all linked projects
       // Always load client-level media (no job)
       const [clientImgData, clientVidData, clientDocData] = await Promise.all([
-        supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
-          .eq("client_id", id).is("project_id", null).eq("media_type", "image").order("created_at", { ascending: false }).limit(50),
-        supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
-          .eq("client_id", id).is("project_id", null).eq("media_type", "video").order("created_at", { ascending: false }).limit(50),
-        supabase.from("project_documents").select("id, original_name, file_path, document_type, created_at")
-          .eq("client_id", id).is("project_id", null).order("created_at", { ascending: false }),
+        supabase.from("job_media").select("id, file_path, original_name, media_type, created_at")
+          .eq("client_id", id).is("job_id", null).eq("media_type", "image").order("created_at", { ascending: false }).limit(50),
+        supabase.from("job_media").select("id, file_path, original_name, media_type, created_at")
+          .eq("client_id", id).is("job_id", null).eq("media_type", "video").order("created_at", { ascending: false }).limit(50),
+        supabase.from("job_documents").select("id, original_name, file_path, document_type, created_at")
+          .eq("client_id", id).is("job_id", null).order("created_at", { ascending: false }),
       ]);
 
       if (projectData && projectData.length > 0) {
         const projectIds = projectData.map((p: any) => p.id);
 
         const [jobImgData, jobVidData, jobDocData] = await Promise.all([
-          supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
-            .in("project_id", projectIds).eq("media_type", "image").order("created_at", { ascending: false }).limit(50),
-          supabase.from("project_media").select("id, file_path, original_name, media_type, created_at")
-            .in("project_id", projectIds).eq("media_type", "video").order("created_at", { ascending: false }).limit(50),
-          supabase.from("project_documents").select("id, original_name, file_path, document_type, created_at")
-            .in("project_id", projectIds).order("created_at", { ascending: false }),
+          supabase.from("job_media").select("id, file_path, original_name, media_type, created_at")
+            .in("job_id", projectIds).eq("media_type", "image").order("created_at", { ascending: false }).limit(50),
+          supabase.from("job_media").select("id, file_path, original_name, media_type, created_at")
+            .in("job_id", projectIds).eq("media_type", "video").order("created_at", { ascending: false }).limit(50),
+          supabase.from("job_documents").select("id, original_name, file_path, document_type, created_at")
+            .in("job_id", projectIds).order("created_at", { ascending: false }),
         ]);
 
         setMedia([...(clientImgData.data || []), ...(jobImgData.data || [])] as any);

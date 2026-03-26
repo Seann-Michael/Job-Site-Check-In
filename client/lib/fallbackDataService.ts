@@ -372,7 +372,7 @@ export class FallbackDataService {
     return [
       {
         id: 'demo-task-1',
-        project_id: projectId,
+        job_id: projectId,
         title: 'Complete keyword research analysis',
         description: 'Research and analyze target keywords for local search optimization',
         status: 'completed',
@@ -395,7 +395,7 @@ export class FallbackDataService {
   async createProjectTask(task: Partial<ProjectTask>): Promise<ProjectTask> {
     const newTask: ProjectTask = {
       id: `demo-task-${Date.now()}`,
-      project_id: task.project_id || '',
+      job_id: task.job_id || '',
       title: task.title || 'New Task',
       description: task.description,
       status: task.status || 'todo',
@@ -439,7 +439,7 @@ export class FallbackDataService {
   async uploadProjectPhoto(projectId: string, file: File, metadata: any = {}): Promise<ProjectPhoto> {
     const newPhoto: ProjectPhoto = {
       id: `demo-photo-${Date.now()}`,
-      project_id: projectId,
+      job_id: projectId,
       filename: file.name,
       original_name: file.name,
       file_path: URL.createObjectURL(file),
@@ -469,7 +469,7 @@ export class FallbackDataService {
   async uploadProjectDocument(projectId: string, file: File, metadata: any = {}): Promise<ProjectDocument> {
     const newDocument: ProjectDocument = {
       id: `demo-doc-${Date.now()}`,
-      project_id: projectId,
+      job_id: projectId,
       filename: file.name,
       original_name: file.name,
       file_path: URL.createObjectURL(file),
@@ -593,7 +593,7 @@ export class FallbackDataService {
   async getProjectActivitySummary(projectId: string) {
     const project = sampleProjects.find(p => p.id === projectId);
     return {
-      project_id: projectId,
+      job_id: projectId,
       project_name: project?.name || 'Unknown',
       status: project?.status || 'unknown',
       priority: project?.priority || 'medium',

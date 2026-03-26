@@ -136,7 +136,7 @@ export interface User {
 
 export interface ProjectTask {
   id: string;
-  project_id: string;
+  job_id: string;
   title: string;
   description?: string;
   status:
@@ -164,7 +164,7 @@ export interface ProjectTask {
 
 export interface ProjectMedia {
   id: string;
-  project_id: string;
+  job_id: string;
   filename: string;
   original_name: string;
   file_path: string;
@@ -189,7 +189,7 @@ export type ProjectPhoto = ProjectMedia;
 
 export interface ProjectDocument {
   id: string;
-  project_id: string;
+  job_id: string;
   filename: string;
   original_name: string;
   file_path: string;
@@ -882,9 +882,9 @@ export class DataService {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from("project_tasks")
+        .from("job_tasks")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("job_id", projectId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -899,7 +899,7 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const { data, error } = await supabase
-      .from("project_tasks")
+      .from("job_tasks")
       .insert({
         ...task,
         status: task.status || "todo",
@@ -919,7 +919,7 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const { data, error } = await supabase
-      .from("project_tasks")
+      .from("job_tasks")
       .update(updates)
       .eq("id", id)
       .select()
@@ -933,7 +933,7 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const { error } = await supabase
-      .from("project_tasks")
+      .from("job_tasks")
       .delete()
       .eq("id", id);
 
@@ -946,9 +946,9 @@ export class DataService {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from("project_media")
+        .from("job_media")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("job_id", projectId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -1015,9 +1015,9 @@ export class DataService {
 
     // Create media record
     const { data, error } = await supabase
-      .from("project_media")
+      .from("job_media")
       .insert({
-        project_id: projectId,
+        job_id: projectId,
         filename: fileName,
         original_name: file.name,
         file_path: publicUrl,
@@ -1087,10 +1087,10 @@ export class DataService {
     } = supabase.storage.from("media").getPublicUrl(filePath);
 
     const { data, error } = await supabase
-      .from("project_media")
+      .from("job_media")
       .insert({
         client_id: clientId,
-        project_id: null,
+        job_id: null,
         filename: fileName,
         original_name: file.name,
         file_path: publicUrl,
@@ -1113,10 +1113,10 @@ export class DataService {
     try {
       this.checkSupabaseConfig();
       const { data, error } = await supabase
-        .from("project_media")
+        .from("job_media")
         .select("*")
         .eq("client_id", clientId)
-        .is("project_id", null)
+        .is("job_id", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -1130,7 +1130,7 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const { error } = await supabase
-      .from("project_media")
+      .from("job_media")
       .delete()
       .eq("id", id);
 
@@ -1145,7 +1145,7 @@ export class DataService {
   async updateProjectMedia(id: string, updates: Partial<ProjectMedia>): Promise<void> {
     this.checkSupabaseConfig();
     const { error } = await supabase
-      .from("project_media")
+      .from("job_media")
       .update(updates)
       .eq("id", id);
     if (error) throw error;
@@ -1156,13 +1156,13 @@ export class DataService {
     this.checkSupabaseConfig();
     // Clear all featured flags for this project first
     const { error: clearError } = await supabase
-      .from("project_media")
+      .from("job_media")
       .update({ is_featured: false })
-      .eq("project_id", projectId);
+      .eq("job_id", projectId);
     if (clearError) throw clearError;
     // Set the target as featured
     const { error: setError } = await supabase
-      .from("project_media")
+      .from("job_media")
       .update({ is_featured: true })
       .eq("id", mediaId);
     if (setError) throw setError;
@@ -1172,7 +1172,7 @@ export class DataService {
   async clearFeaturedMedia(mediaId: string): Promise<void> {
     this.checkSupabaseConfig();
     const { error } = await supabase
-      .from("project_media")
+      .from("job_media")
       .update({ is_featured: false })
       .eq("id", mediaId);
     if (error) throw error;
@@ -1184,9 +1184,9 @@ export class DataService {
     try {
       this.checkSupabaseConfig();
       const { data, error } = await supabase
-        .from("project_media")
-        .select("project_id, file_path")
-        .in("project_id", projectIds)
+        .from("job_media")
+        .select("job_id, file_path")
+        .in("job_id", projectIds)
         .eq("is_featured", true)
         .eq("media_type", "image");
 
@@ -1194,8 +1194,8 @@ export class DataService {
 
       const map: Record<string, string> = {};
       for (const row of data || []) {
-        if (row.project_id && row.file_path && !map[row.project_id]) {
-          map[row.project_id] = row.file_path;
+        if (row.job_id && row.file_path && !map[row.job_id]) {
+          map[row.job_id] = row.file_path;
         }
       }
       return map;
@@ -1211,9 +1211,9 @@ export class DataService {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from("project_documents")
+        .from("job_documents")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("job_id", projectId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -1250,9 +1250,9 @@ export class DataService {
 
     // Create document record
     const { data, error } = await supabase
-      .from("project_documents")
+      .from("job_documents")
       .insert({
-        project_id: projectId,
+        job_id: projectId,
         filename: fileName,
         original_name: metadata.custom_name || file.name,
         file_path: publicUrl,
@@ -1295,10 +1295,10 @@ export class DataService {
     } = supabase.storage.from("media").getPublicUrl(filePath);
 
     const { data, error } = await supabase
-      .from("project_documents")
+      .from("job_documents")
       .insert({
         client_id: clientId,
-        project_id: null,
+        job_id: null,
         filename: fileName,
         original_name: metadata.custom_name || file.name,
         file_path: publicUrl,
@@ -1323,10 +1323,10 @@ export class DataService {
       this.checkSupabaseConfig();
 
       const { data, error } = await supabase
-        .from("project_documents")
+        .from("job_documents")
         .select("*")
         .eq("client_id", clientId)
-        .is("project_id", null)
+        .is("job_id", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -1341,7 +1341,7 @@ export class DataService {
     this.checkSupabaseConfig();
 
     const { error } = await supabase
-      .from("project_documents")
+      .from("job_documents")
       .delete()
       .eq("id", id);
 
@@ -1460,7 +1460,7 @@ export class DataService {
       const { data, error } = await supabase
         .from("project_activity_summary")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("job_id", projectId)
         .single();
 
       if (error && error.code !== "PGRST116") throw error;

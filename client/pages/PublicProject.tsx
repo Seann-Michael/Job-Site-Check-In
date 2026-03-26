@@ -32,7 +32,7 @@ export default function PublicProject() {
     const loadProject = async () => {
       try {
         const { data, error } = await supabaseClient
-          .from("projects")
+          .from("jobs")
           .select("id, name, description, photos, keywords, created_at, media")
           .eq("id", id)
           .single();
