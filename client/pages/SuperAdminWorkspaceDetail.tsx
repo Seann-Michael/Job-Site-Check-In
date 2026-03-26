@@ -406,380 +406,330 @@ export default function SuperAdminWorkspaceDetail() {
           </div>
         </div>
 
-        {/* Main content grid */}
-        <div className="grid lg:grid-cols-3 gap-5">
+        {/* ── Tabs ── */}
+        <Tabs defaultValue="overview" className="space-y-5">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
 
-          {/* Account */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Hash className="h-4 w-4 text-muted-foreground" /> Account
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-0">
-              <InfoRow label="Account ID"   value={<span className="font-mono text-xs">{accountId}</span>} icon={Hash} />
-              <InfoRow label="Status"       value={<Badge variant={status.variant} className="text-xs">{status.label}</Badge>} />
-              <InfoRow label="Plan"         value={plan} icon={TrendingUp} />
-              <InfoRow label="Created"      value={fmtDate(workspace.created_at)} icon={Calendar} />
-              <InfoRow label="Last Updated" value={fmtDateTime(workspace.updated_at)} icon={Activity} />
-              {workspace.verified_at && <InfoRow label="Verified On" value={fmtDate(workspace.verified_at)} icon={CheckCircle} />}
-            </CardContent>
-          </Card>
+          {/* Overview */}
+          <TabsContent value="overview" className="space-y-5 mt-0">
 
-          {/* Business Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" /> Business
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-0">
-              <InfoRow label="Business Name" value={workspace.name} />
-              <InfoRow label="Category"      value={workspace.category ? workspace.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : null} />
-              {workspace.subcategory && <InfoRow label="Subcategory" value={workspace.subcategory} />}
-              <InfoRow label="Email"   value={workspace.email}   icon={Mail} />
-              <InfoRow label="Phone"   value={workspace.phone}   icon={Phone} />
-              {workspace.website && <InfoRow label="Website" value={<a href={workspace.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{workspace.website}</a>} icon={Globe} />}
-              {addressStr && <InfoRow label="Address" value={addressStr} icon={MapPin} />}
-            </CardContent>
-          </Card>
+            {/* Info cards */}
+            <div className="grid lg:grid-cols-3 gap-5">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-muted-foreground" /> Account
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  <InfoRow label="Account ID"   value={<span className="font-mono text-xs">{accountId}</span>} />
+                  <InfoRow label="Status"       value={<Badge variant={status.variant} className="text-xs">{status.label}</Badge>} />
+                  <InfoRow label="Plan"         value={plan} />
+                  <InfoRow label="Created"      value={fmtDate(workspace.created_at)} />
+                  <InfoRow label="Last Updated" value={fmtDateTime(workspace.updated_at)} />
+                  {workspace.verified_at && <InfoRow label="Verified On" value={fmtDate(workspace.verified_at)} />}
+                </CardContent>
+              </Card>
 
-          {/* Owner Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" /> Account Owner
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-0">
-              {owner ? (
-                <>
-                  <InfoRow label="Name"          value={owner.name} icon={User} />
-                  <InfoRow label="Email"         value={owner.email} icon={Mail} />
-                  <InfoRow label="Last Login"    value={owner.last_login ? fmtDateTime(owner.last_login) : "Never"} icon={Clock} />
-                  <InfoRow label="Email Verified" value={
-                    owner.email_verified
-                      ? <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3.5 w-3.5" /> Verified</span>
-                      : <span className="flex items-center gap-1 text-amber-600"><AlertTriangle className="h-3.5 w-3.5" /> Not verified</span>
-                  } />
-                  <InfoRow label="2FA Enabled" value={
-                    owner.is_2fa_enabled
-                      ? <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3.5 w-3.5" /> Enabled</span>
-                      : <span className="text-muted-foreground">Disabled</span>
-                  } />
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">No owner assigned</p>
-              )}
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" /> Business
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  <InfoRow label="Business Name" value={workspace.name} />
+                  <InfoRow label="Category"      value={workspace.category ? workspace.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : null} />
+                  {workspace.subcategory && <InfoRow label="Subcategory" value={workspace.subcategory} />}
+                  <InfoRow label="Email"   value={workspace.email} />
+                  <InfoRow label="Phone"   value={workspace.phone} />
+                  {workspace.website && <InfoRow label="Website" value={<a href={workspace.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{workspace.website}</a>} />}
+                  {addressStr && <InfoRow label="Address" value={addressStr} />}
+                </CardContent>
+              </Card>
 
-        </div>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" /> Account Owner
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  {owner ? (
+                    <>
+                      <InfoRow label="Name"           value={owner.name} />
+                      <InfoRow label="Email"          value={owner.email} />
+                      <InfoRow label="Last Login"     value={owner.last_login ? fmtDateTime(owner.last_login) : "Never"} />
+                      <InfoRow label="Email Verified" value={owner.email_verified
+                        ? <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3.5 w-3.5" /> Verified</span>
+                        : <span className="flex items-center gap-1 text-amber-600"><AlertTriangle className="h-3.5 w-3.5" /> Not verified</span>} />
+                      <InfoRow label="2FA Enabled" value={owner.is_2fa_enabled
+                        ? <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3.5 w-3.5" /> Enabled</span>
+                        : <span className="text-muted-foreground">Disabled</span>} />
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No owner assigned</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Statistics + Users + Connections — 3-col grid */}
-        <div className="grid lg:grid-cols-3 gap-5">
-
-          {/* Statistics */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-muted-foreground" /> Statistics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="grid grid-cols-2 gap-px bg-border">
-                {[
-                  { label: "Total Jobs",      value: stats?.jobs ?? 0,          sub: `${stats?.activeJobs ?? 0} active` },
-                  { label: "Completed Jobs",  value: stats?.completedJobs ?? 0, sub: undefined },
-                  { label: "Total Reviews",   value: stats?.totalReviews ?? 0,  sub: stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)} ★ avg` : undefined },
-                  { label: "Review Requests", value: stats?.reviewRequests ?? 0, sub: undefined },
-                  { label: "Clients",         value: stats?.clients ?? 0,       sub: undefined },
-                  { label: "Photos",          value: stats?.photos ?? 0,        sub: "All-time" },
-                  { label: "Videos",          value: stats?.videos ?? 0,        sub: "All-time" },
-                  { label: "Documents",       value: stats?.documents ?? 0,     sub: "All-time" },
-                ].map(({ label, value, sub }) => (
-                  <div key={label} className="bg-card px-4 py-3">
-                    <p className="text-xs text-muted-foreground leading-tight">{label}</p>
-                    <p className="text-lg font-bold leading-tight">{value}</p>
-                    {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+            {/* Statistics + Users + Connections */}
+            <div className="grid lg:grid-cols-3 gap-5">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" /> Statistics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="grid grid-cols-2 gap-px bg-border">
+                    {[
+                      { label: "Total Jobs",      value: stats?.jobs ?? 0,           sub: `${stats?.activeJobs ?? 0} active` },
+                      { label: "Completed Jobs",  value: stats?.completedJobs ?? 0,  sub: undefined },
+                      { label: "Total Reviews",   value: stats?.totalReviews ?? 0,   sub: stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)} ★ avg` : undefined },
+                      { label: "Review Requests", value: stats?.reviewRequests ?? 0, sub: undefined },
+                      { label: "Clients",         value: stats?.clients ?? 0,        sub: undefined },
+                      { label: "Photos",          value: stats?.photos ?? 0,         sub: "All-time" },
+                      { label: "Videos",          value: stats?.videos ?? 0,         sub: "All-time" },
+                      { label: "Documents",       value: stats?.documents ?? 0,      sub: "All-time" },
+                    ].map(({ label, value, sub }) => (
+                      <div key={label} className="bg-card px-4 py-3">
+                        <p className="text-xs text-muted-foreground leading-tight">{label}</p>
+                        <p className="text-lg font-bold leading-tight">{value}</p>
+                        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          {/* Users */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" /> Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {workspaceUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No users found</p>
-              ) : (
-                <div className="divide-y">
-                  {workspaceUsers.map((u) => {
-                    const isOwner = u.id === owner?.id;
-                    return (
-                      <div key={u.id} className="flex items-center gap-3 px-5 py-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted flex-shrink-0 text-sm font-semibold">
-                          {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{u.name ?? "—"}</p>
-                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          {isOwner && <Badge variant="default" className="text-xs">Owner</Badge>}
-                          <Badge variant="outline" className="text-xs capitalize">{u.role?.replace(/_/g, " ")}</Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Connections */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <LinkIcon className="h-4 w-4 text-muted-foreground" /> Connections
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {(() => {
-                  const sm = workspace.social_media as Record<string, any> | null ?? {};
-                  const gmb = workspace.google_my_business as Record<string, any> | null ?? {};
-                  const meta = workspace.metadata as Record<string, any> | null ?? {};
-
-                  const connections = [
-                    {
-                      name: "Google My Business",
-                      identifier: workspace.google_place_id ?? gmb?.placeId ?? gmb?.place_id ?? null,
-                      identifierLabel: "Place ID",
-                      connected: !!(workspace.google_place_id || gmb?.placeId || gmb?.place_id),
-                      color: "bg-red-500",
-                      letter: "G",
-                    },
-                    {
-                      name: "Facebook",
-                      identifier: sm?.facebook ?? sm?.facebook_page_id ?? meta?.facebook_page_id ?? null,
-                      identifierLabel: "Page",
-                      connected: !!(sm?.facebook || sm?.facebook_page_id || meta?.facebook_page_id),
-                      color: "bg-blue-600",
-                      letter: "f",
-                    },
-                    {
-                      name: "Instagram",
-                      identifier: sm?.instagram ?? sm?.instagram_handle ?? meta?.instagram_handle ?? null,
-                      identifierLabel: "Handle",
-                      connected: !!(sm?.instagram || sm?.instagram_handle || meta?.instagram_handle),
-                      color: "bg-gradient-to-br from-purple-500 to-pink-500",
-                      letter: "In",
-                    },
-                    {
-                      name: "GoHighLevel",
-                      identifier: meta?.ghl_location_id ?? meta?.gohighlevel_id ?? owner?.sub_account_id ?? null,
-                      identifierLabel: "Location ID",
-                      connected: !!(meta?.ghl_location_id || meta?.gohighlevel_id || owner?.sub_account_id),
-                      color: "bg-orange-500",
-                      letter: "GH",
-                    },
-                    {
-                      name: "WordPress",
-                      identifier: meta?.wordpress_url ?? meta?.wp_url ?? sm?.wordpress ?? null,
-                      identifierLabel: "Site URL",
-                      connected: !!(meta?.wordpress_url || meta?.wp_url || sm?.wordpress),
-                      color: "bg-sky-600",
-                      letter: "W",
-                    },
-                  ];
-
-                  return connections.map((conn) => (
-                    <div key={conn.name} className="flex items-center gap-3 px-5 py-3">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 text-white text-xs font-bold ${conn.color}`}>
-                        {conn.letter}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{conn.name}</p>
-                        {conn.connected && conn.identifier ? (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {conn.identifierLabel}: <span className="font-mono">{conn.identifier}</span>
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">Not connected</p>
-                        )}
-                      </div>
-                      <Badge
-                        variant={conn.connected ? "default" : "secondary"}
-                        className="text-xs flex-shrink-0"
-                      >
-                        {conn.connected ? "Connected" : "Not connected"}
-                      </Badge>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" /> Users
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {workspaceUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No users found</p>
+                  ) : (
+                    <div className="divide-y">
+                      {workspaceUsers.map((u) => {
+                        const isOwner = u.id === owner?.id;
+                        return (
+                          <div key={u.id} className="flex items-center gap-3 px-5 py-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted flex-shrink-0 text-sm font-semibold">
+                              {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{u.name ?? "—"}</p>
+                              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                              {isOwner && <Badge variant="default" className="text-xs">Owner</Badge>}
+                              <Badge variant="outline" className="text-xs capitalize">{u.role?.replace(/_/g, " ")}</Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ));
-                })()}
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
 
-        </div>
-
-        {/* Recent activity — 2-col grid */}
-        <div className="grid lg:grid-cols-2 gap-5">
-
-          {/* Recent Jobs */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-muted-foreground" /> Recent Jobs
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {recentJobs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No jobs yet</p>
-              ) : (
-                <div className="divide-y">
-                  {recentJobs.map((job) => {
-                    const jStatus = JOB_STATUS_CONFIG[job.status] ?? { label: job.status, variant: "outline" as const };
-                    return (
-                      <div key={job.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{job.name}</p>
-                          <p className="text-xs text-muted-foreground">{fmtDate(job.created_at)}</p>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" /> Connections
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {(() => {
+                      const sm = workspace.social_media ?? {};
+                      const gmb = workspace.google_my_business ?? {};
+                      const meta = workspace.metadata ?? {};
+                      return [
+                        { name: "Google My Business", identifier: workspace.google_place_id ?? gmb?.placeId ?? gmb?.place_id ?? null, identifierLabel: "Place ID", connected: !!(workspace.google_place_id || gmb?.placeId || gmb?.place_id), color: "bg-red-500", letter: "G" },
+                        { name: "Facebook", identifier: sm?.facebook ?? sm?.facebook_page_id ?? meta?.facebook_page_id ?? null, identifierLabel: "Page", connected: !!(sm?.facebook || sm?.facebook_page_id || meta?.facebook_page_id), color: "bg-blue-600", letter: "f" },
+                        { name: "Instagram", identifier: sm?.instagram ?? sm?.instagram_handle ?? meta?.instagram_handle ?? null, identifierLabel: "Handle", connected: !!(sm?.instagram || sm?.instagram_handle || meta?.instagram_handle), color: "bg-gradient-to-br from-purple-500 to-pink-500", letter: "In" },
+                        { name: "GoHighLevel", identifier: meta?.ghl_location_id ?? meta?.gohighlevel_id ?? owner?.sub_account_id ?? null, identifierLabel: "Location ID", connected: !!(meta?.ghl_location_id || meta?.gohighlevel_id || owner?.sub_account_id), color: "bg-orange-500", letter: "GH" },
+                        { name: "WordPress", identifier: meta?.wordpress_url ?? meta?.wp_url ?? sm?.wordpress ?? null, identifierLabel: "Site URL", connected: !!(meta?.wordpress_url || meta?.wp_url || sm?.wordpress), color: "bg-sky-600", letter: "W" },
+                      ].map((conn) => (
+                        <div key={conn.name} className="flex items-center gap-3 px-5 py-3">
+                          <div className={`flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 text-white text-xs font-bold ${conn.color}`}>{conn.letter}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{conn.name}</p>
+                            {conn.connected && conn.identifier
+                              ? <p className="text-xs text-muted-foreground truncate">{conn.identifierLabel}: <span className="font-mono">{conn.identifier}</span></p>
+                              : <p className="text-xs text-muted-foreground">Not connected</p>}
+                          </div>
+                          <Badge variant={conn.connected ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                            {conn.connected ? "Connected" : "Not connected"}
+                          </Badge>
                         </div>
-                        <Badge variant={jStatus.variant} className="text-xs ml-3 flex-shrink-0">
-                          {jStatus.label}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      ));
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Recent Reviews */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Star className="h-4 w-4 text-muted-foreground" /> Recent Reviews
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {recentReviews.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No reviews yet</p>
-              ) : (
-                <div className="divide-y">
-                  {recentReviews.map((review) => {
-                    const authorName = review.author?.name ?? review.author?.displayName ?? "Anonymous";
-                    return (
-                      <div key={review.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{authorName}</span>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                            <span className="text-xs text-amber-500 font-semibold">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span>
-                            <span className="text-xs text-muted-foreground capitalize">{review.platform}</span>
+            {/* Recent activity */}
+            <div className="grid lg:grid-cols-2 gap-5">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" /> Recent Jobs
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {recentJobs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No jobs yet</p>
+                  ) : (
+                    <div className="divide-y">
+                      {recentJobs.map((job) => {
+                        const jStatus = JOB_STATUS_CONFIG[job.status] ?? { label: job.status, variant: "outline" as const };
+                        return (
+                          <div key={job.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{job.name}</p>
+                              <p className="text-xs text-muted-foreground">{fmtDate(job.created_at)}</p>
+                            </div>
+                            <Badge variant={jStatus.variant} className="text-xs ml-3 flex-shrink-0">{jStatus.label}</Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Star className="h-4 w-4 text-muted-foreground" /> Recent Reviews
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {recentReviews.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No reviews yet</p>
+                  ) : (
+                    <div className="divide-y">
+                      {recentReviews.map((review) => {
+                        const authorName = review.author?.name ?? review.author?.displayName ?? "Anonymous";
+                        return (
+                          <div key={review.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium">{authorName}</span>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                <span className="text-xs text-amber-500 font-semibold">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span>
+                                <span className="text-xs text-muted-foreground capitalize">{review.platform}</span>
+                              </div>
+                            </div>
+                            {review.text && <p className="text-xs text-muted-foreground line-clamp-2">{review.text}</p>}
+                            <p className="text-xs text-muted-foreground mt-1">{fmtDate(review.created_at)}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Support Tickets */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <LifeBuoy className="h-4 w-4 text-muted-foreground" /> Support Tickets
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {tickets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No support tickets found</p>
+                ) : (
+                  <div className="divide-y">
+                    {tickets.map((t) => {
+                      const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = { open: "outline", "in-progress": "default", resolved: "secondary", closed: "secondary" };
+                      const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = { urgent: "destructive", high: "default", medium: "outline", low: "secondary" };
+                      return (
+                        <div key={t.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{t.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">#{t.ticket_number} · {fmtDate(t.created_at)}</p>
+                            </div>
+                            <div className="flex gap-1.5 flex-shrink-0">
+                              <Badge variant={tPriority[t.priority] ?? "outline"} className="text-xs capitalize">{t.priority}</Badge>
+                              <Badge variant={tStatus[t.status] ?? "outline"} className="text-xs capitalize">{t.status.replace("-", " ")}</Badge>
+                            </div>
                           </div>
                         </div>
-                        {review.text && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">{review.text}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">{fmtDate(review.created_at)}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-        </div>
-
-        {/* Billing + Support Tickets — 2-col grid */}
-        <div className="grid lg:grid-cols-2 gap-5">
+          </TabsContent>
 
           {/* Billing */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" /> Billing
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-0">
-              {(() => {
-                const meta = workspace.metadata ?? {};
-                const billing = [
-                  { label: "Plan",             value: meta.plan ?? meta.subscription_plan ?? "—" },
-                  { label: "Billing Cycle",    value: meta.billing_cycle ?? meta.billing_period ?? "—" },
-                  { label: "Next Renewal",     value: meta.next_renewal ?? meta.renewal_date ?? "—" },
-                  { label: "Trial Ends",       value: meta.trial_ends ?? meta.trial_end_date ?? null },
-                  { label: "Payment Method",   value: meta.payment_method ?? meta.payment_type ?? "—" },
-                  { label: "Amount",           value: meta.amount ?? meta.monthly_amount ?? "—" },
-                  { label: "Currency",         value: meta.currency ?? "—" },
-                  { label: "Billing Email",    value: meta.billing_email ?? workspace.email ?? "—" },
-                  { label: "Promo / Discount", value: meta.promo_code ?? meta.discount ?? "—" },
-                ].filter((r) => r.value && r.value !== "—");
+          <TabsContent value="billing" className="space-y-5 mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" /> Billing Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                {(() => {
+                  const meta = workspace.metadata ?? {};
+                  const billing = [
+                    { label: "Plan",             value: meta.plan ?? meta.subscription_plan ?? "—" },
+                    { label: "Billing Cycle",    value: meta.billing_cycle ?? meta.billing_period ?? "—" },
+                    { label: "Next Renewal",     value: meta.next_renewal ?? meta.renewal_date ?? "—" },
+                    { label: "Trial Ends",       value: meta.trial_ends ?? meta.trial_end_date ?? null },
+                    { label: "Payment Method",   value: meta.payment_method ?? meta.payment_type ?? "—" },
+                    { label: "Amount",           value: meta.amount ?? meta.monthly_amount ?? "—" },
+                    { label: "Currency",         value: meta.currency ?? "—" },
+                    { label: "Billing Email",    value: meta.billing_email ?? workspace.email ?? "—" },
+                    { label: "Promo / Discount", value: meta.promo_code ?? meta.discount ?? "—" },
+                  ].filter((r) => r.value && r.value !== "—");
+                  if (billing.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-8">No billing data recorded</p>;
+                  }
+                  return billing.map(({ label, value }) => <InfoRow key={label} label={label} value={String(value)} />);
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                if (billing.length === 0) {
-                  return (
-                    <p className="text-sm text-muted-foreground text-center py-8">No billing data recorded</p>
-                  );
-                }
-                return billing.map(({ label, value }) => (
-                  <InfoRow key={label} label={label} value={String(value)} />
-                ));
-              })()}
-            </CardContent>
-          </Card>
+          {/* Settings */}
+          <TabsContent value="settings" className="space-y-5 mt-0">
+            {workspace.settings && Object.keys(workspace.settings).length > 0 ? (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Workspace Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-xs bg-muted rounded-lg p-4 overflow-x-auto">
+                    {JSON.stringify(workspace.settings, null, 2)}
+                  </pre>
+                </CardContent>
+              </Card>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-12">No settings configured</p>
+            )}
+          </TabsContent>
 
-          {/* Support Tickets */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <LifeBuoy className="h-4 w-4 text-muted-foreground" /> Support Tickets
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {tickets.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No support tickets found</p>
-              ) : (
-                <div className="divide-y">
-                  {tickets.map((t) => {
-                    const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-                      open: "outline", "in-progress": "default", resolved: "secondary", closed: "secondary",
-                    };
-                    const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-                      urgent: "destructive", high: "default", medium: "outline", low: "secondary",
-                    };
-                    return (
-                      <div key={t.id} className="px-5 py-3 hover:bg-muted/30 transition-colors">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{t.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              #{t.ticket_number} · {fmtDate(t.created_at)}
-                            </p>
-                          </div>
-                          <div className="flex gap-1.5 flex-shrink-0">
-                            <Badge variant={tPriority[t.priority] ?? "outline"} className="text-xs capitalize">{t.priority}</Badge>
-                            <Badge variant={tStatus[t.status] ?? "outline"} className="text-xs capitalize">{t.status.replace("-", " ")}</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-        </div>
+        </Tabs>
 
         {/* Internal Notes */}
         <Card>
@@ -862,19 +812,6 @@ export default function SuperAdminWorkspaceDetail() {
           </CardContent>
         </Card>
 
-        {/* Settings / Config (if present) */}
-        {workspace.settings && Object.keys(workspace.settings).length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Workspace Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="text-xs bg-muted rounded-lg p-4 overflow-x-auto">
-                {JSON.stringify(workspace.settings, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
 
       </div>
     </SuperAdminLayout>
