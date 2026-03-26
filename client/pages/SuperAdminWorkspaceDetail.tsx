@@ -411,7 +411,6 @@ export default function SuperAdminWorkspaceDetail() {
                 <>
                   <InfoRow label="Name"          value={owner.name} icon={User} />
                   <InfoRow label="Email"         value={owner.email} icon={Mail} />
-                  <InfoRow label="Member Since"  value={fmtDate(owner.created_at)} icon={Calendar} />
                   <InfoRow label="Last Login"    value={owner.last_login ? fmtDateTime(owner.last_login) : "Never"} icon={Clock} />
                   <InfoRow label="Email Verified" value={
                     owner.email_verified
