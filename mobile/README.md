@@ -63,8 +63,15 @@ the audit from Google Places using the exact rules and scoring the web app
 uses (`src/lib/gmb.ts` mirrors `generateAuditFromPlace`). Editing
 hours/Q&A/services stays on the web dashboard for now.
 
+## Milestone 5 (shipped): GMB profile editing
+
+`/gmb-manage` (reached from the GMB tab's quick-action cards): edit business
+hours (replace-all save like the web), add/delete Q&As, services, and
+categories — same tables (`gmb_hours`, `gmb_qas`, `gmb_services`,
+`gmb_categories`) and write patterns as the web GMB dashboard. Demo mode edits
+persist on-device.
+
 ## Roadmap (next milestones)
 
-1. Review request sending via the Express API (Twilio)
-2. GMB profile editing from mobile (hours, Q&A, services)
-3. Push notifications, business switcher, EAS build + store submission
+1. Review request sending via the Express API (Twilio) — skipped for now by request
+2. Push notifications, business switcher, EAS build + store submission

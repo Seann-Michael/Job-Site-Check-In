@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -145,20 +146,20 @@ function ProfileCard({
   );
 }
 
-function QuickActions({ items }: { items: { icon: IconName; label: string; sub: string }[] }) {
+function QuickActions({
+  items,
+}: {
+  items: { icon: IconName; label: string; sub: string; tab: string }[];
+}) {
   const { colors } = useTheme();
+  const router = useRouter();
   return (
     <View style={styles.actionsGrid}>
       {items.map((action) => (
         <Card
           key={action.label}
           style={styles.actionCard}
-          onPress={() =>
-            notify(
-              action.label,
-              'Editing your Google Business Profile from mobile is part of an upcoming milestone — manage it in the web dashboard for now.',
-            )
-          }>
+          onPress={() => router.push({ pathname: '/gmb-manage', params: { tab: action.tab } })}>
           <IconTile icon={action.icon} size={36} />
           <View style={{ gap: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
@@ -247,10 +248,10 @@ export default function GmbScreen() {
           <Section title="Manage">
             <QuickActions
               items={[
-                { icon: 'time-outline', label: 'Hours', sub: 'Updated Jul 20' },
-                { icon: 'help-circle-outline', label: 'Q&A', sub: '2 unanswered' },
-                { icon: 'pricetag-outline', label: 'Categories', sub: '1 primary, 3 more' },
-                { icon: 'list-outline', label: 'Services', sub: '8 listed' },
+                { icon: 'time-outline', label: 'Hours', sub: 'Mon–Sat', tab: 'hours' },
+                { icon: 'help-circle-outline', label: 'Q&A', sub: '2 answered', tab: 'qa' },
+                { icon: 'pricetag-outline', label: 'Categories', sub: '1 primary, 2 more', tab: 'categories' },
+                { icon: 'list-outline', label: 'Services', sub: '4 listed', tab: 'services' },
               ]}
             />
           </Section>
@@ -337,14 +338,15 @@ export default function GmbScreen() {
           <Section title="Manage">
             <QuickActions
               items={[
-                { icon: 'time-outline', label: 'Hours', sub: `${data.counts.hours} entries` },
-                { icon: 'help-circle-outline', label: 'Q&A', sub: `${data.counts.qas} questions` },
+                { icon: 'time-outline', label: 'Hours', sub: `${data.counts.hours} entries`, tab: 'hours' },
+                { icon: 'help-circle-outline', label: 'Q&A', sub: `${data.counts.qas} questions`, tab: 'qa' },
                 {
                   icon: 'pricetag-outline',
                   label: 'Categories',
                   sub: `${data.counts.categories} set`,
+                  tab: 'categories',
                 },
-                { icon: 'list-outline', label: 'Services', sub: `${data.counts.services} listed` },
+                { icon: 'list-outline', label: 'Services', sub: `${data.counts.services} listed`, tab: 'services' },
               ]}
             />
           </Section>
