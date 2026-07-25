@@ -1,7 +1,12 @@
 # Local SEO Ranker — Mobile
 
 The iOS/Android companion app for the Local SEO Ranker web platform, built with
-[Expo](https://expo.dev) (SDK 57), React Native, TypeScript and Expo Router.
+[Expo](https://expo.dev) (SDK 54), React Native, TypeScript and Expo Router.
+
+> Why SDK 54: the App Store build of Expo Go currently supports SDK 54 only
+> (Apple has not approved newer Expo Go releases), so SDK 54 is what runs on a
+> physical phone by scanning the QR code. Upgrade when Expo Go catches up, or
+> when moving to EAS development builds.
 
 ## What's here (foundation)
 
