@@ -60,13 +60,13 @@ function isNetworkError(error: unknown): boolean {
   return /network|fetch|timeout|timed out|connection|offline/i.test(message);
 }
 
-interface GeoFix {
+export interface GeoFix {
   latitude: number;
   longitude: number;
   accuracy: number | null;
 }
 
-async function getLocationFix(): Promise<GeoFix | undefined> {
+export async function getLocationFix(): Promise<GeoFix | undefined> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return undefined;

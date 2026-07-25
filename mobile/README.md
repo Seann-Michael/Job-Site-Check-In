@@ -175,6 +175,17 @@ configured. Two ways to use it:
 - **Logo stamp on capture** toggle: auto-places the logo bottom-right on
   every new photo through the stamp pipeline.
 
+## Milestones 19–20 (shipped): navigation choice, check-ins, notes, documents
+
+- **Navigation app** setting (System / Apple Maps / Google Maps / Waze) used
+  by the Directions button, with a browser fallback.
+- **Check-ins**: Check in/out on the job screen tracks each site visit with
+  GPS and duration; multi-day jobs show a Day 1/2/3 visit history.
+- **Notes**: a per-job note feed (author + time, deletable).
+- **Documents**: attach files via the document picker; uploads to Supabase
+  Storage + a job_documents row when configured, durable local copy always.
+  Check-ins/notes are on-device for now (server sync later).
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as Sharing from 'expo-sharing';
 import {
   Alert,
+  Linking,
   Platform,
   Pressable,
   Share,
@@ -22,9 +24,11 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
 import { openDirections } from '@/lib/directions';
+import { jobExtras, visitDuration } from '@/lib/job-extras';
+import { getLocationFix } from '@/lib/media-capture';
 import { TagList } from '@/components/tag-editor';
 import { tasksStore } from '@/lib/tasks-store';
-import { formatDate, JOB_STATUS_LABELS, notify } from '@/lib/format';
+import { formatDate, JOB_STATUS_LABELS, notify, timeAgo } from '@/lib/format';
 import { jobsStore } from '@/lib/jobs-store';
 import { captureJobMedia, openAppSettings, type CaptureSource } from '@/lib/media-capture';
 import { getMediaPrefs } from '@/lib/media-prefs';
@@ -71,6 +75,42 @@ export default function JobDetailScreen() {
   const [capturing, setCapturing] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [newTask, setNewTask] = useState('');
+  const [newNote, setNewNote] = useState('');
+  const [checkingIn, setCheckingIn] = useState(false);
+  const { data: extras, refresh: refreshExtras } = useData(() => jobExtras.get(id ?? ''));
+  useEffect(() => jobExtras.subscribe(refreshExtras), [refreshExtras]);
+
+  const activeVisit = (extras?.checkins ?? []).find((visit) => !visit.checked_out_at);
+
+  const handleCheckInOut = async () => {
+    if (!id || checkingIn) return;
+    setCheckingIn(true);
+    try {
+      if (activeVisit) {
+        await jobExtras.checkOut(id);
+        notify('Checked out', 'Site visit saved to the job history.');
+      } else {
+        const geo = await getLocationFix();
+        await jobExtras.checkIn(id, geo);
+        notify('Checked in', geo ? 'On site — visit is being tracked with GPS.' : 'On site — visit is being tracked.');
+      }
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!id || !newNote.trim()) return;
+    await jobExtras.addNote(id, newNote, user?.name ?? 'You');
+    setNewNote('');
+  };
+
+  const handleAddDocument = async () => {
+    if (!id) return;
+    const result = await jobExtras.addDocument(id);
+    if (result.error) notify('Could not attach', result.error);
+    else if (result.added) notify('Document attached', 'Saved with this job.');
+  };
 
   const startCapture = useCallback(
     async (category: MediaCategory, source: CaptureSource) => {
@@ -319,6 +359,39 @@ export default function JobDetailScreen() {
               />
             </View>
 
+            <Card
+              style={[
+                styles.checkinCard,
+                activeVisit && { borderColor: colors.success, borderWidth: 1 },
+              ]}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons
+                    name={activeVisit ? 'radio-button-on' : 'location-outline'}
+                    size={15}
+                    color={activeVisit ? colors.success : colors.textSecondary}
+                  />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                    {activeVisit
+                      ? `On site — ${visitDuration(activeVisit.checked_in_at)}`
+                      : `Site visits: ${(extras?.checkins ?? []).length}`}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                  {activeVisit
+                    ? `Checked in ${timeAgo(activeVisit.checked_in_at)}`
+                    : 'Track each day you are at this job'}
+                </Text>
+              </View>
+              <Button
+                label={activeVisit ? 'Check out' : 'Check in'}
+                icon={activeVisit ? 'log-out-outline' : 'log-in-outline'}
+                variant={activeVisit ? 'primary' : 'secondary'}
+                loading={checkingIn}
+                onPress={() => void handleCheckInOut()}
+              />
+            </Card>
+
             {publishRecord ? (
               <Card style={{ gap: Spacing.sm }}>
                 <View style={styles.publishedHeader}>
@@ -380,6 +453,145 @@ export default function JobDetailScreen() {
                 </View>
               </Section>
             ) : null}
+
+            {(extras?.checkins ?? []).length > 0 ? (
+              <Section title={`Site visits (${extras?.checkins.length})`}>
+                <Card style={{ padding: 0 }}>
+                  {(extras?.checkins ?? [])
+                    .slice()
+                    .reverse()
+                    .map((visit, index) => (
+                      <View
+                        key={visit.id}
+                        style={[
+                          styles.visitRow,
+                          index > 0 && {
+                            borderTopWidth: StyleSheet.hairlineWidth,
+                            borderTopColor: colors.border,
+                          },
+                        ]}>
+                        <Text style={{ width: 52, fontSize: 12.5, fontWeight: '700', color: colors.textSecondary }}>
+                          Day {(extras?.checkins.length ?? 0) - index}
+                        </Text>
+                        <Text style={{ flex: 1, fontSize: 13.5, color: colors.text }}>
+                          {formatDate(visit.checked_in_at)} ·{' '}
+                          {new Date(visit.checked_in_at).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                          {visit.checked_out_at
+                            ? ` – ${new Date(visit.checked_out_at).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}`
+                            : ' – now'}
+                        </Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: '600', color: visit.checked_out_at ? colors.textSecondary : colors.success }}>
+                          {visitDuration(visit.checked_in_at, visit.checked_out_at)}
+                        </Text>
+                        {typeof visit.latitude === 'number' ? (
+                          <Ionicons name="location" size={12} color={colors.success} />
+                        ) : null}
+                      </View>
+                    ))}
+                </Card>
+              </Section>
+            ) : null}
+
+            <Section title={`Notes (${extras?.notes.length ?? 0})`}>
+              <Card style={{ padding: 0 }}>
+                <View style={[styles.taskRow]}>
+                  <Ionicons name="create-outline" size={20} color={colors.textMuted} />
+                  <TextInput
+                    value={newNote}
+                    onChangeText={setNewNote}
+                    placeholder="Add a note about this job..."
+                    placeholderTextColor={colors.textMuted}
+                    style={{ flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 }}
+                    onSubmitEditing={() => void handleAddNote()}
+                    returnKeyType="done"
+                  />
+                  <Pressable hitSlop={8} onPress={() => void handleAddNote()} disabled={!newNote.trim()}>
+                    <Ionicons
+                      name="arrow-up-circle"
+                      size={22}
+                      color={newNote.trim() ? colors.primary : colors.textMuted}
+                    />
+                  </Pressable>
+                </View>
+                {(extras?.notes ?? []).map((note) => (
+                  <View
+                    key={note.id}
+                    style={[
+                      styles.noteRow,
+                      { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                    ]}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ fontSize: 14, color: colors.text }}>{note.text}</Text>
+                      <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
+                        {note.author} · {timeAgo(note.created_at)}
+                      </Text>
+                    </View>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => void jobExtras.deleteNote(id ?? '', note.id)}>
+                      <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                ))}
+              </Card>
+            </Section>
+
+            <Section
+              title={`Documents (${extras?.documents.length ?? 0})`}
+              action={
+                <Pressable hitSlop={8} onPress={() => void handleAddDocument()}>
+                  <Ionicons name="add-circle" size={22} color={colors.primary} />
+                </Pressable>
+              }>
+              {(extras?.documents ?? []).length === 0 ? (
+                <Card>
+                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                    Attach contracts, estimates, or permits — tap + to add one.
+                  </Text>
+                </Card>
+              ) : (
+                <Card style={{ padding: 0 }}>
+                  {(extras?.documents ?? []).map((doc, index) => (
+                    <Pressable
+                      key={doc.id}
+                      onPress={() => {
+                        if (doc.uri.startsWith('http')) void Linking.openURL(doc.uri);
+                        else void Sharing.shareAsync(doc.uri).catch(() => undefined);
+                      }}
+                      style={({ pressed }) => [
+                        styles.taskRow,
+                        index > 0 && {
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                          borderTopColor: colors.border,
+                        },
+                        pressed && { backgroundColor: colors.cardPressed },
+                      ]}>
+                      <Ionicons name="document-text-outline" size={19} color={colors.primary} />
+                      <View style={{ flex: 1, gap: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+                          {doc.name}
+                        </Text>
+                        <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
+                          {doc.size > 0 ? `${Math.max(1, Math.round(doc.size / 1024))} KB · ` : ''}
+                          {timeAgo(doc.added_at)}
+                        </Text>
+                      </View>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => void jobExtras.deleteDocument(id ?? '', doc.id)}>
+                        <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+                      </Pressable>
+                    </Pressable>
+                  ))}
+                </Card>
+              )}
+            </Section>
 
             <Section title="Checklist">
               <Card style={{ padding: 0 }}>
@@ -505,5 +717,24 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 4,
+  },
+  checkinCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  visitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md - 2,
+  },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md - 2,
   },
 });
