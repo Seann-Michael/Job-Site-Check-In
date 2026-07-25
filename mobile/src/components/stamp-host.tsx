@@ -10,6 +10,8 @@ interface StampRequest {
   /** Overlay lines, first is emphasized (business name). */
   lines: string[];
   emphasizeFirst: boolean;
+  /** Optional logo placed bottom-right. */
+  logoUri?: string;
 }
 
 interface PendingJob {
@@ -101,6 +103,9 @@ export function StampHost() {
           </View>
         ))}
       </View>
+      {request.logoUri ? (
+        <Image source={{ uri: request.logoUri }} style={styles.logo} contentFit="contain" />
+      ) : null}
     </ViewShot>
   );
 }
@@ -133,5 +138,12 @@ const styles = StyleSheet.create({
   chipTextBold: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  logo: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    width: 110,
+    height: 44,
   },
 });

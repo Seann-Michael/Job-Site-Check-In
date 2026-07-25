@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { Card, IconTile } from '@/components/ui/basics';
+import { Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useWorkspace } from '@/hooks/use-workspace';
+import { clearLogo, getLogoUri, pickLogo } from '@/lib/logo';
 import {
   DEFAULT_MEDIA_PREFS,
   getMediaPrefs,
@@ -34,11 +37,17 @@ const CATEGORY_OPTIONS: { value: MediaCategory | 'ask'; label: string }[] = [
 export default function MediaSettingsScreen() {
   const { colors } = useTheme();
   const { user, initializing } = useAuth();
+  const { business } = useWorkspace();
   const [prefs, setPrefs] = useState<MediaPrefs>(DEFAULT_MEDIA_PREFS);
+  const [logoUri, setLogoUri] = useState<string | null>(null);
 
   useEffect(() => {
     void getMediaPrefs().then(setPrefs);
   }, []);
+
+  useEffect(() => {
+    if (business) void getLogoUri(business.id).then(setLogoUri);
+  }, [business]);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;
@@ -101,6 +110,75 @@ export default function MediaSettingsScreen() {
             trackColor={{ true: colors.primary, false: colors.cardPressed }}
             thumbColor="#FFFFFF"
           />
+        </Card>
+      </Section>
+
+      <Section title={`Business logo — ${business?.name ?? 'your business'}`}>
+        <Card style={{ gap: Spacing.md }}>
+          <View style={styles.logoRow}>
+            {logoUri ? (
+              <Image
+                source={{ uri: logoUri }}
+                style={[styles.logoPreview, { backgroundColor: colors.cardPressed }]}
+                contentFit="contain"
+              />
+            ) : (
+              <View style={[styles.logoPreview, styles.logoEmpty, { backgroundColor: colors.cardPressed }]}>
+                <Ionicons name="image-outline" size={22} color={colors.textMuted} />
+              </View>
+            )}
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                {logoUri ? 'Logo set' : 'No logo yet'}
+              </Text>
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                Used for logo stickers and the capture stamp
+              </Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <Button
+              label={logoUri ? 'Change logo' : 'Choose logo'}
+              icon="image-outline"
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() => {
+                if (!business) return;
+                void pickLogo(business.id).then((uri) => {
+                  if (uri) setLogoUri(uri);
+                });
+              }}
+            />
+            {logoUri ? (
+              <Button
+                label="Remove"
+                icon="trash-outline"
+                variant="secondary"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  if (!business) return;
+                  void clearLogo(business.id).then(() => setLogoUri(null));
+                }}
+              />
+            ) : null}
+          </View>
+          <View style={styles.gpsRow}>
+            <IconTile icon="color-wand-outline" size={34} tone={prefs.stampLogo ? 'primary' : 'neutral'} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                Logo stamp on capture
+              </Text>
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                Auto-place the logo bottom-right on new photos
+              </Text>
+            </View>
+            <Switch
+              value={prefs.stampLogo}
+              onValueChange={(value) => update({ stampLogo: value })}
+              trackColor={{ true: colors.primary, false: colors.cardPressed }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
         </Card>
       </Section>
 
@@ -202,5 +280,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  logoPreview: {
+    width: 84,
+    height: 44,
+    borderRadius: 8,
+  },
+  logoEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

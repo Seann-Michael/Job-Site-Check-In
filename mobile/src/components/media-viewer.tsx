@@ -28,11 +28,14 @@ export function MediaViewer({
   initialIndex,
   visible,
   onClose,
+  onLogoSticker,
 }: {
   items: MediaItem[];
   initialIndex: number;
   visible: boolean;
   onClose: () => void;
+  /** Open the logo-sticker editor for a photo. */
+  onLogoSticker?: (item: MediaItem) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -119,9 +122,19 @@ export function MediaViewer({
           <Text style={styles.counter}>
             {items.length > 0 ? `${index + 1} / ${items.length}` : ''}
           </Text>
-          <Pressable onPress={handleShare} hitSlop={10} style={styles.iconButton}>
-            <Ionicons name="share-outline" size={22} color="#FFFFFF" />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+            {onLogoSticker && current?.uri && current.media_type === 'image' ? (
+              <Pressable
+                onPress={() => onLogoSticker(current)}
+                hitSlop={10}
+                style={styles.iconButton}>
+                <Ionicons name="color-wand-outline" size={20} color="#FFFFFF" />
+              </Pressable>
+            ) : null}
+            <Pressable onPress={handleShare} hitSlop={10} style={styles.iconButton}>
+              <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
 
         {current ? (

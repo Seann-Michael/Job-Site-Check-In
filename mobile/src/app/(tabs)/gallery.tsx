@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
@@ -28,6 +29,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export default function GalleryScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { data: media, loading, refreshing, refresh } = useData(fetchMedia);
   useMediaRefresh(refresh);
   const [filter, setFilter] = useState('all');
@@ -82,6 +84,10 @@ export default function GalleryScreen() {
         initialIndex={viewerIndex ?? 0}
         visible={viewerIndex !== null}
         onClose={() => setViewerIndex(null)}
+        onLogoSticker={(item) => {
+          setViewerIndex(null);
+          router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
+        }}
       />
     </Screen>
   );

@@ -23,6 +23,8 @@ export interface MediaPrefs {
   stampGps: boolean;
   /** Burn the business name onto the photo. */
   stampBusiness: boolean;
+  /** Place the business logo (bottom-right) on captured photos. */
+  stampLogo: boolean;
 }
 
 export const DEFAULT_MEDIA_PREFS: MediaPrefs = {
@@ -32,6 +34,7 @@ export const DEFAULT_MEDIA_PREFS: MediaPrefs = {
   stampTimestamp: true,
   stampGps: true,
   stampBusiness: true,
+  stampLogo: false,
 };
 
 export const QUALITY_DIMENSIONS: Record<PhotoQuality, number | null> = {

@@ -452,6 +452,10 @@ export default function JobDetailScreen() {
         initialIndex={viewerIndex ?? 0}
         visible={viewerIndex !== null}
         onClose={() => setViewerIndex(null)}
+        onLogoSticker={(item) => {
+          setViewerIndex(null);
+          router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
+        }}
       />
     </>
   );

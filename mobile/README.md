@@ -162,6 +162,19 @@ with a pending-upload badge.
   (tag button in the full-screen viewer), stored in the same metadata.tags
   field the web app uses.
 
+## Milestone 18 (shipped): logo stickers
+
+Each business (workspace) has its own logo, set in Settings → Media & camera:
+picked from the gallery, kept locally for offline stamping, and synced to the
+Supabase `avatars` bucket (+ best-effort `businesses.logo_url`) when
+configured. Two ways to use it:
+
+- **Logo sticker editor** (magic-wand button in the full-screen photo
+  viewer): drag the logo anywhere on the photo, pick small/medium/large,
+  add/remove it, then share or save the logo version back to the job.
+- **Logo stamp on capture** toggle: auto-places the logo bottom-right on
+  every new photo through the stamp pipeline.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

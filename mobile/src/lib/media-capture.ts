@@ -18,6 +18,7 @@ import { decode } from 'base64-arraybuffer';
 import { Linking, Platform } from 'react-native';
 
 import { stampImage } from '@/components/stamp-host';
+import { getLogoUri } from '@/lib/logo';
 import { getMediaPrefs, QUALITY_DIMENSIONS } from '@/lib/media-prefs';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -343,14 +344,13 @@ async function applyStamps(
   geo: GeoFix | undefined,
 ): Promise<{ uri: string; base64: string; width: number; height: number }> {
   const prefs = await getMediaPrefs();
+  const business = await workspace.getCurrent();
   const lines: string[] = [];
-  if (prefs.stampBusiness) {
-    const business = await workspace.getCurrent();
-    if (business?.name) lines.push(business.name);
-  }
+  if (prefs.stampBusiness && business?.name) lines.push(business.name);
   if (prefs.stampTimestamp) lines.push(formatStampTimestamp(new Date()));
   if (prefs.stampGps && geo) lines.push(formatStampGps(geo));
-  if (lines.length === 0 || Platform.OS === 'web') return image;
+  const logoUri = prefs.stampLogo && business ? await getLogoUri(business.id) : null;
+  if ((lines.length === 0 && !logoUri) || Platform.OS === 'web') return image;
 
   const stampedUri = await stampImage({
     uri: image.uri,
@@ -358,6 +358,7 @@ async function applyStamps(
     height: image.height,
     lines,
     emphasizeFirst: prefs.stampBusiness,
+    logoUri: logoUri ?? undefined,
   });
   if (!stampedUri) return image;
 
