@@ -372,6 +372,23 @@ async function applyStamps(
   }
 }
 
+/** Save a video recorded by the in-app camera (upload or offline queue). */
+export async function saveCameraVideo(
+  jobId: string,
+  jobTitle: string,
+  category: MediaCategory,
+  video: { uri: string; width?: number; height?: number },
+  geo: GeoFix | undefined,
+): Promise<CaptureResult> {
+  return saveVideoAsset(
+    jobId,
+    jobTitle,
+    category,
+    { uri: video.uri, width: video.width ?? 0, height: video.height ?? 0 } as ImagePicker.ImagePickerAsset,
+    geo,
+  );
+}
+
 /** Save a photo taken by the in-app camera through the normal pipeline
  *  (normalize → stamps → upload or offline queue). */
 export async function saveCameraPhoto(

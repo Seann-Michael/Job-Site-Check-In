@@ -1,5 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions, type FlashMode } from 'expo-camera';
+import {
+  CameraView,
+  useCameraPermissions,
+  useMicrophonePermissions,
+  type FlashMode,
+} from 'expo-camera';
 import { Image } from 'expo-image';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,6 +18,7 @@ import {
   getLocationFix,
   openAppSettings,
   saveCameraPhoto,
+  saveCameraVideo,
   type GeoFix,
 } from '@/lib/media-capture';
 import { getMediaPrefs, setMediaPrefs, type MediaPrefs } from '@/lib/media-prefs';
@@ -41,18 +47,24 @@ const CATEGORIES: { value: MediaCategory; label: string }[] = [
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { jobId, jobTitle, category: categoryParam, preview } = useLocalSearchParams<{
-    jobId: string;
-    jobTitle?: string;
-    category?: string;
-    preview?: string;
-  }>();
+  const { jobId, jobTitle, category: categoryParam, preview, mode: modeParam } =
+    useLocalSearchParams<{
+      jobId: string;
+      jobTitle?: string;
+      category?: string;
+      preview?: string;
+      mode?: string;
+    }>();
   // Web can't run the native camera; preview=1 renders the UI over a
   // placeholder viewfinder (used by the design previews).
   const previewMode = Platform.OS === 'web' && preview === '1';
   const { user, initializing } = useAuth();
 
   const [permission, requestPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const [mode, setMode] = useState<'photo' | 'video'>(modeParam === 'video' ? 'video' : 'photo');
+  const [recording, setRecording] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [category, setCategory] = useState<MediaCategory>(
     (categoryParam as MediaCategory) || 'progress',
   );
@@ -82,6 +94,17 @@ export default function CameraScreen() {
   const cameraRef = useRef<CameraView>(null);
   const geoRef = useRef<GeoFix | undefined>(undefined);
   const savingRef = useRef(0);
+  const [lastPhotoId, setLastPhotoId] = useState<string | null>(null);
+
+  // Recording timer.
+  useEffect(() => {
+    if (!recording) {
+      setElapsed(0);
+      return;
+    }
+    const interval = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
+    return () => clearInterval(interval);
+  }, [recording]);
 
   // One GPS fix per camera session (refreshed silently in the background).
   useEffect(() => {
@@ -166,6 +189,7 @@ export default function CameraScreen() {
         geoRef.current,
       )
         .then((result) => {
+          if (result.item) setLastPhotoId(result.item.id);
           if (result.queued) setQueuedCount((count) => count + 1);
           else if (result.error) {
             setShotCount((count) => Math.max(0, count - 1));
@@ -179,6 +203,44 @@ export default function CameraScreen() {
       notify('Could not capture', error instanceof Error ? error.message : 'Try again.');
     } finally {
       setSnapping(false);
+    }
+  };
+
+  const toggleRecord = async () => {
+    if (!cameraRef.current || !jobId) return;
+    if (recording) {
+      cameraRef.current.stopRecording();
+      return;
+    }
+    if (micPermission && !micPermission.granted) {
+      const response = await requestMicPermission();
+      if (!response.granted) {
+        notify('Microphone needed', 'Videos record without sound unless mic access is allowed.');
+      }
+    }
+    setRecording(true);
+    try {
+      const video = await cameraRef.current.recordAsync({ maxDuration: 120 });
+      if (video?.uri) {
+        setShotCount((count) => count + 1);
+        setLastShotUri(null);
+        const result = await saveCameraVideo(jobId, jobTitle ?? '', category, video, geoRef.current);
+        if (result.queued) setQueuedCount((count) => count + 1);
+        else if (result.error) {
+          setShotCount((count) => Math.max(0, count - 1));
+          notify('Not saved', result.error);
+        }
+      }
+    } catch (error) {
+      notify('Could not record', error instanceof Error ? error.message : 'Try again.');
+    } finally {
+      setRecording(false);
+    }
+  };
+
+  const openLastShot = () => {
+    if (lastPhotoId) {
+      router.push({ pathname: '/annotate', params: { mediaId: lastPhotoId } });
     }
   };
 
@@ -200,6 +262,7 @@ export default function CameraScreen() {
           facing={facing}
           flash={flash}
           zoom={zoom}
+          mode={mode === 'video' ? 'video' : 'picture'}
         />
       )}
       {showGrid ? (
@@ -280,6 +343,14 @@ export default function CameraScreen() {
 
       {/* Bottom: category chips, shutter row */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg }]}>
+        {recording ? (
+          <View style={styles.recordPill}>
+            <View style={styles.recordDot} />
+            <Text style={styles.recordText}>
+              {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
+            </Text>
+          </View>
+        ) : null}
         {queuedCount > 0 ? (
           <View style={styles.queuedPill}>
             <Ionicons name="cloud-offline-outline" size={12} color="#FBBF24" />
@@ -320,27 +391,54 @@ export default function CameraScreen() {
         </View>
 
         <View style={styles.shutterRow}>
-          <View style={styles.thumbSlot}>
+          <Pressable onPress={openLastShot} style={styles.thumbSlot} disabled={!lastPhotoId}>
             {lastShotUri ? (
               <Image source={{ uri: lastShotUri }} style={styles.thumb} contentFit="cover" />
+            ) : null}
+            {lastShotUri && lastPhotoId ? (
+              <View style={styles.editHint}>
+                <Ionicons name="pencil" size={10} color="#FFFFFF" />
+              </View>
             ) : null}
             {shotCount > 0 ? (
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>{shotCount}</Text>
               </View>
             ) : null}
-          </View>
+          </Pressable>
 
           <Pressable
-            onPress={() => void takePhoto()}
+            onPress={() => void (mode === 'video' ? toggleRecord() : takePhoto())}
             disabled={snapping}
             style={({ pressed }) => [styles.shutterOuter, pressed && { opacity: 0.8 }]}>
-            <View style={[styles.shutterInner, snapping && { backgroundColor: '#D1D5DB' }]} />
+            {mode === 'video' ? (
+              recording ? (
+                <View style={styles.stopSquare} />
+              ) : (
+                <View style={styles.recordInner} />
+              )
+            ) : (
+              <View style={[styles.shutterInner, snapping && { backgroundColor: '#D1D5DB' }]} />
+            )}
           </Pressable>
 
           <Pressable onPress={finish} style={styles.doneButton}>
             <Text style={styles.doneText}>Done</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.modeRow}>
+          {(['photo', 'video'] as const).map((entry) => (
+            <Pressable
+              key={entry}
+              disabled={recording}
+              onPress={() => setMode(entry)}
+              style={[styles.modeChip, mode === entry && styles.modeChipOn]}>
+              <Text style={[styles.modeText, mode === entry && styles.modeTextOn]}>
+                {entry === 'photo' ? 'PHOTO' : 'VIDEO'}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </View>
     </View>
@@ -433,6 +531,73 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   zoomTextOn: {
+    color: '#FFFFFF',
+  },
+  recordPill: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#00000090',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+  },
+  recordDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+  },
+  recordText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  recordInner: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#EF4444',
+  },
+  stopSquare: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: '#EF4444',
+  },
+  editHint: {
+    position: 'absolute',
+    left: -5,
+    bottom: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#0697E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  modeChip: {
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md + 2,
+    paddingVertical: 5,
+  },
+  modeChipOn: {
+    backgroundColor: '#1B2637',
+  },
+  modeText: {
+    color: '#8FA3BC',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  modeTextOn: {
     color: '#FFFFFF',
   },
   topBar: {

@@ -184,11 +184,11 @@ export default function JobDetailScreen() {
   );
 
   const openCamera = useCallback(
-    (category: MediaCategory) => {
+    (category: MediaCategory, mode: 'photo' | 'video' = 'photo') => {
       if (!job) return;
       router.push({
         pathname: '/camera',
-        params: { jobId: job.id, jobTitle: job.title, category },
+        params: { jobId: job.id, jobTitle: job.title, category, mode },
       });
     },
     [job, router],
@@ -202,7 +202,7 @@ export default function JobDetailScreen() {
       }
       Alert.alert('Add media', 'Photos are stamped per your media settings.', [
         { text: 'Take photos (in-app camera)', onPress: () => openCamera(category) },
-        { text: 'Record video', onPress: () => void startCapture(category, 'camera-video') },
+        { text: 'Record video', onPress: () => openCamera(category, 'video') },
         { text: 'Choose from gallery', onPress: () => void startCapture(category, 'library') },
         { text: 'Cancel', style: 'cancel' },
       ]);

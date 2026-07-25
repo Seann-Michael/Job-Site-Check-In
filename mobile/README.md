@@ -229,6 +229,16 @@ again. "Record video" and "Choose from gallery" keep the native pickers.
 — open jobs sorted by distance ("1.53 miles away", with an On site badge
 under a quarter mile) — tap one and you're in the camera.
 
+## Milestone 24 (shipped): video mode + edit-after-capture
+
+- **PHOTO / VIDEO switch** under the shutter: video mode records in-app
+  (red shutter, elapsed timer, 2-minute cap, square stop button) with
+  microphone permission handling; recordings flow through the same
+  upload/offline queue as photos. "Record video" on the job screen now
+  opens the in-app camera in video mode. (Scan mode skipped by request.)
+- **Edit after capture**: the last-shot thumbnail gets a pencil badge —
+  tap it to jump straight into the annotation editor for that photo.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
