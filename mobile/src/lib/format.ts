@@ -11,14 +11,26 @@ export function initials(name: string): string {
     .join('');
 }
 
+/**
+ * Date-only strings ('2026-07-21') parse as UTC midnight, which renders a day
+ * early in US timezones — parse them as local dates instead.
+ */
+function parseDate(iso: string): Date {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (dateOnly) {
+    return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+  }
+  return new Date(iso);
+}
+
 export function formatDate(iso: string): string {
-  const date = new Date(iso);
+  const date = parseDate(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function timeAgo(iso: string): string {
-  const date = new Date(iso);
+  const date = parseDate(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const diffMs = Date.now() - date.getTime();
   if (diffMs < 0) return formatDate(iso);

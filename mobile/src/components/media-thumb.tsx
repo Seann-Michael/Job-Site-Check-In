@@ -26,7 +26,8 @@ export function MediaThumb({ item }: { item: MediaItem }) {
     after: { bg: colors.successSoft, fg: colors.success },
     final: { bg: colors.primarySoft, fg: colors.primary },
   };
-  const tint = tints[item.category];
+  const tint = tints[item.category] ?? tints.progress;
+  const label = CATEGORY_LABELS[item.category] ?? 'Photo';
 
   return (
     <View style={[styles.tile, { backgroundColor: tint.bg }]}>
@@ -41,9 +42,7 @@ export function MediaThumb({ item }: { item: MediaItem }) {
         </View>
       ) : null}
       <View style={[styles.chip, { backgroundColor: isDark ? '#00000080' : '#ffffffE0' }]}>
-        <Text style={[styles.chipText, { color: colors.text }]}>
-          {CATEGORY_LABELS[item.category]}
-        </Text>
+        <Text style={[styles.chipText, { color: colors.text }]}>{label}</Text>
       </View>
     </View>
   );

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 import { Fab } from '@/components/fab';
 import { JobCard } from '@/components/job-card';
@@ -7,6 +7,7 @@ import { SearchBar } from '@/components/search-bar';
 import { EmptyState, Segmented, StatTile } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchJobs } from '@/lib/data';
 import { notify } from '@/lib/format';
 import { useData } from '@/hooks/use-data';
@@ -19,8 +20,9 @@ const FILTERS = [
 ];
 
 export default function JobsScreen() {
+  const { colors } = useTheme();
   const { user, businessName } = useAuth();
-  const { data: jobs, refreshing, refresh } = useData(fetchJobs);
+  const { data: jobs, loading, refreshing, refresh } = useData(fetchJobs);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -59,7 +61,9 @@ export default function JobsScreen() {
           <StatTile value={String(stats.reviews)} label="Reviews sent" tone="success" />
         </View>
         <Segmented options={FILTERS} value={filter} onChange={setFilter} />
-        {filtered.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon="briefcase-outline"
             title="No jobs found"

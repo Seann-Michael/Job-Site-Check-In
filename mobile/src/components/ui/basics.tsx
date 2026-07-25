@@ -22,15 +22,15 @@ export function useToneColors(tone: Tone): { fg: string; bg: string } {
   const { colors } = useTheme();
   switch (tone) {
     case 'primary':
-      return { fg: colors.primary, bg: colors.primarySoft };
+      return { fg: colors.primaryStrong, bg: colors.primarySoft };
     case 'success':
-      return { fg: colors.success, bg: colors.successSoft };
+      return { fg: colors.successStrong, bg: colors.successSoft };
     case 'warning':
-      return { fg: colors.warning, bg: colors.warningSoft };
+      return { fg: colors.warningStrong, bg: colors.warningSoft };
     case 'danger':
-      return { fg: colors.danger, bg: colors.dangerSoft };
+      return { fg: colors.dangerStrong, bg: colors.dangerSoft };
     default:
-      return { fg: colors.textSecondary, bg: colors.cardPressed };
+      return { fg: colors.neutralStrong, bg: colors.cardPressed };
   }
 }
 
@@ -215,7 +215,7 @@ export function Segmented({
             onPress={() => onChange(option.value)}
             style={[
               styles.segment,
-              selected && { backgroundColor: colors.card, ...styles.segmentSelected },
+              selected && { backgroundColor: colors.raised, ...styles.segmentSelected },
             ]}>
             <Text
               style={{

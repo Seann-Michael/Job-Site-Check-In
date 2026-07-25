@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { MediaThumb } from '@/components/media-thumb';
 import { EmptyState, Segmented } from '@/components/ui/basics';
@@ -26,7 +26,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export default function GalleryScreen() {
   const { colors } = useTheme();
-  const { data: media, refreshing, refresh } = useData(fetchMedia);
+  const { data: media, loading, refreshing, refresh } = useData(fetchMedia);
   const [filter, setFilter] = useState('all');
 
   const filtered = useMemo(() => {
@@ -41,7 +41,9 @@ export default function GalleryScreen() {
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <ScreenHeader title="Gallery" subtitle={`${filtered.length} items`} />
       <Segmented options={FILTERS} value={filter} onChange={setFilter} />
-      {rows.length === 0 ? (
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+      ) : rows.length === 0 ? (
         <EmptyState
           icon="images-outline"
           title="No media yet"

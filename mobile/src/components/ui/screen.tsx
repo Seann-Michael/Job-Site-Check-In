@@ -25,10 +25,13 @@ export function Screen({
   onRefresh?: () => void;
 }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View
+      style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -54,9 +57,8 @@ export function ScreenHeader({
   avatarName?: string;
 }) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+    <View style={[styles.header, { paddingTop: Spacing.md }]}>
       <View style={styles.headerText}>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
@@ -70,10 +72,9 @@ export function ScreenHeader({
 
 export function DetailHeader({ title }: { title: string }) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   return (
-    <View style={[styles.detailHeader, { paddingTop: insets.top + Spacing.sm }]}>
+    <View style={[styles.detailHeader, { paddingTop: Spacing.sm }]}>
       <Pressable
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         hitSlop={10}
@@ -115,7 +116,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xxxl,
+    // Clears the 56px floating action button plus its 20px bottom offset
+    paddingBottom: 104,
     gap: Spacing.lg,
   },
   header: {

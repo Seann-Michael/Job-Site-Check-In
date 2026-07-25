@@ -4,17 +4,17 @@
  * Colors mirror the web app's CSS variables in client/global.css:
  *   light primary hsl(200 95% 45%) ≈ #0697E0, dark primary hsl(200 95% 50%) ≈ #06A8F9,
  *   dark background hsl(224 20% 8%) ≈ #101219, radius 0.75rem.
+ *
+ * The *Strong variants are text-on-soft-background colors chosen to clear
+ * WCAG AA contrast for small badge text in both modes.
  */
-
-import '@/global.css';
-
-import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
     background: '#F6F8FB',
     card: '#FFFFFF',
     cardPressed: '#F1F5F9',
+    raised: '#FFFFFF',
     border: '#E2E8F0',
     text: '#2C3844',
     textSecondary: '#64748B',
@@ -22,12 +22,17 @@ export const Colors = {
     primary: '#0697E0',
     onPrimary: '#FFFFFF',
     primarySoft: '#E0F2FE',
+    primaryStrong: '#0369A1',
     success: '#059669',
     successSoft: '#D1FAE5',
+    successStrong: '#047857',
     warning: '#D97706',
     warningSoft: '#FEF3C7',
+    warningStrong: '#92400E',
     danger: '#DC2626',
     dangerSoft: '#FEE2E2',
+    dangerStrong: '#B91C1C',
+    neutralStrong: '#475569',
     star: '#F59E0B',
     input: '#FFFFFF',
     tabBar: '#FFFFFF',
@@ -37,6 +42,7 @@ export const Colors = {
     background: '#101219',
     card: '#161A24',
     cardPressed: '#1D2330',
+    raised: '#2A3346',
     border: '#232B3B',
     text: '#F8FAFC',
     textSecondary: '#94A3B8',
@@ -44,12 +50,17 @@ export const Colors = {
     primary: '#06A8F9',
     onPrimary: '#0B1220',
     primarySoft: '#0C2B40',
+    primaryStrong: '#4FC3FF',
     success: '#34D399',
     successSoft: '#0B2E23',
+    successStrong: '#34D399',
     warning: '#FBBF24',
     warningSoft: '#33260B',
+    warningStrong: '#FBBF24',
     danger: '#F87171',
     dangerSoft: '#3A1616',
+    dangerStrong: '#F87171',
+    neutralStrong: '#A9B4C6',
     star: '#FBBF24',
     input: '#161A24',
     tabBar: '#12151E',
@@ -78,26 +89,3 @@ export const Spacing = {
   xxl: 24,
   xxxl: 32,
 } as const;
-
-export const Fonts = Platform.select({
-  ios: {
-    sans: 'system-ui',
-    serif: 'ui-serif',
-    rounded: 'ui-rounded',
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
-
-export const MaxContentWidth = 800;

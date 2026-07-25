@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 import { Fab } from '@/components/fab';
 import { ReviewCard } from '@/components/review-card';
 import { EmptyState, Segmented, StatTile } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchReviewRequests } from '@/lib/data';
 import { notify } from '@/lib/format';
 import { useData } from '@/hooks/use-data';
@@ -18,7 +19,8 @@ const TABS = [
 ];
 
 export default function ReviewsScreen() {
-  const { data: requests, refreshing, refresh } = useData(fetchReviewRequests);
+  const { colors } = useTheme();
+  const { data: requests, loading, refreshing, refresh } = useData(fetchReviewRequests);
   const [tab, setTab] = useState('current');
 
   const filtered = useMemo(() => {
@@ -32,11 +34,10 @@ export default function ReviewsScreen() {
     const all = requests ?? [];
     const sent = all.filter((r) => r.status !== 'scheduled').length;
     const completed = all.filter((r) => r.status === 'completed');
+    const rated = completed.filter((r) => typeof r.rating === 'number');
     const avg =
-      completed.length > 0
-        ? (
-            completed.reduce((sum, r) => sum + (r.rating ?? 0), 0) / completed.length
-          ).toFixed(1)
+      rated.length > 0
+        ? (rated.reduce((sum, r) => sum + (r.rating ?? 0), 0) / rated.length).toFixed(1)
         : '—';
     return { sent, completed: completed.length, avg };
   }, [requests]);
@@ -51,7 +52,9 @@ export default function ReviewsScreen() {
           <StatTile value={stats.avg} label="Avg rating" tone="warning" />
         </View>
         <Segmented options={TABS} value={tab} onChange={setTab} />
-        {filtered.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon="star-outline"
             title="Nothing here yet"
