@@ -10,24 +10,12 @@
  * empty result from a real workspace stays empty.
  */
 
-import {
-  DEMO_JOBS,
-  DEMO_JOB_TASKS,
-  DEMO_MEDIA,
-  DEMO_REVIEW_REQUESTS,
-} from '@/lib/demo-data';
+import { DEMO_JOBS, DEMO_MEDIA, DEMO_REVIEW_REQUESTS } from '@/lib/demo-data';
 import { jobsStore } from '@/lib/jobs-store';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { workspace } from '@/lib/workspace';
-import type {
-  Job,
-  JobStatus,
-  JobTask,
-  MediaItem,
-  ReviewRequest,
-  ServiceType,
-} from '@/lib/types';
+import type { Job, JobStatus, MediaItem, ReviewRequest, ServiceType } from '@/lib/types';
 
 type Row = Record<string, unknown>;
 
@@ -207,10 +195,6 @@ export async function createJob(
   return { job };
 }
 
-export async function fetchJobTasks(_jobId: string): Promise<JobTask[]> {
-  // Task checklists ship with a later milestone; demo data for now.
-  return DEMO_JOB_TASKS;
-}
 
 export async function fetchReviewRequests(): Promise<ReviewRequest[]> {
   if (!isSupabaseConfigured) return DEMO_REVIEW_REQUESTS;

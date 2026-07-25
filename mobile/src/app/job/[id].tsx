@@ -1,19 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { CategorySheet } from '@/components/category-sheet';
 import { JOB_STATUS_TONES, SERVICE_ICONS } from '@/components/job-card';
 import { MediaThumb } from '@/components/media-thumb';
+import { MediaViewer } from '@/components/media-viewer';
 import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchJob, fetchJobMedia, fetchJobTasks } from '@/lib/data';
+import { fetchJob, fetchJobMedia } from '@/lib/data';
+import { tasksStore } from '@/lib/tasks-store';
 import { formatDate, JOB_STATUS_LABELS, notify } from '@/lib/format';
 import { jobsStore } from '@/lib/jobs-store';
 import { captureJobPhoto, openAppSettings } from '@/lib/media-capture';
+import { getMediaPrefs } from '@/lib/media-prefs';
 import { DESTINATION_LABELS, getPublishRecord } from '@/lib/publish';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useData } from '@/hooks/use-data';
@@ -36,7 +48,8 @@ export default function JobDetailScreen() {
 
   const router = useRouter();
   const { data: job, refresh: refreshJob } = useData(() => fetchJob(id ?? ''));
-  const { data: tasks } = useData(() => fetchJobTasks(id ?? ''));
+  const { data: tasks, refresh: refreshTasks } = useData(() => tasksStore.getTasks(id ?? ''));
+  useEffect(() => tasksStore.subscribe(refreshTasks), [refreshTasks]);
   const { data: jobMediaData, refresh } = useData(() => fetchJobMedia(id ?? ''));
   const { data: publishRecord, refresh: refreshPublish } = useData(() =>
     getPublishRecord(id ?? ''),
@@ -54,6 +67,8 @@ export default function JobDetailScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<MediaCategory | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [newTask, setNewTask] = useState('');
 
   const startCapture = useCallback(
     async (category: MediaCategory) => {
@@ -133,10 +148,32 @@ export default function JobDetailScreen() {
     }
   };
 
+  const shareJob = async () => {
+    if (!job) return;
+    const appUrl = process.env.EXPO_PUBLIC_APP_URL ?? '';
+    const link = appUrl ? `${appUrl.replace(/\/$/, '')}/public/job/${job.id}` : '';
+    try {
+      await Share.share({
+        message: [
+          `${job.title} — ${job.client_name}`,
+          [job.address, job.city].filter(Boolean).join(', '),
+          link,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      });
+    } catch {
+      // User dismissed the share sheet.
+    }
+  };
+
   return (
     <>
       <Screen>
-        <DetailHeader title="Job details" />
+        <DetailHeader
+          title="Job details"
+          action={{ icon: 'share-outline', onPress: () => void shareJob() }}
+        />
 
         {job ? (
           <>
@@ -179,7 +216,16 @@ export default function JobDetailScreen() {
                 icon="camera-outline"
                 style={{ flex: 1 }}
                 loading={capturing}
-                onPress={() => setSheetVisible(true)}
+                onPress={() => {
+                  // Media settings can pin a default category and skip the sheet.
+                  void getMediaPrefs().then((prefs) => {
+                    if (prefs.defaultCategory !== 'ask') {
+                      void startCapture(prefs.defaultCategory);
+                    } else {
+                      setSheetVisible(true);
+                    }
+                  });
+                }}
               />
               <Button
                 label="Request review"
@@ -227,8 +273,13 @@ export default function JobDetailScreen() {
                 <View style={{ gap: Spacing.sm }}>
                   {mediaRows.map((row, rowIndex) => (
                     <View key={rowIndex} style={{ flexDirection: 'row', gap: Spacing.sm }}>
-                      {row.map((item) => (
-                        <MediaThumb key={item.id} item={item} />
+                      {row.map((item, colIndex) => (
+                        <Pressable
+                          key={item.id}
+                          style={{ flex: 1 }}
+                          onPress={() => setViewerIndex(rowIndex * 3 + colIndex)}>
+                          <MediaThumb item={item} />
+                        </Pressable>
                       ))}
                       {row.length < 3
                         ? Array.from({ length: 3 - row.length }).map((_, i) => (
@@ -244,14 +295,16 @@ export default function JobDetailScreen() {
             <Section title="Checklist">
               <Card style={{ padding: 0 }}>
                 {(tasks ?? []).map((task, index) => (
-                  <View
+                  <Pressable
                     key={task.id}
-                    style={[
+                    onPress={() => void tasksStore.toggle(id ?? '', task.id)}
+                    style={({ pressed }) => [
                       styles.taskRow,
                       index > 0 && {
                         borderTopWidth: StyleSheet.hairlineWidth,
                         borderTopColor: colors.border,
                       },
+                      pressed && { backgroundColor: colors.cardPressed },
                     ]}>
                     <Ionicons
                       name={task.done ? 'checkmark-circle' : 'ellipse-outline'}
@@ -260,14 +313,36 @@ export default function JobDetailScreen() {
                     />
                     <Text
                       style={{
+                        flex: 1,
                         fontSize: 14,
                         color: task.done ? colors.textSecondary : colors.text,
                         textDecorationLine: task.done ? 'line-through' : 'none',
                       }}>
                       {task.label}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
+                <View
+                  style={[
+                    styles.taskRow,
+                    { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                  ]}>
+                  <Ionicons name="add-circle-outline" size={20} color={colors.textMuted} />
+                  <TextInput
+                    value={newTask}
+                    onChangeText={setNewTask}
+                    placeholder="Add a task..."
+                    placeholderTextColor={colors.textMuted}
+                    style={{ flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 }}
+                    onSubmitEditing={() => {
+                      if (newTask.trim()) {
+                        void tasksStore.add(id ?? '', newTask);
+                        setNewTask('');
+                      }
+                    }}
+                    returnKeyType="done"
+                  />
+                </View>
               </Card>
             </Section>
           </>
@@ -282,6 +357,12 @@ export default function JobDetailScreen() {
         onSelect={handleCategoryPick}
         onClose={() => setSheetVisible(false)}
         onDismissed={handleSheetDismissed}
+      />
+      <MediaViewer
+        items={jobMedia}
+        initialIndex={viewerIndex ?? 0}
+        visible={viewerIndex !== null}
+        onClose={() => setViewerIndex(null)}
       />
     </>
   );

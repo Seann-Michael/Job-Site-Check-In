@@ -99,6 +99,12 @@ export default function SettingsScreen() {
             sub="What alerts you get"
             onPress={() => router.push('/settings/notifications')}
           />
+          <SettingsRow
+            icon="card-outline"
+            label="Billing"
+            sub="Plan, payment, invoices"
+            onPress={() => router.push('/settings/billing')}
+          />
         </Card>
       </Section>
 
@@ -128,6 +134,18 @@ export default function SettingsScreen() {
             label="Appearance"
             sub={THEME_LABELS[preference]}
             onPress={() => router.push('/settings/appearance')}
+          />
+          <SettingsRow
+            icon="camera-outline"
+            label="Media & camera"
+            sub="Photo quality, GPS, default category"
+            onPress={() => router.push('/settings/media')}
+          />
+          <SettingsRow
+            icon="pulse-outline"
+            label="Diagnostics"
+            sub="Connections and on-device data"
+            onPress={() => router.push('/settings/diagnostics')}
           />
           <SettingsRow
             icon="help-circle-outline"

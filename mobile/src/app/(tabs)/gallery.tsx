@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { MediaThumb } from '@/components/media-thumb';
+import { MediaViewer } from '@/components/media-viewer';
 import { EmptyState, Segmented } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
@@ -30,6 +31,7 @@ export default function GalleryScreen() {
   const { data: media, loading, refreshing, refresh } = useData(fetchMedia);
   useMediaRefresh(refresh);
   const [filter, setFilter] = useState('all');
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     const all = media ?? [];
@@ -55,8 +57,13 @@ export default function GalleryScreen() {
         <View style={{ gap: Spacing.sm }}>
           {rows.map((row, rowIndex) => (
             <View key={rowIndex} style={{ flexDirection: 'row', gap: Spacing.sm }}>
-              {row.map((item) => (
-                <MediaThumb key={item.id} item={item} />
+              {row.map((item, colIndex) => (
+                <Pressable
+                  key={item.id}
+                  style={{ flex: 1 }}
+                  onPress={() => setViewerIndex(rowIndex * 3 + colIndex)}>
+                  <MediaThumb item={item} />
+                </Pressable>
               ))}
               {row.length < 3
                 ? Array.from({ length: 3 - row.length }).map((_, i) => (
@@ -70,6 +77,12 @@ export default function GalleryScreen() {
       <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center' }}>
         Capture geotagged photos from any job&apos;s detail screen.
       </Text>
+      <MediaViewer
+        items={filtered}
+        initialIndex={viewerIndex ?? 0}
+        visible={viewerIndex !== null}
+        onClose={() => setViewerIndex(null)}
+      />
     </Screen>
   );
 }

@@ -86,7 +86,13 @@ export function ScreenHeader({
   );
 }
 
-export function DetailHeader({ title }: { title: string }) {
+export function DetailHeader({
+  title,
+  action,
+}: {
+  title: string;
+  action?: { icon: React.ComponentProps<typeof Ionicons>['name']; onPress: () => void };
+}) {
   const { colors } = useTheme();
   const router = useRouter();
   return (
@@ -100,7 +106,16 @@ export function DetailHeader({ title }: { title: string }) {
       <Text style={[styles.detailTitle, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
-      <View style={{ width: 26 }} />
+      {action ? (
+        <Pressable
+          onPress={action.onPress}
+          hitSlop={10}
+          style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
+          <Ionicons name={action.icon} size={22} color={colors.text} />
+        </Pressable>
+      ) : (
+        <View style={{ width: 26 }} />
+      )}
     </View>
   );
 }

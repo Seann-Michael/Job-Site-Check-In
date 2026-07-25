@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 import { decode } from 'base64-arraybuffer';
 import { Linking, Platform } from 'react-native';
 
+import { getMediaPrefs, QUALITY_DIMENSIONS } from '@/lib/media-prefs';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { MediaCategory, MediaItem } from '@/lib/types';
@@ -102,9 +103,11 @@ async function pickImage(): Promise<PickOutcome> {
 async function normalizeImage(
   asset: ImagePicker.ImagePickerAsset,
 ): Promise<{ uri: string; base64: string; width: number; height: number }> {
+  const prefs = await getMediaPrefs();
+  const maxDimension = QUALITY_DIMENSIONS[prefs.quality] ?? Number.MAX_SAFE_INTEGER;
   const width = asset.width ?? MAX_DIMENSION;
   const actions: ImageManipulator.Action[] =
-    width > MAX_DIMENSION ? [{ resize: { width: MAX_DIMENSION } }] : [];
+    width > maxDimension ? [{ resize: { width: maxDimension } }] : [];
   const result = await ImageManipulator.manipulateAsync(asset.uri, actions, {
     compress: 0.8,
     format: ImageManipulator.SaveFormat.JPEG,
@@ -204,7 +207,8 @@ async function saveCapture(
   asset: ImagePicker.ImagePickerAsset,
 ): Promise<CaptureResult> {
   const takenAt = new Date().toISOString();
-  const geo = await getLocationFix();
+  const prefs = await getMediaPrefs();
+  const geo = prefs.attachGps ? await getLocationFix() : undefined;
   const exif = (asset.exif ?? undefined) as Record<string, unknown> | undefined;
 
   let image: { uri: string; base64: string; width: number; height: number };

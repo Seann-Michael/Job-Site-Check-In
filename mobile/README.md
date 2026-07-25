@@ -104,6 +104,19 @@ The CompanyCam-style loop closes: `/publish/[id]` (from the job screen's
   the `clients` table (derived from jobs in demo) with job counts; client
   detail has call/email quick actions, job history, and a new-job shortcut.
 
+## Milestone 9 (shipped): field usability + more settings
+
+- **Full-screen media viewer**: tap any photo (Gallery or job) → swipeable
+  viewer with category/date/GPS caption and native share.
+- **Live checklists**: per-job tasks with toggle + add, persisted on-device
+  (`src/lib/tasks-store.ts`); web `job_tasks` sync comes later.
+- **Share job**: share button on the job screen (public link when
+  `EXPO_PUBLIC_APP_URL` is set).
+- **Settings additions**: Billing (plan/invoices, jump to web dashboard),
+  Diagnostics (connection checks, on-device data counts, shareable report,
+  local-data reset), and Media & Camera (photo quality, GPS toggle, default
+  category — all read by the capture pipeline).
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
