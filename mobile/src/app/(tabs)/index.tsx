@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -9,8 +10,8 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchJobs } from '@/lib/data';
-import { notify } from '@/lib/format';
 import { useData } from '@/hooks/use-data';
+import { useJobsRefresh } from '@/hooks/use-jobs-refresh';
 import { useAuth } from '@/providers/auth-provider';
 
 const FILTERS = [
@@ -21,8 +22,10 @@ const FILTERS = [
 
 export default function JobsScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { user, businessName } = useAuth();
   const { data: jobs, loading, refreshing, refresh } = useData(fetchJobs);
+  useJobsRefresh(refresh);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -73,14 +76,7 @@ export default function JobsScreen() {
           filtered.map((job) => <JobCard key={job.id} job={job} />)
         )}
       </Screen>
-      <Fab
-        onPress={() =>
-          notify(
-            'New job',
-            'Job creation with address autocomplete, Street View and geotagged photo capture lands in the next milestone.',
-          )
-        }
-      />
+      <Fab onPress={() => router.push('/job/new')} />
     </View>
   );
 }

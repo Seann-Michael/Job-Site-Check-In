@@ -18,6 +18,7 @@ import {
   DEMO_MEDIA,
   DEMO_REVIEW_REQUESTS,
 } from '@/lib/demo-data';
+import { jobsStore } from '@/lib/jobs-store';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type {
@@ -73,17 +74,31 @@ const REVIEW_STATUSES: ReviewRequest['status'][] = [
 ];
 
 function mapJob(row: Row): Job {
-  // Web jobs rows: name, client_contact {name,email,phone}, started_at/created_at.
+  // Web jobs rows: name, client_contact {name,email,phone}, started_at/created_at,
+  // and metadata.address as an object {street, city, state, zipCode, coordinates}
+  // (see AdminAddProject.tsx in the web client).
   const contact = (row.client_contact ?? {}) as Row;
   const metadata = (row.metadata ?? {}) as Row;
+  const metaAddress =
+    typeof metadata.address === 'object' && metadata.address !== null
+      ? (metadata.address as Row)
+      : undefined;
+  const address =
+    str(row, 'address') ||
+    (metaAddress ? str(metaAddress, 'street') : str(metadata, 'address'));
+  const city = str(row, 'city') || (metaAddress ? str(metaAddress, 'city') : str(metadata, 'city'));
   return {
     id: str(row, 'id', String(row.id ?? '')),
     title: str(row, 'name', str(row, 'title', 'Untitled job')),
     client_name: str(contact, 'name', str(row, 'client_name', 'Unknown client')),
-    address: str(row, 'address', str(metadata, 'address')),
-    city: str(row, 'city', str(metadata, 'city')),
+    address,
+    city,
     status: oneOf(str(row, 'status'), JOB_STATUSES, 'active'),
-    service_type: oneOf(str(row, 'service_type'), SERVICE_TYPES, 'general'),
+    service_type: oneOf(
+      str(row, 'service_type') || (metaAddress ? '' : str(metadata, 'service_type')),
+      SERVICE_TYPES,
+      'general',
+    ),
     start_date: str(row, 'started_at', str(row, 'start_date', str(row, 'created_at'))),
     photo_count: num(row, 'photo_count'),
     review_requested: Boolean(row.review_requested),
@@ -91,7 +106,10 @@ function mapJob(row: Row): Job {
 }
 
 export async function fetchJobs(): Promise<Job[]> {
-  if (!isSupabaseConfigured) return DEMO_JOBS;
+  if (!isSupabaseConfigured) {
+    const created = await jobsStore.getCreated();
+    return [...created, ...DEMO_JOBS];
+  }
   const { data, error } = await supabase
     .from('jobs')
     .select('*')
@@ -102,10 +120,90 @@ export async function fetchJobs(): Promise<Job[]> {
 }
 
 export async function fetchJob(id: string): Promise<Job | undefined> {
-  if (!isSupabaseConfigured) return DEMO_JOBS.find((job) => job.id === id);
+  if (!isSupabaseConfigured) {
+    const created = await jobsStore.getCreated();
+    return [...created, ...DEMO_JOBS].find((job) => job.id === id);
+  }
   const { data, error } = await supabase.from('jobs').select('*').eq('id', id).maybeSingle();
   if (error) return DEMO_JOBS.find((job) => job.id === id);
   return data ? mapJob(data as Row) : undefined;
+}
+
+export interface NewJobInput {
+  title: string;
+  service_type: ServiceType;
+  client_name: string;
+  client_phone?: string;
+  client_email?: string;
+  street: string;
+  city: string;
+  state?: string;
+  zip?: string;
+  latitude?: number;
+  longitude?: number;
+  street_view_available?: boolean;
+  notes?: string;
+}
+
+export async function createJob(
+  input: NewJobInput,
+): Promise<{ job?: Job; error?: string }> {
+  const startedAt = new Date().toISOString();
+
+  if (!isSupabaseConfigured) {
+    const job: Job = {
+      id: `local-job-${Date.now()}`,
+      title: input.title,
+      client_name: input.client_name || 'Unknown client',
+      address: input.street,
+      city: input.city,
+      status: 'active',
+      service_type: input.service_type,
+      start_date: startedAt,
+      photo_count: 0,
+      review_requested: false,
+    };
+    await jobsStore.add(job);
+    return { job };
+  }
+
+  // Same payload shape the web app's AdminAddProject sends to createProject.
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert({
+      name: input.title,
+      description: input.notes || input.title,
+      type: input.service_type,
+      status: 'active',
+      priority: 'medium',
+      client_contact: input.client_name
+        ? { name: input.client_name, email: input.client_email ?? '', phone: input.client_phone ?? '' }
+        : undefined,
+      metadata: {
+        address: {
+          street: input.street,
+          city: input.city,
+          state: input.state ?? '',
+          zipCode: input.zip ?? '',
+          country: 'United States',
+          coordinates:
+            typeof input.latitude === 'number' && typeof input.longitude === 'number'
+              ? { lat: input.latitude, lng: input.longitude }
+              : undefined,
+        },
+        street_view_available: Boolean(input.street_view_available),
+        service_type: input.service_type,
+        notes: input.notes ?? '',
+        source: 'mobile',
+      },
+      started_at: startedAt,
+    })
+    .select()
+    .single();
+  if (error) return { error: error.message };
+  const job = mapJob((data ?? {}) as Row);
+  jobsStore.notifyChanged();
+  return { job };
 }
 
 export async function fetchJobTasks(_jobId: string): Promise<JobTask[]> {
