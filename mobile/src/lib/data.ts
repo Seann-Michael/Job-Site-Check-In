@@ -11,8 +11,6 @@
  */
 
 import {
-  DEMO_GMB_AUDIT,
-  DEMO_GMB_PROFILE,
   DEMO_JOBS,
   DEMO_JOB_TASKS,
   DEMO_MEDIA,
@@ -22,8 +20,6 @@ import { jobsStore } from '@/lib/jobs-store';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type {
-  GmbAuditItem,
-  GmbProfile,
   Job,
   JobStatus,
   JobTask,
@@ -286,11 +282,3 @@ export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
   return (data as Row[]).map(mapMediaRow);
 }
 
-export async function fetchGmbProfile(): Promise<GmbProfile> {
-  // GMB audit results come from the web app's audit pipeline; wired in a later milestone.
-  return DEMO_GMB_PROFILE;
-}
-
-export async function fetchGmbAudit(): Promise<GmbAuditItem[]> {
-  return DEMO_GMB_AUDIT;
-}

@@ -1,144 +1,360 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Badge, Card, IconTile, type IconName } from '@/components/ui/basics';
+import { Badge, Button, Card, IconTile, type IconName, type Tone } from '@/components/ui/basics';
 import { Screen, ScreenHeader, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchGmbAudit, fetchGmbProfile } from '@/lib/data';
-import { notify } from '@/lib/format';
 import { useData } from '@/hooks/use-data';
-import type { AuditStatus } from '@/lib/types';
+import { notify } from '@/lib/format';
+import {
+  connectGmb,
+  DEMO_GMB_AUDIT,
+  DEMO_GMB_PROFILE,
+  fetchGmbData,
+  scanGmb,
+  type GmbAuditStatus,
+} from '@/lib/gmb';
+import { isPlacesConfigured, searchBusinesses, type AddressSuggestion } from '@/lib/places';
 
-// Mirrors the web app's GMB Optimization tabs: Audit / Hours / Q&A / Categories / Services
-const QUICK_ACTIONS: { icon: IconName; label: string; sub: string }[] = [
-  { icon: 'time-outline', label: 'Hours', sub: 'Updated Jul 20' },
-  { icon: 'help-circle-outline', label: 'Q&A', sub: '2 unanswered' },
-  { icon: 'pricetag-outline', label: 'Categories', sub: '1 primary, 3 more' },
-  { icon: 'list-outline', label: 'Services', sub: '8 listed' },
-];
+const AUDIT_ICONS: Record<GmbAuditStatus, { icon: IconName; tone: Tone }> = {
+  good: { icon: 'checkmark-circle', tone: 'success' },
+  warning: { icon: 'alert-circle', tone: 'warning' },
+  critical: { icon: 'close-circle', tone: 'danger' },
+};
 
-const AUDIT_ICONS: Record<AuditStatus, { icon: IconName; tone: 'success' | 'warning' | 'danger' }> =
-  {
-    pass: { icon: 'checkmark-circle', tone: 'success' },
-    warn: { icon: 'alert-circle', tone: 'warning' },
-    fail: { icon: 'close-circle', tone: 'danger' },
-  };
+function AuditList({
+  items,
+}: {
+  items: { id: string; title: string; description: string; status: GmbAuditStatus }[];
+}) {
+  const { colors } = useTheme();
+  return (
+    <Card style={{ padding: 0 }}>
+      {items.map((item, index) => {
+        const config = AUDIT_ICONS[item.status];
+        const iconColor =
+          config.tone === 'success'
+            ? colors.success
+            : config.tone === 'warning'
+              ? colors.warning
+              : colors.danger;
+        return (
+          <View
+            key={item.id}
+            style={[
+              styles.auditRow,
+              index > 0 && {
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.border,
+              },
+            ]}>
+            <Ionicons name={config.icon} size={20} color={iconColor} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
+                {item.title}
+              </Text>
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                {item.description}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </Card>
+  );
+}
+
+function ProfileCard({
+  name,
+  category,
+  rating,
+  reviewCount,
+  photoCount,
+  score,
+  badge,
+  onScan,
+  scanning,
+}: {
+  name: string;
+  category: string;
+  rating: number | null;
+  reviewCount: number;
+  photoCount: number;
+  score: number;
+  badge: { label: string; tone: Tone };
+  onScan?: () => void;
+  scanning?: boolean;
+}) {
+  const { colors } = useTheme();
+  const scoreColor = score >= 80 ? colors.success : score >= 60 ? colors.warning : colors.danger;
+  return (
+    <Card style={{ gap: Spacing.md }}>
+      <View style={styles.profileRow}>
+        <IconTile icon="storefront-outline" size={44} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[styles.businessName, { color: colors.text }]}>{name}</Text>
+          <Text style={{ fontSize: 13, color: colors.textSecondary }} numberOfLines={1}>
+            {category}
+          </Text>
+        </View>
+        <Badge label={badge.label} tone={badge.tone} />
+      </View>
+      <View style={styles.metricsRow}>
+        <View style={styles.metric}>
+          <View style={styles.metricValueRow}>
+            <Ionicons name="star" size={14} color={colors.star} />
+            <Text style={[styles.metricValue, { color: colors.text }]}>
+              {rating != null ? rating.toFixed(1) : '—'}
+            </Text>
+          </View>
+          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+            {reviewCount} reviews
+          </Text>
+        </View>
+        <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: colors.text }]}>{photoCount}</Text>
+          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>photos</Text>
+        </View>
+        <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: scoreColor }]}>{score}</Text>
+          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>profile score</Text>
+        </View>
+      </View>
+      <View style={[styles.scoreTrack, { backgroundColor: colors.cardPressed }]}>
+        <View
+          style={[
+            styles.scoreFill,
+            { backgroundColor: scoreColor, width: `${Math.min(100, Math.max(0, score))}%` },
+          ]}
+        />
+      </View>
+      {onScan ? (
+        <Button
+          label={scanning ? 'Scanning...' : 'Scan profile'}
+          icon="refresh"
+          variant="secondary"
+          loading={scanning}
+          onPress={onScan}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+function QuickActions({ items }: { items: { icon: IconName; label: string; sub: string }[] }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.actionsGrid}>
+      {items.map((action) => (
+        <Card
+          key={action.label}
+          style={styles.actionCard}
+          onPress={() =>
+            notify(
+              action.label,
+              'Editing your Google Business Profile from mobile is part of an upcoming milestone — manage it in the web dashboard for now.',
+            )
+          }>
+          <IconTile icon={action.icon} size={36} />
+          <View style={{ gap: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+              {action.label}
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary }}>{action.sub}</Text>
+          </View>
+        </Card>
+      ))}
+    </View>
+  );
+}
 
 export default function GmbScreen() {
   const { colors } = useTheme();
-  const { data: profile } = useData(fetchGmbProfile);
-  const { data: audit, refreshing, refresh } = useData(fetchGmbAudit);
+  const { data, loading, refreshing, refresh } = useData(fetchGmbData);
 
-  const score = profile?.score ?? 0;
-  const scoreColor = score >= 80 ? colors.success : score >= 60 ? colors.warning : colors.danger;
+  const [scanning, setScanning] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+
+  // Debounced business search for the connect flow.
+  useEffect(() => {
+    if (!isPlacesConfigured || search.trim().length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const results = await searchBusinesses(search);
+      if (!cancelled) setSuggestions(results);
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [search]);
+
+  const handleScan = async () => {
+    if (data?.mode !== 'connected' || scanning) return;
+    setScanning(true);
+    const result = await scanGmb(data.profile);
+    setScanning(false);
+    if (result.error) {
+      notify('Scan failed', result.error);
+      return;
+    }
+    refresh();
+    notify('Profile scanned', 'Audit refreshed from Google — score updated.');
+  };
+
+  const handleConnect = async (suggestion: AddressSuggestion) => {
+    if (connecting) return;
+    setSuggestions([]);
+    setSearch(suggestion.description);
+    setConnecting(true);
+    const result = await connectGmb(suggestion.placeId);
+    setConnecting(false);
+    if (result.error) {
+      notify('Could not connect', result.error);
+      return;
+    }
+    setSearch('');
+    refresh();
+    notify('Profile connected', 'Your Google Business Profile is connected and audited.');
+  };
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <ScreenHeader title="GMB Profile" subtitle="Google Business Profile" />
 
-      <Card style={{ gap: Spacing.md }}>
-        <View style={styles.profileRow}>
-          <IconTile icon="storefront-outline" size={44} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={[styles.businessName, { color: colors.text }]}>{profile?.name ?? ''}</Text>
-            <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-              {profile?.category ?? ''}
-            </Text>
-          </View>
-          <Badge label="Connected" tone="success" />
-        </View>
-        <View style={styles.metricsRow}>
-          <View style={styles.metric}>
-            <View style={styles.metricValueRow}>
-              <Ionicons name="star" size={14} color={colors.star} />
-              <Text style={[styles.metricValue, { color: colors.text }]}>
-                {profile?.rating ?? '—'}
+      {loading || !data ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+      ) : data.mode === 'demo' ? (
+        <>
+          <ProfileCard
+            name={DEMO_GMB_PROFILE.name}
+            category={DEMO_GMB_PROFILE.category}
+            rating={DEMO_GMB_PROFILE.rating}
+            reviewCount={DEMO_GMB_PROFILE.review_count}
+            photoCount={DEMO_GMB_PROFILE.photo_count}
+            score={DEMO_GMB_PROFILE.score}
+            badge={{ label: 'Demo', tone: 'warning' }}
+          />
+          <Section title="Manage">
+            <QuickActions
+              items={[
+                { icon: 'time-outline', label: 'Hours', sub: 'Updated Jul 20' },
+                { icon: 'help-circle-outline', label: 'Q&A', sub: '2 unanswered' },
+                { icon: 'pricetag-outline', label: 'Categories', sub: '1 primary, 3 more' },
+                { icon: 'list-outline', label: 'Services', sub: '8 listed' },
+              ]}
+            />
+          </Section>
+          <Section title="Audit checklist">
+            <AuditList
+              items={DEMO_GMB_AUDIT.map((item) => ({
+                id: item.id,
+                title: item.label,
+                description: item.detail,
+                status:
+                  item.status === 'pass' ? 'good' : item.status === 'warn' ? 'warning' : 'critical',
+              }))}
+            />
+          </Section>
+          <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+            Demo data — connect Supabase to see your real profile.
+          </Text>
+        </>
+      ) : data.mode === 'disconnected' ? (
+        <Card style={{ gap: Spacing.md }}>
+          <View style={styles.profileRow}>
+            <IconTile icon="storefront-outline" size={44} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.businessName, { color: colors.text }]}>
+                Connect your profile
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Search your business on Google to connect and audit it.
               </Text>
             </View>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-              {profile?.review_count ?? 0} reviews
-            </Text>
           </View>
-          <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.metric}>
-            <Text style={[styles.metricValue, { color: colors.text }]}>
-              {profile?.photo_count ?? 0}
-            </Text>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>photos</Text>
-          </View>
-          <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.metric}>
-            <Text style={[styles.metricValue, { color: scoreColor }]}>{score}</Text>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-              profile score
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.scoreTrack, { backgroundColor: colors.cardPressed }]}>
-          <View
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={
+              isPlacesConfigured
+                ? 'Search your business name...'
+                : 'Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to search'
+            }
+            editable={isPlacesConfigured && !connecting}
+            placeholderTextColor={colors.textMuted}
             style={[
-              styles.scoreFill,
-              { backgroundColor: scoreColor, width: `${Math.min(100, Math.max(0, score))}%` },
+              styles.searchInput,
+              { backgroundColor: colors.input, borderColor: colors.border, color: colors.text },
             ]}
           />
-        </View>
-      </Card>
-
-      <Section title="Manage">
-        <View style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((action) => (
-            <Card
-              key={action.label}
-              style={styles.actionCard}
-              onPress={() =>
-                notify(
-                  action.label,
-                  'Editing your Google Business Profile from mobile is part of an upcoming milestone.',
-                )
-              }>
-              <IconTile icon={action.icon} size={36} />
-              <View style={{ gap: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
-                  {action.label}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>{action.sub}</Text>
-              </View>
-            </Card>
-          ))}
-        </View>
-      </Section>
-
-      <Section title="Audit checklist">
-        <Card style={{ padding: 0 }}>
-          {(audit ?? []).map((item, index) => {
-            const config = AUDIT_ICONS[item.status];
-            const iconColor =
-              config.tone === 'success'
-                ? colors.success
-                : config.tone === 'warning'
-                  ? colors.warning
-                  : colors.danger;
-            return (
-              <View
-                key={item.id}
-                style={[
-                  styles.auditRow,
-                  index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-                ]}>
-                <Ionicons name={config.icon} size={20} color={iconColor} />
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
-                    {item.label}
+          {connecting ? <ActivityIndicator color={colors.primary} /> : null}
+          {suggestions.length > 0 ? (
+            <View style={[styles.suggestions, { borderColor: colors.border }]}>
+              {suggestions.map((suggestion, index) => (
+                <Pressable
+                  key={suggestion.placeId}
+                  onPress={() => handleConnect(suggestion)}
+                  style={({ pressed }) => [
+                    styles.suggestionRow,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: colors.border,
+                    },
+                    pressed && { backgroundColor: colors.cardPressed },
+                  ]}>
+                  <Ionicons name="storefront-outline" size={15} color={colors.textMuted} />
+                  <Text style={{ flex: 1, fontSize: 13.5, color: colors.text }} numberOfLines={1}>
+                    {suggestion.description}
                   </Text>
-                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{item.detail}</Text>
-                </View>
-              </View>
-            );
-          })}
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </Card>
-      </Section>
+      ) : (
+        <>
+          <ProfileCard
+            name={data.profile.business_name}
+            category={data.profile.address ?? ''}
+            rating={data.profile.rating}
+            reviewCount={data.profile.review_count}
+            photoCount={data.profile.photos?.length ?? 0}
+            score={data.profile.overall_score}
+            badge={{ label: 'Connected', tone: 'success' }}
+            onScan={isPlacesConfigured ? handleScan : undefined}
+            scanning={scanning}
+          />
+          <Section title="Manage">
+            <QuickActions
+              items={[
+                { icon: 'time-outline', label: 'Hours', sub: `${data.counts.hours} entries` },
+                { icon: 'help-circle-outline', label: 'Q&A', sub: `${data.counts.qas} questions` },
+                {
+                  icon: 'pricetag-outline',
+                  label: 'Categories',
+                  sub: `${data.counts.categories} set`,
+                },
+                { icon: 'list-outline', label: 'Services', sub: `${data.counts.services} listed` },
+              ]}
+            />
+          </Section>
+          {data.audit.length > 0 ? (
+            <Section title="Audit checklist">
+              <AuditList items={data.audit} />
+            </Section>
+          ) : null}
+        </>
+      )}
     </Screen>
   );
 }
@@ -203,5 +419,24 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  searchInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    fontSize: 15,
+  },
+  suggestions: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md - 2,
   },
 });

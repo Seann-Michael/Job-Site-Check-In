@@ -89,3 +89,87 @@ export function streetViewImageUrl(latitude: number, longitude: number): string 
     `?size=640x320&location=${latitude},${longitude}&fov=80&key=${API_KEY}`
   );
 }
+
+/** Business (establishment) autocomplete, for connecting a GMB profile. */
+export async function searchBusinesses(query: string): Promise<AddressSuggestion[]> {
+  if (!isPlacesConfigured || query.trim().length < 3) return [];
+  try {
+    const url =
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json' +
+      `?input=${encodeURIComponent(query)}&types=establishment&components=country:us&key=${API_KEY}`;
+    const response = await fetch(url);
+    const json = (await response.json()) as {
+      status?: string;
+      predictions?: { place_id: string; description: string }[];
+    };
+    if (json.status !== 'OK' || !json.predictions) return [];
+    return json.predictions
+      .slice(0, 5)
+      .map((p) => ({ placeId: p.place_id, description: p.description }));
+  } catch {
+    return [];
+  }
+}
+
+/** The Places fields the web GMB connect/scan flow reads. */
+export interface BusinessDetails {
+  place_id: string;
+  name: string;
+  formatted_address?: string;
+  formatted_phone_number?: string;
+  website?: string;
+  rating?: number;
+  user_ratings_total?: number;
+  types?: string[];
+  has_opening_hours: boolean;
+  photo_urls: string[];
+  latitude?: number;
+  longitude?: number;
+  google_url?: string;
+}
+
+export async function getBusinessDetails(placeId: string): Promise<BusinessDetails | undefined> {
+  if (!isPlacesConfigured) return undefined;
+  try {
+    const fields =
+      'place_id,name,formatted_address,formatted_phone_number,website,rating,' +
+      'user_ratings_total,types,opening_hours,photos,geometry,url';
+    const url =
+      'https://maps.googleapis.com/maps/api/place/details/json' +
+      `?place_id=${encodeURIComponent(placeId)}&fields=${fields}&key=${API_KEY}`;
+    const response = await fetch(url);
+    const json = (await response.json()) as {
+      status?: string;
+      result?: Record<string, unknown>;
+    };
+    if (json.status !== 'OK' || !json.result) return undefined;
+    const r = json.result;
+    const photos = Array.isArray(r.photos) ? (r.photos as { photo_reference?: string }[]) : [];
+    const geometry = (r.geometry ?? {}) as { location?: { lat?: number; lng?: number } };
+    return {
+      place_id: String(r.place_id ?? placeId),
+      name: String(r.name ?? ''),
+      formatted_address: typeof r.formatted_address === 'string' ? r.formatted_address : undefined,
+      formatted_phone_number:
+        typeof r.formatted_phone_number === 'string' ? r.formatted_phone_number : undefined,
+      website: typeof r.website === 'string' ? r.website : undefined,
+      rating: typeof r.rating === 'number' ? r.rating : undefined,
+      user_ratings_total: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : undefined,
+      types: Array.isArray(r.types) ? (r.types as string[]) : undefined,
+      has_opening_hours: Boolean(r.opening_hours),
+      photo_urls: photos
+        .filter((p) => typeof p.photo_reference === 'string')
+        .slice(0, 5)
+        .map(
+          (p) =>
+            'https://maps.googleapis.com/maps/api/place/photo' +
+            `?maxwidth=800&photo_reference=${p.photo_reference}&key=${API_KEY}`,
+        ),
+      latitude: geometry.location?.lat,
+      longitude: geometry.location?.lng,
+      google_url: typeof r.url === 'string' ? r.url : undefined,
+    };
+  } catch {
+    return undefined;
+  }
+}

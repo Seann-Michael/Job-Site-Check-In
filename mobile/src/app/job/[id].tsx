@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { CategorySheet } from '@/components/category-sheet';
@@ -29,7 +29,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export default function JobDetailScreen() {
   const { colors } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, capture } = useLocalSearchParams<{ id: string; capture?: string }>();
   const { user, initializing } = useAuth();
 
   const { data: job } = useData(() => fetchJob(id ?? ''));
@@ -76,6 +76,16 @@ export default function JobDetailScreen() {
     },
     [job, capturing, refresh],
   );
+
+  // Arriving from "Create job → Capture now": start the before-photo capture
+  // once the job has loaded (native only — web needs a user gesture).
+  const autoCaptured = useRef(false);
+  useEffect(() => {
+    if (capture === 'before' && job && !autoCaptured.current && Platform.OS !== 'web') {
+      autoCaptured.current = true;
+      void startCapture('before');
+    }
+  }, [capture, job, startCapture]);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;

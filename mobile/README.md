@@ -45,9 +45,26 @@ the web app writes (GPS in the `metadata` json); in demo mode photos persist
 on-device. Gallery and job detail render the real photos, with a green pin on
 geotagged ones.
 
+## Milestone 3 (shipped): new-job flow
+
+Jobs tab **+** button → `/job/new`: title, service-type chips, client contact,
+and address with Google Places autocomplete + Street View preview
+(`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`; manual entry without it). Jobs save in the
+same payload shape as the web Add Job page; after creating, the app offers to
+capture the "before" photos immediately.
+
+## Milestone 4 (shipped): real GMB connection + data
+
+The GMB tab reads the same tables as the web GMB Optimization page
+(`gmb_profiles`, `gmb_audit_results`, plus hours/Q&A/categories/services
+counts). With Supabase configured and no profile connected, it offers a
+Google business search to **connect** the profile; **Scan profile** refreshes
+the audit from Google Places using the exact rules and scoring the web app
+uses (`src/lib/gmb.ts` mirrors `generateAuditFromPlace`). Editing
+hours/Q&A/services stays on the web dashboard for now.
+
 ## Roadmap (next milestones)
 
-1. Job creation with address autocomplete + Street View
-2. Review request sending via the Express API (Twilio)
-3. Real GMB audit data + profile management
-4. Push notifications, business switcher, EAS build + store submission
+1. Review request sending via the Express API (Twilio)
+2. GMB profile editing from mobile (hours, Q&A, services)
+3. Push notifications, business switcher, EAS build + store submission

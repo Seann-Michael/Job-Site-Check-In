@@ -3,6 +3,8 @@ import { Image } from 'expo-image';
 import { Redirect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -157,8 +159,25 @@ export default function NewJobScreen() {
       notify('Job not created', result.error ?? 'Something went wrong. Please try again.');
       return;
     }
-    notify('Job created', `${result.job.title} is ready — capture photos from the job screen.`);
-    router.replace({ pathname: '/job/[id]', params: { id: result.job.id } });
+    const jobId = result.job.id;
+    if (Platform.OS === 'web') {
+      notify('Job created', `${result.job.title} is ready — capture photos from the job screen.`);
+      router.replace({ pathname: '/job/[id]', params: { id: jobId } });
+      return;
+    }
+    // Close the loop on site: offer to shoot the "before" photos right away.
+    Alert.alert('Job created', 'Capture before photos now?', [
+      {
+        text: 'Later',
+        style: 'cancel',
+        onPress: () => router.replace({ pathname: '/job/[id]', params: { id: jobId } }),
+      },
+      {
+        text: 'Capture now',
+        onPress: () =>
+          router.replace({ pathname: '/job/[id]', params: { id: jobId, capture: 'before' } }),
+      },
+    ]);
   };
 
   const streetView = coords ? streetViewImageUrl(coords.latitude, coords.longitude) : undefined;
