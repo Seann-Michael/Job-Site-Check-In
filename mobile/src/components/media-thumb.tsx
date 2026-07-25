@@ -54,7 +54,11 @@ export function MediaThumb({ item }: { item: MediaItem }) {
           <Ionicons name="play" size={13} color={colors.text} />
         </View>
       ) : null}
-      {typeof item.latitude === 'number' ? (
+      {item.pending ? (
+        <View style={[styles.overlayIcon, { backgroundColor: chipBg }]}>
+          <Ionicons name="cloud-upload-outline" size={12} color={colors.warning} />
+        </View>
+      ) : typeof item.latitude === 'number' ? (
         <View style={[styles.overlayIcon, { backgroundColor: chipBg }]}>
           <Ionicons name="location" size={12} color={colors.success} />
         </View>

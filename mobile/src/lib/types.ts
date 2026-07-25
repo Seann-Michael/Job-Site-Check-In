@@ -62,6 +62,8 @@ export interface MediaItem {
   uri?: string;
   latitude?: number;
   longitude?: number;
+  /** Waiting in the offline upload queue. */
+  pending?: boolean;
 }
 
 export type AuditStatus = 'pass' | 'warn' | 'fail';

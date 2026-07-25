@@ -22,6 +22,7 @@ import { Linking, Platform } from 'react-native';
 import { getMediaPrefs, QUALITY_DIMENSIONS } from '@/lib/media-prefs';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { uploadQueue } from '@/lib/upload-queue';
 import type { MediaCategory, MediaItem } from '@/lib/types';
 
 export interface CaptureResult {
@@ -31,6 +32,13 @@ export interface CaptureResult {
   /** Camera permission permanently denied — offer a path to Settings. */
   needsSettings?: boolean;
   hasLocation?: boolean;
+  /** Saved on-device; uploads automatically when the network returns. */
+  queued?: boolean;
+}
+
+function isNetworkError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /network|fetch|timeout|timed out|connection|offline/i.test(message);
 }
 
 const PENDING_CAPTURE_KEY = 'lsr-pending-capture-v1';
@@ -230,6 +238,39 @@ export async function savePreparedImage(
       mediaStore.notifyChanged();
       return { item, hasLocation: Boolean(geo) };
     } catch (error) {
+      if (isNetworkError(error)) {
+        // Offline on a job site: keep the photo and queue the upload.
+        const localUri = await persistLocalCopy(image.uri);
+        await uploadQueue.enqueue({
+          id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          job_id: jobId,
+          job_title: jobTitle,
+          category,
+          uri: localUri,
+          width: image.width,
+          height: image.height,
+          taken_at: takenAt,
+          latitude: geo?.latitude,
+          longitude: geo?.longitude,
+        });
+        mediaStore.notifyChanged();
+        return {
+          queued: true,
+          hasLocation: Boolean(geo),
+          item: {
+            id: `pending-${takenAt}`,
+            job_id: jobId,
+            job_title: jobTitle,
+            media_type: 'image',
+            category,
+            taken_at: takenAt,
+            uri: localUri,
+            latitude: geo?.latitude,
+            longitude: geo?.longitude,
+            pending: true,
+          },
+        };
+      }
       return {
         error: error instanceof Error ? error.message : 'Upload failed. Please try again.',
       };
@@ -307,6 +348,31 @@ export async function captureJobPhoto(
 
   return saveCapture(jobId, jobTitle, category, outcome.asset);
 }
+
+// Flush handler: re-read the queued file and push it through the same
+// upload path. Returns false while still offline so the queue stops early.
+uploadQueue.setFlushHandler(async (queued) => {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(queued.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    await uploadToSupabase(
+      queued.job_id,
+      queued.job_title,
+      queued.category,
+      { base64, width: queued.width, height: queued.height },
+      undefined,
+      typeof queued.latitude === 'number' && typeof queued.longitude === 'number'
+        ? { latitude: queued.latitude, longitude: queued.longitude, accuracy: null }
+        : undefined,
+      queued.taken_at,
+    );
+    mediaStore.notifyChanged();
+    return true;
+  } catch {
+    return false;
+  }
+});
 
 /**
  * Android only: if the OS killed the app while the camera was open, the

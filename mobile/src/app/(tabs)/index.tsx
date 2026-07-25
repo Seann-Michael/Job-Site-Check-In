@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Fab } from '@/components/fab';
 import { JobCard } from '@/components/job-card';
 import { SearchBar } from '@/components/search-bar';
+import { UploadBanner } from '@/components/upload-banner';
 import { EmptyState, Segmented, StatTile } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
@@ -66,6 +67,7 @@ export default function JobsScreen() {
           avatarName={user?.name ?? 'User'}
           action={{ icon: 'people-outline', onPress: () => router.push('/clients') }}
         />
+        <UploadBanner />
         <SearchBar value={query} onChangeText={setQuery} placeholder="Search jobs, clients..." />
         <View style={{ flexDirection: 'row', gap: Spacing.md }}>
           <StatTile value={String(stats.open)} label="Active jobs" tone="primary" />

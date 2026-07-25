@@ -14,6 +14,7 @@ import { DEMO_JOBS, DEMO_MEDIA, DEMO_REVIEW_REQUESTS } from '@/lib/demo-data';
 import { jobsStore } from '@/lib/jobs-store';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { uploadQueue } from '@/lib/upload-queue';
 import { workspace } from '@/lib/workspace';
 import type { Job, JobStatus, MediaItem, ReviewRequest, ServiceType } from '@/lib/types';
 
@@ -242,19 +243,39 @@ function mapMediaRow(row: Row): MediaItem {
   };
 }
 
+/** Photos waiting in the offline upload queue, shown with a pending badge. */
+async function pendingMedia(jobId?: string): Promise<MediaItem[]> {
+  const queued = await uploadQueue.getAll();
+  return queued
+    .filter((item) => !jobId || item.job_id === jobId)
+    .map((item) => ({
+      id: item.id,
+      job_id: item.job_id,
+      job_title: item.job_title,
+      media_type: 'image' as const,
+      category: item.category,
+      taken_at: item.taken_at,
+      uri: item.uri,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      pending: true,
+    }));
+}
+
 export async function fetchMedia(): Promise<MediaItem[]> {
   if (!isSupabaseConfigured) {
     // Demo mode: photos captured on this device, then the sample set.
     const captured = await mediaStore.getCaptured();
     return [...captured, ...DEMO_MEDIA];
   }
+  const pending = await pendingMedia();
   const { data, error } = await supabase
     .from('job_media')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
-  if (error) return DEMO_MEDIA;
-  return (data as Row[]).map(mapMediaRow);
+  if (error) return [...pending, ...DEMO_MEDIA];
+  return [...pending, ...(data as Row[]).map(mapMediaRow)];
 }
 
 export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
@@ -262,13 +283,14 @@ export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
     const all = await fetchMedia();
     return all.filter((item) => item.job_id === jobId);
   }
+  const pending = await pendingMedia(jobId);
   const { data, error } = await supabase
     .from('job_media')
     .select('*')
     .eq('job_id', jobId)
     .order('created_at', { ascending: false })
     .limit(60);
-  if (error || !data) return [];
-  return (data as Row[]).map(mapMediaRow);
+  if (error || !data) return pending;
+  return [...pending, ...(data as Row[]).map(mapMediaRow)];
 }
 

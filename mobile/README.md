@@ -117,6 +117,21 @@ The CompanyCam-style loop closes: `/publish/[id]` (from the job screen's
   local-data reset), and Media & Camera (photo quality, GPS toggle, default
   category — all read by the capture pipeline).
 
+## Milestone 10 (shipped): Before/After composer
+
+`/before-after/[id]` from the job screen: pick a before and an after photo,
+side-by-side or stacked, with BEFORE/AFTER labels and a branded footer.
+Export at 1200px via react-native-view-shot — share through the native sheet
+or save into the job as a Final photo (feeds the publish flow).
+
+## Milestone 11 (shipped): offline capture + upload queue
+
+When a capture can't reach Supabase (network error), the processed photo is
+kept on-device and queued (`src/lib/upload-queue.ts`). The queue flushes on
+app launch, every 30s in the background, and via a "Retry now" banner on the
+Jobs screen. Queued photos appear immediately in the gallery and job media
+with a pending-upload badge.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { notify } from '@/lib/format';
 import { recoverPendingCapture } from '@/lib/media-capture';
+import { uploadQueue } from '@/lib/upload-queue';
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemePreferenceProvider } from '@/providers/theme-preference';
 
@@ -19,6 +20,12 @@ function RootNavigator() {
         notify('Photo recovered', 'A photo from your last session was saved to its job.');
       }
     });
+    // Offline queue: try on launch, then keep retrying in the background.
+    void uploadQueue.flush();
+    const interval = setInterval(() => {
+      if (uploadQueue.countSync() > 0) void uploadQueue.flush();
+    }, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   const base = isDark ? DarkTheme : DefaultTheme;

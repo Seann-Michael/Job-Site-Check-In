@@ -94,10 +94,12 @@ export default function JobDetailScreen() {
         }
         refresh();
         notify(
-          'Photo saved',
-          result.hasLocation
-            ? 'Saved with GPS location — great for local SEO.'
-            : 'Saved without GPS (location unavailable or permission denied).',
+          result.queued ? 'Saved offline' : 'Photo saved',
+          result.queued
+            ? 'No connection right now — the photo is queued and uploads automatically when you are back online.'
+            : result.hasLocation
+              ? 'Saved with GPS location — great for local SEO.'
+              : 'Saved without GPS (location unavailable or permission denied).',
         );
       } finally {
         setCapturing(false);
