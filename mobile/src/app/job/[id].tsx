@@ -258,7 +258,7 @@ export default function JobDetailScreen() {
                   </Text>
                   {job.address || job.latitude != null ? (
                     <Pressable
-                      onPress={() => openDirections(job)}
+                      onPress={() => void openDirections(job)}
                       hitSlop={8}
                       style={({ pressed }) => [
                         styles.directionsChip,

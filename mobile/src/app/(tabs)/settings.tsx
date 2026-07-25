@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { Screen, ScreenHeader, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { getNavApp, NAV_APP_LABELS, type NavApp } from '@/lib/directions';
 import { useAuth } from '@/providers/auth-provider';
 import { useThemePreference } from '@/providers/theme-preference';
 
@@ -60,6 +61,13 @@ export default function SettingsScreen() {
   const { user, signOut } = useAuth();
   const { business } = useWorkspace();
   const { preference } = useThemePreference();
+  const [navApp, setNavAppState] = React.useState<NavApp>('system');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void getNavApp().then(setNavAppState);
+    }, []),
+  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -138,8 +146,14 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="camera-outline"
             label="Media & camera"
-            sub="Photo quality, GPS, default category"
+            sub="Photo quality, GPS, stamps, logo"
             onPress={() => router.push('/settings/media')}
+          />
+          <SettingsRow
+            icon="navigate-outline"
+            label="Navigation app"
+            sub={NAV_APP_LABELS[navApp]}
+            onPress={() => router.push('/settings/navigation')}
           />
           <SettingsRow
             icon="pulse-outline"
