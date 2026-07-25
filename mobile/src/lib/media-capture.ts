@@ -200,27 +200,31 @@ async function persistLocalCopy(uri: string): Promise<string> {
   }
 }
 
-async function saveCapture(
+/**
+ * Save an already-processed JPEG (from the camera pipeline or a composed
+ * image like a before/after collage) to the job's media.
+ */
+export async function savePreparedImage(
   jobId: string,
   jobTitle: string,
   category: MediaCategory,
-  asset: ImagePicker.ImagePickerAsset,
+  image: { uri: string; base64: string; width: number; height: number },
+  extras?: { geo?: GeoFix; exif?: Record<string, unknown> },
 ): Promise<CaptureResult> {
   const takenAt = new Date().toISOString();
-  const prefs = await getMediaPrefs();
-  const geo = prefs.attachGps ? await getLocationFix() : undefined;
-  const exif = (asset.exif ?? undefined) as Record<string, unknown> | undefined;
-
-  let image: { uri: string; base64: string; width: number; height: number };
-  try {
-    image = await normalizeImage(asset);
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Could not process the photo.' };
-  }
+  const geo = extras?.geo;
 
   if (isSupabaseConfigured) {
     try {
-      const item = await uploadToSupabase(jobId, jobTitle, category, image, exif, geo, takenAt);
+      const item = await uploadToSupabase(
+        jobId,
+        jobTitle,
+        category,
+        image,
+        extras?.exif,
+        geo,
+        takenAt,
+      );
       // Uploads don't touch the demo store — ping subscribers so open
       // screens (Gallery, job detail) refetch from Supabase.
       mediaStore.notifyChanged();
@@ -245,6 +249,26 @@ async function saveCapture(
   };
   await mediaStore.add(item);
   return { item, hasLocation: Boolean(geo) };
+}
+
+async function saveCapture(
+  jobId: string,
+  jobTitle: string,
+  category: MediaCategory,
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<CaptureResult> {
+  const prefs = await getMediaPrefs();
+  const geo = prefs.attachGps ? await getLocationFix() : undefined;
+  const exif = (asset.exif ?? undefined) as Record<string, unknown> | undefined;
+
+  let image: { uri: string; base64: string; width: number; height: number };
+  try {
+    image = await normalizeImage(asset);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Could not process the photo.' };
+  }
+
+  return savePreparedImage(jobId, jobTitle, category, image, { geo, exif });
 }
 
 export async function captureJobPhoto(

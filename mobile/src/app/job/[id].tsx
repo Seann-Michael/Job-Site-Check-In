@@ -268,6 +268,17 @@ export default function JobDetailScreen() {
               />
             )}
 
+            {jobMedia.length > 0 ? (
+              <Button
+                label="Before / After collage"
+                icon="images-outline"
+                variant="secondary"
+                onPress={() =>
+                  router.push({ pathname: '/before-after/[id]', params: { id: job.id } })
+                }
+              />
+            ) : null}
+
             {mediaRows.length > 0 ? (
               <Section title="Latest media">
                 <View style={{ gap: Spacing.sm }}>
