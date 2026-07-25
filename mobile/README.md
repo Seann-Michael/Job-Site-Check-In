@@ -197,6 +197,21 @@ configured. Two ways to use it:
 - **Diagnostics** shows device info only (phone type, OS + build, app build
   type) — the Supabase/API connection details were removed from the page.
 
+## Milestone 22 (shipped): the CompanyCam field toolkit
+
+- **Photo comments & @mentions** — comment threads on any photo in the
+  full-screen viewer, with quick-tap mention chips for teammates.
+- **Share gallery links** — pick a job's photos and send the client one
+  public web-gallery link (goes live when the web app is connected).
+- **PDF job reports** — branded report (logo, job details, site visits,
+  checklist, notes, photo grid) via expo-print, straight to the share sheet.
+- **Photo annotation** — draw, arrows, circles and text labels on photos
+  (react-native-svg), then share or save the marked-up copy to the job.
+- **Voice notes** — record audio notes on a job (expo-audio) with playback
+  and per-note delete.
+- **Team on site** — live presence built on check-ins: who's at which job
+  and for how long, on the Activity screen and the job screen.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

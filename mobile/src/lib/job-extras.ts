@@ -38,15 +38,23 @@ export interface JobDocument {
   added_at: string;
 }
 
-interface JobExtras {
+export interface VoiceNote {
+  id: string;
+  uri: string;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface JobExtras {
   checkins: CheckIn[];
   notes: JobNote[];
   documents: JobDocument[];
+  voiceNotes?: VoiceNote[];
 }
 
 type ExtrasMap = Record<string, JobExtras>;
 
-const EMPTY: JobExtras = { checkins: [], notes: [], documents: [] };
+const EMPTY: JobExtras = { checkins: [], notes: [], documents: [], voiceNotes: [] };
 
 let cache: ExtrasMap | null = null;
 const listeners = new Set<() => void>();
@@ -80,6 +88,11 @@ export const jobExtras = {
   async get(jobId: string): Promise<JobExtras> {
     const map = await load();
     return map[jobId] ?? { ...EMPTY };
+  },
+
+  /** Every job's extras (used by team presence to find active check-ins). */
+  async getAll(): Promise<Record<string, JobExtras>> {
+    return load();
   },
 
   /** The check-in without a checkout, if any. */
@@ -195,6 +208,35 @@ export const jobExtras = {
       ],
     }));
     return { added: true };
+  },
+
+  /** Store a finished voice recording with the job (durable local copy). */
+  async addVoiceNote(jobId: string, recordingUri: string, durationMs: number): Promise<void> {
+    let uri = recordingUri;
+    try {
+      const dir = `${FileSystem.documentDirectory ?? ''}voice-notes/`;
+      await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => undefined);
+      const ext = recordingUri.split('.').pop() ?? 'm4a';
+      const target = `${dir}${Date.now()}.${ext}`;
+      await FileSystem.copyAsync({ from: recordingUri, to: target });
+      uri = target;
+    } catch {
+      // Web or copy failure — keep the recorder uri.
+    }
+    await mutate(jobId, (extras) => ({
+      ...extras,
+      voiceNotes: [
+        { id: `v-${Date.now()}`, uri, duration_ms: durationMs, created_at: new Date().toISOString() },
+        ...(extras.voiceNotes ?? []),
+      ],
+    }));
+  },
+
+  async deleteVoiceNote(jobId: string, voiceNoteId: string): Promise<void> {
+    await mutate(jobId, (extras) => ({
+      ...extras,
+      voiceNotes: (extras.voiceNotes ?? []).filter((note) => note.id !== voiceNoteId),
+    }));
   },
 
   subscribe(listener: () => void): () => void {

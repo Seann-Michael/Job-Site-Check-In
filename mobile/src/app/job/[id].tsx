@@ -18,6 +18,7 @@ import { CategorySheet } from '@/components/category-sheet';
 import { JOB_STATUS_TONES, SERVICE_ICONS } from '@/components/job-card';
 import { MediaThumb } from '@/components/media-thumb';
 import { MediaViewer } from '@/components/media-viewer';
+import { VoiceNotes } from '@/components/voice-notes';
 import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
@@ -33,7 +34,10 @@ import { jobsStore } from '@/lib/jobs-store';
 import { captureJobMedia, openAppSettings, type CaptureSource } from '@/lib/media-capture';
 import { getMediaPrefs } from '@/lib/media-prefs';
 import { DESTINATION_LABELS, getPublishRecord } from '@/lib/publish';
+import { exportJobReport } from '@/lib/report';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useJobPresence } from '@/lib/team-presence';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
 import { useAuth } from '@/providers/auth-provider';
@@ -51,6 +55,7 @@ export default function JobDetailScreen() {
   const { colors } = useTheme();
   const { id, capture } = useLocalSearchParams<{ id: string; capture?: string }>();
   const { user, initializing } = useAuth();
+  const { business } = useWorkspace();
 
   const router = useRouter();
   const { data: job, refresh: refreshJob } = useData(() => fetchJob(id ?? ''));
@@ -81,6 +86,27 @@ export default function JobDetailScreen() {
   useEffect(() => jobExtras.subscribe(refreshExtras), [refreshExtras]);
 
   const activeVisit = (extras?.checkins ?? []).find((visit) => !visit.checked_out_at);
+  const presence = useJobPresence(id ?? '', user?.name ?? 'You');
+  const teammatesOnSite = presence.filter((entry) => !entry.isYou);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportReport = async () => {
+    if (!job || exporting) return;
+    setExporting(true);
+    try {
+      const result = await exportJobReport({
+        job,
+        media: jobMediaData ?? [],
+        tasks: tasks ?? [],
+        extras: extras ?? { checkins: [], notes: [], documents: [] },
+        businessName: business?.name ?? 'Your business',
+        businessId: business?.id,
+      });
+      if (result.error) notify('Could not export', result.error);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleCheckInOut = async () => {
     if (!id || checkingIn) return;
@@ -392,6 +418,22 @@ export default function JobDetailScreen() {
               />
             </Card>
 
+            {teammatesOnSite.length > 0 ? (
+              <Card style={{ gap: Spacing.sm }}>
+                {teammatesOnSite.map((entry) => (
+                  <View key={entry.name} style={styles.infoRow}>
+                    <View style={[styles.presenceDot, { backgroundColor: colors.success }]} />
+                    <Text style={{ flex: 1, fontSize: 13.5, color: colors.text }}>
+                      <Text style={{ fontWeight: '700' }}>{entry.name}</Text> is on site
+                    </Text>
+                    <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                      {visitDuration(entry.since)}
+                    </Text>
+                  </View>
+                ))}
+              </Card>
+            ) : null}
+
             {publishRecord ? (
               <Card style={{ gap: Spacing.sm }}>
                 <View style={styles.publishedHeader}>
@@ -429,6 +471,24 @@ export default function JobDetailScreen() {
                 }
               />
             ) : null}
+
+            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+              <Button
+                label="PDF report"
+                icon="document-text-outline"
+                variant="secondary"
+                style={{ flex: 1 }}
+                loading={exporting}
+                onPress={() => void handleExportReport()}
+              />
+              <Button
+                label="Share gallery"
+                icon="link-outline"
+                variant="secondary"
+                style={{ flex: 1 }}
+                onPress={() => router.push({ pathname: '/share/[id]', params: { id: job.id } })}
+              />
+            </View>
 
             {mediaRows.length > 0 ? (
               <Section title="Latest media">
@@ -541,6 +601,8 @@ export default function JobDetailScreen() {
                 ))}
               </Card>
             </Section>
+
+            <VoiceNotes jobId={id ?? ''} notes={extras?.voiceNotes ?? []} />
 
             <Section
               title={`Documents (${extras?.documents.length ?? 0})`}
@@ -668,6 +730,10 @@ export default function JobDetailScreen() {
           setViewerIndex(null);
           router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
         }}
+        onAnnotate={(item) => {
+          setViewerIndex(null);
+          router.push({ pathname: '/annotate', params: { mediaId: item.id } });
+        }}
       />
     </>
   );
@@ -736,5 +802,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md - 2,
+  },
+  presenceDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
 });

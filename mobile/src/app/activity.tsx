@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect } from 'expo-router';
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Redirect, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, StatTile, type IconName } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
@@ -13,6 +13,8 @@ import { formatDate } from '@/lib/format';
 import { fetchGmbData } from '@/lib/gmb';
 import { fetchRecentPosts } from '@/lib/publish';
 import { DEMO_GMB_PROFILE } from '@/lib/demo-data';
+import { jobExtras, visitDuration } from '@/lib/job-extras';
+import { fetchPresence, type Presence } from '@/lib/team-presence';
 import { useAuth } from '@/providers/auth-provider';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -26,7 +28,24 @@ interface ActivityEvent {
 
 export default function ActivityScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { user, initializing } = useAuth();
+  const [presence, setPresence] = useState<Presence[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void fetchPresence(user?.name ?? 'You').then((all) => {
+        if (alive) setPresence(all);
+      });
+    };
+    refresh();
+    const unsubscribe = jobExtras.subscribe(refresh);
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [user?.name]);
   const { data: jobs } = useData(fetchJobs);
   const { data: media } = useData(fetchMedia);
   const { data: posts } = useData(fetchRecentPosts);
@@ -120,6 +139,52 @@ export default function ActivityScreen() {
         <StatTile value={String(stats.publishes)} label="Publishes" tone="warning" />
       </View>
 
+      <Section title="Team on site">
+        {presence.length === 0 ? (
+          <Card>
+            <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+              Nobody is checked in right now. Check-ins from the job screen appear here live.
+            </Text>
+          </Card>
+        ) : (
+          <Card style={{ padding: 0 }}>
+            {presence.map((entry, index) => {
+              const job = (jobs ?? []).find((candidate) => candidate.id === entry.jobId);
+              return (
+                <Pressable
+                  key={`${entry.name}-${entry.jobId}`}
+                  onPress={() =>
+                    router.push({ pathname: '/job/[id]', params: { id: entry.jobId } })
+                  }
+                  style={({ pressed }) => [
+                    styles.presenceRow,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: colors.border,
+                    },
+                    pressed && { backgroundColor: colors.cardPressed },
+                  ]}>
+                  <View style={[styles.presenceDot, { backgroundColor: colors.success }]} />
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                      {entry.isYou ? 'You' : entry.name}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                      {job?.title ?? 'Job'}
+                      {job?.city ? ` · ${job.city}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.success }}>
+                    {visitDuration(entry.since)}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                </Pressable>
+              );
+            })}
+          </Card>
+        )}
+      </Section>
+
       <Section title="Photos this week">
         <Card style={{ gap: Spacing.sm }}>
           <View style={styles.chart}>
@@ -191,6 +256,18 @@ export default function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  presenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  presenceDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
   chart: {
     flexDirection: 'row',
     alignItems: 'flex-end',

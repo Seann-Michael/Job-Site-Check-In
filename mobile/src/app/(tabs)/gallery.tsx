@@ -88,6 +88,10 @@ export default function GalleryScreen() {
           setViewerIndex(null);
           router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
         }}
+        onAnnotate={(item) => {
+          setViewerIndex(null);
+          router.push({ pathname: '/annotate', params: { mediaId: item.id } });
+        }}
       />
     </Screen>
   );
