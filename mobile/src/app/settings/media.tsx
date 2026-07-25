@@ -104,6 +104,57 @@ export default function MediaSettingsScreen() {
         </Card>
       </Section>
 
+      <Section title="Photo stamps">
+        <Card style={{ padding: 0 }}>
+          {(
+            [
+              {
+                key: 'stampBusiness' as const,
+                icon: 'business-outline' as const,
+                label: 'Business name stamp',
+                sub: 'Overlay your business name on photos',
+              },
+              {
+                key: 'stampTimestamp' as const,
+                icon: 'time-outline' as const,
+                label: 'Timestamp stamp',
+                sub: 'Overlay the capture date and time',
+              },
+              {
+                key: 'stampGps' as const,
+                icon: 'navigate-outline' as const,
+                label: 'GPS coordinates stamp',
+                sub: 'Overlay latitude/longitude (needs GPS on)',
+              },
+            ]
+          ).map((row, index) => (
+            <View
+              key={row.key}
+              style={[
+                styles.row,
+                index > 0 && {
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border,
+                },
+              ]}>
+              <IconTile icon={row.icon} size={34} tone={prefs[row.key] ? 'primary' : 'neutral'} />
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                  {row.label}
+                </Text>
+                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{row.sub}</Text>
+              </View>
+              <Switch
+                value={prefs[row.key]}
+                onValueChange={(value) => update({ [row.key]: value })}
+                trackColor={{ true: colors.primary, false: colors.cardPressed }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          ))}
+        </Card>
+      </Section>
+
       <Section title="Default photo category">
         <Card style={{ padding: 0 }}>
           {CATEGORY_OPTIONS.map((option, index) => {

@@ -23,6 +23,10 @@ export interface QueuedUpload {
   taken_at: string;
   latitude?: number;
   longitude?: number;
+  /** File details; older queue items default to jpeg images. */
+  ext?: string;
+  content_type?: string;
+  media_type?: 'image' | 'video';
 }
 
 type FlushHandler = (item: QueuedUpload) => Promise<boolean>;

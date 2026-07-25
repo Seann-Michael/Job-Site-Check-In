@@ -17,12 +17,21 @@ export interface MediaPrefs {
   attachGps: boolean;
   /** Skip the category sheet and use this category, or ask every time. */
   defaultCategory: MediaCategory | 'ask';
+  /** Burn the capture date/time onto the photo. */
+  stampTimestamp: boolean;
+  /** Burn the GPS coordinates onto the photo. */
+  stampGps: boolean;
+  /** Burn the business name onto the photo. */
+  stampBusiness: boolean;
 }
 
 export const DEFAULT_MEDIA_PREFS: MediaPrefs = {
   quality: 'standard',
   attachGps: true,
   defaultCategory: 'ask',
+  stampTimestamp: true,
+  stampGps: true,
+  stampBusiness: true,
 };
 
 export const QUALITY_DIMENSIONS: Record<PhotoQuality, number | null> = {

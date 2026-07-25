@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 
+import { StampHost } from '@/components/stamp-host';
 import { useTheme } from '@/hooks/use-theme';
 import { notify } from '@/lib/format';
 import { recoverPendingCapture } from '@/lib/media-capture';
@@ -51,6 +52,7 @@ function RootNavigator() {
             contentStyle: { backgroundColor: colors.background },
           }}
         />
+        <StampHost />
       </ThemeProvider>
     </AuthProvider>
   );

@@ -24,7 +24,7 @@ import { fetchJob, fetchJobMedia } from '@/lib/data';
 import { tasksStore } from '@/lib/tasks-store';
 import { formatDate, JOB_STATUS_LABELS, notify } from '@/lib/format';
 import { jobsStore } from '@/lib/jobs-store';
-import { captureJobPhoto, openAppSettings } from '@/lib/media-capture';
+import { captureJobMedia, openAppSettings, type CaptureSource } from '@/lib/media-capture';
 import { getMediaPrefs } from '@/lib/media-prefs';
 import { DESTINATION_LABELS, getPublishRecord } from '@/lib/publish';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -71,11 +71,16 @@ export default function JobDetailScreen() {
   const [newTask, setNewTask] = useState('');
 
   const startCapture = useCallback(
-    async (category: MediaCategory) => {
+    async (category: MediaCategory, source: CaptureSource) => {
       if (!job || capturing) return;
       setCapturing(true);
       try {
-        const result = await captureJobPhoto(job.id, job.title, category);
+        // Launching the picker too soon after an alert/sheet dismissal hangs
+        // the native presentation on iOS.
+        if (Platform.OS === 'ios') {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        const result = await captureJobMedia(job.id, job.title, category, source);
         if (result.canceled) return;
         if (result.needsSettings) {
           if (Platform.OS === 'web') {
@@ -88,18 +93,20 @@ export default function JobDetailScreen() {
           }
           return;
         }
-        if (result.error) {
-          notify('Photo not saved', result.error);
+        if (result.saved === 0 && result.queued === 0) {
+          notify('Not saved', result.error ?? 'Something went wrong. Please try again.');
           return;
         }
         refresh();
+        const total = result.saved + result.queued;
+        const what = total === 1 ? 'Media item' : `${total} media items`;
         notify(
-          result.queued ? 'Saved offline' : 'Photo saved',
-          result.queued
-            ? 'No connection right now — the photo is queued and uploads automatically when you are back online.'
+          result.queued > 0 ? 'Saved offline' : 'Saved',
+          result.queued > 0
+            ? `${what} saved — uploads automatically when you are back online.`
             : result.hasLocation
-              ? 'Saved with GPS location — great for local SEO.'
-              : 'Saved without GPS (location unavailable or permission denied).',
+              ? `${what} saved with GPS location — great for local SEO.`
+              : `${what} saved (no GPS — location unavailable or turned off).`,
         );
       } finally {
         setCapturing(false);
@@ -108,13 +115,29 @@ export default function JobDetailScreen() {
     [job, capturing, refresh],
   );
 
+  const chooseSource = useCallback(
+    (category: MediaCategory) => {
+      if (Platform.OS === 'web') {
+        void startCapture(category, 'library');
+        return;
+      }
+      Alert.alert('Add media', 'Photos are stamped per your media settings.', [
+        { text: 'Take photo', onPress: () => void startCapture(category, 'camera-photo') },
+        { text: 'Record video', onPress: () => void startCapture(category, 'camera-video') },
+        { text: 'Choose from gallery', onPress: () => void startCapture(category, 'library') },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    },
+    [startCapture],
+  );
+
   // Arriving from "Create job → Capture now": start the before-photo capture
   // once the job has loaded (native only — web needs a user gesture).
   const autoCaptured = useRef(false);
   useEffect(() => {
     if (capture === 'before' && job && !autoCaptured.current && Platform.OS !== 'web') {
       autoCaptured.current = true;
-      void startCapture('before');
+      void startCapture('before', 'camera-photo');
     }
   }, [capture, job, startCapture]);
 
@@ -134,11 +157,11 @@ export default function JobDetailScreen() {
   const handleCategoryPick = (category: MediaCategory) => {
     setSheetVisible(false);
     if (Platform.OS === 'ios') {
-      // Presenting the camera while the sheet is mid-dismissal hangs the
-      // picker on iOS — wait for the Modal's onDismiss instead.
+      // Presenting anything while the sheet is mid-dismissal misbehaves on
+      // iOS — wait for the Modal's onDismiss instead.
       setPendingCategory(category);
     } else {
-      void startCapture(category);
+      chooseSource(category);
     }
   };
 
@@ -146,7 +169,7 @@ export default function JobDetailScreen() {
     if (pendingCategory) {
       const category = pendingCategory;
       setPendingCategory(null);
-      void startCapture(category);
+      chooseSource(category);
     }
   };
 
@@ -214,7 +237,7 @@ export default function JobDetailScreen() {
 
             <View style={{ flexDirection: 'row', gap: Spacing.md }}>
               <Button
-                label="Capture photo"
+                label="Add media"
                 icon="camera-outline"
                 style={{ flex: 1 }}
                 loading={capturing}
@@ -222,7 +245,7 @@ export default function JobDetailScreen() {
                   // Media settings can pin a default category and skip the sheet.
                   void getMediaPrefs().then((prefs) => {
                     if (prefs.defaultCategory !== 'ask') {
-                      void startCapture(prefs.defaultCategory);
+                      chooseSource(prefs.defaultCategory);
                     } else {
                       setSheetVisible(true);
                     }

@@ -132,6 +132,18 @@ app launch, every 30s in the background, and via a "Retry now" banner on the
 Jobs screen. Queued photos appear immediately in the gallery and job media
 with a pending-upload badge.
 
+## Milestone 12 (shipped): media sources + photo stamps
+
+- **Add media** on a job now offers three sources: take photo, record video
+  (30s cap), or choose from the device gallery (multi-select up to 10,
+  photos and videos).
+- **Photo stamps** burned into images at capture time via an offscreen
+  render (`src/components/stamp-host.tsx`): business name, capture
+  timestamp, and GPS coordinates — each individually toggleable in
+  Settings → Media & camera, alongside the geotag toggle.
+- Videos upload with correct mime types and flow through the same offline
+  queue as photos.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
