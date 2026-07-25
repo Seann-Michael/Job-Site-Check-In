@@ -372,6 +372,18 @@ async function applyStamps(
   }
 }
 
+/** Save a photo taken by the in-app camera through the normal pipeline
+ *  (normalize → stamps → upload or offline queue). */
+export async function saveCameraPhoto(
+  jobId: string,
+  jobTitle: string,
+  category: MediaCategory,
+  photo: { uri: string; width: number; height: number; exif?: Record<string, unknown> },
+  geo: GeoFix | undefined,
+): Promise<CaptureResult> {
+  return saveImageAsset(jobId, jobTitle, category, photo as ImagePicker.ImagePickerAsset, geo);
+}
+
 async function saveImageAsset(
   jobId: string,
   jobTitle: string,

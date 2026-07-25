@@ -87,6 +87,7 @@ export default function JobsScreen() {
           subtitle={business?.name ?? ''}
           avatarName={user?.name ?? 'User'}
           actions={[
+            { icon: 'camera-outline', onPress: () => router.push('/capture-picker') },
             { icon: 'map-outline', onPress: () => router.push('/map') },
             { icon: 'settings-outline', onPress: () => router.push('/settings') },
           ]}

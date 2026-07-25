@@ -183,6 +183,17 @@ export default function JobDetailScreen() {
     [job, capturing, refresh],
   );
 
+  const openCamera = useCallback(
+    (category: MediaCategory) => {
+      if (!job) return;
+      router.push({
+        pathname: '/camera',
+        params: { jobId: job.id, jobTitle: job.title, category },
+      });
+    },
+    [job, router],
+  );
+
   const chooseSource = useCallback(
     (category: MediaCategory) => {
       if (Platform.OS === 'web') {
@@ -190,24 +201,24 @@ export default function JobDetailScreen() {
         return;
       }
       Alert.alert('Add media', 'Photos are stamped per your media settings.', [
-        { text: 'Take photo', onPress: () => void startCapture(category, 'camera-photo') },
+        { text: 'Take photos (in-app camera)', onPress: () => openCamera(category) },
         { text: 'Record video', onPress: () => void startCapture(category, 'camera-video') },
         { text: 'Choose from gallery', onPress: () => void startCapture(category, 'library') },
         { text: 'Cancel', style: 'cancel' },
       ]);
     },
-    [startCapture],
+    [startCapture, openCamera],
   );
 
-  // Arriving from "Create job → Capture now": start the before-photo capture
-  // once the job has loaded (native only — web needs a user gesture).
+  // Arriving from "Create job → Capture now": open the in-app camera for
+  // before photos once the job has loaded (native only).
   const autoCaptured = useRef(false);
   useEffect(() => {
     if (capture === 'before' && job && !autoCaptured.current && Platform.OS !== 'web') {
       autoCaptured.current = true;
-      void startCapture('before', 'camera-photo');
+      openCamera('before');
     }
-  }, [capture, job, startCapture]);
+  }, [capture, job, openCamera]);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;

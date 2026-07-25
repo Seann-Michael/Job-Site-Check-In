@@ -212,6 +212,23 @@ configured. Two ways to use it:
 - **Team on site** — live presence built on check-ins: who's at which job
   and for how long, on the Activity screen and the job screen.
 
+## Milestone 23 (shipped): in-app camera + capture-first flow
+
+CompanyCam-style camera (`/camera`, expo-camera) replacing the native
+one-shot picker for photos: stays open for rapid multi-shot capture, with
+the job name in the viewfinder, Before/Progress/After/Final chips,
+1x/2x/4x zoom, flash (off/on/auto) + camera flip, a rule-of-thirds grid,
+and a quick-settings popover (grid + stamp Date/Time, Lat/Long, Business,
+Logo toggles — same prefs as Settings → Media). A running shot counter
+shows the last-photo thumbnail, an offline pill appears when shots queue,
+and every shot flows through the normal pipeline (stamps, GPS,
+upload/queue) saving in the background so the shutter is instantly ready
+again. "Record video" and "Choose from gallery" keep the native pickers.
+
+**Capture-first**: the camera icon on the Jobs header opens "Take photos"
+— open jobs sorted by distance ("1.53 miles away", with an On site badge
+under a quarter mile) — tap one and you're in the camera.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
