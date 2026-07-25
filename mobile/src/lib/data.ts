@@ -18,6 +18,7 @@ import {
   DEMO_MEDIA,
   DEMO_REVIEW_REQUESTS,
 } from '@/lib/demo-data';
+import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type {
   GmbAuditItem,
@@ -132,24 +133,59 @@ export async function fetchReviewRequests(): Promise<ReviewRequest[]> {
   }));
 }
 
+function mapMediaRow(row: Row): MediaItem {
+  // GPS lives in the geolocation jsonb column (mobile writes) with the
+  // metadata json as a fallback. job_media has no job_title column.
+  const geolocation = (row.geolocation ?? {}) as Row;
+  const metadata = (row.metadata ?? {}) as Row;
+  const coord = (key: 'latitude' | 'longitude'): number | undefined => {
+    if (typeof geolocation[key] === 'number') return geolocation[key] as number;
+    if (typeof metadata[key] === 'number') return metadata[key] as number;
+    return undefined;
+  };
+  return {
+    id: str(row, 'id', String(row.id ?? '')),
+    job_id: str(row, 'job_id'),
+    job_title: '',
+    media_type: str(row, 'media_type') === 'video' ? 'video' : 'image',
+    // Web uploads default to 'general' and also use reference/walkthrough/
+    // demonstration — anything outside our four buckets lands in 'progress'.
+    category: oneOf(str(row, 'category'), MEDIA_CATEGORIES, 'progress'),
+    taken_at: str(row, 'taken_at', str(row, 'created_at')),
+    uri: str(row, 'file_path') || undefined,
+    latitude: coord('latitude'),
+    longitude: coord('longitude'),
+  };
+}
+
 export async function fetchMedia(): Promise<MediaItem[]> {
-  if (!isSupabaseConfigured) return DEMO_MEDIA;
+  if (!isSupabaseConfigured) {
+    // Demo mode: photos captured on this device, then the sample set.
+    const captured = await mediaStore.getCaptured();
+    return [...captured, ...DEMO_MEDIA];
+  }
   const { data, error } = await supabase
     .from('job_media')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) return DEMO_MEDIA;
-  return (data as Row[]).map((row) => ({
-    id: str(row, 'id', String(row.id ?? '')),
-    job_id: str(row, 'job_id'),
-    job_title: str(row, 'job_title'),
-    media_type: str(row, 'media_type') === 'video' ? 'video' : 'image',
-    // Web uploads default to 'general' and also use reference/walkthrough/
-    // demonstration — anything outside our four buckets lands in 'progress'.
-    category: oneOf(str(row, 'category'), MEDIA_CATEGORIES, 'progress'),
-    taken_at: str(row, 'taken_at', str(row, 'created_at')),
-  }));
+  return (data as Row[]).map(mapMediaRow);
+}
+
+export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
+  if (!isSupabaseConfigured) {
+    const all = await fetchMedia();
+    return all.filter((item) => item.job_id === jobId);
+  }
+  const { data, error } = await supabase
+    .from('job_media')
+    .select('*')
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false })
+    .limit(60);
+  if (error || !data) return [];
+  return (data as Row[]).map(mapMediaRow);
 }
 
 export async function fetchGmbProfile(): Promise<GmbProfile> {

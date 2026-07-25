@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -14,11 +15,12 @@ const CATEGORY_LABELS: Record<MediaCategory, string> = {
 };
 
 /**
- * Placeholder thumbnail: a tinted tile per category. Real photo rendering
- * (Supabase Storage URLs via expo-image) arrives with the capture milestone.
+ * Renders the real photo when the item has a URI (captured or from Supabase
+ * Storage); otherwise a tinted placeholder tile per category.
  */
 export function MediaThumb({ item }: { item: MediaItem }) {
   const { colors, isDark } = useTheme();
+  const [loadFailed, setLoadFailed] = React.useState(false);
 
   const tints: Record<MediaCategory, { bg: string; fg: string }> = {
     before: { bg: isDark ? '#252B38' : '#E7EBF1', fg: colors.textSecondary },
@@ -28,20 +30,36 @@ export function MediaThumb({ item }: { item: MediaItem }) {
   };
   const tint = tints[item.category] ?? tints.progress;
   const label = CATEGORY_LABELS[item.category] ?? 'Photo';
+  const chipBg = isDark ? '#000000A0' : '#ffffffE0';
 
   return (
     <View style={[styles.tile, { backgroundColor: tint.bg }]}>
-      <Ionicons
-        name={item.media_type === 'video' ? 'videocam' : 'image-outline'}
-        size={26}
-        color={tint.fg}
-      />
+      {item.uri && !loadFailed ? (
+        <Image
+          source={{ uri: item.uri }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={120}
+          onError={() => setLoadFailed(true)}
+        />
+      ) : (
+        <Ionicons
+          name={item.media_type === 'video' ? 'videocam' : 'image-outline'}
+          size={26}
+          color={tint.fg}
+        />
+      )}
       {item.media_type === 'video' ? (
-        <View style={[styles.playOverlay, { backgroundColor: isDark ? '#00000066' : '#ffffffAA' }]}>
+        <View style={[styles.overlayIcon, { backgroundColor: chipBg }]}>
           <Ionicons name="play" size={13} color={colors.text} />
         </View>
       ) : null}
-      <View style={[styles.chip, { backgroundColor: isDark ? '#00000080' : '#ffffffE0' }]}>
+      {typeof item.latitude === 'number' ? (
+        <View style={[styles.overlayIcon, { backgroundColor: chipBg }]}>
+          <Ionicons name="location" size={12} color={colors.success} />
+        </View>
+      ) : null}
+      <View style={[styles.chip, { backgroundColor: chipBg }]}>
         <Text style={[styles.chipText, { color: colors.text }]}>{label}</Text>
       </View>
     </View>
@@ -57,7 +75,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  playOverlay: {
+  overlayIcon: {
     position: 'absolute',
     top: 6,
     right: 6,

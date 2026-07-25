@@ -8,6 +8,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchMedia } from '@/lib/data';
 import { useData } from '@/hooks/use-data';
+import { useMediaRefresh } from '@/hooks/use-media-refresh';
 import type { MediaItem } from '@/lib/types';
 
 const FILTERS = [
@@ -27,6 +28,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 export default function GalleryScreen() {
   const { colors } = useTheme();
   const { data: media, loading, refreshing, refresh } = useData(fetchMedia);
+  useMediaRefresh(refresh);
   const [filter, setFilter] = useState('all');
 
   const filtered = useMemo(() => {
@@ -66,7 +68,7 @@ export default function GalleryScreen() {
         </View>
       )}
       <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center' }}>
-        Geotagged photo capture arrives with the next milestone.
+        Capture geotagged photos from any job&apos;s detail screen.
       </Text>
     </Screen>
   );

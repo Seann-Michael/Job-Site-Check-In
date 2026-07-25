@@ -58,6 +58,10 @@ export interface MediaItem {
   media_type: 'image' | 'video';
   category: MediaCategory;
   taken_at: string;
+  /** Public URL (Supabase Storage) or local file URI for captured photos. */
+  uri?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export type AuditStatus = 'pass' | 'warn' | 'fail';

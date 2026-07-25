@@ -35,10 +35,19 @@ npx expo start
 Scan the QR code with the **Expo Go** app (App Store / Play Store) to run it on
 your phone, or press `w` for the browser preview.
 
+## Milestone 2 (shipped): geotagged photo capture
+
+From any job's detail screen: **Capture photo** → pick a category
+(Before / Progress / After / Final) → camera opens → the photo is saved with a
+GPS fix. With Supabase configured it uploads to the `media` storage bucket at
+`project-media/{jobId}/…` and inserts a `job_media` row with the same columns
+the web app writes (GPS in the `metadata` json); in demo mode photos persist
+on-device. Gallery and job detail render the real photos, with a green pin on
+geotagged ones.
+
 ## Roadmap (next milestones)
 
-1. Geotagged photo capture (camera + EXIF/GPS) uploading to Supabase Storage
-2. Job creation with address autocomplete + Street View
-3. Review request sending via the Express API (Twilio)
-4. Real GMB audit data + profile management
-5. Push notifications, business switcher, EAS build + store submission
+1. Job creation with address autocomplete + Street View
+2. Review request sending via the Express API (Twilio)
+3. Real GMB audit data + profile management
+4. Push notifications, business switcher, EAS build + store submission
