@@ -13,8 +13,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TagEditor } from '@/components/tag-editor';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { formatDate } from '@/lib/format';
+import { setMediaTags } from '@/lib/media-tags';
 import type { MediaItem } from '@/lib/types';
 
 const { width: WINDOW_WIDTH } = Dimensions.get('window');
@@ -32,13 +35,29 @@ export function MediaViewer({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [index, setIndex] = React.useState(initialIndex);
+  const [editingTags, setEditingTags] = React.useState(false);
+  const [tagDraft, setTagDraft] = React.useState<string[]>([]);
 
   React.useEffect(() => {
-    if (visible) setIndex(initialIndex);
+    if (visible) {
+      setIndex(initialIndex);
+      setEditingTags(false);
+    }
   }, [visible, initialIndex]);
 
   const current = items[index];
+
+  const startEditingTags = () => {
+    setTagDraft(current?.tags ?? []);
+    setEditingTags(true);
+  };
+
+  const saveTags = () => {
+    if (current) void setMediaTags(current.id, tagDraft);
+    setEditingTags(false);
+  };
 
   const handleShare = async () => {
     if (!current) return;
@@ -107,6 +126,16 @@ export function MediaViewer({
 
         {current ? (
           <View style={[styles.caption, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            {editingTags ? (
+              <View style={[styles.tagPanel, { backgroundColor: colors.card }]}>
+                <TagEditor tags={tagDraft} onChange={setTagDraft} placeholder="Tag this photo..." />
+                <Pressable onPress={saveTags} style={[styles.tagSave, { backgroundColor: colors.primary }]}>
+                  <Text style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 13 }}>
+                    Done
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Text style={styles.captionTitle} numberOfLines={1}>
               {current.job_title || 'Job photo'}
             </Text>
@@ -120,6 +149,12 @@ export function MediaViewer({
                   <Text style={styles.geoText}>GPS</Text>
                 </View>
               ) : null}
+              <Pressable onPress={startEditingTags} hitSlop={8} style={styles.tagButton}>
+                <Ionicons name="pricetag-outline" size={11} color="#7DD3FC" />
+                <Text style={styles.tagButtonText}>
+                  {current.tags?.length ? current.tags.map((t) => `#${t}`).join(' ') : 'Add tags'}
+                </Text>
+              </Pressable>
             </View>
           </View>
         ) : null}
@@ -205,5 +240,32 @@ const styles = StyleSheet.create({
     color: '#34D399',
     fontSize: 10,
     fontWeight: '700',
+  },
+  tagButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#0C2B4080',
+    borderRadius: Radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    maxWidth: 200,
+  },
+  tagButtonText: {
+    color: '#7DD3FC',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  tagPanel: {
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  tagSave: {
+    alignSelf: 'flex-end',
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
   },
 });

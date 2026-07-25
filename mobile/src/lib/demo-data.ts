@@ -22,6 +22,8 @@ export const DEMO_BUSINESS: Business = {
 export const DEMO_JOBS: Job[] = [
   {
     id: 'job-1',
+    latitude: 41.4553,
+    longitude: -81.9179,
     title: 'Gutter guard installation',
     client_name: 'Sarah Mitchell',
     address: '214 Maple Ave',
@@ -34,6 +36,8 @@ export const DEMO_JOBS: Job[] = [
   },
   {
     id: 'job-2',
+    latitude: 41.5053,
+    longitude: -82.0282,
     title: 'Backyard French drain',
     client_name: 'Tom Rivera',
     address: '88 Birchwood Ct',
@@ -46,6 +50,8 @@ export const DEMO_JOBS: Job[] = [
   },
   {
     id: 'job-3',
+    latitude: 41.4848,
+    longitude: -81.9312,
     title: 'Sump pump replacement',
     client_name: 'Linda Okafor',
     address: '12 Harbor View Dr',
@@ -58,6 +64,8 @@ export const DEMO_JOBS: Job[] = [
   },
   {
     id: 'job-4',
+    latitude: 41.4157,
+    longitude: -81.9235,
     title: 'Roof soft wash',
     client_name: 'Greenfield HOA',
     address: '400 Commons Blvd',
@@ -70,6 +78,8 @@ export const DEMO_JOBS: Job[] = [
   },
   {
     id: 'job-5',
+    latitude: 41.4767,
+    longitude: -81.8398,
     title: 'Patio drainage regrade',
     client_name: 'Mike Donnelly',
     address: '61 Cedar Point Rd',
@@ -82,6 +92,8 @@ export const DEMO_JOBS: Job[] = [
   },
   {
     id: 'job-6',
+    latitude: 41.4824,
+    longitude: -81.7982,
     title: 'Downspout extension install',
     client_name: 'Priya Shah',
     address: '730 Lakewood Heights Blvd',

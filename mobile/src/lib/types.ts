@@ -34,6 +34,9 @@ export interface Job {
   start_date: string;
   photo_count: number;
   review_requested: boolean;
+  latitude?: number;
+  longitude?: number;
+  tags?: string[];
 }
 
 export type ReviewRequestStatus = 'sent' | 'viewed' | 'completed' | 'expired' | 'scheduled';
@@ -64,6 +67,7 @@ export interface MediaItem {
   longitude?: number;
   /** Waiting in the offline upload queue. */
   pending?: boolean;
+  tags?: string[];
 }
 
 export type AuditStatus = 'pass' | 'warn' | 'fail';

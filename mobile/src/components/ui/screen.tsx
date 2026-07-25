@@ -47,18 +47,26 @@ export function Screen({
   );
 }
 
+interface HeaderAction {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+}
+
 export function ScreenHeader({
   title,
   subtitle,
   avatarName,
   action,
+  actions,
 }: {
   title: string;
   subtitle?: string;
   avatarName?: string;
-  action?: { icon: React.ComponentProps<typeof Ionicons>['name']; onPress: () => void };
+  action?: HeaderAction;
+  actions?: HeaderAction[];
 }) {
   const { colors } = useTheme();
+  const allActions = actions ?? (action ? [action] : []);
   return (
     <View style={[styles.header, { paddingTop: Spacing.md }]}>
       <View style={styles.headerText}>
@@ -68,18 +76,19 @@ export function ScreenHeader({
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       </View>
       <View style={styles.headerRight}>
-        {action ? (
+        {allActions.map((item) => (
           <Pressable
-            onPress={action.onPress}
+            key={item.icon}
+            onPress={item.onPress}
             hitSlop={8}
             style={({ pressed }) => [
               styles.headerAction,
               { backgroundColor: colors.card, borderColor: colors.border },
               pressed && { backgroundColor: colors.cardPressed },
             ]}>
-            <Ionicons name={action.icon} size={19} color={colors.textSecondary} />
+            <Ionicons name={item.icon} size={19} color={colors.textSecondary} />
           </Pressable>
-        ) : null}
+        ))}
         {avatarName ? <Avatar name={avatarName} size={38} /> : null}
       </View>
     </View>
@@ -89,12 +98,15 @@ export function ScreenHeader({
 export function DetailHeader({
   title,
   action,
+  actions,
 }: {
   title: string;
-  action?: { icon: React.ComponentProps<typeof Ionicons>['name']; onPress: () => void };
+  action?: HeaderAction;
+  actions?: HeaderAction[];
 }) {
   const { colors } = useTheme();
   const router = useRouter();
+  const allActions = actions ?? (action ? [action] : []);
   return (
     <View style={[styles.detailHeader, { paddingTop: Spacing.sm }]}>
       <Pressable
@@ -106,13 +118,18 @@ export function DetailHeader({
       <Text style={[styles.detailTitle, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
-      {action ? (
-        <Pressable
-          onPress={action.onPress}
-          hitSlop={10}
-          style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
-          <Ionicons name={action.icon} size={22} color={colors.text} />
-        </Pressable>
+      {allActions.length > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+          {allActions.map((item) => (
+            <Pressable
+              key={item.icon}
+              onPress={item.onPress}
+              hitSlop={10}
+              style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
+              <Ionicons name={item.icon} size={22} color={colors.text} />
+            </Pressable>
+          ))}
+        </View>
       ) : (
         <View style={{ width: 26 }} />
       )}

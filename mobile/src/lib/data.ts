@@ -12,6 +12,7 @@
 
 import { DEMO_JOBS, DEMO_MEDIA, DEMO_REVIEW_REQUESTS } from '@/lib/demo-data';
 import { jobsStore } from '@/lib/jobs-store';
+import { getMediaTagOverrides } from '@/lib/media-tags';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { uploadQueue } from '@/lib/upload-queue';
@@ -73,6 +74,10 @@ function mapJob(row: Row): Job {
     str(row, 'address') ||
     (metaAddress ? str(metaAddress, 'street') : str(metadata, 'address'));
   const city = str(row, 'city') || (metaAddress ? str(metaAddress, 'city') : str(metadata, 'city'));
+  const coordinates =
+    metaAddress && typeof metaAddress.coordinates === 'object' && metaAddress.coordinates !== null
+      ? (metaAddress.coordinates as { lat?: number; lng?: number })
+      : undefined;
   return {
     id: str(row, 'id', String(row.id ?? '')),
     title: str(row, 'name', str(row, 'title', 'Untitled job')),
@@ -88,13 +93,18 @@ function mapJob(row: Row): Job {
     start_date: str(row, 'started_at', str(row, 'start_date', str(row, 'created_at'))),
     photo_count: num(row, 'photo_count'),
     review_requested: Boolean(row.review_requested),
+    latitude: typeof coordinates?.lat === 'number' ? coordinates.lat : undefined,
+    longitude: typeof coordinates?.lng === 'number' ? coordinates.lng : undefined,
+    tags: Array.isArray(metadata.tags) ? (metadata.tags as string[]) : undefined,
   };
 }
 
 export async function fetchJobs(): Promise<Job[]> {
   if (!isSupabaseConfigured) {
     const created = await jobsStore.getCreated();
-    return [...created, ...DEMO_JOBS];
+    const createdIds = new Set(created.map((job) => job.id));
+    // Local copies (created or edited demo jobs) win over the demo seeds.
+    return [...created, ...DEMO_JOBS.filter((job) => !createdIds.has(job.id))];
   }
   // Scope to the active business, like the web workspaceService does.
   const business = await workspace.getCurrent();
@@ -115,6 +125,64 @@ export async function fetchJob(id: string): Promise<Job | undefined> {
   const { data, error } = await supabase.from('jobs').select('*').eq('id', id).maybeSingle();
   if (error) return DEMO_JOBS.find((job) => job.id === id);
   return data ? mapJob(data as Row) : undefined;
+}
+
+export interface JobPatch {
+  title?: string;
+  service_type?: ServiceType;
+  client_name?: string;
+  address?: string;
+  city?: string;
+  status?: JobStatus;
+  tags?: string[];
+}
+
+/** Update a job — Supabase row when configured, local copy in demo. */
+export async function updateJob(job: Job, patch: JobPatch): Promise<{ error?: string }> {
+  const next: Job = { ...job, ...patch };
+
+  if (!isSupabaseConfigured) {
+    await jobsStore.upsert(next);
+    return {};
+  }
+
+  const update: Record<string, unknown> = {};
+  if (patch.title !== undefined) update.name = patch.title;
+  if (patch.service_type !== undefined) update.type = patch.service_type;
+  if (patch.status !== undefined) {
+    update.status = patch.status;
+    if (patch.status === 'completed') update.completed_at = new Date().toISOString();
+  }
+  if (patch.client_name !== undefined) {
+    update.client_contact = { name: patch.client_name };
+  }
+  if (
+    patch.address !== undefined ||
+    patch.city !== undefined ||
+    patch.tags !== undefined ||
+    patch.service_type !== undefined
+  ) {
+    // metadata carries address/tags on the web side — rebuild it from the
+    // merged job so we don't clobber unknown keys with partial data.
+    update.metadata = {
+      address: {
+        street: next.address,
+        city: next.city,
+        coordinates:
+          typeof next.latitude === 'number' && typeof next.longitude === 'number'
+            ? { lat: next.latitude, lng: next.longitude }
+            : undefined,
+      },
+      service_type: next.service_type,
+      tags: next.tags ?? [],
+      source: 'mobile',
+    };
+  }
+
+  const { error } = await supabase.from('jobs').update(update).eq('id', job.id);
+  if (error) return { error: error.message };
+  jobsStore.notifyChanged();
+  return {};
 }
 
 export interface NewJobInput {
@@ -150,6 +218,8 @@ export async function createJob(
       start_date: startedAt,
       photo_count: 0,
       review_requested: false,
+      latitude: input.latitude,
+      longitude: input.longitude,
     };
     await jobsStore.add(job);
     return { job };
@@ -240,7 +310,13 @@ function mapMediaRow(row: Row): MediaItem {
     uri: str(row, 'file_path') || undefined,
     latitude: coord('latitude'),
     longitude: coord('longitude'),
+    tags: Array.isArray(metadata.tags) ? (metadata.tags as string[]) : undefined,
   };
+}
+
+async function applyTagOverrides(items: MediaItem[]): Promise<MediaItem[]> {
+  const overrides = await getMediaTagOverrides();
+  return items.map((item) => (overrides[item.id] ? { ...item, tags: overrides[item.id] } : item));
 }
 
 /** Photos waiting in the offline upload queue, shown with a pending badge. */
@@ -266,7 +342,7 @@ export async function fetchMedia(): Promise<MediaItem[]> {
   if (!isSupabaseConfigured) {
     // Demo mode: photos captured on this device, then the sample set.
     const captured = await mediaStore.getCaptured();
-    return [...captured, ...DEMO_MEDIA];
+    return applyTagOverrides([...captured, ...DEMO_MEDIA]);
   }
   const pending = await pendingMedia();
   const { data, error } = await supabase
@@ -274,8 +350,8 @@ export async function fetchMedia(): Promise<MediaItem[]> {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
-  if (error) return [...pending, ...DEMO_MEDIA];
-  return [...pending, ...(data as Row[]).map(mapMediaRow)];
+  if (error) return applyTagOverrides([...pending, ...DEMO_MEDIA]);
+  return applyTagOverrides([...pending, ...(data as Row[]).map(mapMediaRow)]);
 }
 
 export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
@@ -290,7 +366,7 @@ export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
     .eq('job_id', jobId)
     .order('created_at', { ascending: false })
     .limit(60);
-  if (error || !data) return pending;
-  return [...pending, ...(data as Row[]).map(mapMediaRow)];
+  if (error || !data) return applyTagOverrides(pending);
+  return applyTagOverrides([...pending, ...(data as Row[]).map(mapMediaRow)]);
 }
 

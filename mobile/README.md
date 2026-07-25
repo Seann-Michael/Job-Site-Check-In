@@ -144,7 +144,25 @@ with a pending-upload badge.
 - Videos upload with correct mime types and flow through the same offline
   queue as photos.
 
+## Milestones 13–17 (shipped): map, editing, today, analytics, tags
+
+- **Job map** (`/map`, map icon on Jobs header): react-native-maps pins for
+  every job with GPS, callouts open the job; web build shows a list fallback.
+  **Directions** chip on the job screen opens turn-by-turn in Apple/Google Maps.
+- **Job editing & status** (`/job/edit/[id]` + ⋯ menu on the job screen):
+  edit title/service/client/address, and set active / in-progress / paused /
+  completed / cancelled. Demo-seed jobs become editable local copies.
+- **Today + reminders**: a Today section tops the Jobs list; local
+  "job starts today" notifications fire at 7:30 AM for upcoming jobs
+  (Expo Go-compatible; governed by the Job updates toggle).
+- **Activity dashboard** (`/activity`, stats icon on Jobs header): open/
+  completed/photos/publishes tiles, photos-per-day chart, GMB score, and a
+  recent-activity feed.
+- **Tags** on jobs (edit screen; searchable from Jobs) and on photos/videos
+  (tag button in the full-screen viewer), stored in the same metadata.tags
+  field the web app uses.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
-2. Push notifications, EAS build + store submission
+2. Remote push notifications, EAS build + store submission

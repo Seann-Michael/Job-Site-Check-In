@@ -20,7 +20,9 @@ import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchJob, fetchJobMedia } from '@/lib/data';
+import { fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
+import { openDirections } from '@/lib/directions';
+import { TagList } from '@/components/tag-editor';
 import { tasksStore } from '@/lib/tasks-store';
 import { formatDate, JOB_STATUS_LABELS, notify } from '@/lib/format';
 import { jobsStore } from '@/lib/jobs-store';
@@ -192,12 +194,47 @@ export default function JobDetailScreen() {
     }
   };
 
+  const openJobMenu = () => {
+    if (!job) return;
+    const setStatus = async (status: typeof job.status) => {
+      const result = await updateJob(job, { status });
+      if (result.error) notify('Could not update', result.error);
+      else refreshJob();
+    };
+    if (Platform.OS === 'web') {
+      router.push({ pathname: '/job/edit/[id]', params: { id: job.id } });
+      return;
+    }
+    Alert.alert(job.title, 'Manage this job', [
+      {
+        text: 'Edit job',
+        onPress: () => router.push({ pathname: '/job/edit/[id]', params: { id: job.id } }),
+      },
+      job.status !== 'active'
+        ? { text: 'Mark active', onPress: () => void setStatus('active') }
+        : { text: 'Mark in progress', onPress: () => void setStatus('in_progress') },
+      job.status !== 'paused'
+        ? { text: 'Pause job', onPress: () => void setStatus('paused') }
+        : { text: 'Resume job', onPress: () => void setStatus('active') },
+      { text: 'Mark completed', onPress: () => void setStatus('completed') },
+      {
+        text: 'Cancel job',
+        style: 'destructive',
+        onPress: () => void setStatus('cancelled'),
+      },
+      { text: 'Close', style: 'cancel' },
+    ]);
+  };
+
   return (
     <>
       <Screen>
         <DetailHeader
           title="Job details"
-          action={{ icon: 'share-outline', onPress: () => void shareJob() }}
+          actions={[
+            { icon: 'share-outline', onPress: () => void shareJob() },
+            { icon: 'ellipsis-horizontal', onPress: openJobMenu },
+          ]}
         />
 
         {job ? (
@@ -219,6 +256,21 @@ export default function JobDetailScreen() {
                   <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
                     {[job.address, job.city].filter(Boolean).join(', ') || 'No address on file'}
                   </Text>
+                  {job.address || job.latitude != null ? (
+                    <Pressable
+                      onPress={() => openDirections(job)}
+                      hitSlop={8}
+                      style={({ pressed }) => [
+                        styles.directionsChip,
+                        { backgroundColor: colors.primarySoft },
+                        pressed && { opacity: 0.7 },
+                      ]}>
+                      <Ionicons name="navigate" size={12} color={colors.primaryStrong} />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primaryStrong }}>
+                        Directions
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 <View style={styles.infoRow}>
                   <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
@@ -232,6 +284,7 @@ export default function JobDetailScreen() {
                     {photoCount} photos captured
                   </Text>
                 </View>
+                {job.tags?.length ? <TagList tags={job.tags} /> : null}
               </View>
             </Card>
 
@@ -440,5 +493,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  directionsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
 });

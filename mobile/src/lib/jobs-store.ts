@@ -56,6 +56,24 @@ export const jobsStore = {
     }
   },
 
+  /**
+   * Insert or replace a job in the local store. Editing a demo-seed job
+   * copies it in here, and fetchJobs prefers this copy over the seed.
+   */
+  async upsert(job: Job): Promise<void> {
+    await load();
+    const exists = created.some((existing) => existing.id === job.id);
+    created = exists
+      ? created.map((existing) => (existing.id === job.id ? job : existing))
+      : [job, ...created];
+    emit();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(created));
+    } catch {
+      // Best-effort persistence.
+    }
+  },
+
   notifyChanged(): void {
     emit();
   },

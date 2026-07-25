@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Fab } from '@/components/fab';
 import { JobCard } from '@/components/job-card';
@@ -11,6 +11,7 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchJobs } from '@/lib/data';
+import { syncJobReminders } from '@/lib/notifications';
 import { useData } from '@/hooks/use-data';
 import { useJobsRefresh } from '@/hooks/use-jobs-refresh';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -43,7 +44,7 @@ export default function JobsScreen() {
       }
       if (filter === 'completed' && job.status !== 'completed') return false;
       if (!q) return true;
-      return [job.title, job.client_name, job.city, job.address]
+      return [job.title, job.client_name, job.city, job.address, ...(job.tags ?? [])]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -58,6 +59,25 @@ export default function JobsScreen() {
     return { open, photos, reviews };
   }, [jobs]);
 
+  const todayJobs = useMemo(() => {
+    const all = jobs ?? [];
+    const today = new Date();
+    const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+      today.getDate(),
+    ).padStart(2, '0')}`;
+    return all.filter(
+      (job) =>
+        job.start_date.startsWith(stamp) &&
+        job.status !== 'completed' &&
+        job.status !== 'cancelled',
+    );
+  }, [jobs]);
+
+  // Keep "job starts today" local reminders in sync with the list.
+  React.useEffect(() => {
+    if (jobs?.length) void syncJobReminders(jobs);
+  }, [jobs]);
+
   return (
     <View style={{ flex: 1 }}>
       <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -65,7 +85,11 @@ export default function JobsScreen() {
           title="Jobs"
           subtitle={business?.name ?? ''}
           avatarName={user?.name ?? 'User'}
-          action={{ icon: 'people-outline', onPress: () => router.push('/clients') }}
+          actions={[
+            { icon: 'stats-chart-outline', onPress: () => router.push('/activity') },
+            { icon: 'map-outline', onPress: () => router.push('/map') },
+            { icon: 'people-outline', onPress: () => router.push('/clients') },
+          ]}
         />
         <UploadBanner />
         <SearchBar value={query} onChangeText={setQuery} placeholder="Search jobs, clients..." />
@@ -74,6 +98,18 @@ export default function JobsScreen() {
           <StatTile value={String(stats.photos)} label="Photos captured" />
           <StatTile value={String(stats.reviews)} label="Reviews sent" tone="success" />
         </View>
+        {todayJobs.length > 0 ? (
+          <View style={{ gap: Spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                Today ({todayJobs.length})
+              </Text>
+            </View>
+            {todayJobs.map((job) => (
+              <JobCard key={`today-${job.id}`} job={job} />
+            ))}
+          </View>
+        ) : null}
         <Segmented options={FILTERS} value={filter} onChange={setFilter} />
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />

@@ -7,6 +7,7 @@ import { Card, IconTile, type IconName } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ensureNotificationPermission } from '@/lib/notifications';
 import { useAuth } from '@/providers/auth-provider';
 
 const STORAGE_KEY = 'lsr-notification-prefs-v1';
@@ -53,6 +54,10 @@ export default function NotificationsSettingsScreen() {
     setPrefs((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+      // Turning job reminders on needs the OS notification permission.
+      if (key === 'jobUpdates' && next.jobUpdates) {
+        void ensureNotificationPermission();
+      }
       return next;
     });
   };
@@ -90,8 +95,8 @@ export default function NotificationsSettingsScreen() {
         </Card>
       </Section>
       <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
-        Preferences are saved on this device. Push delivery activates with the notifications
-        milestone.
+        Job updates schedule local &quot;job starts today&quot; reminders at 7:30 AM. Remote push
+        for reviews and GMB alerts arrives with the dev-build milestone.
       </Text>
     </Screen>
   );
