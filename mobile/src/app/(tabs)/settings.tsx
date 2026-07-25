@@ -138,6 +138,12 @@ export default function SettingsScreen() {
         <Card style={{ padding: 0 }}>
           <SettingsRow
             isFirst
+            icon="stats-chart-outline"
+            label="Activity"
+            sub="Stats, charts, recent activity"
+            onPress={() => router.push('/activity')}
+          />
+          <SettingsRow
             icon="color-palette-outline"
             label="Appearance"
             sub={THEME_LABELS[preference]}

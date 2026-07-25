@@ -4,6 +4,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Fab } from '@/components/fab';
 import { JobCard } from '@/components/job-card';
+import { NearbyJobs } from '@/components/nearby-jobs';
 import { SearchBar } from '@/components/search-bar';
 import { UploadBanner } from '@/components/upload-banner';
 import { EmptyState, Segmented, StatTile } from '@/components/ui/basics';
@@ -21,7 +22,7 @@ import { useAuth } from '@/providers/auth-provider';
 const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'completed', label: 'Complete' },
 ];
 
 export default function JobsScreen() {
@@ -86,12 +87,13 @@ export default function JobsScreen() {
           subtitle={business?.name ?? ''}
           avatarName={user?.name ?? 'User'}
           actions={[
-            { icon: 'stats-chart-outline', onPress: () => router.push('/activity') },
             { icon: 'map-outline', onPress: () => router.push('/map') },
-            { icon: 'people-outline', onPress: () => router.push('/clients') },
+            { icon: 'settings-outline', onPress: () => router.push('/settings') },
           ]}
         />
         <UploadBanner />
+        <NearbyJobs jobs={jobs ?? []} />
+        <Segmented options={FILTERS} value={filter} onChange={setFilter} />
         <SearchBar value={query} onChangeText={setQuery} placeholder="Search jobs, clients..." />
         <View style={{ flexDirection: 'row', gap: Spacing.md }}>
           <StatTile value={String(stats.open)} label="Active jobs" tone="primary" />
@@ -110,7 +112,6 @@ export default function JobsScreen() {
             ))}
           </View>
         ) : null}
-        <Segmented options={FILTERS} value={filter} onChange={setFilter} />
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
         ) : filtered.length === 0 ? (

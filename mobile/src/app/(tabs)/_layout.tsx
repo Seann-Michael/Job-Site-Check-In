@@ -70,9 +70,11 @@ export default function TabsLayout() {
         options={{ title: 'GMB', tabBarIcon: tabIcon('storefront-outline', 'storefront') }}
       />
       <Tabs.Screen
-        name="settings"
-        options={{ title: 'Settings', tabBarIcon: tabIcon('settings-outline', 'settings') }}
+        name="clients"
+        options={{ title: 'Clients', tabBarIcon: tabIcon('people-outline', 'people') }}
       />
+      {/* Settings stays routable (gear icon on Jobs) but is off the tab bar. */}
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }

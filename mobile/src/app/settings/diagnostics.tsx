@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import * as Device from 'expo-device';
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Share, StyleSheet, Text, View } from 'react-native';
@@ -10,13 +11,7 @@ import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { notify } from '@/lib/format';
-import { isPlacesConfigured } from '@/lib/places';
-import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
-const APP_URL = process.env.EXPO_PUBLIC_APP_URL ?? '';
-const WEBHOOK_ID = process.env.EXPO_PUBLIC_PUBLISH_WEBHOOK_ID ?? '';
 
 interface LocalCounts {
   photos: number;
@@ -25,21 +20,27 @@ interface LocalCounts {
   keys: number;
 }
 
-function ConfigRow({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   const { colors } = useTheme();
   return (
-    <View style={styles.configRow}>
-      <Ionicons
-        name={ok ? 'checkmark-circle' : 'close-circle'}
-        size={18}
-        color={ok ? colors.success : colors.textMuted}
-      />
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>{label}</Text>
-        <Text style={{ fontSize: 12, color: colors.textSecondary }}>{detail}</Text>
-      </View>
+    <View style={styles.infoRow}>
+      <Ionicons name={icon as never} size={18} color={colors.textSecondary} />
+      <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.text }}>{label}</Text>
+      <Text style={{ fontSize: 13.5, color: colors.textSecondary, maxWidth: '55%' }} numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
+}
+
+function buildType(): string {
+  const runtime =
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+      ? 'Expo Go'
+      : Platform.OS === 'web'
+        ? 'Web preview'
+        : 'Native build';
+  return `${runtime} · ${__DEV__ ? 'development' : 'production'}`;
 }
 
 export default function DiagnosticsScreen() {
@@ -77,15 +78,20 @@ export default function DiagnosticsScreen() {
 
   const version = Constants.expoConfig?.version ?? '0.1.0';
   const sdk = Constants.expoConfig?.sdkVersion ?? '54';
+  const phone =
+    [Device.manufacturer, Device.modelName].filter(Boolean).join(' ') ||
+    Constants.deviceName ||
+    'Unknown device';
+  const os = [Device.osName ?? Platform.OS, Device.osVersion ?? String(Platform.Version)]
+    .filter(Boolean)
+    .join(' ');
+  const osBuild = Device.osBuildId ?? Device.osInternalBuildId ?? '—';
 
   const report = [
-    `Local SEO Ranker Mobile v${version}`,
-    `Expo SDK ${sdk} · ${Platform.OS} ${Platform.Version}`,
-    `Supabase: ${isSupabaseConfigured ? 'connected' : 'demo mode'}`,
-    `Google Maps: ${isPlacesConfigured ? 'configured' : 'not set'}`,
-    `API base: ${API_BASE || 'not set'}`,
-    `App URL: ${APP_URL || 'not set'}`,
-    `Publish webhook: ${WEBHOOK_ID ? 'set' : 'not set'}`,
+    `Local SEO Ranker Mobile v${version} (Expo SDK ${sdk})`,
+    `Phone: ${phone}`,
+    `OS: ${os} (build ${osBuild})`,
+    `App build: ${buildType()}`,
     `On-device: ${counts?.photos ?? 0} photos, ${counts?.jobs ?? 0} jobs, ${counts?.publishes ?? 0} publishes`,
   ].join('\n');
 
@@ -122,34 +128,19 @@ export default function DiagnosticsScreen() {
     <Screen>
       <DetailHeader title="Diagnostics" />
 
-      <Section title="App">
-        <Card style={{ gap: Spacing.sm }}>
-          <ConfigRow label={`Version ${version}`} ok detail={`Expo SDK ${sdk} · ${Platform.OS} ${Platform.Version}`} />
+      <Section title="Phone">
+        <Card style={{ gap: Spacing.md }}>
+          <InfoRow icon="phone-portrait-outline" label="Phone type" value={phone} />
+          <InfoRow icon="hardware-chip-outline" label="Operating system" value={os} />
+          <InfoRow icon="build-outline" label="OS build" value={osBuild} />
         </Card>
       </Section>
 
-      <Section title="Connections">
+      <Section title="App">
         <Card style={{ gap: Spacing.md }}>
-          <ConfigRow
-            label="Supabase"
-            ok={isSupabaseConfigured}
-            detail={isSupabaseConfigured ? 'Connected to your project' : 'Demo mode — add EXPO_PUBLIC_SUPABASE_URL'}
-          />
-          <ConfigRow
-            label="Google Maps"
-            ok={isPlacesConfigured}
-            detail={isPlacesConfigured ? 'Autocomplete, Street View, GMB scan active' : 'Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY'}
-          />
-          <ConfigRow
-            label="Web app API"
-            ok={Boolean(API_BASE)}
-            detail={API_BASE || 'Add EXPO_PUBLIC_API_BASE_URL for server features'}
-          />
-          <ConfigRow
-            label="Publish webhook"
-            ok={Boolean(WEBHOOK_ID)}
-            detail={WEBHOOK_ID ? 'Website/GoHighLevel delivery wired' : 'Add EXPO_PUBLIC_PUBLISH_WEBHOOK_ID'}
-          />
+          <InfoRow icon="apps-outline" label="App version" value={`v${version}`} />
+          <InfoRow icon="cube-outline" label="Expo SDK" value={String(sdk)} />
+          <InfoRow icon="construct-outline" label="Build type" value={buildType()} />
         </Card>
       </Section>
 
@@ -172,7 +163,7 @@ export default function DiagnosticsScreen() {
 }
 
 const styles = StyleSheet.create({
-  configRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,

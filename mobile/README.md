@@ -186,6 +186,17 @@ configured. Two ways to use it:
   Storage + a job_documents row when configured, durable local copy always.
   Check-ins/notes are on-device for now (server sync later).
 
+## Milestone 21 (shipped): nearby jobs + navigation rework
+
+- **Nearby jobs** rail at the top of the Jobs tab: non-completed jobs with
+  GPS sorted by distance from the device (within 100 mi), with All / Open /
+  Complete filters directly beneath.
+- **Clients is now a bottom tab** (where Settings was); Settings moved to a
+  gear icon on the Jobs header, and the Activity dashboard now lives inside
+  Settings.
+- **Diagnostics** shows device info only (phone type, OS + build, app build
+  type) — the Supabase/API connection details were removed from the page.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

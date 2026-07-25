@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SearchBar } from '@/components/search-bar';
 import { Avatar, Card, EmptyState } from '@/components/ui/basics';
-import { DetailHeader, Screen } from '@/components/ui/screen';
+import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
@@ -35,7 +35,7 @@ export default function ClientsScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <DetailHeader title="Clients" />
+      <ScreenHeader title="Clients" subtitle="Everyone you've worked with" />
       <SearchBar value={query} onChangeText={setQuery} placeholder="Search clients..." />
       {filtered.length === 0 ? (
         <EmptyState
