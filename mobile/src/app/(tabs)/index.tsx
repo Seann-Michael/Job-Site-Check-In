@@ -64,6 +64,7 @@ export default function JobsScreen() {
           title="Jobs"
           subtitle={business?.name ?? ''}
           avatarName={user?.name ?? 'User'}
+          action={{ icon: 'people-outline', onPress: () => router.push('/clients') }}
         />
         <SearchBar value={query} onChangeText={setQuery} placeholder="Search jobs, clients..." />
         <View style={{ flexDirection: 'row', gap: Spacing.md }}>

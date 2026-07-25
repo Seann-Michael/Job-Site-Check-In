@@ -220,14 +220,15 @@ export async function fetchReviewRequests(): Promise<ReviewRequest[]> {
     .order('sent_at', { ascending: false })
     .limit(50);
   if (error) return DEMO_REVIEW_REQUESTS;
+  // Live columns are customer_phone / project_name (see web AdminReviews).
   return (data as Row[]).map((row) => ({
     id: str(row, 'id', String(row.id ?? '')),
     customer_name: str(row, 'customer_name', 'Customer'),
-    contact: str(row, 'contact', str(row, 'phone', str(row, 'email'))),
+    contact: str(row, 'customer_phone', str(row, 'contact', str(row, 'email'))),
     channel: str(row, 'channel') === 'email' ? 'email' : 'sms',
     status: oneOf(str(row, 'status'), REVIEW_STATUSES, 'sent'),
     sent_at: str(row, 'sent_at', str(row, 'created_at')),
-    job_title: str(row, 'job_title'),
+    job_title: str(row, 'project_name', str(row, 'job_title')),
     rating: typeof row.rating === 'number' ? (row.rating as number) : undefined,
   }));
 }

@@ -88,6 +88,15 @@ export interface Business {
   plan: string;
 }
 
+export interface ClientRecord {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  jobs_count: number;
+  last_job_at: string;
+}
+
 export interface JobTask {
   id: string;
   label: string;

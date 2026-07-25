@@ -95,6 +95,15 @@ The CompanyCam-style loop closes: `/publish/[id]` (from the job screen's
 - The job is marked `completed` (with `completed_at`) and the job screen shows
   a Published card with the destinations
 
+## Milestone 8 (shipped): publish queue + Clients CRM
+
+- **Recent posts** on the GMB tab: the `social_media_posts` queue (or local
+  publish records in demo) with status badges — publishes are visible
+  end-to-end.
+- **Clients** (people icon on the Jobs header): searchable client list from
+  the `clients` table (derived from jobs in demo) with job counts; client
+  detail has call/email quick actions, job history, and a new-job shortcut.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

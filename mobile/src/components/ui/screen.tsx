@@ -51,10 +51,12 @@ export function ScreenHeader({
   title,
   subtitle,
   avatarName,
+  action,
 }: {
   title: string;
   subtitle?: string;
   avatarName?: string;
+  action?: { icon: React.ComponentProps<typeof Ionicons>['name']; onPress: () => void };
 }) {
   const { colors } = useTheme();
   return (
@@ -65,7 +67,21 @@ export function ScreenHeader({
         ) : null}
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       </View>
-      {avatarName ? <Avatar name={avatarName} size={38} /> : null}
+      <View style={styles.headerRight}>
+        {action ? (
+          <Pressable
+            onPress={action.onPress}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerAction,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              pressed && { backgroundColor: colors.cardPressed },
+            ]}>
+            <Ionicons name={action.icon} size={19} color={colors.textSecondary} />
+          </Pressable>
+        ) : null}
+        {avatarName ? <Avatar name={avatarName} size={38} /> : null}
+      </View>
     </View>
   );
 }
@@ -128,6 +144,19 @@ const styles = StyleSheet.create({
   },
   headerText: {
     gap: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  headerAction: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subtitle: {
     fontSize: 13,

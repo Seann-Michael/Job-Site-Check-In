@@ -81,6 +81,41 @@ export function buildPublishContent(job: Job, businessName: string, photoCount: 
   };
 }
 
+export interface QueuedPost {
+  id: string;
+  title: string;
+  platform: string;
+  status: string;
+  created_at: string;
+}
+
+/** The publish queue — what the syndication pipeline has picked up or will. */
+export async function fetchRecentPosts(): Promise<QueuedPost[]> {
+  if (!isSupabaseConfigured) {
+    const records = await getPublished();
+    return records.slice(0, 10).map((record) => ({
+      id: record.job_id,
+      title: record.title,
+      platform: 'gmb',
+      status: 'scheduled',
+      created_at: record.published_at,
+    }));
+  }
+  const { data, error } = await supabase
+    .from('social_media_posts')
+    .select('id, title, platform, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((row) => ({
+    id: String(row.id),
+    title: String(row.title ?? ''),
+    platform: String(row.platform ?? 'gmb'),
+    status: String(row.status ?? 'draft'),
+    created_at: String(row.created_at ?? ''),
+  }));
+}
+
 async function getPublished(): Promise<PublishRecord[]> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);

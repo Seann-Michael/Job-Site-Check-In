@@ -17,7 +17,10 @@ import {
   scanGmb,
   type GmbAuditStatus,
 } from '@/lib/gmb';
+import { jobsStore } from '@/lib/jobs-store';
 import { isPlacesConfigured, searchBusinesses, type AddressSuggestion } from '@/lib/places';
+import { fetchRecentPosts } from '@/lib/publish';
+import { timeAgo } from '@/lib/format';
 
 const AUDIT_ICONS: Record<GmbAuditStatus, { icon: IconName; tone: Tone }> = {
   good: { icon: 'checkmark-circle', tone: 'success' },
@@ -173,6 +176,53 @@ function QuickActions({
   );
 }
 
+function RecentPosts() {
+  const { colors } = useTheme();
+  const { data: posts, refresh } = useData(fetchRecentPosts);
+  useEffect(() => jobsStore.subscribe(refresh), [refresh]);
+
+  if (!posts?.length) return null;
+  return (
+    <Section title="Recent posts">
+      <Card style={{ padding: 0 }}>
+        {posts.map((post, index) => (
+          <View
+            key={post.id}
+            style={[
+              styles.postRow,
+              index > 0 && {
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.border,
+              },
+            ]}>
+            <Ionicons name="megaphone-outline" size={17} color={colors.primary} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text
+                style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }}
+                numberOfLines={1}>
+                {post.title}
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                {post.platform.toUpperCase()} · {timeAgo(post.created_at)}
+              </Text>
+            </View>
+            <Badge
+              label={post.status}
+              tone={
+                post.status === 'published'
+                  ? 'success'
+                  : post.status === 'failed'
+                    ? 'danger'
+                    : 'primary'
+              }
+            />
+          </View>
+        ))}
+      </Card>
+    </Section>
+  );
+}
+
 export default function GmbScreen() {
   const { colors } = useTheme();
   const { data, loading, refreshing, refresh } = useData(fetchGmbData);
@@ -266,6 +316,7 @@ export default function GmbScreen() {
               }))}
             />
           </Section>
+          <RecentPosts />
           <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
             Demo data — connect Supabase to see your real profile.
           </Text>
@@ -355,6 +406,7 @@ export default function GmbScreen() {
               <AuditList items={data.audit} />
             </Section>
           ) : null}
+          <RecentPosts />
         </>
       )}
     </Screen>
@@ -440,5 +492,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md - 2,
+  },
+  postRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
 });
