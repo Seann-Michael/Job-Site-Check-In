@@ -81,6 +81,20 @@ invites), **Appearance** (System/Light/Dark override applied app-wide via
 `src/providers/theme-preference.tsx`), and **Help & support** (FAQ, email
 support, knowledge-base link via `EXPO_PUBLIC_APP_URL`).
 
+## Milestone 7 (shipped): Complete & Publish
+
+The CompanyCam-style loop closes: `/publish/[id]` (from the job screen's
+**Complete & publish** button) selects photos, auto-writes a local-SEO post
+(title, copy, hashtags, keywords, geo target), and queues delivery:
+
+- **Google Business Profile** — inserts a `social_media_posts` row
+  (platform `gmb`, status `scheduled`) that the web syndication pipeline posts
+- **Website / GoHighLevel** — fires the web app's Automation workflow webhook
+  when `EXPO_PUBLIC_API_BASE_URL` + `EXPO_PUBLIC_PUBLISH_WEBHOOK_ID` are set;
+  otherwise web automations pick the completed job up
+- The job is marked `completed` (with `completed_at`) and the job screen shows
+  a Published card with the destinations
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

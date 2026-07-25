@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 
@@ -12,7 +12,9 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchJob, fetchJobMedia, fetchJobTasks } from '@/lib/data';
 import { formatDate, JOB_STATUS_LABELS, notify } from '@/lib/format';
+import { jobsStore } from '@/lib/jobs-store';
 import { captureJobPhoto, openAppSettings } from '@/lib/media-capture';
+import { DESTINATION_LABELS, getPublishRecord } from '@/lib/publish';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
@@ -32,10 +34,22 @@ export default function JobDetailScreen() {
   const { id, capture } = useLocalSearchParams<{ id: string; capture?: string }>();
   const { user, initializing } = useAuth();
 
-  const { data: job } = useData(() => fetchJob(id ?? ''));
+  const router = useRouter();
+  const { data: job, refresh: refreshJob } = useData(() => fetchJob(id ?? ''));
   const { data: tasks } = useData(() => fetchJobTasks(id ?? ''));
   const { data: jobMediaData, refresh } = useData(() => fetchJobMedia(id ?? ''));
+  const { data: publishRecord, refresh: refreshPublish } = useData(() =>
+    getPublishRecord(id ?? ''),
+  );
   useMediaRefresh(refresh);
+  useEffect(
+    () =>
+      jobsStore.subscribe(() => {
+        refreshJob();
+        refreshPublish();
+      }),
+    [refreshJob, refreshPublish],
+  );
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<MediaCategory | null>(null);
@@ -181,6 +195,33 @@ export default function JobDetailScreen() {
               />
             </View>
 
+            {publishRecord ? (
+              <Card style={{ gap: Spacing.sm }}>
+                <View style={styles.publishedHeader}>
+                  <Ionicons name="megaphone" size={16} color={colors.success} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                    Published {formatDate(publishRecord.published_at)}
+                  </Text>
+                </View>
+                <View style={styles.publishedBadges}>
+                  {publishRecord.destinations.map((destination) => (
+                    <Badge
+                      key={destination}
+                      label={DESTINATION_LABELS[destination]}
+                      tone="success"
+                    />
+                  ))}
+                </View>
+              </Card>
+            ) : (
+              <Button
+                label="Complete & publish"
+                icon="megaphone-outline"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/publish/[id]', params: { id: job.id } })}
+              />
+            )}
+
             {mediaRows.length > 0 ? (
               <Section title="Latest media">
                 <View style={{ gap: Spacing.sm }}>
@@ -272,5 +313,15 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  publishedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  publishedBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
 });

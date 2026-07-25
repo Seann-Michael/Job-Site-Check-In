@@ -45,6 +45,17 @@ export const jobsStore = {
     }
   },
 
+  async updateStatus(id: string, status: Job['status']): Promise<void> {
+    await load();
+    created = created.map((job) => (job.id === id ? { ...job, status } : job));
+    emit();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(created));
+    } catch {
+      // Best-effort persistence.
+    }
+  },
+
   notifyChanged(): void {
     emit();
   },
