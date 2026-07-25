@@ -71,7 +71,17 @@ categories — same tables (`gmb_hours`, `gmb_qas`, `gmb_services`,
 `gmb_categories`) and write patterns as the web GMB dashboard. Demo mode edits
 persist on-device.
 
+## Milestone 6 (shipped): settings pages
+
+Every Settings row opens a working page: **Profile** (edit name; change
+password when Supabase is connected), **Notifications** (per-alert toggles,
+device-persisted), **Business** (workspace switcher — jobs and job creation
+follow the active business), **Team** (member list from `users`, local pending
+invites), **Appearance** (System/Light/Dark override applied app-wide via
+`src/providers/theme-preference.tsx`), and **Help & support** (FAQ, email
+support, knowledge-base link via `EXPO_PUBLIC_APP_URL`).
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
-2. Push notifications, business switcher, EAS build + store submission
+2. Push notifications, EAS build + store submission

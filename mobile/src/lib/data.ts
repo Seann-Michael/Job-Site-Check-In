@@ -19,6 +19,7 @@ import {
 import { jobsStore } from '@/lib/jobs-store';
 import { mediaStore } from '@/lib/media-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { workspace } from '@/lib/workspace';
 import type {
   Job,
   JobStatus,
@@ -106,11 +107,13 @@ export async function fetchJobs(): Promise<Job[]> {
     const created = await jobsStore.getCreated();
     return [...created, ...DEMO_JOBS];
   }
-  const { data, error } = await supabase
-    .from('jobs')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
+  // Scope to the active business, like the web workspaceService does.
+  const business = await workspace.getCurrent();
+  let query = supabase.from('jobs').select('*');
+  if (business && !business.id.startsWith('demo')) {
+    query = query.eq('business_id', business.id);
+  }
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(50);
   if (error) return DEMO_JOBS;
   return (data as Row[]).map(mapJob);
 }
@@ -164,9 +167,11 @@ export async function createJob(
   }
 
   // Same payload shape the web app's AdminAddProject sends to createProject.
+  const business = await workspace.getCurrent();
   const { data, error } = await supabase
     .from('jobs')
     .insert({
+      ...(business && !business.id.startsWith('demo') ? { business_id: business.id } : {}),
       name: input.title,
       description: input.notes || input.title,
       type: input.service_type,

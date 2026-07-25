@@ -7,8 +7,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { notify } from '@/lib/format';
 import { recoverPendingCapture } from '@/lib/media-capture';
 import { AuthProvider } from '@/providers/auth-provider';
+import { ThemePreferenceProvider } from '@/providers/theme-preference';
 
-export default function RootLayout() {
+function RootNavigator() {
   const { colors, isDark } = useTheme();
 
   useEffect(() => {
@@ -45,5 +46,13 @@ export default function RootLayout() {
         />
       </ThemeProvider>
     </AuthProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemePreferenceProvider>
+      <RootNavigator />
+    </ThemePreferenceProvider>
   );
 }

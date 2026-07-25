@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import React, {
   createContext,
@@ -8,7 +9,6 @@ import React, {
   useState,
 } from 'react';
 
-import { DEMO_BUSINESS } from '@/lib/demo-data';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export interface AuthUser {
@@ -20,15 +20,18 @@ export interface AuthUser {
 
 interface AuthContextValue {
   user: AuthUser | null;
-  businessName: string;
   initializing: boolean;
   isSupabaseConfigured: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInDemo: () => void;
   signOut: () => Promise<void>;
+  updateName: (name: string) => Promise<{ error?: string }>;
+  changePassword: (password: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const DEMO_PROFILE_KEY = 'lsr-demo-profile-v1';
 
 const DEMO_USER: AuthUser = {
   id: 'demo-user',
@@ -50,15 +53,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!isSupabaseConfigured) {
       // No backend configured: start signed in with demo data so the app is
       // explorable out of the box (same spirit as the web app's mock fallback).
-      setUser(DEMO_USER);
-      setInitializing(false);
-      return;
+      AsyncStorage.getItem(DEMO_PROFILE_KEY)
+        .then((raw) => {
+          if (cancelled) return;
+          const stored = raw ? (JSON.parse(raw) as { name?: string }) : {};
+          setUser({ ...DEMO_USER, name: stored.name || DEMO_USER.name });
+        })
+        .catch(() => {
+          if (!cancelled) setUser(DEMO_USER);
+        })
+        .finally(() => {
+          if (!cancelled) setInitializing(false);
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-
-    let cancelled = false;
 
     supabase.auth
       .getSession()
@@ -101,17 +116,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateName = useCallback(async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return { error: 'Name cannot be empty.' };
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.auth.updateUser({ data: { name: trimmed } });
+      if (error) return { error: error.message };
+    } else {
+      await AsyncStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify({ name: trimmed })).catch(
+        () => undefined,
+      );
+    }
+    setUser((prev) => (prev ? { ...prev, name: trimmed } : prev));
+    return {};
+  }, []);
+
+  const changePassword = useCallback(async (password: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: 'Password changes need a connected Supabase account.' };
+    }
+    if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { error: error.message };
+    return {};
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      businessName: DEMO_BUSINESS.name,
       initializing,
       isSupabaseConfigured,
       signIn,
       signInDemo,
       signOut,
+      updateName,
+      changePassword,
     }),
-    [user, initializing, signIn, signInDemo, signOut],
+    [user, initializing, signIn, signInDemo, signOut, updateName, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

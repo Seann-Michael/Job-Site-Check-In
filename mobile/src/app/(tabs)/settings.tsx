@@ -7,9 +7,9 @@ import { Avatar, Badge, Card, IconTile, type IconName } from '@/components/ui/ba
 import { Screen, ScreenHeader, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { DEMO_BUSINESS } from '@/lib/demo-data';
-import { notify } from '@/lib/format';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { useAuth } from '@/providers/auth-provider';
+import { useThemePreference } from '@/providers/theme-preference';
 
 function SettingsRow({
   icon,
@@ -47,20 +47,19 @@ function SettingsRow({
         </Text>
         {sub ? <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{sub}</Text> : null}
       </View>
-      {!danger ? (
-        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-      ) : null}
+      {!danger ? <Ionicons name="chevron-forward" size={16} color={colors.textMuted} /> : null}
     </Pressable>
   );
 }
 
+const THEME_LABELS = { system: 'Follows your device', light: 'Always light', dark: 'Always dark' };
+
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { user, businessName, signOut } = useAuth();
-
-  const comingSoon = (label: string) =>
-    notify(label, 'This section is part of an upcoming milestone.');
+  const { user, signOut } = useAuth();
+  const { business } = useWorkspace();
+  const { preference } = useThemePreference();
 
   const handleSignOut = async () => {
     await signOut();
@@ -71,7 +70,7 @@ export default function SettingsScreen() {
     <Screen>
       <ScreenHeader title="Settings" />
 
-      <Card style={styles.profileCard}>
+      <Card style={styles.profileCard} onPress={() => router.push('/settings/profile')}>
         <Avatar name={user?.name ?? 'User'} size={52} />
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
@@ -80,25 +79,43 @@ export default function SettingsScreen() {
           <Text style={{ fontSize: 13, color: colors.textSecondary }}>{user?.email ?? ''}</Text>
         </View>
         <View style={{ gap: 6, alignItems: 'flex-end' }}>
-          <Badge label={DEMO_BUSINESS.plan} tone="primary" />
+          <Badge label={business?.plan ?? 'Pro Plan'} tone="primary" />
           {user?.isDemo ? <Badge label="Demo" tone="warning" /> : null}
         </View>
       </Card>
+
+      <Section title="Account">
+        <Card style={{ padding: 0 }}>
+          <SettingsRow
+            isFirst
+            icon="person-outline"
+            label="Profile"
+            sub="Name, email, password"
+            onPress={() => router.push('/settings/profile')}
+          />
+          <SettingsRow
+            icon="notifications-outline"
+            label="Notifications"
+            sub="What alerts you get"
+            onPress={() => router.push('/settings/notifications')}
+          />
+        </Card>
+      </Section>
 
       <Section title="Workspace">
         <Card style={{ padding: 0 }}>
           <SettingsRow
             isFirst
             icon="business-outline"
-            label={businessName}
+            label={business?.name ?? 'Business'}
             sub="Switch business"
-            onPress={() => comingSoon('Business switcher')}
+            onPress={() => router.push('/settings/business')}
           />
           <SettingsRow
             icon="people-outline"
             label="Team"
-            sub="Invite and manage staff"
-            onPress={() => comingSoon('Team management')}
+            sub="Members and invites"
+            onPress={() => router.push('/settings/team')}
           />
         </Card>
       </Section>
@@ -107,22 +124,16 @@ export default function SettingsScreen() {
         <Card style={{ padding: 0 }}>
           <SettingsRow
             isFirst
-            icon="notifications-outline"
-            label="Notifications"
-            sub="Push alerts for reviews and jobs"
-            onPress={() => comingSoon('Notifications')}
-          />
-          <SettingsRow
             icon="color-palette-outline"
             label="Appearance"
-            sub="Follows your device theme"
-            onPress={() => comingSoon('Appearance')}
+            sub={THEME_LABELS[preference]}
+            onPress={() => router.push('/settings/appearance')}
           />
           <SettingsRow
             icon="help-circle-outline"
             label="Help & support"
-            sub="Knowledge base and tickets"
-            onPress={() => comingSoon('Help & support')}
+            sub="FAQ and contact"
+            onPress={() => router.push('/settings/help')}
           />
         </Card>
       </Section>
@@ -132,7 +143,7 @@ export default function SettingsScreen() {
       </Card>
 
       <Text style={{ textAlign: 'center', fontSize: 12, color: colors.textMuted }}>
-        Local SEO Ranker Mobile · v0.1.0 foundation
+        Local SEO Ranker Mobile · v0.1.0
       </Text>
     </Screen>
   );

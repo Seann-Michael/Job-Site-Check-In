@@ -12,6 +12,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { fetchJobs } from '@/lib/data';
 import { useData } from '@/hooks/use-data';
 import { useJobsRefresh } from '@/hooks/use-jobs-refresh';
+import { useWorkspace } from '@/hooks/use-workspace';
+import { workspace } from '@/lib/workspace';
 import { useAuth } from '@/providers/auth-provider';
 
 const FILTERS = [
@@ -23,9 +25,11 @@ const FILTERS = [
 export default function JobsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { user, businessName } = useAuth();
+  const { user } = useAuth();
+  const { business } = useWorkspace();
   const { data: jobs, loading, refreshing, refresh } = useData(fetchJobs);
   useJobsRefresh(refresh);
+  React.useEffect(() => workspace.subscribe(refresh), [refresh]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -56,7 +60,11 @@ export default function JobsScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Screen refreshing={refreshing} onRefresh={refresh}>
-        <ScreenHeader title="Jobs" subtitle={businessName} avatarName={user?.name ?? 'User'} />
+        <ScreenHeader
+          title="Jobs"
+          subtitle={business?.name ?? ''}
+          avatarName={user?.name ?? 'User'}
+        />
         <SearchBar value={query} onChangeText={setQuery} placeholder="Search jobs, clients..." />
         <View style={{ flexDirection: 'row', gap: Spacing.md }}>
           <StatTile value={String(stats.open)} label="Active jobs" tone="primary" />
