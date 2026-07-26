@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { fetchClients } from '@/lib/clients';
+import { clientsStore } from '@/lib/clients-store';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -18,6 +19,7 @@ export default function ClientsScreen() {
   const router = useRouter();
   const { user, initializing } = useAuth();
   const { data: clients, refreshing, refresh } = useData(fetchClients);
+  React.useEffect(() => clientsStore.subscribe(refresh), [refresh]);
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -35,7 +37,11 @@ export default function ClientsScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <ScreenHeader title="Clients" subtitle="Everyone you've worked with" />
+      <ScreenHeader
+        title="Clients"
+        subtitle="Everyone you've worked with"
+        actions={[{ icon: 'person-add-outline', onPress: () => router.push('/client/edit') }]}
+      />
       <SearchBar value={query} onChangeText={setQuery} placeholder="Search clients..." />
       {filtered.length === 0 ? (
         <EmptyState

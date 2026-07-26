@@ -11,6 +11,7 @@
     "expo": "^54.0.36",
     "expo-audio": "~1.1.1",
     "expo-camera": "~17.0.10",
+    "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",
     "expo-document-picker": "~14.0.8",

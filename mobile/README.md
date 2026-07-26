@@ -332,6 +332,18 @@ findings fixed:
   photos/video taken, tasks completed, notes, and documents from that
   visit's time window, with the visitor's name and GPS.
 
+## Milestone 30 (shipped): contact actions + client management
+
+- **Contact rows** (job page + client page,
+  `src/components/contact-row.tsx`): tap the phone number / email /
+  address to **copy it** (expo-clipboard); round icon buttons for
+  **call**, **text (SMS)**, **navigate** (directions via your chosen nav
+  app), and **email**.
+- **Client add / edit / delete**: person-add icon on the Clients tab,
+  pencil on the client page, delete (with confirm) on the edit form.
+  Local overrides layer (`src/lib/clients-store.ts`) keeps it working in
+  demo/offline; connected mode writes through to the `clients` table.
+
 ## Roadmap (next milestones)
 
 1. Remote push notifications, EAS build + store submission (needs the

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { CategorySheet } from '@/components/category-sheet';
+import { ContactRow } from '@/components/contact-row';
 import { JOB_STATUS_TONES, SERVICE_ICONS } from '@/components/job-card';
 import { MediaThumb } from '@/components/media-thumb';
 import { MediaViewer } from '@/components/media-viewer';
@@ -118,6 +119,11 @@ export default function JobDetailScreen() {
   const clientRecord = (clients ?? []).find((entry) => entry.name === job?.client_name);
   const clientPhone = job?.client_phone || clientRecord?.phone || '';
   const clientEmail = job?.client_email || clientRecord?.email || '';
+  const fullAddress = job
+    ? [job.address, job.city, [job.state, job.zip].filter(Boolean).join(' ')]
+        .filter(Boolean)
+        .join(', ')
+    : '';
 
   const activeVisit = (extras?.checkins ?? []).find((visit) => !visit.checked_out_at);
   const presence = useJobPresence(id ?? '', user?.name ?? 'You');
@@ -364,52 +370,51 @@ export default function JobDetailScreen() {
                 <Badge label={JOB_STATUS_LABELS[job.status]} tone={JOB_STATUS_TONES[job.status]} />
               </View>
               <View style={[styles.infoBlock, { borderTopColor: colors.border }]}>
-                <View style={styles.infoRow}>
-                  <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
-                    {[
-                      job.address,
-                      job.city,
-                      [job.state, job.zip].filter(Boolean).join(' '),
-                    ]
-                      .filter(Boolean)
-                      .join(', ') || 'No address on file'}
-                  </Text>
-                  {job.address || job.latitude != null ? (
-                    <Pressable
-                      onPress={() => void openDirections(job)}
-                      hitSlop={8}
-                      style={({ pressed }) => [
-                        styles.directionsChip,
-                        { backgroundColor: colors.primarySoft },
-                        pressed && { opacity: 0.7 },
-                      ]}>
-                      <Ionicons name="navigate" size={12} color={colors.primaryStrong} />
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primaryStrong }}>
-                        Directions
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                {clientPhone ? (
-                  <Pressable
-                    style={styles.infoRow}
-                    onPress={() => void Linking.openURL(`tel:${clientPhone.replace(/[^+\d]/g, '')}`)}>
-                    <Ionicons name="call-outline" size={16} color={colors.textMuted} />
-                    <Text style={{ fontSize: 13.5, color: colors.primaryStrong, fontWeight: '600' }}>
-                      {clientPhone}
+                {fullAddress ? (
+                  <ContactRow
+                    icon="location-outline"
+                    text={fullAddress}
+                    copyLabel="Address"
+                    actions={[
+                      { icon: 'navigate', onPress: () => void openDirections(job) },
+                    ]}
+                  />
+                ) : (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="location-outline" size={16} color={colors.textMuted} />
+                    <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
+                      No address on file
                     </Text>
-                  </Pressable>
+                  </View>
+                )}
+                {clientPhone ? (
+                  <ContactRow
+                    icon="call-outline"
+                    text={clientPhone}
+                    copyLabel="Phone number"
+                    actions={[
+                      {
+                        icon: 'call',
+                        onPress: () =>
+                          void Linking.openURL(`tel:${clientPhone.replace(/[^+\d]/g, '')}`),
+                      },
+                      {
+                        icon: 'chatbubble-outline',
+                        onPress: () =>
+                          void Linking.openURL(`sms:${clientPhone.replace(/[^+\d]/g, '')}`),
+                      },
+                    ]}
+                  />
                 ) : null}
                 {clientEmail ? (
-                  <Pressable
-                    style={styles.infoRow}
-                    onPress={() => void Linking.openURL(`mailto:${clientEmail}`)}>
-                    <Ionicons name="mail-outline" size={16} color={colors.textMuted} />
-                    <Text style={{ fontSize: 13.5, color: colors.primaryStrong, fontWeight: '600' }}>
-                      {clientEmail}
-                    </Text>
-                  </Pressable>
+                  <ContactRow
+                    icon="mail-outline"
+                    text={clientEmail}
+                    copyLabel="Email"
+                    actions={[
+                      { icon: 'mail', onPress: () => void Linking.openURL(`mailto:${clientEmail}`) },
+                    ]}
+                  />
                 ) : null}
                 <View style={styles.infoRow}>
                   <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />

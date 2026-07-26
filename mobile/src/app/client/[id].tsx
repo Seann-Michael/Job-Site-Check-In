@@ -3,6 +3,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
+import { ContactRow } from '@/components/contact-row';
 import { JobCard } from '@/components/job-card';
 import { TagEditor } from '@/components/tag-editor';
 import { Avatar, Button, Card, EmptyState } from '@/components/ui/basics';
@@ -12,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { clientTags } from '@/lib/client-tags';
 import { fetchClient, fetchClientJobs } from '@/lib/clients';
+import { clientsStore } from '@/lib/clients-store';
 import { notify } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -21,7 +23,8 @@ export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useAuth();
 
-  const { data: client } = useData(() => fetchClient(id ?? ''));
+  const { data: client, refresh: refreshClient } = useData(() => fetchClient(id ?? ''));
+  React.useEffect(() => clientsStore.subscribe(refreshClient), [refreshClient]);
   const { data: jobs } = useData(async () => {
     const found = await fetchClient(id ?? '');
     return found ? fetchClientJobs(found.name) : [];
@@ -51,7 +54,15 @@ export default function ClientDetailScreen() {
 
   return (
     <Screen>
-      <DetailHeader title="Client" />
+      <DetailHeader
+        title="Client"
+        actions={[
+          {
+            icon: 'create-outline',
+            onPress: () => router.push({ pathname: '/client/edit', params: { id: id ?? '' } }),
+          },
+        ]}
+      />
 
       {client ? (
         <>
@@ -77,49 +88,35 @@ export default function ClientDetailScreen() {
             </Card>
           </Section>
 
-          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-            <Button
-              label="Call"
-              icon="call-outline"
-              variant="secondary"
-              style={{ flex: 1 }}
-              onPress={call}
-            />
-            <Button
-              label="Email"
-              icon="mail-outline"
-              variant="secondary"
-              style={{ flex: 1 }}
-              onPress={email}
-            />
-            <Button
-              label="New job"
-              icon="add"
-              style={{ flex: 1 }}
-              onPress={() => router.push('/job/new')}
-            />
-          </View>
-
           {client.phone || client.email ? (
-            <Card style={{ gap: Spacing.sm }}>
+            <Card style={{ gap: Spacing.md }}>
               {client.phone ? (
-                <View style={styles.contactRow}>
-                  <Ionicons name="call-outline" size={15} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
-                    {client.phone}
-                  </Text>
-                </View>
+                <ContactRow
+                  icon="call-outline"
+                  text={client.phone}
+                  copyLabel="Phone number"
+                  actions={[
+                    { icon: 'call', onPress: call },
+                    {
+                      icon: 'chatbubble-outline',
+                      onPress: () =>
+                        void Linking.openURL(`sms:${client.phone.replace(/[^+\d]/g, '')}`),
+                    },
+                  ]}
+                />
               ) : null}
               {client.email ? (
-                <View style={styles.contactRow}>
-                  <Ionicons name="mail-outline" size={15} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
-                    {client.email}
-                  </Text>
-                </View>
+                <ContactRow
+                  icon="mail-outline"
+                  text={client.email}
+                  copyLabel="Email"
+                  actions={[{ icon: 'mail', onPress: email }]}
+                />
               ) : null}
             </Card>
           ) : null}
+
+          <Button label="New job" icon="add" onPress={() => router.push('/job/new')} />
 
           <Section title="Jobs">
             {(jobs ?? []).length === 0 ? (

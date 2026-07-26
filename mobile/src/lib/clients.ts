@@ -4,6 +4,7 @@
  * from the demo jobs.
  */
 
+import { clientsStore } from '@/lib/clients-store';
 import { fetchJobs } from '@/lib/data';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { ClientRecord, Job } from '@/lib/types';
@@ -47,12 +48,12 @@ function deriveFromJobs(jobs: Job[]): ClientRecord[] {
 export async function fetchClients(): Promise<ClientRecord[]> {
   const jobs = await fetchJobs();
 
-  if (!isSupabaseConfigured) return deriveFromJobs(jobs);
+  if (!isSupabaseConfigured) return clientsStore.applyOverrides(deriveFromJobs(jobs));
 
   const { data, error } = await supabase.from('clients').select('*').limit(100);
-  if (error || !data?.length) return deriveFromJobs(jobs);
+  if (error || !data?.length) return clientsStore.applyOverrides(deriveFromJobs(jobs));
 
-  return (data as Row[]).map((row) => {
+  const mapped = (data as Row[]).map((row) => {
     const name = str(row, 'name') || str(row, 'full_name') || 'Client';
     const clientJobs = jobs.filter(
       (job) => job.client_name.toLowerCase() === name.toLowerCase(),
@@ -66,6 +67,7 @@ export async function fetchClients(): Promise<ClientRecord[]> {
       last_job_at: clientJobs[0]?.start_date ?? str(row, 'created_at'),
     };
   });
+  return clientsStore.applyOverrides(mapped);
 }
 
 export async function fetchClient(id: string): Promise<ClientRecord | undefined> {
