@@ -156,6 +156,24 @@ export default function SettingsScreen() {
             onPress={() => router.push('/settings/media')}
           />
           <SettingsRow
+            icon="cloud-upload-outline"
+            label="Uploads"
+            sub="Offline queue — view and retry"
+            onPress={() => router.push('/settings/uploads')}
+          />
+          <SettingsRow
+            icon="checkbox-outline"
+            label="Checklist template"
+            sub="Tasks every new job starts with"
+            onPress={() => router.push('/settings/checklist')}
+          />
+          <SettingsRow
+            icon="ribbon-outline"
+            label="Portfolio"
+            sub="Showcase your best completed jobs"
+            onPress={() => router.push('/portfolio')}
+          />
+          <SettingsRow
             icon="navigate-outline"
             label="Navigation app"
             sub={NAV_APP_LABELS[navApp]}

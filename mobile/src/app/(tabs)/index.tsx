@@ -12,6 +12,7 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchJobs } from '@/lib/data';
+import { jobMeta } from '@/lib/job-meta';
 import { syncJobReminders } from '@/lib/notifications';
 import { useData } from '@/hooks/use-data';
 import { useJobsRefresh } from '@/hooks/use-jobs-refresh';
@@ -23,6 +24,8 @@ const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
   { value: 'completed', label: 'Complete' },
+  { value: 'starred', label: '★' },
+  { value: 'archived', label: 'Archived' },
 ];
 
 export default function JobsScreen() {
@@ -35,22 +38,33 @@ export default function JobsScreen() {
   React.useEffect(() => workspace.subscribe(refresh), [refresh]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  // Re-render when stars/archive/groups change (JobCard reads the cache).
+  const [metaTick, setMetaTick] = useState(0);
+  React.useEffect(() => jobMeta.subscribe(() => setMetaTick((t) => t + 1)), []);
 
   const filtered = useMemo(() => {
+    void metaTick;
     const all = jobs ?? [];
     const q = query.trim().toLowerCase();
     return all.filter((job) => {
+      const meta = jobMeta.getSync(job.id);
+      if (filter === 'archived') {
+        if (!meta.archived) return false;
+      } else if (meta.archived) {
+        return false;
+      }
+      if (filter === 'starred' && !meta.starred) return false;
       if (filter === 'open' && !['active', 'in_progress', 'paused'].includes(job.status)) {
         return false;
       }
       if (filter === 'completed' && job.status !== 'completed') return false;
       if (!q) return true;
-      return [job.title, job.client_name, job.city, job.address, ...(job.tags ?? [])]
+      return [job.title, job.client_name, job.city, job.address, meta.group ?? '', ...(job.tags ?? [])]
         .join(' ')
         .toLowerCase()
         .includes(q);
     });
-  }, [jobs, query, filter]);
+  }, [jobs, query, filter, metaTick]);
 
   const stats = useMemo(() => {
     const all = jobs ?? [];

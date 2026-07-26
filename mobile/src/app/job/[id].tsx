@@ -35,8 +35,9 @@ import { captureJobMedia, openAppSettings, type CaptureSource } from '@/lib/medi
 import { getMediaPrefs } from '@/lib/media-prefs';
 import { DESTINATION_LABELS, getPublishRecord } from '@/lib/publish';
 import { exportJobReport } from '@/lib/report';
+import { formatJobValue, jobMeta } from '@/lib/job-meta';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { useJobPresence } from '@/lib/team-presence';
+import { TEAM_NAMES, useJobPresence } from '@/lib/team-presence';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
@@ -84,6 +85,30 @@ export default function JobDetailScreen() {
   const [checkingIn, setCheckingIn] = useState(false);
   const { data: extras, refresh: refreshExtras } = useData(() => jobExtras.get(id ?? ''));
   useEffect(() => jobExtras.subscribe(refreshExtras), [refreshExtras]);
+
+  const { data: meta, refresh: refreshMeta } = useData(() => jobMeta.get(id ?? ''));
+  useEffect(() => jobMeta.subscribe(refreshMeta), [refreshMeta]);
+
+  const assignTeam = () => {
+    const assignees = meta?.assignees ?? [];
+    const names = [...new Set([user?.name ?? 'You', ...TEAM_NAMES])];
+    Alert.alert(
+      'Assign teammates',
+      'Tap a name to add or remove them.',
+      [
+        ...names.map((name) => ({
+          text: `${assignees.includes(name) ? '✓ ' : ''}${name}`,
+          onPress: () => {
+            const next = assignees.includes(name)
+              ? assignees.filter((entry) => entry !== name)
+              : [...assignees, name];
+            void jobMeta.set(id ?? '', { assignees: next });
+          },
+        })),
+        { text: 'Done', style: 'cancel' as const },
+      ],
+    );
+  };
 
   const activeVisit = (extras?.checkins ?? []).find((visit) => !visit.checked_out_at);
   const presence = useJobPresence(id ?? '', user?.name ?? 'You');
@@ -295,6 +320,10 @@ export default function JobDetailScreen() {
         : { text: 'Resume job', onPress: () => void setStatus('active') },
       { text: 'Mark completed', onPress: () => void setStatus('completed') },
       {
+        text: meta?.archived ? 'Unarchive job' : 'Archive job',
+        onPress: () => void jobMeta.toggle(job.id, 'archived'),
+      },
+      {
         text: 'Cancel job',
         style: 'destructive',
         onPress: () => void setStatus('cancelled'),
@@ -309,6 +338,10 @@ export default function JobDetailScreen() {
         <DetailHeader
           title="Job details"
           actions={[
+            {
+              icon: meta?.starred ? 'star' : 'star-outline',
+              onPress: () => void jobMeta.toggle(id ?? '', 'starred'),
+            },
             { icon: 'share-outline', onPress: () => void shareJob() },
             { icon: 'ellipsis-horizontal', onPress: openJobMenu },
           ]}
@@ -360,6 +393,40 @@ export default function JobDetailScreen() {
                   <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
                     {photoCount} photos captured
                   </Text>
+                </View>
+                {meta?.value != null || meta?.group ? (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="cash-outline" size={16} color={colors.textMuted} />
+                    <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
+                      {[
+                        meta?.value != null ? `${formatJobValue(meta.value)} job value` : null,
+                        meta?.group ?? null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.infoRow}>
+                  <Ionicons name="people-outline" size={16} color={colors.textMuted} />
+                  <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
+                    {(meta?.assignees ?? []).length > 0
+                      ? (meta?.assignees ?? []).join(', ')
+                      : 'Nobody assigned yet'}
+                  </Text>
+                  <Pressable
+                    onPress={assignTeam}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.directionsChip,
+                      { backgroundColor: colors.primarySoft },
+                      pressed && { opacity: 0.7 },
+                    ]}>
+                    <Ionicons name="person-add-outline" size={12} color={colors.primaryStrong} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primaryStrong }}>
+                      Assign
+                    </Text>
+                  </Pressable>
                 </View>
                 {job.tags?.length ? <TagList tags={job.tags} /> : null}
               </View>

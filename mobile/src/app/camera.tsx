@@ -6,7 +6,9 @@ import {
   type FlashMode,
 } from 'expo-camera';
 import { Image } from 'expo-image';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Accelerometer } from 'expo-sensors';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +32,43 @@ const ZOOMS: { label: string; value: number }[] = [
   { label: '2x', value: 0.12 },
   { label: '4x', value: 0.3 },
 ];
+
+type AspectRatio = 'full' | '4:3' | '1:1';
+const ASPECTS: AspectRatio[] = ['full', '4:3', '1:1'];
+
+const WALKTHRU_STEPS = [
+  'Front of the property',
+  'Left side',
+  'Right side',
+  'Back / yard',
+  'Problem areas up close',
+];
+
+/** Center-crop a captured photo to the selected aspect ratio. */
+async function cropToAspect(
+  photo: { uri: string; width: number; height: number },
+  aspect: AspectRatio,
+): Promise<{ uri: string; width: number; height: number }> {
+  if (aspect === 'full' || !photo.width || !photo.height) return photo;
+  const target = aspect === '1:1' ? 1 : 3 / 4; // portrait 4:3 => w/h = 0.75
+  const current = photo.width / photo.height;
+  let width = photo.width;
+  let height = photo.height;
+  if (current > target) width = Math.round(photo.height * target);
+  else height = Math.round(photo.width / target);
+  const originX = Math.round((photo.width - width) / 2);
+  const originY = Math.round((photo.height - height) / 2);
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      photo.uri,
+      [{ crop: { originX, originY, width, height } }],
+      { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    return { uri: result.uri, width: result.width, height: result.height };
+  } catch {
+    return photo;
+  }
+}
 
 const CATEGORIES: { value: MediaCategory; label: string }[] = [
   { value: 'before', label: 'Before' },
@@ -62,9 +101,25 @@ export default function CameraScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
-  const [mode, setMode] = useState<'photo' | 'video'>(modeParam === 'video' ? 'video' : 'photo');
+  const [mode, setMode] = useState<'photo' | 'video' | 'walkthru'>(
+    modeParam === 'video' ? 'video' : 'photo',
+  );
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [aspect, setAspect] = useState<AspectRatio>('full');
+  const [levelOn, setLevelOn] = useState(false);
+  const [roll, setRoll] = useState(0);
+  const [walkStep, setWalkStep] = useState(0);
+
+  // Level indicator: roll from the accelerometer while enabled.
+  useEffect(() => {
+    if (!levelOn || previewMode) return;
+    Accelerometer.setUpdateInterval(120);
+    const subscription = Accelerometer.addListener(({ x, y }) => {
+      setRoll((Math.atan2(x, y) * 180) / Math.PI);
+    });
+    return () => subscription.remove();
+  }, [levelOn, previewMode]);
   const [category, setCategory] = useState<MediaCategory>(
     (categoryParam as MediaCategory) || 'progress',
   );
@@ -172,7 +227,11 @@ export default function CameraScreen() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, exif: true });
       if (!photo?.uri) return;
-      setLastShotUri(photo.uri);
+      const framed = await cropToAspect(
+        { uri: photo.uri, width: photo.width ?? 0, height: photo.height ?? 0 },
+        aspect,
+      );
+      setLastShotUri(framed.uri);
       setShotCount((count) => count + 1);
       // Save in the background so the shutter is ready again immediately.
       savingRef.current += 1;
@@ -181,9 +240,7 @@ export default function CameraScreen() {
         jobTitle ?? '',
         category,
         {
-          uri: photo.uri,
-          width: photo.width ?? 0,
-          height: photo.height ?? 0,
+          ...framed,
           exif: (photo.exif ?? undefined) as Record<string, unknown> | undefined,
         },
         geoRef.current,
@@ -273,6 +330,19 @@ export default function CameraScreen() {
           <View style={[styles.gridLine, { top: '66.6%', height: 1, left: 0, right: 0 }]} />
         </View>
       ) : null}
+      {levelOn ? (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.levelWrap]}>
+          <View
+            style={[
+              styles.levelLine,
+              {
+                transform: [{ rotate: `${-roll}deg` }],
+                backgroundColor: Math.abs(roll) < 2 ? '#34D399' : '#FFFFFF90',
+              },
+            ]}
+          />
+        </View>
+      ) : null}
       {flashOverlay ? <View style={[StyleSheet.absoluteFill, styles.flashOverlay]} /> : null}
 
       {/* Top bar: close, job name, flash + flip */}
@@ -318,7 +388,9 @@ export default function CameraScreen() {
         <View style={[styles.settingsSheet, { top: insets.top + 64 }]}>
           {(
             [
+              { key: 'aspect', label: `Aspect ${aspect === 'full' ? 'Full' : aspect}`, icon: 'crop-outline', on: aspect !== 'full' },
               { key: 'grid', label: 'Display Grid', icon: 'grid-outline', on: showGrid },
+              { key: 'level', label: 'Display Level', icon: 'analytics-outline', on: levelOn },
               { key: 'stampTimestamp', label: 'Stamp Date/Time', icon: 'time-outline', on: prefs.stampTimestamp },
               { key: 'stampGps', label: 'Stamp Lat/Long', icon: 'location-outline', on: prefs.stampGps },
               { key: 'stampBusiness', label: 'Stamp Business', icon: 'business-outline', on: prefs.stampBusiness },
@@ -329,7 +401,12 @@ export default function CameraScreen() {
               key={tile.key}
               onPress={() => {
                 if (tile.key === 'grid') setShowGrid((current) => !current);
-                else togglePref(tile.key);
+                else if (tile.key === 'level') setLevelOn((current) => !current);
+                else if (tile.key === 'aspect') {
+                  setAspect(
+                    (current) => ASPECTS[(ASPECTS.indexOf(current) + 1) % ASPECTS.length],
+                  );
+                } else togglePref(tile.key);
               }}
               style={[styles.settingsTile, tile.on && styles.settingsTileOn]}>
               <Ionicons name={tile.icon} size={20} color={tile.on ? '#FFFFFF' : '#AFC0D6'} />
@@ -358,6 +435,18 @@ export default function CameraScreen() {
               {queuedCount} saved offline — uploads when back online
             </Text>
           </View>
+        ) : null}
+
+        {mode === 'walkthru' ? (
+          <Pressable
+            onPress={() => setWalkStep((step) => (step + 1) % WALKTHRU_STEPS.length)}
+            style={styles.walkPill}>
+            <Text style={styles.walkStep}>
+              {walkStep + 1}/{WALKTHRU_STEPS.length}
+            </Text>
+            <Text style={styles.walkText}>{WALKTHRU_STEPS[walkStep]}</Text>
+            <Ionicons name="chevron-forward" size={15} color="#FFFFFF" />
+          </Pressable>
         ) : null}
 
         <View style={styles.zoomRow}>
@@ -408,10 +497,10 @@ export default function CameraScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => void (mode === 'video' ? toggleRecord() : takePhoto())}
+            onPress={() => void (mode === 'photo' ? takePhoto() : toggleRecord())}
             disabled={snapping}
             style={({ pressed }) => [styles.shutterOuter, pressed && { opacity: 0.8 }]}>
-            {mode === 'video' ? (
+            {mode !== 'photo' ? (
               recording ? (
                 <View style={styles.stopSquare} />
               ) : (
@@ -428,14 +517,17 @@ export default function CameraScreen() {
         </View>
 
         <View style={styles.modeRow}>
-          {(['photo', 'video'] as const).map((entry) => (
+          {(['photo', 'video', 'walkthru'] as const).map((entry) => (
             <Pressable
               key={entry}
               disabled={recording}
-              onPress={() => setMode(entry)}
+              onPress={() => {
+                setMode(entry);
+                if (entry === 'walkthru') setWalkStep(0);
+              }}
               style={[styles.modeChip, mode === entry && styles.modeChipOn]}>
               <Text style={[styles.modeText, mode === entry && styles.modeTextOn]}>
-                {entry === 'photo' ? 'PHOTO' : 'VIDEO'}
+                {entry.toUpperCase()}
               </Text>
             </Pressable>
           ))}
@@ -599,6 +691,35 @@ const styles = StyleSheet.create({
   },
   modeTextOn: {
     color: '#FFFFFF',
+  },
+  levelWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelLine: {
+    width: 180,
+    height: 2,
+    borderRadius: 1,
+  },
+  walkPill: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0D1420E6',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
+  },
+  walkStep: {
+    color: '#7DD3FC',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  walkText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   topBar: {
     position: 'absolute',

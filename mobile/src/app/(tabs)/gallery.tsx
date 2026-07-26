@@ -45,7 +45,11 @@ export default function GalleryScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <ScreenHeader title="Gallery" subtitle={`${filtered.length} items`} />
+      <ScreenHeader
+        title="Gallery"
+        subtitle={`${filtered.length} items`}
+        actions={[{ icon: 'people-outline', onPress: () => router.push('/feed') }]}
+      />
       <Segmented options={FILTERS} value={filter} onChange={setFilter} />
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />

@@ -3,7 +3,9 @@ import { Redirect, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Badge, Card, EmptyState, IconTile } from '@/components/ui/basics';
+import { Badge, Card, EmptyState, IconTile, Segmented } from '@/components/ui/basics';
+import { JobMap } from '@/components/job-map';
+import { SearchBar } from '@/components/search-bar';
 import { SERVICE_ICONS } from '@/components/job-card';
 import { DetailHeader, Screen } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
@@ -40,6 +42,8 @@ export default function CapturePickerScreen() {
   const { data: jobs } = useData(fetchJobs);
   const [fix, setFix] = useState<GeoFix | undefined>();
   const [located, setLocated] = useState(false);
+  const [tab, setTab] = useState('nearby');
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -58,7 +62,17 @@ export default function CapturePickerScreen() {
     const open = (jobs ?? []).filter(
       (job) => job.status !== 'completed' && job.status !== 'cancelled',
     );
-    const entries = open.map((job) => ({
+    const q = query.trim().toLowerCase();
+    const matching =
+      tab === 'search' && q
+        ? open.filter((job) =>
+            [job.title, job.client_name, job.address, job.city]
+              .join(' ')
+              .toLowerCase()
+              .includes(q),
+          )
+        : open;
+    const entries = matching.map((job) => ({
       job,
       miles:
         fix && job.latitude != null && job.longitude != null
@@ -66,7 +80,7 @@ export default function CapturePickerScreen() {
           : null,
     }));
     return entries.sort((a, b) => (a.miles ?? Infinity) - (b.miles ?? Infinity));
-  }, [jobs, fix]);
+  }, [jobs, fix, tab, query]);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;
@@ -79,13 +93,33 @@ export default function CapturePickerScreen() {
   return (
     <Screen>
       <DetailHeader title="Take photos" />
-      <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: -Spacing.sm }}>
-        {located && !fix
-          ? 'Location unavailable — jobs are unsorted.'
-          : 'Pick the job — closest first.'}
-      </Text>
+      <Segmented
+        options={[
+          { value: 'nearby', label: 'Nearby' },
+          { value: 'search', label: 'Search' },
+          { value: 'map', label: 'Map' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === 'search' ? (
+        <SearchBar value={query} onChangeText={setQuery} placeholder="Search jobs, clients..." />
+      ) : tab === 'nearby' ? (
+        <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: -Spacing.sm }}>
+          {located && !fix
+            ? 'Location unavailable — jobs are unsorted.'
+            : 'Pick the job — closest first.'}
+        </Text>
+      ) : null}
 
-      {sorted.length === 0 ? (
+      {tab === 'map' ? (
+        <>
+          <JobMap jobs={sorted.map((entry) => entry.job)} />
+          <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+            Tap a pin to open the job, then Add media.
+          </Text>
+        </>
+      ) : sorted.length === 0 ? (
         <EmptyState
           icon="briefcase-outline"
           title="No open jobs"

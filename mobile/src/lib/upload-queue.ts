@@ -82,6 +82,13 @@ export const uploadQueue = {
     return items.length;
   },
 
+  async remove(id: string): Promise<void> {
+    await load();
+    items = items.filter((queued) => queued.id !== id);
+    await persist();
+    emit();
+  },
+
   async flush(): Promise<void> {
     if (flushing || !handler) return;
     await load();

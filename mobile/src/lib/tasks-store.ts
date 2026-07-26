@@ -9,14 +9,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { JobTask } from '@/lib/types';
 
 const STORAGE_KEY = 'lsr-job-tasks-v1';
+const TEMPLATE_KEY = 'lsr-checklist-template-v1';
 
-const DEFAULT_TASKS: Omit<JobTask, 'id'>[] = [
-  { label: 'Before photos captured', done: false },
-  { label: 'Work completed', done: false },
-  { label: 'After photos + walkthrough', done: false },
-  { label: 'Site cleaned up', done: false },
-  { label: 'Send review request', done: false },
+export const DEFAULT_TASK_LABELS = [
+  'Before photos captured',
+  'Work completed',
+  'After photos + walkthrough',
+  'Site cleaned up',
+  'Send review request',
 ];
+
+/** The reusable checklist template new jobs start from (editable in Settings). */
+export async function getChecklistTemplate(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(TEMPLATE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as string[]) : null;
+    return parsed?.length ? parsed : DEFAULT_TASK_LABELS;
+  } catch {
+    return DEFAULT_TASK_LABELS;
+  }
+}
+
+export async function setChecklistTemplate(labels: string[]): Promise<void> {
+  await AsyncStorage.setItem(
+    TEMPLATE_KEY,
+    JSON.stringify(labels.map((label) => label.trim()).filter(Boolean)),
+  ).catch(() => undefined);
+}
 
 type TaskMap = Record<string, JobTask[]>;
 
@@ -51,7 +70,12 @@ export const tasksStore = {
   async getTasks(jobId: string): Promise<JobTask[]> {
     const map = await load();
     if (!map[jobId]) {
-      map[jobId] = DEFAULT_TASKS.map((task, index) => ({ ...task, id: `${jobId}-t${index}` }));
+      const template = await getChecklistTemplate();
+      map[jobId] = template.map((label, index) => ({
+        id: `${jobId}-t${index}`,
+        label,
+        done: false,
+      }));
       await persist(map);
     }
     return map[jobId];

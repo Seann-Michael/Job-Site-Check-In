@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { fetchJob, updateJob } from '@/lib/data';
 import { notify } from '@/lib/format';
+import { jobMeta } from '@/lib/job-meta';
 import { useAuth } from '@/providers/auth-provider';
 import type { ServiceType } from '@/lib/types';
 
@@ -39,6 +40,9 @@ export default function EditJobScreen() {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [value, setValue] = useState('');
+  const [group, setGroup] = useState('');
+  const [groupSuggestions, setGroupSuggestions] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -51,6 +55,11 @@ export default function EditJobScreen() {
       setCity(job.city);
       setTags(job.tags ?? []);
       setLoaded(true);
+      void jobMeta.get(job.id).then((meta) => {
+        setValue(meta.value != null ? String(meta.value) : '');
+        setGroup(meta.group ?? '');
+      });
+      void jobMeta.groups().then(setGroupSuggestions);
     }
   }, [job, loaded]);
 
@@ -73,6 +82,11 @@ export default function EditJobScreen() {
       address: address.trim(),
       city: city.trim(),
       tags,
+    });
+    const parsedValue = Number(value.replace(/[^0-9.]/g, ''));
+    await jobMeta.set(job.id, {
+      value: value.trim() && !Number.isNaN(parsedValue) ? parsedValue : undefined,
+      group: group.trim() || undefined,
     });
     setSaving(false);
     if (result.error) {
@@ -145,6 +159,51 @@ export default function EditJobScreen() {
               <View style={{ gap: 5 }}>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>City</Text>
                 <TextInput value={city} onChangeText={setCity} style={fieldStyle} />
+              </View>
+            </Card>
+          </Section>
+
+          <Section title="Sales & organization">
+            <Card style={{ gap: Spacing.md }}>
+              <View style={{ gap: 5 }}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Job value ($)</Text>
+                <TextInput
+                  value={value}
+                  onChangeText={setValue}
+                  keyboardType="numeric"
+                  placeholder="e.g. 4500"
+                  placeholderTextColor={colors.textMuted}
+                  style={fieldStyle}
+                />
+              </View>
+              <View style={{ gap: 5 }}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Project group</Text>
+                <TextInput
+                  value={group}
+                  onChangeText={setGroup}
+                  placeholder="e.g. 2026 Roofing"
+                  placeholderTextColor={colors.textMuted}
+                  style={fieldStyle}
+                />
+                {groupSuggestions.filter((name) => name !== group).length > 0 ? (
+                  <View style={styles.chips}>
+                    {groupSuggestions
+                      .filter((name) => name !== group)
+                      .map((name) => (
+                        <Pressable
+                          key={name}
+                          onPress={() => setGroup(name)}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: colors.card, borderColor: colors.border },
+                          ]}>
+                          <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                            {name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                  </View>
+                ) : null}
               </View>
             </Card>
           </Section>

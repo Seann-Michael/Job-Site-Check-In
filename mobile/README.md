@@ -239,6 +239,27 @@ under a quarter mile) — tap one and you're in the camera.
 - **Edit after capture**: the last-shot thumbnail gets a pencil badge —
   tap it to jump straight into the annotation editor for that photo.
 
+## Milestone 25 (shipped): the everything batch
+
+- **Star / archive jobs** (job header + ⋯ menu) with ★ and Archived
+  filters on the Jobs tab; archived jobs leave the main list.
+- **Project groups + job value** on the edit screen (with group
+  suggestions); both show on job cards and the job screen.
+- **Assign teammates** to a job from the job screen.
+- **Company feed** (`/feed`, people icon on Gallery): every photo/video
+  date-grouped with author avatars, plus a Projects tab.
+- **Capture picker tabs**: Nearby / Search / Map when picking a job to
+  shoot.
+- **Camera**: WALKTHRU guided-video mode (step prompts), aspect ratio
+  (Full / 4:3 / 1:1 center-crop), and a live level indicator
+  (expo-sensors) in the quick-settings popover.
+- **Uploads screen** (Settings → Uploads): see, retry, or drop each
+  pending offline upload.
+- **Checklist template** (Settings → Checklist template): edit/reorder
+  the tasks every new job starts with.
+- **Portfolio** (`/portfolio`, Settings → Portfolio): feature completed
+  jobs and share the showcase.
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request
