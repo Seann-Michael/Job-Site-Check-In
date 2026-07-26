@@ -344,6 +344,39 @@ findings fixed:
   Local overrides layer (`src/lib/clients-store.ts`) keeps it working in
   demo/offline; connected mode writes through to the `clients` table.
 
+## Milestone 31 (shipped): Business Profile API is the GMB backbone
+
+**API split**: the **Google Business Profile API** (owner OAuth) drives
+every GMB feature — profile info, hours, posts, reviews. The **Places
+API** is now a utility only: address autocomplete on new jobs, Street
+View previews, and the public-view audit score.
+
+- **Google posts** (`/gmb-posts`, from the GMB tab): the real Updates
+  feed — see what's live, **edit** the text, **delete** a post, or
+  publish a new one with a **photo** picked from your job media and a
+  call-to-action. (Google's `localPosts` API accepts photos; it does not
+  accept video on posts.)
+- **Google reviews** (`/gmb-reviews`): live reviews with star ratings and
+  **owner replies** posted straight from the phone.
+- **Business info client** (`src/lib/google-business.ts`): live title,
+  phone, website, categories, and regular hours from the owner's listing.
+- **Settings → Integrations**: connection status and setup for **Google
+  Business Profile** and **GoHighLevel**, with links into the web
+  dashboard for the OAuth handshake and workflow selection.
+- Migration `20260727000000_create_google_oauth_tokens.sql` stores the
+  owner's token (authenticated-only RLS — it's a credential).
+- Everything runs in a full demo simulation until Google approves API
+  access and the owner signs in.
+
+### Turning Google on (one-time)
+
+1. In Google Cloud, request **Business Profile API** access for your
+   project (free; approval takes a few days).
+2. Sign in with the owning Google account on the web dashboard — the
+   token lands in `google_oauth_tokens`.
+3. Mobile picks it up automatically. For local testing you can instead
+   set `EXPO_PUBLIC_GMB_ACCESS_TOKEN` + `EXPO_PUBLIC_GMB_LOCATION`.
+
 ## Roadmap (next milestones)
 
 1. Remote push notifications, EAS build + store submission (needs the
