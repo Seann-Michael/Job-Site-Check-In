@@ -153,11 +153,19 @@ export const tasksStore = {
     return map[jobId];
   },
 
-  async toggle(jobId: string, taskId: string): Promise<JobTask[]> {
+  async toggle(jobId: string, taskId: string, userName?: string): Promise<JobTask[]> {
     const map = await load();
-    map[jobId] = (map[jobId] ?? []).map((task) =>
-      task.id === taskId ? { ...task, done: !task.done } : task,
-    );
+    map[jobId] = (map[jobId] ?? []).map((task) => {
+      if (task.id !== taskId) return task;
+      const done = !task.done;
+      return {
+        ...task,
+        done,
+        // Stamp who checked it off and when; clear on uncheck.
+        done_at: done ? new Date().toISOString() : undefined,
+        done_by: done ? (userName ?? 'You') : undefined,
+      };
+    });
     await persist(map);
     emit();
     pushTasks(jobId, map[jobId]);

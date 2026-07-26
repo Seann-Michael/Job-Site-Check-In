@@ -74,6 +74,10 @@ function mapJob(row: Row): Job {
     str(row, 'address') ||
     (metaAddress ? str(metaAddress, 'street') : str(metadata, 'address'));
   const city = str(row, 'city') || (metaAddress ? str(metaAddress, 'city') : str(metadata, 'city'));
+  const state = metaAddress ? str(metaAddress, 'state') : str(row, 'state');
+  const zip = metaAddress
+    ? str(metaAddress, 'zipCode') || str(metaAddress, 'zip')
+    : str(row, 'zip');
   const coordinates =
     metaAddress && typeof metaAddress.coordinates === 'object' && metaAddress.coordinates !== null
       ? (metaAddress.coordinates as { lat?: number; lng?: number })
@@ -82,8 +86,12 @@ function mapJob(row: Row): Job {
     id: str(row, 'id', String(row.id ?? '')),
     title: str(row, 'name', str(row, 'title', 'Untitled job')),
     client_name: str(contact, 'name', str(row, 'client_name', 'Unknown client')),
+    client_phone: str(contact, 'phone') || undefined,
+    client_email: str(contact, 'email') || undefined,
     address,
     city,
+    state: state || undefined,
+    zip: zip || undefined,
     status: oneOf(str(row, 'status'), JOB_STATUSES, 'active'),
     service_type: oneOf(
       str(row, 'service_type') || (metaAddress ? '' : str(metadata, 'service_type')),

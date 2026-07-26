@@ -314,6 +314,24 @@ findings fixed:
   groups by local day (no duplicate headers); review-request phone
   prefill race fixed; voice recorder cleans up the audio session on exit.
 
+## Milestone 29 (shipped): stamps, merged notes, visit activity, contact info
+
+- **Every note is stamped**: author + full date + time ("Alex Morgan ·
+  Jul 26, 2026 · 2:14 PM") — same for voice notes and documents.
+- **Task check-offs are stamped**: completed checklist items show who
+  checked them and when.
+- **Voice notes live in the Notes section** now: one feed, text and voice
+  interleaved newest-first, mic button right next to the note input.
+- **Tags everywhere**: jobs (edit screen), photos/videos (viewer),
+  documents (tag button per row), and customers (Tags card on the client
+  page, `src/lib/client-tags.ts`).
+- **Customer contact on the job page**: name, full address
+  (street, city, state zip), tap-to-call phone, tap-to-email — from the
+  job's client_contact with the client record as fallback.
+- **Site visits are tappable**: each visit row opens `/visit-detail` —
+  photos/video taken, tasks completed, notes, and documents from that
+  visit's time window, with the visitor's name and GPS.
+
 ## Roadmap (next milestones)
 
 1. Remote push notifications, EAS build + store submission (needs the

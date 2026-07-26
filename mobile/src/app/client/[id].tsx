@@ -4,11 +4,13 @@ import React from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { JobCard } from '@/components/job-card';
+import { TagEditor } from '@/components/tag-editor';
 import { Avatar, Button, Card, EmptyState } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
+import { clientTags } from '@/lib/client-tags';
 import { fetchClient, fetchClientJobs } from '@/lib/clients';
 import { notify } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
@@ -24,6 +26,8 @@ export default function ClientDetailScreen() {
     const found = await fetchClient(id ?? '');
     return found ? fetchClientJobs(found.name) : [];
   });
+  const { data: tags, refresh: refreshTags } = useData(() => clientTags.get(id ?? ''));
+  React.useEffect(() => clientTags.subscribe(refreshTags), [refreshTags]);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;
@@ -62,6 +66,16 @@ export default function ClientDetailScreen() {
               </Text>
             </View>
           </Card>
+
+          <Section title="Tags">
+            <Card>
+              <TagEditor
+                tags={tags ?? []}
+                onChange={(next) => void clientTags.set(id ?? '', next)}
+                placeholder="e.g. vip, repeat, hoa"
+              />
+            </Card>
+          </Section>
 
           <View style={{ flexDirection: 'row', gap: Spacing.md }}>
             <Button

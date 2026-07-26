@@ -42,6 +42,7 @@ export interface JobDocument {
   mime_type: string;
   size: number;
   added_at: string;
+  tags?: string[];
 }
 
 export interface VoiceNote {
@@ -49,6 +50,7 @@ export interface VoiceNote {
   uri: string;
   duration_ms: number;
   created_at: string;
+  author?: string;
 }
 
 export interface JobExtras {
@@ -409,8 +411,22 @@ export const jobExtras = {
     return { added: true };
   },
 
+  async setDocumentTags(jobId: string, documentId: string, tags: string[]): Promise<void> {
+    await mutate(jobId, (extras) => ({
+      ...extras,
+      documents: extras.documents.map((doc) =>
+        doc.id === documentId ? { ...doc, tags } : doc,
+      ),
+    }));
+  },
+
   /** Store a finished voice recording with the job (durable local copy). */
-  async addVoiceNote(jobId: string, recordingUri: string, durationMs: number): Promise<void> {
+  async addVoiceNote(
+    jobId: string,
+    recordingUri: string,
+    durationMs: number,
+    author?: string,
+  ): Promise<void> {
     let uri = recordingUri;
     try {
       const dir = `${FileSystem.documentDirectory ?? ''}voice-notes/`;
@@ -425,7 +441,13 @@ export const jobExtras = {
     await mutate(jobId, (extras) => ({
       ...extras,
       voiceNotes: [
-        { id: `v-${Date.now()}`, uri, duration_ms: durationMs, created_at: new Date().toISOString() },
+        {
+          id: localId('v'),
+          uri,
+          duration_ms: durationMs,
+          created_at: new Date().toISOString(),
+          author,
+        },
         ...(extras.voiceNotes ?? []),
       ],
     }));

@@ -18,18 +18,20 @@ import { CategorySheet } from '@/components/category-sheet';
 import { JOB_STATUS_TONES, SERVICE_ICONS } from '@/components/job-card';
 import { MediaThumb } from '@/components/media-thumb';
 import { MediaViewer } from '@/components/media-viewer';
-import { VoiceNotes } from '@/components/voice-notes';
+import { NotesSection } from '@/components/notes-section';
+import { TagEditor } from '@/components/tag-editor';
 import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchClients } from '@/lib/clients';
 import { fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
 import { openDirections } from '@/lib/directions';
 import { jobExtras, visitDuration } from '@/lib/job-extras';
 import { getLocationFix } from '@/lib/media-capture';
 import { TagList } from '@/components/tag-editor';
 import { tasksStore } from '@/lib/tasks-store';
-import { formatDate, JOB_STATUS_LABELS, notify, timeAgo } from '@/lib/format';
+import { formatDate, formatDateTime, JOB_STATUS_LABELS, notify, timeAgo } from '@/lib/format';
 import { jobsStore } from '@/lib/jobs-store';
 import { captureJobMedia, openAppSettings, type CaptureSource } from '@/lib/media-capture';
 import { getMediaPrefs } from '@/lib/media-prefs';
@@ -81,8 +83,9 @@ export default function JobDetailScreen() {
   const [capturing, setCapturing] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [newTask, setNewTask] = useState('');
-  const [newNote, setNewNote] = useState('');
   const [checkingIn, setCheckingIn] = useState(false);
+  const [taggingDocId, setTaggingDocId] = useState<string | null>(null);
+  const { data: clients } = useData(fetchClients);
   const { data: extras, refresh: refreshExtras } = useData(() => jobExtras.get(id ?? ''));
   useEffect(() => jobExtras.subscribe(refreshExtras), [refreshExtras]);
 
@@ -109,6 +112,12 @@ export default function JobDetailScreen() {
       ],
     );
   };
+
+  // Customer contact: the job row's client_contact first, the client
+  // record as fallback (covers demo data and older jobs).
+  const clientRecord = (clients ?? []).find((entry) => entry.name === job?.client_name);
+  const clientPhone = job?.client_phone || clientRecord?.phone || '';
+  const clientEmail = job?.client_email || clientRecord?.email || '';
 
   const activeVisit = (extras?.checkins ?? []).find((visit) => !visit.checked_out_at);
   const presence = useJobPresence(id ?? '', user?.name ?? 'You');
@@ -148,12 +157,6 @@ export default function JobDetailScreen() {
     } finally {
       setCheckingIn(false);
     }
-  };
-
-  const handleAddNote = async () => {
-    if (!id || !newNote.trim()) return;
-    await jobExtras.addNote(id, newNote, user?.name ?? 'You');
-    setNewNote('');
   };
 
   const handleAddDocument = async () => {
@@ -364,7 +367,13 @@ export default function JobDetailScreen() {
                 <View style={styles.infoRow}>
                   <Ionicons name="location-outline" size={16} color={colors.textMuted} />
                   <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
-                    {[job.address, job.city].filter(Boolean).join(', ') || 'No address on file'}
+                    {[
+                      job.address,
+                      job.city,
+                      [job.state, job.zip].filter(Boolean).join(' '),
+                    ]
+                      .filter(Boolean)
+                      .join(', ') || 'No address on file'}
                   </Text>
                   {job.address || job.latitude != null ? (
                     <Pressable
@@ -382,6 +391,26 @@ export default function JobDetailScreen() {
                     </Pressable>
                   ) : null}
                 </View>
+                {clientPhone ? (
+                  <Pressable
+                    style={styles.infoRow}
+                    onPress={() => void Linking.openURL(`tel:${clientPhone.replace(/[^+\d]/g, '')}`)}>
+                    <Ionicons name="call-outline" size={16} color={colors.textMuted} />
+                    <Text style={{ fontSize: 13.5, color: colors.primaryStrong, fontWeight: '600' }}>
+                      {clientPhone}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {clientEmail ? (
+                  <Pressable
+                    style={styles.infoRow}
+                    onPress={() => void Linking.openURL(`mailto:${clientEmail}`)}>
+                    <Ionicons name="mail-outline" size={16} color={colors.textMuted} />
+                    <Text style={{ fontSize: 13.5, color: colors.primaryStrong, fontWeight: '600' }}>
+                      {clientEmail}
+                    </Text>
+                  </Pressable>
+                ) : null}
                 <View style={styles.infoRow}>
                   <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
                   <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
@@ -596,88 +625,64 @@ export default function JobDetailScreen() {
                     .slice()
                     .reverse()
                     .map((visit, index) => (
-                      <View
+                      <Pressable
                         key={visit.id}
-                        style={[
+                        onPress={() =>
+                          router.push({
+                            pathname: '/visit-detail',
+                            params: { jobId: id ?? '', visitId: visit.id },
+                          })
+                        }
+                        style={({ pressed }) => [
                           styles.visitRow,
                           index > 0 && {
                             borderTopWidth: StyleSheet.hairlineWidth,
                             borderTopColor: colors.border,
                           },
+                          pressed && { backgroundColor: colors.cardPressed },
                         ]}>
                         <Text style={{ width: 52, fontSize: 12.5, fontWeight: '700', color: colors.textSecondary }}>
                           Day {(extras?.checkins.length ?? 0) - index}
                         </Text>
-                        <Text style={{ flex: 1, fontSize: 13.5, color: colors.text }}>
-                          {formatDate(visit.checked_in_at)} ·{' '}
-                          {new Date(visit.checked_in_at).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}
-                          {visit.checked_out_at
-                            ? ` – ${new Date(visit.checked_out_at).toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              })}`
-                            : ' – now'}
-                        </Text>
+                        <View style={{ flex: 1, gap: 1 }}>
+                          <Text style={{ fontSize: 13.5, color: colors.text }}>
+                            {formatDate(visit.checked_in_at)} ·{' '}
+                            {new Date(visit.checked_in_at).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                            {visit.checked_out_at
+                              ? ` – ${new Date(visit.checked_out_at).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })}`
+                              : ' – now'}
+                          </Text>
+                          {visit.user_name ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
+                              {visit.user_name}
+                            </Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12.5, fontWeight: '600', color: visit.checked_out_at ? colors.textSecondary : colors.success }}>
                           {visitDuration(visit.checked_in_at, visit.checked_out_at)}
                         </Text>
                         {typeof visit.latitude === 'number' ? (
                           <Ionicons name="location" size={12} color={colors.success} />
                         ) : null}
-                      </View>
+                        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                      </Pressable>
                     ))}
                 </Card>
               </Section>
             ) : null}
 
-            <Section title={`Notes (${extras?.notes.length ?? 0})`}>
-              <Card style={{ padding: 0 }}>
-                <View style={[styles.taskRow]}>
-                  <Ionicons name="create-outline" size={20} color={colors.textMuted} />
-                  <TextInput
-                    value={newNote}
-                    onChangeText={setNewNote}
-                    placeholder="Add a note about this job..."
-                    placeholderTextColor={colors.textMuted}
-                    style={{ flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 }}
-                    onSubmitEditing={() => void handleAddNote()}
-                    returnKeyType="done"
-                  />
-                  <Pressable hitSlop={8} onPress={() => void handleAddNote()} disabled={!newNote.trim()}>
-                    <Ionicons
-                      name="arrow-up-circle"
-                      size={22}
-                      color={newNote.trim() ? colors.primary : colors.textMuted}
-                    />
-                  </Pressable>
-                </View>
-                {(extras?.notes ?? []).map((note) => (
-                  <View
-                    key={note.id}
-                    style={[
-                      styles.noteRow,
-                      { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-                    ]}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={{ fontSize: 14, color: colors.text }}>{note.text}</Text>
-                      <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
-                        {note.author} · {timeAgo(note.created_at)}
-                      </Text>
-                    </View>
-                    <Pressable
-                      hitSlop={8}
-                      onPress={() => void jobExtras.deleteNote(id ?? '', note.id)}>
-                      <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
-                    </Pressable>
-                  </View>
-                ))}
-              </Card>
-            </Section>
-
-            <VoiceNotes jobId={id ?? ''} notes={extras?.voiceNotes ?? []} />
+            <NotesSection
+              jobId={id ?? ''}
+              notes={extras?.notes ?? []}
+              voiceNotes={extras?.voiceNotes ?? []}
+              author={user?.name ?? 'You'}
+            />
 
             <Section
               title={`Documents (${extras?.documents.length ?? 0})`}
@@ -695,36 +700,62 @@ export default function JobDetailScreen() {
               ) : (
                 <Card style={{ padding: 0 }}>
                   {(extras?.documents ?? []).map((doc, index) => (
-                    <Pressable
-                      key={doc.id}
-                      onPress={() => {
-                        if (doc.uri.startsWith('http')) void Linking.openURL(doc.uri);
-                        else void Sharing.shareAsync(doc.uri).catch(() => undefined);
-                      }}
-                      style={({ pressed }) => [
-                        styles.taskRow,
-                        index > 0 && {
-                          borderTopWidth: StyleSheet.hairlineWidth,
-                          borderTopColor: colors.border,
-                        },
-                        pressed && { backgroundColor: colors.cardPressed },
-                      ]}>
-                      <Ionicons name="document-text-outline" size={19} color={colors.primary} />
-                      <View style={{ flex: 1, gap: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }} numberOfLines={1}>
-                          {doc.name}
-                        </Text>
-                        <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
-                          {doc.size > 0 ? `${Math.max(1, Math.round(doc.size / 1024))} KB · ` : ''}
-                          {timeAgo(doc.added_at)}
-                        </Text>
-                      </View>
+                    <View key={doc.id}>
                       <Pressable
-                        hitSlop={8}
-                        onPress={() => void jobExtras.deleteDocument(id ?? '', doc.id)}>
-                        <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+                        onPress={() => {
+                          if (doc.uri.startsWith('http')) void Linking.openURL(doc.uri);
+                          else void Sharing.shareAsync(doc.uri).catch(() => undefined);
+                        }}
+                        style={({ pressed }) => [
+                          styles.taskRow,
+                          index > 0 && {
+                            borderTopWidth: StyleSheet.hairlineWidth,
+                            borderTopColor: colors.border,
+                          },
+                          pressed && { backgroundColor: colors.cardPressed },
+                        ]}>
+                        <Ionicons name="document-text-outline" size={19} color={colors.primary} />
+                        <View style={{ flex: 1, gap: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+                            {doc.name}
+                          </Text>
+                          <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
+                            {doc.size > 0 ? `${Math.max(1, Math.round(doc.size / 1024))} KB · ` : ''}
+                            {formatDateTime(doc.added_at)}
+                          </Text>
+                          {doc.tags?.length && taggingDocId !== doc.id ? (
+                            <TagList tags={doc.tags} />
+                          ) : null}
+                        </View>
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() =>
+                            setTaggingDocId((current) => (current === doc.id ? null : doc.id))
+                          }>
+                          <Ionicons
+                            name="pricetag-outline"
+                            size={15}
+                            color={taggingDocId === doc.id ? colors.primary : colors.textMuted}
+                          />
+                        </Pressable>
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() => void jobExtras.deleteDocument(id ?? '', doc.id)}>
+                          <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+                        </Pressable>
                       </Pressable>
-                    </Pressable>
+                      {taggingDocId === doc.id ? (
+                        <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
+                          <TagEditor
+                            tags={doc.tags ?? []}
+                            onChange={(tags) =>
+                              void jobExtras.setDocumentTags(id ?? '', doc.id, tags)
+                            }
+                            placeholder="Tag this document..."
+                          />
+                        </View>
+                      ) : null}
+                    </View>
                   ))}
                 </Card>
               )}
@@ -735,7 +766,7 @@ export default function JobDetailScreen() {
                 {(tasks ?? []).map((task, index) => (
                   <Pressable
                     key={task.id}
-                    onPress={() => void tasksStore.toggle(id ?? '', task.id)}
+                    onPress={() => void tasksStore.toggle(id ?? '', task.id, user?.name ?? 'You')}
                     style={({ pressed }) => [
                       styles.taskRow,
                       index > 0 && {
@@ -749,15 +780,21 @@ export default function JobDetailScreen() {
                       size={20}
                       color={task.done ? colors.success : colors.textMuted}
                     />
-                    <Text
-                      style={{
-                        flex: 1,
-                        fontSize: 14,
-                        color: task.done ? colors.textSecondary : colors.text,
-                        textDecorationLine: task.done ? 'line-through' : 'none',
-                      }}>
-                      {task.label}
-                    </Text>
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: task.done ? colors.textSecondary : colors.text,
+                          textDecorationLine: task.done ? 'line-through' : 'none',
+                        }}>
+                        {task.label}
+                      </Text>
+                      {task.done && task.done_at ? (
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                          {task.done_by ?? 'Team member'} · {formatDateTime(task.done_at)}
+                        </Text>
+                      ) : null}
+                    </View>
                   </Pressable>
                 ))}
                 <View

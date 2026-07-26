@@ -37,6 +37,10 @@ export interface Job {
   latitude?: number;
   longitude?: number;
   tags?: string[];
+  client_phone?: string;
+  client_email?: string;
+  state?: string;
+  zip?: string;
 }
 
 export type ReviewRequestStatus = 'sent' | 'viewed' | 'completed' | 'expired' | 'scheduled';
@@ -107,4 +111,7 @@ export interface JobTask {
   id: string;
   label: string;
   done: boolean;
+  /** Stamped when checked off. */
+  done_at?: string;
+  done_by?: string;
 }

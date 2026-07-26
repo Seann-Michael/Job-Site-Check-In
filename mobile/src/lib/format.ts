@@ -29,6 +29,19 @@ export function formatDate(iso: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** "Jul 26, 2026 · 2:14 PM" — full date + time stamp. */
+export function formatDateTime(iso: string): string {
+  const date = parseDate(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const day = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
+
 export function timeAgo(iso: string): string {
   const date = parseDate(iso);
   if (Number.isNaN(date.getTime())) return iso;
