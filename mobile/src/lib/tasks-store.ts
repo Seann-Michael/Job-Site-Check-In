@@ -6,6 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { JobTask } from '@/lib/types';
 
 const STORAGE_KEY = 'lsr-job-tasks-v1';
@@ -66,10 +67,41 @@ async function persist(map: TaskMap): Promise<void> {
   }
 }
 
+/** Best-effort write-through of a job's checklist to job_field_state. */
+function pushTasks(jobId: string, tasks: JobTask[]): void {
+  if (!isSupabaseConfigured) return;
+  void (async () => {
+    try {
+      await supabase
+        .from('job_field_state')
+        .upsert({ job_id: jobId, tasks, updated_at: new Date().toISOString() });
+    } catch {
+      // Best-effort.
+    }
+  })();
+}
+
 export const tasksStore = {
   async getTasks(jobId: string): Promise<JobTask[]> {
     const map = await load();
     if (!map[jobId]) {
+      // First time this device sees the job: prefer the synced checklist.
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase
+            .from('job_field_state')
+            .select('tasks')
+            .eq('job_id', jobId)
+            .single();
+          if (Array.isArray(data?.tasks) && data.tasks.length > 0) {
+            map[jobId] = data.tasks as JobTask[];
+            await persist(map);
+            return map[jobId];
+          }
+        } catch {
+          // Offline or table missing — seed from the template below.
+        }
+      }
       const template = await getChecklistTemplate();
       map[jobId] = template.map((label, index) => ({
         id: `${jobId}-t${index}`,
@@ -88,6 +120,7 @@ export const tasksStore = {
     );
     await persist(map);
     emit();
+    pushTasks(jobId, map[jobId]);
     return map[jobId];
   },
 
@@ -99,6 +132,7 @@ export const tasksStore = {
     ];
     await persist(map);
     emit();
+    pushTasks(jobId, map[jobId]);
     return map[jobId];
   },
 

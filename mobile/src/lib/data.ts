@@ -268,7 +268,12 @@ export async function createJob(
 
 
 export async function fetchReviewRequests(): Promise<ReviewRequest[]> {
-  if (!isSupabaseConfigured) return DEMO_REVIEW_REQUESTS;
+  if (!isSupabaseConfigured) {
+    // Requests sent from this phone appear ahead of the demo seeds.
+    const { getLocalReviewRequests } = await import('@/lib/review-requests');
+    const local = await getLocalReviewRequests();
+    return [...local, ...DEMO_REVIEW_REQUESTS];
+  }
   const { data, error } = await supabase
     .from('review_requests')
     .select('*')

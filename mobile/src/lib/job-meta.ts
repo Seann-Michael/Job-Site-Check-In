@@ -6,6 +6,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+
 const STORAGE_KEY = 'lsr-job-meta-v1';
 
 export interface JobMeta {
@@ -39,9 +41,47 @@ async function load(): Promise<MetaMap> {
   return cache;
 }
 
+function pushMeta(jobId: string, meta: JobMeta): void {
+  if (!isSupabaseConfigured) return;
+  void (async () => {
+    try {
+      await supabase
+        .from('job_field_state')
+        .upsert({ job_id: jobId, meta, updated_at: new Date().toISOString() });
+    } catch {
+      // Best-effort.
+    }
+  })();
+}
+
+const hydratedJobs = new Set<string>();
+
+/** First time a device sees a job: pull synced meta from the server. */
+async function hydrateMeta(jobId: string): Promise<void> {
+  if (!isSupabaseConfigured || !jobId || hydratedJobs.has(jobId)) return;
+  hydratedJobs.add(jobId);
+  const map = await load();
+  if (map[jobId]) return; // Local state wins; write-through keeps server fresh.
+  try {
+    const { data } = await supabase
+      .from('job_field_state')
+      .select('meta')
+      .eq('job_id', jobId)
+      .single();
+    if (data?.meta && typeof data.meta === 'object') {
+      cache = { ...(await load()), [jobId]: data.meta as JobMeta };
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cache)).catch(() => undefined);
+      emit();
+    }
+  } catch {
+    // Offline or table missing.
+  }
+}
+
 export const jobMeta = {
   async get(jobId: string): Promise<JobMeta> {
     const map = await load();
+    void hydrateMeta(jobId);
     return map[jobId] ?? {};
   },
 
@@ -60,6 +100,7 @@ export const jobMeta = {
     cache = { ...map, [jobId]: next };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cache)).catch(() => undefined);
     emit();
+    pushMeta(jobId, next);
     return next;
   },
 

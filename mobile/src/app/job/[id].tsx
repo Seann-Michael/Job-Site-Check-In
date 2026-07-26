@@ -455,10 +455,7 @@ export default function JobDetailScreen() {
                 variant="secondary"
                 style={{ flex: 1 }}
                 onPress={() =>
-                  notify(
-                    'Review request',
-                    'Sends an SMS/email review funnel using the same Twilio + ReviewGate flow as the web app — next milestone.',
-                  )
+                  router.push({ pathname: '/review-request/[id]', params: { id: job.id } })
                 }
               />
             </View>

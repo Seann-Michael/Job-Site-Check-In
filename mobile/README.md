@@ -276,7 +276,20 @@ multiplayer — everything still works on-device without it:
 - Migration: `supabase/migrations/20260726000000_create_mobile_field_tables.sql`
   (apply with `supabase db push` or the dashboard SQL editor).
 
+## Milestone 27 (shipped): review requests + full sync coverage
+
+- **Request review is live**: the job-screen button opens
+  `/review-request/[id]` — customer name/phone prefilled from the client
+  record, SMS/email toggle, message preview. Connected: inserts the same
+  `review_requests` row the web dashboard lists (Twilio delivery stays on
+  the web pipeline). Demo: the request appears in the Reviews tab.
+- **Sync coverage completed** (second migration,
+  `20260726010000_create_field_state_tables.sql`): checklist tasks and job
+  meta (stars/groups/value/assignees) sync via a `job_field_state` row per
+  job, and photo comments sync through `media_comments` with a throttled
+  teammate merge — same best-effort/off-line-first pattern as check-ins.
+
 ## Roadmap (next milestones)
 
-1. Review request sending via the Express API (Twilio) — skipped for now by request
-2. Remote push notifications, EAS build + store submission
+1. Remote push notifications, EAS build + store submission (needs the
+   $99/yr Apple Developer account)
