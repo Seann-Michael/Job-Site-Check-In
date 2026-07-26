@@ -67,11 +67,43 @@ async function persist(map: TaskMap): Promise<void> {
   }
 }
 
+// Jobs whose first server read failed: their local list may be a blind
+// template seed, so pushing it wholesale could clobber a teammate's
+// checklist. Resolve the conflict before the first push.
+const unverifiedSeeds = new Set<string>();
+
 /** Best-effort write-through of a job's checklist to job_field_state. */
 function pushTasks(jobId: string, tasks: JobTask[]): void {
   if (!isSupabaseConfigured) return;
   void (async () => {
     try {
+      if (unverifiedSeeds.has(jobId)) {
+        const { data, error } = await supabase
+          .from('job_field_state')
+          .select('tasks')
+          .eq('job_id', jobId)
+          .single();
+        if (error && error.code !== 'PGRST116') return; // Still offline — don't clobber.
+        unverifiedSeeds.delete(jobId);
+        if (Array.isArray(data?.tasks) && data.tasks.length > 0) {
+          // Server had a checklist all along: merge our done-toggles and
+          // additions into it by label instead of replacing it.
+          const localByLabel = new Map(tasks.map((task) => [task.label, task]));
+          const merged: JobTask[] = (data.tasks as JobTask[]).map((task) => ({
+            ...task,
+            done: localByLabel.get(task.label)?.done ?? task.done,
+          }));
+          const serverLabels = new Set(merged.map((task) => task.label));
+          for (const task of tasks) {
+            if (!serverLabels.has(task.label)) merged.push(task);
+          }
+          tasks = merged;
+          const map = await load();
+          map[jobId] = merged;
+          await persist(map);
+          emit();
+        }
+      }
       await supabase
         .from('job_field_state')
         .upsert({ job_id: jobId, tasks, updated_at: new Date().toISOString() });
@@ -88,27 +120,35 @@ export const tasksStore = {
       // First time this device sees the job: prefer the synced checklist.
       if (isSupabaseConfigured) {
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('job_field_state')
             .select('tasks')
             .eq('job_id', jobId)
             .single();
+          if (error && error.code !== 'PGRST116') unverifiedSeeds.add(jobId);
           if (Array.isArray(data?.tasks) && data.tasks.length > 0) {
-            map[jobId] = data.tasks as JobTask[];
-            await persist(map);
-            return map[jobId];
+            const current = await load();
+            // A concurrent getTasks may have seeded (and the user toggled)
+            // while this fetch was in flight — don't overwrite it.
+            if (current[jobId]) return current[jobId];
+            current[jobId] = data.tasks as JobTask[];
+            await persist(current);
+            return current[jobId];
           }
         } catch {
-          // Offline or table missing — seed from the template below.
+          unverifiedSeeds.add(jobId);
         }
       }
+      const current = await load();
+      if (current[jobId]) return current[jobId];
       const template = await getChecklistTemplate();
-      map[jobId] = template.map((label, index) => ({
+      current[jobId] = template.map((label, index) => ({
         id: `${jobId}-t${index}`,
         label,
         done: false,
       }));
-      await persist(map);
+      await persist(current);
+      return current[jobId];
     }
     return map[jobId];
   },

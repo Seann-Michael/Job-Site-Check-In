@@ -46,14 +46,25 @@ export async function fetchPresence(userName: string): Promise<Presence[]> {
         .is('checked_out_at', null)
         .order('checked_in_at', { ascending: true });
       if (!error && data) {
-        return data
-          .map((row) => ({
-            jobId: String(row.job_id),
-            name: String(row.user_name ?? 'Team member'),
-            since: String(row.checked_in_at),
-            isYou: row.user_name === userName,
-          }))
-          .sort((a, b) => Number(b.isYou) - Number(a.isYou));
+        const fromServer = data.map((row) => ({
+          jobId: String(row.job_id),
+          name: String(row.user_name ?? 'Team member'),
+          since: String(row.checked_in_at),
+          isYou: row.user_name === userName,
+        }));
+        // Include your own open check-ins whose insert hasn't synced yet, so
+        // the job screen and the presence list never disagree.
+        const map = await jobExtras.getAll();
+        const seen = new Set(fromServer.map((entry) => `${entry.jobId}:${entry.since}`));
+        for (const [jobId, extras] of Object.entries(map)) {
+          const active = extras.checkins.find(
+            (visit) => !visit.checked_out_at && !visit.server_id,
+          );
+          if (active && !seen.has(`${jobId}:${active.checked_in_at}`)) {
+            fromServer.push({ jobId, name: userName, since: active.checked_in_at, isYou: true });
+          }
+        }
+        return fromServer.sort((a, b) => Number(b.isYou) - Number(a.isYou));
       }
     } catch {
       // Fall through to local data.

@@ -60,7 +60,13 @@ export interface JobExtras {
 
 type ExtrasMap = Record<string, JobExtras>;
 
-const EMPTY: JobExtras = { checkins: [], notes: [], documents: [], voiceNotes: [] };
+function emptyExtras(): JobExtras {
+  return { checkins: [], notes: [], documents: [], voiceNotes: [] };
+}
+
+function localId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 let cache: ExtrasMap | null = null;
 const listeners = new Set<() => void>();
@@ -82,7 +88,7 @@ async function load(): Promise<ExtrasMap> {
 
 async function mutate(jobId: string, fn: (extras: JobExtras) => JobExtras): Promise<JobExtras> {
   const map = await load();
-  const next = fn(map[jobId] ?? { ...EMPTY });
+  const next = fn(map[jobId] ?? emptyExtras());
   map[jobId] = next;
   cache = map;
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(map)).catch(() => undefined);
@@ -93,6 +99,21 @@ async function mutate(jobId: string, fn: (extras: JobExtras) => JobExtras): Prom
 // Throttled background hydration of check-ins/notes from the server, so
 // teammates' visits and notes appear without blocking the UI.
 const lastHydrated: Record<string, number> = {};
+
+// Server rows the user deleted locally — never re-add them from a hydrate,
+// even if the server-side delete failed.
+const deletedNoteIds = new Set<string>();
+
+/** Re-push a checkout that the server missed (failed or racing update). */
+function pushCheckout(serverId: string, endedAt: string): void {
+  void (async () => {
+    try {
+      await supabase.from('job_checkins').update({ checked_out_at: endedAt }).eq('id', serverId);
+    } catch {
+      // Retried on the next hydrate.
+    }
+  })();
+}
 
 async function hydrateFromServer(jobId: string): Promise<void> {
   if (!isSupabaseConfigured || !jobId) return;
@@ -116,41 +137,60 @@ async function hydrateFromServer(jobId: string): Promise<void> {
     await mutate(jobId, (extras) => {
       let next = extras;
       if (!checkinsResult.error && checkinsResult.data) {
-        const serverIds = new Set(checkinsResult.data.map((row) => String(row.id)));
-        const localOnly = extras.checkins.filter(
-          (visit) => !visit.server_id || !serverIds.has(visit.server_id),
+        const localBySrv = new Map(
+          extras.checkins
+            .filter((visit) => visit.server_id)
+            .map((visit) => [visit.server_id!, visit]),
         );
-        const fromServer: CheckIn[] = checkinsResult.data.map((row) => ({
-          id: `srv-${row.id}`,
-          server_id: String(row.id),
-          checked_in_at: String(row.checked_in_at),
-          checked_out_at: row.checked_out_at ? String(row.checked_out_at) : undefined,
-          latitude: typeof row.latitude === 'number' ? row.latitude : undefined,
-          longitude: typeof row.longitude === 'number' ? row.longitude : undefined,
-          user_name: typeof row.user_name === 'string' ? row.user_name : undefined,
-        }));
+        const fromServer: CheckIn[] = checkinsResult.data.map((row) => {
+          const serverId = String(row.id);
+          const local = localBySrv.get(serverId);
+          const serverOut = row.checked_out_at ? String(row.checked_out_at) : undefined;
+          // A local checkout the server hasn't seen yet must win — and get
+          // re-pushed — or a stale fetch would reopen the visit forever.
+          if (!serverOut && local?.checked_out_at) {
+            pushCheckout(serverId, local.checked_out_at);
+          }
+          return {
+            id: `srv-${serverId}`,
+            server_id: serverId,
+            checked_in_at: String(row.checked_in_at),
+            checked_out_at: serverOut ?? local?.checked_out_at,
+            latitude: typeof row.latitude === 'number' ? row.latitude : undefined,
+            longitude: typeof row.longitude === 'number' ? row.longitude : undefined,
+            user_name: typeof row.user_name === 'string' ? row.user_name : undefined,
+          };
+        });
+        // Keep unsynced local rows unless the server already has that exact
+        // visit (insert landed but the server_id write-back hasn't yet).
+        const serverStarts = new Set(fromServer.map((visit) => visit.checked_in_at));
+        const localOnly = extras.checkins.filter(
+          (visit) => !visit.server_id && !serverStarts.has(visit.checked_in_at),
+        );
         next = {
           ...next,
-          checkins: [...fromServer, ...localOnly.filter((visit) => !visit.server_id)].sort((a, b) =>
+          checkins: [...fromServer, ...localOnly].sort((a, b) =>
             a.checked_in_at < b.checked_in_at ? -1 : 1,
           ),
         };
       }
       if (!notesResult.error && notesResult.data) {
-        const serverIds = new Set(notesResult.data.map((row) => String(row.id)));
+        const fromServer: JobNote[] = notesResult.data
+          .filter((row) => !deletedNoteIds.has(String(row.id)))
+          .map((row) => ({
+            id: `srv-${row.id}`,
+            server_id: String(row.id),
+            text: String(row.note ?? ''),
+            author: String(row.author_name ?? 'Team member'),
+            created_at: String(row.created_at),
+          }));
+        const serverTexts = new Set(fromServer.map((note) => `${note.author}::${note.text}`));
         const localOnly = extras.notes.filter(
-          (note) => !note.server_id || !serverIds.has(note.server_id),
+          (note) => !note.server_id && !serverTexts.has(`${note.author}::${note.text}`),
         );
-        const fromServer: JobNote[] = notesResult.data.map((row) => ({
-          id: `srv-${row.id}`,
-          server_id: String(row.id),
-          text: String(row.note ?? ''),
-          author: String(row.author_name ?? 'Team member'),
-          created_at: String(row.created_at),
-        }));
         next = {
           ...next,
-          notes: [...fromServer, ...localOnly.filter((note) => !note.server_id)].sort((a, b) =>
+          notes: [...fromServer, ...localOnly].sort((a, b) =>
             a.created_at < b.created_at ? 1 : -1,
           ),
         };
@@ -166,7 +206,7 @@ export const jobExtras = {
   async get(jobId: string): Promise<JobExtras> {
     const map = await load();
     void hydrateFromServer(jobId);
-    return map[jobId] ?? { ...EMPTY };
+    return map[jobId] ?? emptyExtras();
   },
 
   /** Every job's extras (used by team presence to find active check-ins). */
@@ -185,14 +225,15 @@ export const jobExtras = {
     geo?: { latitude: number; longitude: number },
     userName?: string,
   ): Promise<void> {
-    const localId = `ci-${Date.now()}`;
+    const id = localId('ci');
+    const startedAt = new Date().toISOString();
     await mutate(jobId, (extras) => ({
       ...extras,
       checkins: [
         ...extras.checkins,
         {
-          id: localId,
-          checked_in_at: new Date().toISOString(),
+          id,
+          checked_in_at: startedAt,
           latitude: geo?.latitude,
           longitude: geo?.longitude,
           user_name: userName,
@@ -206,19 +247,25 @@ export const jobExtras = {
           .insert({
             job_id: jobId,
             user_name: userName ?? 'Team member',
-            checked_in_at: new Date().toISOString(),
+            checked_in_at: startedAt,
             latitude: geo?.latitude ?? null,
             longitude: geo?.longitude ?? null,
           })
           .select('id')
           .single();
         if (data?.id) {
+          let checkedOutMeanwhile: string | undefined;
           await mutate(jobId, (extras) => ({
             ...extras,
-            checkins: extras.checkins.map((visit) =>
-              visit.id === localId ? { ...visit, server_id: String(data.id) } : visit,
-            ),
+            checkins: extras.checkins.map((visit) => {
+              if (visit.id !== id) return visit;
+              checkedOutMeanwhile = visit.checked_out_at;
+              return { ...visit, server_id: String(data.id) };
+            }),
           }));
+          // The user may have checked out while the insert was in flight —
+          // close the server row too, or it stays open forever.
+          if (checkedOutMeanwhile) pushCheckout(String(data.id), checkedOutMeanwhile);
         }
       } catch {
         // Stays local; presence still works on this device.
@@ -238,25 +285,19 @@ export const jobExtras = {
     }));
     if (isSupabaseConfigured) {
       for (const visit of open) {
-        if (!visit.server_id) continue;
-        try {
-          await supabase
-            .from('job_checkins')
-            .update({ checked_out_at: endedAt })
-            .eq('id', visit.server_id);
-        } catch {
-          // Best-effort.
-        }
+        // Rows without a server_id are handled when the in-flight insert
+        // resolves (checkIn re-pushes the checkout) or on the next hydrate.
+        if (visit.server_id) pushCheckout(visit.server_id, endedAt);
       }
     }
   },
 
   async addNote(jobId: string, text: string, author: string): Promise<void> {
-    const localId = `n-${Date.now()}`;
+    const id = localId('n');
     await mutate(jobId, (extras) => ({
       ...extras,
       notes: [
-        { id: localId, text: text.trim(), author, created_at: new Date().toISOString() },
+        { id, text: text.trim(), author, created_at: new Date().toISOString() },
         ...extras.notes,
       ],
     }));
@@ -271,7 +312,7 @@ export const jobExtras = {
           await mutate(jobId, (extras) => ({
             ...extras,
             notes: extras.notes.map((note) =>
-              note.id === localId ? { ...note, server_id: String(data.id) } : note,
+              note.id === id ? { ...note, server_id: String(data.id) } : note,
             ),
           }));
         }
@@ -284,6 +325,9 @@ export const jobExtras = {
   async deleteNote(jobId: string, noteId: string): Promise<void> {
     const map = await load();
     const target = (map[jobId]?.notes ?? []).find((note) => note.id === noteId);
+    // Tombstone first so no hydrate can resurrect it, even if the server
+    // delete fails.
+    if (target?.server_id) deletedNoteIds.add(target.server_id);
     await mutate(jobId, (extras) => ({
       ...extras,
       notes: extras.notes.filter((note) => note.id !== noteId),
@@ -292,7 +336,7 @@ export const jobExtras = {
       try {
         await supabase.from('job_notes').delete().eq('id', target.server_id);
       } catch {
-        // Best-effort.
+        // Tombstoned locally either way.
       }
     }
   },

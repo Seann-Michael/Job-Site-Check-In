@@ -59,6 +59,10 @@ export function extractMentions(text: string, knownNames: string[]): string[] {
 // Throttled merge of teammates' comments from the server.
 const lastHydrated: Record<string, number> = {};
 
+// Deleted server rows never come back via hydrate, even if the server-side
+// delete failed.
+const deletedCommentIds = new Set<string>();
+
 async function hydrateFromServer(mediaId: string): Promise<void> {
   if (!isSupabaseConfigured || !mediaId) return;
   const now = Date.now();
@@ -72,22 +76,23 @@ async function hydrateFromServer(mediaId: string): Promise<void> {
       .order('created_at', { ascending: true });
     if (error || !data) return;
     const map = await load();
-    const serverIds = new Set(data.map((row) => String(row.id)));
+    const fromServer: MediaComment[] = data
+      .filter((row) => !deletedCommentIds.has(String(row.id)))
+      .map((row) => ({
+        id: `srv-${row.id}`,
+        server_id: String(row.id),
+        text: String(row.comment ?? ''),
+        author: String(row.author_name ?? 'Team member'),
+        created_at: String(row.created_at),
+        mentions: Array.isArray(row.mentions) ? (row.mentions as string[]) : [],
+      }));
+    // Keep unsynced local comments unless the server already has that exact
+    // comment (insert landed but the server_id write-back hasn't yet).
+    const serverTexts = new Set(fromServer.map((comment) => `${comment.author}::${comment.text}`));
     const localOnly = (map[mediaId] ?? []).filter(
-      (comment) => !comment.server_id || !serverIds.has(comment.server_id),
+      (comment) => !comment.server_id && !serverTexts.has(`${comment.author}::${comment.text}`),
     );
-    const fromServer: MediaComment[] = data.map((row) => ({
-      id: `srv-${row.id}`,
-      server_id: String(row.id),
-      text: String(row.comment ?? ''),
-      author: String(row.author_name ?? 'Team member'),
-      created_at: String(row.created_at),
-      mentions: Array.isArray(row.mentions) ? (row.mentions as string[]) : [],
-    }));
-    await persist({
-      ...map,
-      [mediaId]: [...fromServer, ...localOnly.filter((comment) => !comment.server_id)],
-    });
+    await persist({ ...map, [mediaId]: [...fromServer, ...localOnly] });
   } catch {
     // Offline.
   }
@@ -107,7 +112,7 @@ export const mediaComments = {
 
   async add(mediaId: string, text: string, author: string, knownNames: string[]): Promise<void> {
     const map = await load();
-    const localId = `c-${Date.now()}`;
+    const localId = `c-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const comment: MediaComment = {
       id: localId,
       text: text.trim(),
@@ -146,6 +151,7 @@ export const mediaComments = {
   async remove(mediaId: string, commentId: string): Promise<void> {
     const map = await load();
     const target = (map[mediaId] ?? []).find((comment) => comment.id === commentId);
+    if (target?.server_id) deletedCommentIds.add(target.server_id);
     await persist({
       ...map,
       [mediaId]: (map[mediaId] ?? []).filter((comment) => comment.id !== commentId),

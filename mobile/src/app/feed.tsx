@@ -37,7 +37,10 @@ function dayLabel(iso: string): string {
 }
 
 function dayKey(iso: string): string {
-  return iso.slice(0, 10);
+  // Local calendar day — slicing the ISO string groups by UTC day, which
+  // splits evenings into the wrong group and duplicates headers.
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
 /** Who took it: your captures are yours; demo rows rotate through the team. */
@@ -64,10 +67,13 @@ export default function FeedScreen() {
   );
 
   const groups = useMemo(() => {
-    const byDay = new Map<string, { label: string; items: { item: MediaItem; index: number }[] }>();
+    const byDay = new Map<
+      string,
+      { key: string; label: string; items: { item: MediaItem; index: number }[] }
+    >();
     sorted.forEach((item, index) => {
       const key = dayKey(item.taken_at);
-      if (!byDay.has(key)) byDay.set(key, { label: dayLabel(item.taken_at), items: [] });
+      if (!byDay.has(key)) byDay.set(key, { key, label: dayLabel(item.taken_at), items: [] });
       byDay.get(key)!.items.push({ item, index });
     });
     return [...byDay.values()];
@@ -97,7 +103,7 @@ export default function FeedScreen() {
           />
         ) : (
           groups.map((group) => (
-            <View key={group.label} style={{ gap: Spacing.sm }}>
+            <View key={group.key} style={{ gap: Spacing.sm }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
                 {group.label}
               </Text>

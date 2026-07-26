@@ -45,9 +45,20 @@ function pushMeta(jobId: string, meta: JobMeta): void {
   if (!isSupabaseConfigured) return;
   void (async () => {
     try {
+      // Read-merge-write: a device that never saw fields another device set
+      // (group, assignees, …) must not wipe them with its partial copy.
+      let merged = meta;
+      const { data } = await supabase
+        .from('job_field_state')
+        .select('meta')
+        .eq('job_id', jobId)
+        .single();
+      if (data?.meta && typeof data.meta === 'object') {
+        merged = { ...(data.meta as JobMeta), ...meta };
+      }
       await supabase
         .from('job_field_state')
-        .upsert({ job_id: jobId, meta, updated_at: new Date().toISOString() });
+        .upsert({ job_id: jobId, meta: merged, updated_at: new Date().toISOString() });
     } catch {
       // Best-effort.
     }
@@ -59,22 +70,31 @@ const hydratedJobs = new Set<string>();
 /** First time a device sees a job: pull synced meta from the server. */
 async function hydrateMeta(jobId: string): Promise<void> {
   if (!isSupabaseConfigured || !jobId || hydratedJobs.has(jobId)) return;
-  hydratedJobs.add(jobId);
   const map = await load();
-  if (map[jobId]) return; // Local state wins; write-through keeps server fresh.
+  if (map[jobId]) {
+    hydratedJobs.add(jobId);
+    return; // Local state wins; write-through keeps server fresh.
+  }
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('job_field_state')
       .select('meta')
       .eq('job_id', jobId)
       .single();
+    // "No row" is a definitive answer; a network failure is not — leave the
+    // job un-hydrated so a later attempt can retry.
+    if (!error || error.code === 'PGRST116') hydratedJobs.add(jobId);
     if (data?.meta && typeof data.meta === 'object') {
-      cache = { ...(await load()), [jobId]: data.meta as JobMeta };
+      // Re-check: the user may have edited meta while the fetch was in
+      // flight — never let stale server state clobber a fresh local edit.
+      const current = await load();
+      if (current[jobId]) return;
+      cache = { ...current, [jobId]: data.meta as JobMeta };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cache)).catch(() => undefined);
       emit();
     }
   } catch {
-    // Offline or table missing.
+    // Offline — retry on a later get().
   }
 }
 

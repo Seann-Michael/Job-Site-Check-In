@@ -2,15 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import {
-  Dimensions,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,7 +45,6 @@ function CommentText({ text, color, accent }: { text: string; color: string; acc
   );
 }
 
-const { width: WINDOW_WIDTH } = Dimensions.get('window');
 
 /** Full-screen swipeable photo viewer with native share. */
 export function MediaViewer({
@@ -66,6 +67,7 @@ export function MediaViewer({
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
   const [index, setIndex] = React.useState(initialIndex);
   const [editingTags, setEditingTags] = React.useState(false);
   const [tagDraft, setTagDraft] = React.useState<string[]>([]);
@@ -149,14 +151,14 @@ export function MediaViewer({
           horizontal
           pagingEnabled
           initialScrollIndex={Math.min(initialIndex, Math.max(0, items.length - 1))}
-          getItemLayout={(_, i) => ({ length: WINDOW_WIDTH, offset: WINDOW_WIDTH * i, index: i })}
+          getItemLayout={(_, i) => ({ length: windowWidth, offset: windowWidth * i, index: i })}
           keyExtractor={(item) => item.id}
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={(event) => {
-            setIndex(Math.round(event.nativeEvent.contentOffset.x / WINDOW_WIDTH));
+            setIndex(Math.round(event.nativeEvent.contentOffset.x / windowWidth));
           }}
           renderItem={({ item }) => (
-            <View style={styles.page}>
+            <View style={[styles.page, { width: windowWidth }]}>
               {item.uri ? (
                 <Image
                   source={{ uri: item.uri }}
@@ -211,7 +213,10 @@ export function MediaViewer({
         </View>
 
         {current ? (
-          <View style={[styles.caption, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            pointerEvents="box-none"
+            style={[styles.caption, { paddingBottom: insets.bottom + Spacing.lg }]}>
             {showComments ? (
               <View style={[styles.commentPanel, { backgroundColor: colors.card }]}>
                 <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
@@ -316,7 +321,7 @@ export function MediaViewer({
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         ) : null}
       </View>
     </Modal>
@@ -329,7 +334,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#05070B',
   },
   page: {
-    width: WINDOW_WIDTH,
     justifyContent: 'center',
   },
   placeholder: {

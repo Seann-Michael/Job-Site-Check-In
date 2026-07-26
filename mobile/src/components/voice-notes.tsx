@@ -8,7 +8,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/basics';
@@ -36,6 +36,22 @@ export function VoiceNotes({ jobId, notes }: { jobId: string; notes: VoiceNote[]
   const [busy, setBusy] = useState(false);
 
   const isRecording = recorderState.isRecording;
+
+  // Leaving the screen mid-recording: stop and reset the audio session, or
+  // iOS keeps routing playback through the quiet earpiece afterwards.
+  useEffect(() => {
+    return () => {
+      try {
+        if (recorder.isRecording) void recorder.stop();
+      } catch {
+        // Recorder already released.
+      }
+      void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(
+        () => undefined,
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startRecording = async () => {
     if (busy) return;

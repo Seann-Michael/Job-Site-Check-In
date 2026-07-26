@@ -35,12 +35,13 @@ export default function ReviewRequestScreen() {
   const [seeded, setSeeded] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // Prefill from the job's client record.
+  // Prefill from the job's client record — wait for BOTH queries, or the
+  // clients list arriving late means the phone never prefills.
   useEffect(() => {
-    if (job && !seeded) {
+    if (job && clients && !seeded) {
       setSeeded(true);
       setName(job.client_name === 'Unknown client' ? '' : job.client_name);
-      const client = (clients ?? []).find((entry) => entry.name === job.client_name);
+      const client = clients.find((entry) => entry.name === job.client_name);
       if (client) setContact(client.phone || client.email || '');
     }
   }, [job, clients, seeded]);

@@ -289,6 +289,31 @@ multiplayer — everything still works on-device without it:
   job, and photo comments sync through `media_comments` with a throttled
   teammate merge — same best-effort/off-line-first pattern as check-ins.
 
+## Milestone 28 (shipped): hardening pass
+
+Three adversarial code reviews over milestones 22–27; all confirmed
+findings fixed:
+
+- **Camera**: walkthru mode now actually records (CameraView was left in
+  picture mode); iOS level indicator sign corrected; leaving or flipping
+  the camera mid-recording stops cleanly instead of discarding footage;
+  video saves run in the background so the shutter frees up immediately;
+  torch works in video modes; aspect-ratio crops are EXIF-orientation
+  aware; permission prompt asks once (and never on web).
+- **Video memory**: uploads stream from disk as blobs — no more full-file
+  base64 (a 2-minute clip could OOM-crash Expo Go), in both the direct
+  and offline-queue paths.
+- **Sync layer**: local checkouts can no longer be reverted by a stale
+  server fetch (merge preserves + re-pushes them); check-out during an
+  in-flight check-in closes the server row; deletes are tombstoned so
+  failed server deletes don't resurrect notes/comments; meta pushes
+  read-merge-write so devices can't wipe each other's fields; checklist
+  first-sync merges instead of clobbering; presence includes unsynced
+  local check-ins.
+- **Screens**: comment input no longer hidden by the keyboard; feed
+  groups by local day (no duplicate headers); review-request phone
+  prefill race fixed; voice recorder cleans up the audio session on exit.
+
 ## Roadmap (next milestones)
 
 1. Remote push notifications, EAS build + store submission (needs the

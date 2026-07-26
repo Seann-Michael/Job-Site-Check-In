@@ -49,18 +49,29 @@ async function cropToAspect(
   photo: { uri: string; width: number; height: number },
   aspect: AspectRatio,
 ): Promise<{ uri: string; width: number; height: number }> {
-  if (aspect === 'full' || !photo.width || !photo.height) return photo;
-  const target = aspect === '1:1' ? 1 : 3 / 4; // portrait 4:3 => w/h = 0.75
-  const current = photo.width / photo.height;
-  let width = photo.width;
-  let height = photo.height;
-  if (current > target) width = Math.round(photo.height * target);
-  else height = Math.round(photo.width / target);
-  const originX = Math.round((photo.width - width) / 2);
-  const originY = Math.round((photo.height - height) / 2);
+  if (aspect === 'full') return photo;
   try {
+    // Normalize EXIF orientation first: the camera can report sensor
+    // dimensions (landscape) for a portrait JPEG, and the manipulator works
+    // on the rotated image — computing the crop on raw dims would misplace
+    // it or throw.
+    const norm = await ImageManipulator.manipulateAsync(photo.uri, [], {
+      compress: 1,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    const { width: w, height: h } = norm;
+    if (!w || !h) return photo;
+    const portrait = h >= w;
+    const target = aspect === '1:1' ? 1 : portrait ? 3 / 4 : 4 / 3; // w/h
+    const current = w / h;
+    let width = w;
+    let height = h;
+    if (current > target) width = Math.round(h * target);
+    else height = Math.round(w / target);
+    const originX = Math.round((w - width) / 2);
+    const originY = Math.round((h - height) / 2);
     const result = await ImageManipulator.manipulateAsync(
-      photo.uri,
+      norm.uri,
       [{ crop: { originX, originY, width, height } }],
       { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
     );
@@ -111,12 +122,15 @@ export default function CameraScreen() {
   const [roll, setRoll] = useState(0);
   const [walkStep, setWalkStep] = useState(0);
 
-  // Level indicator: roll from the accelerometer while enabled.
+  // Level indicator: roll from the accelerometer while enabled. iOS reports
+  // gravity direction (upright => y ≈ -1) while Android reports the reaction
+  // force (upright => y ≈ +1) — normalize so level reads 0° on both.
   useEffect(() => {
     if (!levelOn || previewMode) return;
+    const sign = Platform.OS === 'ios' ? -1 : 1;
     Accelerometer.setUpdateInterval(120);
     const subscription = Accelerometer.addListener(({ x, y }) => {
-      setRoll((Math.atan2(x, y) * 180) / Math.PI);
+      setRoll((Math.atan2(sign * x, sign * y) * 180) / Math.PI);
     });
     return () => subscription.remove();
   }, [levelOn, previewMode]);
@@ -175,8 +189,13 @@ export default function CameraScreen() {
     };
   }, []);
 
+  // Ask once, native only — re-running on every permission object change
+  // re-summons the dialog on Android, and web would pop a browser prompt.
+  const askedPermission = useRef(false);
   useEffect(() => {
+    if (Platform.OS === 'web' || askedPermission.current) return;
     if (permission && !permission.granted && permission.canAskAgain) {
+      askedPermission.current = true;
       void requestPermission();
     }
   }, [permission, requestPermission]);
@@ -278,15 +297,24 @@ export default function CameraScreen() {
     setRecording(true);
     try {
       const video = await cameraRef.current.recordAsync({ maxDuration: 120 });
+      // Leave "recording" state the moment capture ends — the (possibly
+      // slow) save runs in the background like photos do.
+      setRecording(false);
       if (video?.uri) {
         setShotCount((count) => count + 1);
         setLastShotUri(null);
-        const result = await saveCameraVideo(jobId, jobTitle ?? '', category, video, geoRef.current);
-        if (result.queued) setQueuedCount((count) => count + 1);
-        else if (result.error) {
-          setShotCount((count) => Math.max(0, count - 1));
-          notify('Not saved', result.error);
-        }
+        savingRef.current += 1;
+        void saveCameraVideo(jobId, jobTitle ?? '', category, video, geoRef.current)
+          .then((result) => {
+            if (result.queued) setQueuedCount((count) => count + 1);
+            else if (result.error) {
+              setShotCount((count) => Math.max(0, count - 1));
+              notify('Not saved', result.error);
+            }
+          })
+          .finally(() => {
+            savingRef.current = Math.max(0, savingRef.current - 1);
+          });
       }
     } catch (error) {
       notify('Could not record', error instanceof Error ? error.message : 'Try again.');
@@ -302,6 +330,15 @@ export default function CameraScreen() {
   };
 
   const finish = () => {
+    // Never navigate away mid-recording — that tears down the camera session
+    // and discards the footage. Stop first; the resolved recording saves.
+    if (recording) {
+      cameraRef.current?.stopRecording();
+      return;
+    }
+    if (savingRef.current > 0) {
+      notify('Saving in background', 'Your last shots finish saving while you work.');
+    }
     router.back();
   };
 
@@ -319,7 +356,8 @@ export default function CameraScreen() {
           facing={facing}
           flash={flash}
           zoom={zoom}
-          mode={mode === 'video' ? 'video' : 'picture'}
+          mode={mode === 'photo' ? 'picture' : 'video'}
+          enableTorch={mode !== 'photo' && flash !== 'off'}
         />
       )}
       {showGrid ? (
@@ -369,9 +407,10 @@ export default function CameraScreen() {
             {flash === 'auto' ? <Text style={styles.flashAuto}>A</Text> : null}
           </Pressable>
           <Pressable
+            disabled={recording}
             onPress={() => setFacing((side) => (side === 'back' ? 'front' : 'back'))}
             hitSlop={10}
-            style={styles.roundButton}>
+            style={[styles.roundButton, recording && { opacity: 0.4 }]}>
             <Ionicons name="camera-reverse-outline" size={20} color="#FFFFFF" />
           </Pressable>
           <Pressable

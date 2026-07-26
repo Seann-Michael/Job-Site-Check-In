@@ -154,6 +154,8 @@ async function normalizeImage(
 
 interface UploadFile {
   base64: string;
+  /** Source file on disk — required for videos (streamed, never base64). */
+  uri?: string;
   width?: number;
   height?: number;
   ext: string;
@@ -170,13 +172,27 @@ async function uploadToSupabase(
   geo: GeoFix | undefined,
   takenAt: string,
 ): Promise<MediaItem> {
-  const bytes = decode(file.base64);
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${file.ext}`;
   const filePath = `project-media/${jobId}/${fileName}`;
 
+  // Videos stream from disk as a blob — base64-decoding a two-minute clip
+  // (hundreds of MB as string + buffer) is an OOM crash on real devices.
+  let body: ArrayBuffer | Blob;
+  let byteLength: number;
+  if ((file.mediaType === 'video' || !file.base64) && file.uri) {
+    const response = await fetch(file.uri);
+    const blob = await response.blob();
+    body = blob;
+    byteLength = blob.size;
+  } else {
+    const bytes = decode(file.base64);
+    body = bytes;
+    byteLength = bytes.byteLength;
+  }
+
   const { error: uploadError } = await supabase.storage
     .from('media')
-    .upload(filePath, bytes, { contentType: file.contentType, upsert: false });
+    .upload(filePath, body, { contentType: file.contentType, upsert: false });
   if (uploadError) throw uploadError;
 
   const {
@@ -196,7 +212,7 @@ async function uploadToSupabase(
       filename: fileName,
       original_name: fileName,
       file_path: publicUrl,
-      file_size: bytes.byteLength,
+      file_size: byteLength,
       mime_type: file.contentType,
       media_type: file.mediaType,
       category,
@@ -431,24 +447,15 @@ async function saveVideoAsset(
   const contentType =
     asset.mimeType ?? (ext === 'mov' ? 'video/quicktime' : `video/${ext === 'm4v' ? 'mp4' : ext}`);
 
-  let base64 = '';
-  if (isSupabaseConfigured) {
-    try {
-      base64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-    } catch {
-      return { error: 'Could not read the video file.' };
-    }
-  }
-
+  // No base64 for videos: uploadToSupabase streams them from disk as a
+  // blob — reading a long clip into a base64 string is an OOM crash.
   return saveOrQueue(
     jobId,
     jobTitle,
     category,
     {
       uri: asset.uri,
-      base64,
+      base64: '',
       width: asset.width,
       height: asset.height,
       ext,
@@ -524,15 +531,20 @@ export async function captureJobMedia(
 // upload path. Returns false while still offline so the queue stops early.
 uploadQueue.setFlushHandler(async (queuedItem) => {
   try {
-    const base64 = await FileSystem.readAsStringAsync(queuedItem.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    // Videos stream from disk in uploadToSupabase; only images go base64.
+    const isVideo = queuedItem.media_type === 'video';
+    const base64 = isVideo
+      ? ''
+      : await FileSystem.readAsStringAsync(queuedItem.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
     await uploadToSupabase(
       queuedItem.job_id,
       queuedItem.job_title,
       queuedItem.category,
       {
         base64,
+        uri: queuedItem.uri,
         width: queuedItem.width,
         height: queuedItem.height,
         ext: queuedItem.ext ?? 'jpg',
