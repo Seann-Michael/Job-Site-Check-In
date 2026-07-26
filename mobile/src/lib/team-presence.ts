@@ -8,7 +8,7 @@
 import React from 'react';
 
 import { jobExtras } from '@/lib/job-extras';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export const TEAM_NAMES = ['Alex Morgan', 'Jordan Reyes', 'Casey Nguyen'];
 
@@ -37,6 +37,28 @@ function demoPresence(): Presence[] {
 
 /** Everyone currently checked in, you first. */
 export async function fetchPresence(userName: string): Promise<Presence[]> {
+  // Connected: real presence — every open check-in across the team.
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from('job_checkins')
+        .select('job_id, user_name, checked_in_at')
+        .is('checked_out_at', null)
+        .order('checked_in_at', { ascending: true });
+      if (!error && data) {
+        return data
+          .map((row) => ({
+            jobId: String(row.job_id),
+            name: String(row.user_name ?? 'Team member'),
+            since: String(row.checked_in_at),
+            isYou: row.user_name === userName,
+          }))
+          .sort((a, b) => Number(b.isYou) - Number(a.isYou));
+      }
+    } catch {
+      // Fall through to local data.
+    }
+  }
   const mine: Presence[] = [];
   const map = await jobExtras.getAll();
   for (const [jobId, extras] of Object.entries(map)) {

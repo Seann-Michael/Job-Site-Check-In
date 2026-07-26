@@ -260,6 +260,22 @@ under a quarter mile) — tap one and you're in the camera.
 - **Portfolio** (`/portfolio`, Settings → Portfolio): feature completed
   jobs and share the showcase.
 
+## Milestone 26 (shipped): server sync + live gallery links
+
+When Supabase is configured (paste keys into `.env`), the field features go
+multiplayer — everything still works on-device without it:
+
+- **Check-ins and notes sync** to new `job_checkins` / `job_notes` tables
+  (best-effort writes; a throttled background fetch merges teammates' site
+  visits and notes into the job screen).
+- **Team on site is real**: presence reads open check-ins across the whole
+  team instead of simulated teammates.
+- **Gallery links go live**: shares write a `shared_galleries` row, and the
+  web app now serves `/g/:token` (`client/pages/PublicGallery.tsx`) — a
+  clean public page with the photos, no login needed.
+- Migration: `supabase/migrations/20260726000000_create_mobile_field_tables.sql`
+  (apply with `supabase db push` or the dashboard SQL editor).
+
 ## Roadmap (next milestones)
 
 1. Review request sending via the Express API (Twilio) — skipped for now by request

@@ -13,6 +13,7 @@ import { fetchJob, fetchJobMedia } from '@/lib/data';
 import { formatDate, notify } from '@/lib/format';
 import { galleryUrl, shareLinks } from '@/lib/share-links';
 import { useAuth } from '@/providers/auth-provider';
+import { useWorkspace } from '@/hooks/use-workspace';
 import type { MediaItem } from '@/lib/types';
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -27,6 +28,7 @@ export default function ShareGalleryScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useAuth();
+  const { business } = useWorkspace();
 
   const { data: job } = useData(() => fetchJob(id ?? ''));
   const { data: mediaData } = useData(() => fetchJobMedia(id ?? ''));
@@ -63,7 +65,13 @@ export default function ShareGalleryScreen() {
     if (!job || selected.size === 0 || sharing) return;
     setSharing(true);
     try {
-      const link = await shareLinks.create(job.id, [...selected]);
+      const link = await shareLinks.create(job.id, [...selected], {
+        jobTitle: job.title,
+        businessName: business?.name,
+        photoUrls: media
+          .filter((item) => selected.has(item.id) && item.uri)
+          .map((item) => item.uri!),
+      });
       const url = galleryUrl(link);
       await Share.share({
         message: [

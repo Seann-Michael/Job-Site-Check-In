@@ -142,7 +142,7 @@ export default function JobDetailScreen() {
         notify('Checked out', 'Site visit saved to the job history.');
       } else {
         const geo = await getLocationFix();
-        await jobExtras.checkIn(id, geo);
+        await jobExtras.checkIn(id, geo, user?.name ?? 'You');
         notify('Checked in', geo ? 'On site — visit is being tracked with GPS.' : 'On site — visit is being tracked.');
       }
     } finally {

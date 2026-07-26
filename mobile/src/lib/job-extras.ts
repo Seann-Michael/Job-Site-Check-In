@@ -20,6 +20,10 @@ export interface CheckIn {
   checked_out_at?: string;
   latitude?: number;
   longitude?: number;
+  /** Row id in job_checkins once synced. */
+  server_id?: string;
+  /** Who checked in (defaults to you for local rows). */
+  user_name?: string;
 }
 
 export interface JobNote {
@@ -27,6 +31,8 @@ export interface JobNote {
   text: string;
   author: string;
   created_at: string;
+  /** Row id in job_notes once synced. */
+  server_id?: string;
 }
 
 export interface JobDocument {
@@ -84,9 +90,82 @@ async function mutate(jobId: string, fn: (extras: JobExtras) => JobExtras): Prom
   return next;
 }
 
+// Throttled background hydration of check-ins/notes from the server, so
+// teammates' visits and notes appear without blocking the UI.
+const lastHydrated: Record<string, number> = {};
+
+async function hydrateFromServer(jobId: string): Promise<void> {
+  if (!isSupabaseConfigured || !jobId) return;
+  const now = Date.now();
+  if (now - (lastHydrated[jobId] ?? 0) < 15_000) return;
+  lastHydrated[jobId] = now;
+  try {
+    const [checkinsResult, notesResult] = await Promise.all([
+      supabase
+        .from('job_checkins')
+        .select('id, user_name, checked_in_at, checked_out_at, latitude, longitude')
+        .eq('job_id', jobId)
+        .order('checked_in_at', { ascending: true }),
+      supabase
+        .from('job_notes')
+        .select('id, author_name, note, created_at')
+        .eq('job_id', jobId)
+        .order('created_at', { ascending: false }),
+    ]);
+    if (checkinsResult.error && notesResult.error) return;
+    await mutate(jobId, (extras) => {
+      let next = extras;
+      if (!checkinsResult.error && checkinsResult.data) {
+        const serverIds = new Set(checkinsResult.data.map((row) => String(row.id)));
+        const localOnly = extras.checkins.filter(
+          (visit) => !visit.server_id || !serverIds.has(visit.server_id),
+        );
+        const fromServer: CheckIn[] = checkinsResult.data.map((row) => ({
+          id: `srv-${row.id}`,
+          server_id: String(row.id),
+          checked_in_at: String(row.checked_in_at),
+          checked_out_at: row.checked_out_at ? String(row.checked_out_at) : undefined,
+          latitude: typeof row.latitude === 'number' ? row.latitude : undefined,
+          longitude: typeof row.longitude === 'number' ? row.longitude : undefined,
+          user_name: typeof row.user_name === 'string' ? row.user_name : undefined,
+        }));
+        next = {
+          ...next,
+          checkins: [...fromServer, ...localOnly.filter((visit) => !visit.server_id)].sort((a, b) =>
+            a.checked_in_at < b.checked_in_at ? -1 : 1,
+          ),
+        };
+      }
+      if (!notesResult.error && notesResult.data) {
+        const serverIds = new Set(notesResult.data.map((row) => String(row.id)));
+        const localOnly = extras.notes.filter(
+          (note) => !note.server_id || !serverIds.has(note.server_id),
+        );
+        const fromServer: JobNote[] = notesResult.data.map((row) => ({
+          id: `srv-${row.id}`,
+          server_id: String(row.id),
+          text: String(row.note ?? ''),
+          author: String(row.author_name ?? 'Team member'),
+          created_at: String(row.created_at),
+        }));
+        next = {
+          ...next,
+          notes: [...fromServer, ...localOnly.filter((note) => !note.server_id)].sort((a, b) =>
+            a.created_at < b.created_at ? 1 : -1,
+          ),
+        };
+      }
+      return next;
+    });
+  } catch {
+    // Offline — local data stands.
+  }
+}
+
 export const jobExtras = {
   async get(jobId: string): Promise<JobExtras> {
     const map = await load();
+    void hydrateFromServer(jobId);
     return map[jobId] ?? { ...EMPTY };
   },
 
@@ -101,45 +180,121 @@ export const jobExtras = {
     return extras.checkins.find((visit) => !visit.checked_out_at);
   },
 
-  async checkIn(jobId: string, geo?: { latitude: number; longitude: number }): Promise<void> {
+  async checkIn(
+    jobId: string,
+    geo?: { latitude: number; longitude: number },
+    userName?: string,
+  ): Promise<void> {
+    const localId = `ci-${Date.now()}`;
     await mutate(jobId, (extras) => ({
       ...extras,
       checkins: [
         ...extras.checkins,
         {
-          id: `ci-${Date.now()}`,
+          id: localId,
           checked_in_at: new Date().toISOString(),
           latitude: geo?.latitude,
           longitude: geo?.longitude,
+          user_name: userName,
         },
       ],
     }));
+    if (isSupabaseConfigured) {
+      try {
+        const { data } = await supabase
+          .from('job_checkins')
+          .insert({
+            job_id: jobId,
+            user_name: userName ?? 'Team member',
+            checked_in_at: new Date().toISOString(),
+            latitude: geo?.latitude ?? null,
+            longitude: geo?.longitude ?? null,
+          })
+          .select('id')
+          .single();
+        if (data?.id) {
+          await mutate(jobId, (extras) => ({
+            ...extras,
+            checkins: extras.checkins.map((visit) =>
+              visit.id === localId ? { ...visit, server_id: String(data.id) } : visit,
+            ),
+          }));
+        }
+      } catch {
+        // Stays local; presence still works on this device.
+      }
+    }
   },
 
   async checkOut(jobId: string): Promise<void> {
+    const endedAt = new Date().toISOString();
+    const map = await load();
+    const open = (map[jobId]?.checkins ?? []).filter((visit) => !visit.checked_out_at);
     await mutate(jobId, (extras) => ({
       ...extras,
       checkins: extras.checkins.map((visit) =>
-        visit.checked_out_at ? visit : { ...visit, checked_out_at: new Date().toISOString() },
+        visit.checked_out_at ? visit : { ...visit, checked_out_at: endedAt },
       ),
     }));
+    if (isSupabaseConfigured) {
+      for (const visit of open) {
+        if (!visit.server_id) continue;
+        try {
+          await supabase
+            .from('job_checkins')
+            .update({ checked_out_at: endedAt })
+            .eq('id', visit.server_id);
+        } catch {
+          // Best-effort.
+        }
+      }
+    }
   },
 
   async addNote(jobId: string, text: string, author: string): Promise<void> {
+    const localId = `n-${Date.now()}`;
     await mutate(jobId, (extras) => ({
       ...extras,
       notes: [
-        { id: `n-${Date.now()}`, text: text.trim(), author, created_at: new Date().toISOString() },
+        { id: localId, text: text.trim(), author, created_at: new Date().toISOString() },
         ...extras.notes,
       ],
     }));
+    if (isSupabaseConfigured) {
+      try {
+        const { data } = await supabase
+          .from('job_notes')
+          .insert({ job_id: jobId, author_name: author, note: text.trim() })
+          .select('id')
+          .single();
+        if (data?.id) {
+          await mutate(jobId, (extras) => ({
+            ...extras,
+            notes: extras.notes.map((note) =>
+              note.id === localId ? { ...note, server_id: String(data.id) } : note,
+            ),
+          }));
+        }
+      } catch {
+        // Stays local.
+      }
+    }
   },
 
   async deleteNote(jobId: string, noteId: string): Promise<void> {
+    const map = await load();
+    const target = (map[jobId]?.notes ?? []).find((note) => note.id === noteId);
     await mutate(jobId, (extras) => ({
       ...extras,
       notes: extras.notes.filter((note) => note.id !== noteId),
     }));
+    if (isSupabaseConfigured && target?.server_id) {
+      try {
+        await supabase.from('job_notes').delete().eq('id', target.server_id);
+      } catch {
+        // Best-effort.
+      }
+    }
   },
 
   async deleteDocument(jobId: string, documentId: string): Promise<void> {

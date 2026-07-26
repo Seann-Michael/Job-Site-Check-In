@@ -35,6 +35,7 @@ const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProject = lazy(() => import("./pages/PublicProject"));
+const PublicGallery = lazy(() => import("./pages/PublicGallery"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
@@ -138,6 +139,7 @@ const App = () => (
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
                 <Route path="/public/job/:id" element={<PublicProject />} />
+                <Route path="/g/:token" element={<PublicGallery />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
                 <Route path="/review-demo" element={<ReviewGate />} />
                 <Route
