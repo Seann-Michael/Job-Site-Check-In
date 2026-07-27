@@ -7,11 +7,11 @@ import { JobCard } from '@/components/job-card';
 import { NearbyJobs } from '@/components/nearby-jobs';
 import { SearchBar } from '@/components/search-bar';
 import { UploadBanner } from '@/components/upload-banner';
-import { EmptyState, Segmented, StatTile } from '@/components/ui/basics';
+import { Button, Card, EmptyState, IconTile, Segmented, StatTile } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchJobs } from '@/lib/data';
+import { dataErrors, fetchJobs } from '@/lib/data';
 import { jobMeta } from '@/lib/job-meta';
 import { syncJobReminders } from '@/lib/notifications';
 import { useData } from '@/hooks/use-data';
@@ -36,6 +36,9 @@ export default function JobsScreen() {
   const { data: jobs, loading, refreshing, refresh } = useData(fetchJobs);
   useJobsRefresh(refresh);
   React.useEffect(() => workspace.subscribe(refresh), [refresh]);
+  // Tells "no jobs match" apart from "the jobs query failed" (empty either way).
+  const [loadError, setLoadError] = useState<string | null>(() => dataErrors.get('jobs'));
+  React.useEffect(() => dataErrors.subscribe(() => setLoadError(dataErrors.get('jobs'))), []);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   // Re-render when stars/archive/groups change (JobCard reads the cache).
@@ -127,14 +130,35 @@ export default function JobsScreen() {
             ))}
           </View>
         ) : null}
+        {/* A banner, not a replacement. The 'jobs' error slot is process-global
+            and eight other screens call fetchJobs(), so a failure raised
+            elsewhere can arrive while this tab still holds rows it loaded
+            successfully. Blanking the list would hide the user's real work. */}
+        {loadError ? (
+          <Card style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+            <IconTile icon="cloud-offline-outline" tone="danger" />
+            <Text style={{ flex: 1, color: colors.text, fontWeight: '600', fontSize: 15 }}>
+              {loadError}
+            </Text>
+            <Button
+              label="Try again"
+              variant="secondary"
+              icon="refresh"
+              loading={refreshing}
+              onPress={refresh}
+            />
+          </Card>
+        ) : null}
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon="briefcase-outline"
-            title="No jobs found"
-            message="Try a different search or filter, or create your first job."
-          />
+          loadError ? null : (
+            <EmptyState
+              icon="briefcase-outline"
+              title="No jobs found"
+              message="Try a different search or filter, or create your first job."
+            />
+          )
         ) : (
           filtered.map((job) => <JobCard key={job.id} job={job} />)
         )}

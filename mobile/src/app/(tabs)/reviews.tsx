@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Fab } from '@/components/fab';
 import { ReviewCard } from '@/components/review-card';
-import { EmptyState, Segmented, StatTile } from '@/components/ui/basics';
+import { Button, Card, EmptyState, IconTile, Segmented, StatTile } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchReviewRequests } from '@/lib/data';
+import { dataErrors, fetchReviewRequests } from '@/lib/data';
 import { notify } from '@/lib/format';
 import { useData } from '@/hooks/use-data';
 
@@ -22,6 +22,9 @@ export default function ReviewsScreen() {
   const { colors } = useTheme();
   const { data: requests, loading, refreshing, refresh } = useData(fetchReviewRequests);
   const [tab, setTab] = useState('current');
+  // Tells "no requests in this stage" apart from "the review query failed".
+  const [loadError, setLoadError] = useState<string | null>(() => dataErrors.get('reviews'));
+  React.useEffect(() => dataErrors.subscribe(() => setLoadError(dataErrors.get('reviews'))), []);
 
   const filtered = useMemo(() => {
     const all = requests ?? [];
@@ -54,6 +57,21 @@ export default function ReviewsScreen() {
         <Segmented options={TABS} value={tab} onChange={setTab} />
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+        ) : loadError ? (
+          <Card style={{ alignItems: 'center', gap: Spacing.sm }}>
+            <IconTile icon="cloud-offline-outline" tone="danger" />
+            <Text
+              style={{ color: colors.text, fontWeight: '600', fontSize: 15, textAlign: 'center' }}>
+              {loadError}
+            </Text>
+            <Button
+              label="Try again"
+              variant="secondary"
+              icon="refresh"
+              loading={refreshing}
+              onPress={refresh}
+            />
+          </Card>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon="star-outline"

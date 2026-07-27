@@ -4,11 +4,11 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { MediaThumb } from '@/components/media-thumb';
 import { MediaViewer } from '@/components/media-viewer';
-import { EmptyState, Segmented } from '@/components/ui/basics';
+import { Button, Card, EmptyState, IconTile, Segmented } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchMedia } from '@/lib/data';
+import { dataErrors, fetchMedia } from '@/lib/data';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
 import type { MediaItem } from '@/lib/types';
@@ -32,6 +32,9 @@ export default function GalleryScreen() {
   const router = useRouter();
   const { data: media, loading, refreshing, refresh } = useData(fetchMedia);
   useMediaRefresh(refresh);
+  // Tells "nothing captured yet" apart from "the media query failed".
+  const [loadError, setLoadError] = useState<string | null>(() => dataErrors.get('media'));
+  React.useEffect(() => dataErrors.subscribe(() => setLoadError(dataErrors.get('media'))), []);
   const [filter, setFilter] = useState('all');
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
@@ -46,19 +49,47 @@ export default function GalleryScreen() {
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <ScreenHeader
-        title="Gallery"
-        subtitle={`${filtered.length} items`}
-        actions={[{ icon: 'people-outline', onPress: () => router.push('/feed') }]}
+        title="Feed"
+        // The count describes what is actually on screen. When the read failed
+        // and nothing survived it, "0 items" would assert an empty workspace we
+        // can no longer vouch for, so the banner speaks for itself instead.
+        subtitle={loadError && filtered.length === 0 ? undefined : `${filtered.length} items`}
+        actions={[{ icon: 'business-outline', onPress: () => router.push('/feed') }]}
       />
       <Segmented options={FILTERS} value={filter} onChange={setFilter} />
+      {/* A banner, not a replacement: a failed read still returns this device's
+          queued captures, and hiding them makes just-taken work look lost. */}
+      {loadError ? (
+        <Card
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: Spacing.sm,
+            padding: Spacing.md,
+          }}>
+          <IconTile icon="cloud-offline-outline" tone="danger" size={32} />
+          <Text style={{ flex: 1, color: colors.text, fontWeight: '600', fontSize: 14 }}>
+            {loadError}
+          </Text>
+          <Button
+            label="Try again"
+            variant="secondary"
+            icon="refresh"
+            loading={refreshing}
+            onPress={refresh}
+          />
+        </Card>
+      ) : null}
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
       ) : rows.length === 0 ? (
-        <EmptyState
-          icon="images-outline"
-          title="No media yet"
-          message="Photos and videos you capture on jobs show up here."
-        />
+        loadError ? null : (
+          <EmptyState
+            icon="images-outline"
+            title="No media yet"
+            message="Photos and videos you capture on jobs show up here."
+          />
+        )
       ) : (
         <View style={{ gap: Spacing.sm }}>
           {rows.map((row, rowIndex) => (
