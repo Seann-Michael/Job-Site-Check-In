@@ -257,8 +257,6 @@ under a quarter mile) — tap one and you're in the camera.
   pending offline upload.
 - **Checklist template** (Settings → Checklist template): edit/reorder
   the tasks every new job starts with.
-- **Portfolio** (`/portfolio`, Settings → Portfolio): feature completed
-  jobs and share the showcase.
 
 ## Milestone 26 (shipped): server sync + live gallery links
 

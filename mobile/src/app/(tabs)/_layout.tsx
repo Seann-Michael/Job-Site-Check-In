@@ -59,7 +59,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="gallery"
-        options={{ title: 'Gallery', tabBarIcon: tabIcon('images-outline', 'images') }}
+        options={{ title: 'Feed', tabBarIcon: tabIcon('images-outline', 'images') }}
       />
       <Tabs.Screen
         name="reviews"
