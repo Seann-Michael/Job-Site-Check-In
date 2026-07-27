@@ -9,7 +9,7 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
-import { fetchClients } from '@/lib/clients';
+import { clientDisplayName, fetchClients } from '@/lib/clients';
 import { clientsStore } from '@/lib/clients-store';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
@@ -26,8 +26,21 @@ export default function ClientsScreen() {
     const all = clients ?? [];
     const q = query.trim().toLowerCase();
     if (!q) return all;
+    // Search every name the app can show. The detail screen titles a client by
+    // clientDisplayName (first/last wins over `name`), so searching only `name`
+    // meant typing the name you just read on that screen returned nothing.
     return all.filter((client) =>
-      [client.name, client.email, client.phone].join(' ').toLowerCase().includes(q),
+      [
+        clientDisplayName(client),
+        client.name,
+        client.business_name,
+        client.email,
+        client.phone,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
     );
   }, [clients, query]);
 
@@ -57,11 +70,18 @@ export default function ClientsScreen() {
               router.push({ pathname: '/client/[id]', params: { id: client.id } })
             }>
             <View style={styles.row}>
-              <Avatar name={client.name} size={42} />
+              {/* Same label and initials the detail screen uses, so a client
+                  cannot appear under two different names in one session. */}
+              <Avatar name={clientDisplayName(client)} size={42} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-                  {client.name}
+                  {clientDisplayName(client)}
                 </Text>
+                {client.business_name && client.business_name !== clientDisplayName(client) ? (
+                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
+                    {client.business_name}
+                  </Text>
+                ) : null}
                 <Text style={{ fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
                   {[client.phone, client.email].filter(Boolean).join(' · ') || 'No contact info'}
                 </Text>

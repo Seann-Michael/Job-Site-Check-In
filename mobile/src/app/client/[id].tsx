@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
@@ -12,7 +11,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { clientTags } from '@/lib/client-tags';
-import { fetchClient, fetchClientJobs } from '@/lib/clients';
+import { clientDisplayName, fetchClient, fetchClientJobs } from '@/lib/clients';
 import { clientsStore } from '@/lib/clients-store';
 import { notify } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
@@ -52,6 +51,14 @@ export default function ClientDetailScreen() {
     void Linking.openURL(`mailto:${client.email}`);
   };
 
+  // Who to ask for on site, composed by clientDisplayName (first/last → name →
+  // business_name). The company is a separate fact from the person, so it gets
+  // its own line — dropped when it is the same string, so a company-only row
+  // doesn't print its name twice.
+  const displayName = client ? clientDisplayName(client) : '';
+  const businessName = (client?.business_name ?? '').trim();
+  const secondaryBusinessName = businessName === displayName ? '' : businessName;
+
   return (
     <Screen>
       <DetailHeader
@@ -67,11 +74,16 @@ export default function ClientDetailScreen() {
       {client ? (
         <>
           <Card style={styles.headerCard}>
-            <Avatar name={client.name} size={52} />
+            <Avatar name={displayName} size={52} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontSize: 17, fontWeight: '800', color: colors.text }}>
-                {client.name}
+                {displayName}
               </Text>
+              {secondaryBusinessName ? (
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>
+                  {secondaryBusinessName}
+                </Text>
+              ) : null}
               <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
                 {client.jobs_count} {client.jobs_count === 1 ? 'job' : 'jobs'} on record
               </Text>
@@ -116,7 +128,17 @@ export default function ClientDetailScreen() {
             </Card>
           ) : null}
 
-          <Button label="New job" icon="add" onPress={() => router.push('/job/new')} />
+          <Button
+            label="New job"
+            icon="add"
+            onPress={() =>
+              // Id only. On web these params become the URL query string, so
+              // anything passed here lands in the address bar, browser history
+              // and the outbound Referer — never put contact details in it.
+              // /job/new looks the client up from this id on its own.
+              router.push({ pathname: '/job/new', params: { clientId: client.id } })
+            }
+          />
 
           <Section title="Jobs">
             {(jobs ?? []).length === 0 ? (
@@ -144,10 +166,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
   },
 });

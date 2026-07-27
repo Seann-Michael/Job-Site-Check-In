@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Redirect, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -20,6 +20,7 @@ import { Button, Card } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { clientDisplayName, fetchClient } from '@/lib/clients';
 import { createJob } from '@/lib/data';
 import { notify } from '@/lib/format';
 import {
@@ -81,6 +82,12 @@ export default function NewJobScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { user, initializing } = useAuth();
+  // Optional prefill when arriving from a client screen; plain /job/new stays
+  // blank. Only the client id travels in the route: expo-router serialises
+  // params into the URL on react-native-web, so a phone number or email passed
+  // this way would land in the address bar, browser history and any Referer
+  // header. The contact details are looked up from the client record instead.
+  const { clientId } = useLocalSearchParams<{ clientId?: string }>();
 
   const [title, setTitle] = useState('');
   const [service, setService] = useState<ServiceType>('general');
@@ -88,6 +95,8 @@ export default function NewJobScreen() {
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
+  const [prefilledClient, setPrefilledClient] = useState('');
+  const prefillSeeded = useRef(false);
 
   const [search, setSearch] = useState('');
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
@@ -98,6 +107,28 @@ export default function NewJobScreen() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+
+  // One-shot prefill from the client record. The ref stops a re-render from
+  // re-seeding, and each setter only fills a field that is still empty, so a
+  // slow lookup can never overwrite what the user has already typed.
+  useEffect(() => {
+    if (!clientId || prefillSeeded.current) return;
+    let cancelled = false;
+    void (async () => {
+      const client = await fetchClient(clientId);
+      if (cancelled || !client) return;
+      prefillSeeded.current = true;
+      // `client.name` — not the display label — is what links a job back to
+      // its client: createJob stores it as Job.client_name.
+      setClientName((current) => current || client.name);
+      setClientPhone((current) => current || client.phone);
+      setClientEmail((current) => current || client.email);
+      setPrefilledClient(clientDisplayName(client));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
 
   // Debounced Places autocomplete, like the web app's address search.
   useEffect(() => {
@@ -246,6 +277,11 @@ export default function NewJobScreen() {
 
       <Section title="Client">
         <Card style={{ gap: Spacing.md }}>
+          {prefilledClient ? (
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>
+              Prefilled from {prefilledClient} — edit anything that changed.
+            </Text>
+          ) : null}
           <Field
             label="Client name"
             value={clientName}

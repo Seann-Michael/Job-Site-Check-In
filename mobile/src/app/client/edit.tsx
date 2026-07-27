@@ -7,8 +7,9 @@ import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
-import { fetchClient } from '@/lib/clients';
+import { derivedClientId, fetchClient } from '@/lib/clients';
 import { clientsStore } from '@/lib/clients-store';
+import { renameClientAcrossJobs } from '@/lib/data';
 import { notify } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -21,7 +22,9 @@ export default function EditClientScreen() {
   const isNew = !id;
 
   const { data: client } = useData(() => (id ? fetchClient(id) : Promise.resolve(undefined)));
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [seeded, setSeeded] = useState(false);
@@ -30,11 +33,21 @@ export default function EditClientScreen() {
   useEffect(() => {
     if (client && !seeded) {
       setSeeded(true);
-      setName(client.name);
+      // Older records only have the combined `name`. Split it for display so
+      // the fields aren't blank, but see handleSave: the stored `name` is never
+      // rewritten for an existing client, because jobs join to it by string.
+      const [first = '', ...rest] = (client.first_name || client.name || '').trim().split(/\s+/);
+      setFirstName(client.first_name || first);
+      setLastName(client.last_name || rest.join(' '));
+      setBusinessName(client.business_name ?? '');
       setPhone(client.phone);
       setEmail(client.email);
     }
   }, [client, seeded]);
+
+  // A client needs something to be called: a person, a company, or both.
+  const personName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+  const canSave = Boolean(personName || businessName.trim());
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;
@@ -46,21 +59,63 @@ export default function EditClientScreen() {
   ];
 
   const handleSave = async () => {
-    if (!name.trim() || saving) return;
+    if (!canSave || saving) return;
     setSaving(true);
     try {
       if (isNew) {
-        const record = await clientsStore.create({ name, phone, email });
+        // A new client has no jobs yet, so composing the join key here is safe.
+        const record = await clientsStore.create({
+          name: personName || businessName.trim(),
+          first_name: firstName,
+          last_name: lastName,
+          business_name: businessName,
+          phone,
+          email,
+        });
         notify('Client added', record.name);
         router.replace({ pathname: '/client/[id]', params: { id: record.id } });
       } else {
+        // Jobs reference their client by name string, so a rename has to move
+        // the jobs with it or they all detach. Cascade FIRST: if it fails we
+        // leave the client's name alone rather than orphaning their work.
+        const nextName = personName || businessName.trim();
+        const previousName = client?.name ?? '';
+        const renamed = nextName.toLowerCase() !== previousName.toLowerCase();
+
+        let moved = 0;
+        if (renamed && previousName) {
+          const result = await renameClientAcrossJobs(previousName, nextName);
+          if (result.error) {
+            notify(
+              "Couldn't rename",
+              `${result.error}${result.updated ? ` (${result.updated} job(s) already moved)` : ''}`,
+            );
+            return;
+          }
+          moved = result.updated;
+        }
+
         await clientsStore.update(id!, {
-          name: name.trim(),
+          ...(renamed ? { name: nextName } : {}),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          business_name: businessName.trim(),
           phone: phone.trim(),
           email: email.trim(),
         });
-        notify('Client updated', 'Your changes have been saved.');
-        router.back();
+
+        notify(
+          'Client updated',
+          moved ? `Renamed, and ${moved} job${moved === 1 ? '' : 's'} moved with them.` : 'Your changes have been saved.',
+        );
+
+        // A demo-mode client's id is derived from their name, so after a rename
+        // the screen we came from points at an id that no longer resolves.
+        if (renamed && id!.startsWith('client-')) {
+          router.replace({ pathname: '/client/[id]', params: { id: derivedClientId(nextName) } });
+        } else {
+          router.back();
+        }
       }
     } finally {
       setSaving(false);
@@ -70,7 +125,7 @@ export default function EditClientScreen() {
   const handleDelete = () => {
     const doDelete = async () => {
       await clientsStore.remove(id!);
-      notify('Client deleted', `${name || 'Client'} was removed.`);
+      notify('Client deleted', `${personName || businessName.trim() || 'Client'} was removed.`);
       router.replace('/(tabs)/clients');
     };
     if (Platform.OS === 'web') {
@@ -93,12 +148,36 @@ export default function EditClientScreen() {
 
       <Section title="Client details">
         <Card style={{ gap: Spacing.md }}>
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>First name</Text>
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Sarah"
+                placeholderTextColor={colors.textMuted}
+                style={fieldStyle}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Last name</Text>
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Mitchell"
+                placeholderTextColor={colors.textMuted}
+                style={fieldStyle}
+              />
+            </View>
+          </View>
           <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Name *</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Business name (optional)
+            </Text>
             <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. Sarah Mitchell"
+              value={businessName}
+              onChangeText={setBusinessName}
+              placeholder="e.g. Mitchell Property Group"
               placeholderTextColor={colors.textMuted}
               style={fieldStyle}
             />
@@ -132,7 +211,7 @@ export default function EditClientScreen() {
       <Button
         label={isNew ? 'Add client' : 'Save changes'}
         loading={saving}
-        disabled={!name.trim()}
+        disabled={!canSave}
         onPress={() => void handleSave()}
       />
       {!isNew ? (
