@@ -3,8 +3,10 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Sharing from 'expo-sharing';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   Platform,
   Pressable,
   Share,
@@ -13,6 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategorySheet } from '@/components/category-sheet';
 import { ContactRow } from '@/components/contact-row';
@@ -23,10 +26,10 @@ import { NotesSection } from '@/components/notes-section';
 import { TagEditor } from '@/components/tag-editor';
 import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchClients } from '@/lib/clients';
-import { fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
+import { dataErrors, fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
 import { openDirections } from '@/lib/directions';
 import { jobExtras, visitDuration } from '@/lib/job-extras';
 import { getLocationFix } from '@/lib/media-capture';
@@ -45,7 +48,7 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
 import { useAuth } from '@/providers/auth-provider';
-import type { MediaCategory, MediaItem } from '@/lib/types';
+import type { JobStatus, MediaCategory, MediaItem } from '@/lib/types';
 
 function chunk<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -55,6 +58,83 @@ function chunk<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
+const STATUS_ORDER: JobStatus[] = [
+  'draft',
+  'active',
+  'in_progress',
+  'paused',
+  'completed',
+  'cancelled',
+];
+
+/**
+ * Bottom sheet for changing the job status. A real sheet rather than an
+ * Alert menu so it works on web too.
+ */
+function StatusSheet({
+  visible,
+  current,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  current: JobStatus;
+  onSelect: (status: JobStatus) => void;
+  onClose: () => void;
+}) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable
+          style={[
+            styles.sheet,
+            { backgroundColor: colors.card, paddingBottom: insets.bottom + Spacing.lg },
+          ]}
+          onPress={(event) => event.stopPropagation()}>
+          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>Job status</Text>
+          <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
+            Everyone on this job sees the status you pick here.
+          </Text>
+          {STATUS_ORDER.map((status) => {
+            const selected = status === current;
+            return (
+              <Pressable
+                key={status}
+                onPress={() => onSelect(status)}
+                style={({ pressed }) => [
+                  styles.statusRow,
+                  { borderColor: selected ? colors.primary : colors.border },
+                  pressed && { backgroundColor: colors.cardPressed },
+                ]}>
+                <Badge label={JOB_STATUS_LABELS[status]} tone={JOB_STATUS_TONES[status]} />
+                <View style={{ flex: 1 }} />
+                {selected ? (
+                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.sheetCancel,
+              { borderColor: colors.border },
+              pressed && { backgroundColor: colors.cardPressed },
+            ]}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textSecondary }}>
+              Cancel
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function JobDetailScreen() {
   const { colors } = useTheme();
   const { id, capture } = useLocalSearchParams<{ id: string; capture?: string }>();
@@ -62,10 +142,19 @@ export default function JobDetailScreen() {
   const { business } = useWorkspace();
 
   const router = useRouter();
-  const { data: job, refresh: refreshJob } = useData(() => fetchJob(id ?? ''));
+  const {
+    data: job,
+    loading: jobLoading,
+    refreshing: jobRefreshing,
+    refresh: refreshJob,
+  } = useData(() => fetchJob(id ?? ''));
   const { data: tasks, refresh: refreshTasks } = useData(() => tasksStore.getTasks(id ?? ''));
   useEffect(() => tasksStore.subscribe(refreshTasks), [refreshTasks]);
-  const { data: jobMediaData, refresh } = useData(() => fetchJobMedia(id ?? ''));
+  const {
+    data: jobMediaData,
+    refresh,
+    refreshing: mediaRefreshing,
+  } = useData(() => fetchJobMedia(id ?? ''));
   const { data: publishRecord, refresh: refreshPublish } = useData(() =>
     getPublishRecord(id ?? ''),
   );
@@ -79,6 +168,21 @@ export default function JobDetailScreen() {
     [refreshJob, refreshPublish],
   );
 
+  // fetchJob returns undefined both for "no such job" and for "the query
+  // failed" — dataErrors is what tells them apart. Same for the per-job photo
+  // query, which returns an empty list either way. Both live outside React, so
+  // mirror the slots into state and re-read them whenever they change.
+  const [jobError, setJobError] = useState<string | null>(() => dataErrors.get('job'));
+  const [mediaError, setMediaError] = useState<string | null>(() => dataErrors.get('jobMedia'));
+  useEffect(
+    () =>
+      dataErrors.subscribe(() => {
+        setJobError(dataErrors.get('job'));
+        setMediaError(dataErrors.get('jobMedia'));
+      }),
+    [],
+  );
+
   const [sheetVisible, setSheetVisible] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<MediaCategory | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -86,6 +190,7 @@ export default function JobDetailScreen() {
   const [newTask, setNewTask] = useState('');
   const [checkingIn, setCheckingIn] = useState(false);
   const [taggingDocId, setTaggingDocId] = useState<string | null>(null);
+  const [statusSheetVisible, setStatusSheetVisible] = useState(false);
   const { data: clients } = useData(fetchClients);
   const { data: extras, refresh: refreshExtras } = useData(() => jobExtras.get(id ?? ''));
   useEffect(() => jobExtras.subscribe(refreshExtras), [refreshExtras]);
@@ -119,6 +224,17 @@ export default function JobDetailScreen() {
   const clientRecord = (clients ?? []).find((entry) => entry.name === job?.client_name);
   const clientPhone = job?.client_phone || clientRecord?.phone || '';
   const clientEmail = job?.client_email || clientRecord?.email || '';
+  // The company this client is billed under — a separate fact from the person
+  // named above it, so it gets its own line. Dropped when the two are the same
+  // string, so a company-only row doesn't print its name twice.
+  const businessName = (clientRecord?.business_name ?? '').trim();
+  const clientBusinessName = businessName === (job?.client_name ?? '').trim() ? '' : businessName;
+  // Scope of work comes from the jobs table's `description` column. The web
+  // client requires that column to be non-empty, so createJob falls back to the
+  // job title when no notes were entered — a block that only repeats the title
+  // above it is noise, so it is dropped here instead of printing it twice.
+  const scopeOfWork = (job?.description ?? '').trim();
+  const showScope = scopeOfWork.length > 0 && scopeOfWork !== (job?.title ?? '').trim();
   const fullAddress = job
     ? [job.address, job.city, [job.state, job.zip].filter(Boolean).join(' ')]
         .filter(Boolean)
@@ -305,13 +421,18 @@ export default function JobDetailScreen() {
     }
   };
 
+  // Single write path for status changes — the sheet and the native menu both
+  // go through it, and the job is re-read afterwards so a status stamped
+  // elsewhere (e.g. the publish flow) is never overwritten by stale local state.
+  const setStatus = async (status: JobStatus) => {
+    if (!job || status === job.status) return;
+    const result = await updateJob(job, { status });
+    if (result.error) notify('Could not update', result.error);
+    else refreshJob();
+  };
+
   const openJobMenu = () => {
     if (!job) return;
-    const setStatus = async (status: typeof job.status) => {
-      const result = await updateJob(job, { status });
-      if (result.error) notify('Could not update', result.error);
-      else refreshJob();
-    };
     if (Platform.OS === 'web') {
       router.push({ pathname: '/job/edit/[id]', params: { id: job.id } });
       return;
@@ -363,11 +484,25 @@ export default function JobDetailScreen() {
                 <IconTile icon={SERVICE_ICONS[job.service_type] ?? 'hammer-outline'} size={46} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[styles.title, { color: colors.text }]}>{job.title}</Text>
-                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                    {job.client_name}
-                  </Text>
                 </View>
-                <Badge label={JOB_STATUS_LABELS[job.status]} tone={JOB_STATUS_TONES[job.status]} />
+                <Pressable
+                  onPress={() => setStatusSheetVisible(true)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.statusChip, pressed && { opacity: 0.7 }]}>
+                  <Badge
+                    label={JOB_STATUS_LABELS[job.status]}
+                    tone={JOB_STATUS_TONES[job.status]}
+                  />
+                  <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
+                </Pressable>
+              </View>
+              <View style={styles.customerBlock}>
+                <Text style={[styles.customerName, { color: colors.text }]}>{job.client_name}</Text>
+                {clientBusinessName ? (
+                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                    {clientBusinessName}
+                  </Text>
+                ) : null}
               </View>
               <View style={[styles.infoBlock, { borderTopColor: colors.border }]}>
                 {fullAddress ? (
@@ -465,6 +600,16 @@ export default function JobDetailScreen() {
                 {job.tags?.length ? <TagList tags={job.tags} /> : null}
               </View>
             </Card>
+
+            {showScope ? (
+              <Section title="Scope of work">
+                <Card>
+                  <Text style={{ fontSize: 13.5, lineHeight: 20, color: colors.textSecondary }}>
+                    {scopeOfWork}
+                  </Text>
+                </Card>
+              </Section>
+            ) : null}
 
             <View style={{ flexDirection: 'row', gap: Spacing.md }}>
               <Button
@@ -599,27 +744,46 @@ export default function JobDetailScreen() {
               />
             </View>
 
-            {mediaRows.length > 0 ? (
+            {mediaRows.length > 0 || mediaError ? (
               <Section title="Latest media">
-                <View style={{ gap: Spacing.sm }}>
-                  {mediaRows.map((row, rowIndex) => (
-                    <View key={rowIndex} style={{ flexDirection: 'row', gap: Spacing.sm }}>
-                      {row.map((item, colIndex) => (
-                        <Pressable
-                          key={item.id}
-                          style={{ flex: 1 }}
-                          onPress={() => setViewerIndex(rowIndex * 3 + colIndex)}>
-                          <MediaThumb item={item} />
-                        </Pressable>
-                      ))}
-                      {row.length < 3
-                        ? Array.from({ length: 3 - row.length }).map((_, i) => (
-                            <View key={`pad-${i}`} style={{ flex: 1 }} />
-                          ))
-                        : null}
-                    </View>
-                  ))}
-                </View>
+                {/* A banner, not a replacement: photos still waiting in this
+                    device's upload queue are real and keep rendering below. */}
+                {mediaError ? (
+                  <Card style={styles.mediaErrorCard}>
+                    <IconTile icon="cloud-offline-outline" tone="danger" />
+                    <Text style={[styles.mediaErrorText, { color: colors.text }]}>
+                      {mediaError}
+                    </Text>
+                    <Button
+                      label="Try again"
+                      variant="secondary"
+                      icon="refresh"
+                      loading={mediaRefreshing}
+                      onPress={refresh}
+                    />
+                  </Card>
+                ) : null}
+                {mediaRows.length > 0 ? (
+                  <View style={{ gap: Spacing.sm }}>
+                    {mediaRows.map((row, rowIndex) => (
+                      <View key={rowIndex} style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                        {row.map((item, colIndex) => (
+                          <Pressable
+                            key={item.id}
+                            style={{ flex: 1 }}
+                            onPress={() => setViewerIndex(rowIndex * 3 + colIndex)}>
+                            <MediaThumb item={item} />
+                          </Pressable>
+                        ))}
+                        {row.length < 3
+                          ? Array.from({ length: 3 - row.length }).map((_, i) => (
+                              <View key={`pad-${i}`} style={{ flex: 1 }} />
+                            ))
+                          : null}
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </Section>
             ) : null}
 
@@ -826,12 +990,46 @@ export default function JobDetailScreen() {
               </Card>
             </Section>
           </>
+        ) : jobLoading ? (
+          <Card style={styles.stateRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Loading job…</Text>
+          </Card>
+        ) : jobError ? (
+          // A failed read is not a deleted job — say what went wrong and let
+          // them retry instead of showing the "not found" dead end.
+          <Card style={{ gap: Spacing.md }}>
+            <View style={styles.stateRow}>
+              <IconTile icon="alert-circle" tone="danger" size={40} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                  Could not open this job
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.textSecondary }}>{jobError}</Text>
+              </View>
+            </View>
+            <Button
+              label="Try again"
+              icon="refresh-outline"
+              loading={jobRefreshing}
+              onPress={refreshJob}
+            />
+          </Card>
         ) : (
           <Card>
             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Job not found.</Text>
           </Card>
         )}
       </Screen>
+      <StatusSheet
+        visible={statusSheetVisible}
+        current={job?.status ?? 'active'}
+        onSelect={(status) => {
+          setStatusSheetVisible(false);
+          void setStatus(status);
+        }}
+        onClose={() => setStatusSheetVisible(false)}
+      />
       <CategorySheet
         visible={sheetVisible}
         onSelect={handleCategoryPick}
@@ -906,6 +1104,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
   },
+  stateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  mediaErrorCard: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  mediaErrorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   visitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -924,5 +1136,61 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  customerBlock: {
+    gap: 1,
+  },
+  customerName: {
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: '#00000066',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: Radius.full,
+    marginBottom: Spacing.xs,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    marginBottom: Spacing.xs,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  sheetCancel: {
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.xs,
   },
 });
