@@ -26,6 +26,8 @@ export type ServiceType =
 export interface Job {
   id: string;
   title: string;
+  /** Free-text scope of work (the jobs table's `description` column). */
+  description?: string;
   client_name: string;
   address: string;
   city: string;
@@ -100,7 +102,17 @@ export interface Business {
 
 export interface ClientRecord {
   id: string;
+  /**
+   * Compatibility surface: every screen reads this, and it is the key that
+   * links jobs to clients (matched against Job.client_name). Always populated.
+   */
   name: string;
+  /** Person's given name, when the `clients` row splits it out. */
+  first_name?: string;
+  /** Person's family name, when the `clients` row splits it out. */
+  last_name?: string;
+  /** Company this client is billed under — a company, not a person. */
+  business_name?: string;
   phone: string;
   email: string;
   jobs_count: number;

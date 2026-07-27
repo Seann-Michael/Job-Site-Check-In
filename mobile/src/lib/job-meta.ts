@@ -13,8 +13,6 @@ const STORAGE_KEY = 'lsr-job-meta-v1';
 export interface JobMeta {
   starred?: boolean;
   archived?: boolean;
-  /** Shown on the Portfolio showcase. */
-  featured?: boolean;
   group?: string;
   /** Job value in dollars (the Sales number). */
   value?: number;
@@ -22,6 +20,24 @@ export interface JobMeta {
 }
 
 type MetaMap = Record<string, JobMeta>;
+
+/**
+ * Keys from removed features. `featured` fed the Portfolio showcase, which no
+ * longer exists — devices that set it are carrying a value nothing can reach,
+ * so strip it from anything we load and from anything we write back.
+ */
+const LEGACY_KEYS = ['featured'];
+
+function hasLegacy(meta: JobMeta): boolean {
+  return LEGACY_KEYS.some((key) => key in (meta as Record<string, unknown>));
+}
+
+function stripLegacy(meta: JobMeta): JobMeta {
+  if (!hasLegacy(meta)) return meta;
+  const next: JobMeta = { ...meta };
+  for (const key of LEGACY_KEYS) delete (next as Record<string, unknown>)[key];
+  return next;
+}
 
 let cache: MetaMap | null = null;
 const listeners = new Set<() => void>();
@@ -34,7 +50,14 @@ async function load(): Promise<MetaMap> {
   if (cache) return cache;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    cache = raw ? (JSON.parse(raw) as MetaMap) : {};
+    const stored = raw ? (JSON.parse(raw) as MetaMap) : {};
+    const entries = Object.entries(stored);
+    const stale = entries.some(([, meta]) => meta && hasLegacy(meta));
+    cache = stale
+      ? Object.fromEntries(entries.map(([jobId, meta]) => [jobId, stripLegacy(meta ?? {})]))
+      : stored;
+    // Rewrite once so the dead key doesn't sit on the device forever.
+    if (stale) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cache)).catch(() => undefined);
   } catch {
     cache = {};
   }
@@ -54,7 +77,7 @@ function pushMeta(jobId: string, meta: JobMeta): void {
         .eq('job_id', jobId)
         .single();
       if (data?.meta && typeof data.meta === 'object') {
-        merged = { ...(data.meta as JobMeta), ...meta };
+        merged = stripLegacy({ ...(data.meta as JobMeta), ...meta });
       }
       await supabase
         .from('job_field_state')
@@ -89,7 +112,7 @@ async function hydrateMeta(jobId: string): Promise<void> {
       // flight — never let stale server state clobber a fresh local edit.
       const current = await load();
       if (current[jobId]) return;
-      cache = { ...current, [jobId]: data.meta as JobMeta };
+      cache = { ...current, [jobId]: stripLegacy(data.meta as JobMeta) };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cache)).catch(() => undefined);
       emit();
     }
@@ -124,7 +147,7 @@ export const jobMeta = {
     return next;
   },
 
-  async toggle(jobId: string, key: 'starred' | 'archived' | 'featured'): Promise<boolean> {
+  async toggle(jobId: string, key: 'starred' | 'archived'): Promise<boolean> {
     const current = await jobMeta.get(jobId);
     const value = !current[key];
     await jobMeta.set(jobId, { [key]: value });

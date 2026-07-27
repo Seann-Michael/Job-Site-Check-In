@@ -6,8 +6,10 @@
  * The jobs table is shaped like the web app's Project interface
  * (client/lib/dataService.ts): name, client_contact json, started_at, etc.
  *
- * Demo data is used when Supabase isn't configured or a query errors; an
- * empty result from a real workspace stays empty.
+ * Demo data is used only when Supabase isn't configured. A real query that
+ * errors returns an empty result and records the reason in `dataErrors` —
+ * never fabricated rows — and an empty result from a real workspace stays
+ * empty.
  */
 
 import { DEMO_JOBS, DEMO_MEDIA, DEMO_REVIEW_REQUESTS } from '@/lib/demo-data';
@@ -60,6 +62,58 @@ const REVIEW_STATUSES: ReviewRequest['status'][] = [
   'scheduled',
 ];
 
+/**
+ * Read-failure channel, so a screen can tell "nothing here yet" apart from
+ * "the request failed".
+ *
+ * One slot per data domain, each written by exactly one fetch below:
+ *   'jobs'     → fetchJobs()
+ *   'job'      → fetchJob()
+ *   'reviews'  → fetchReviewRequests()
+ *   'media'    → fetchMedia()
+ *   'jobMedia' → fetchJobMedia()
+ *
+ * Every connected read either fails (recording why) or succeeds (clearing its
+ * slot), so a stale message never outlives a working refetch. Demo mode never
+ * touches these slots. Reads keep their array/undefined return shape, so a
+ * caller that ignores this still behaves — it just shows an empty list with no
+ * reason attached.
+ *
+ * Screens read `dataErrors.get(domain)` and re-render from
+ * `dataErrors.subscribe(...)`, the same idiom as jobsStore/jobMeta.
+ */
+export type DataDomain = 'jobs' | 'job' | 'reviews' | 'media' | 'jobMedia';
+
+const readErrors: Record<DataDomain, string | null> = {
+  jobs: null,
+  job: null,
+  reviews: null,
+  media: null,
+  jobMedia: null,
+};
+const errorListeners = new Set<() => void>();
+
+function setReadError(domain: DataDomain, message: string | null): void {
+  if (readErrors[domain] === message) return;
+  readErrors[domain] = message;
+  errorListeners.forEach((listener) => listener());
+}
+
+export const dataErrors = {
+  /** Why the last read of `domain` failed, or null when it succeeded. */
+  get(domain: DataDomain): string | null {
+    return readErrors[domain];
+  },
+
+  /** Called whenever any domain's error appears or clears. Returns unsubscribe. */
+  subscribe(listener: () => void): () => void {
+    errorListeners.add(listener);
+    return () => {
+      errorListeners.delete(listener);
+    };
+  },
+};
+
 function mapJob(row: Row): Job {
   // Web jobs rows: name, client_contact {name,email,phone}, started_at/created_at,
   // and metadata.address as an object {street, city, state, zipCode, coordinates}
@@ -85,6 +139,7 @@ function mapJob(row: Row): Job {
   return {
     id: str(row, 'id', String(row.id ?? '')),
     title: str(row, 'name', str(row, 'title', 'Untitled job')),
+    description: str(row, 'description') || undefined,
     client_name: str(contact, 'name', str(row, 'client_name', 'Unknown client')),
     client_phone: str(contact, 'phone') || undefined,
     client_email: str(contact, 'email') || undefined,
@@ -121,8 +176,13 @@ export async function fetchJobs(): Promise<Job[]> {
     query = query.eq('business_id', business.id);
   }
   const { data, error } = await query.order('created_at', { ascending: false }).limit(50);
-  if (error) return DEMO_JOBS;
-  return (data as Row[]).map(mapJob);
+  if (error) {
+    // A failed query is not an empty workspace — never stand in demo jobs here.
+    setReadError('jobs', `Couldn't load jobs: ${error.message}`);
+    return [];
+  }
+  setReadError('jobs', null);
+  return ((data ?? []) as Row[]).map(mapJob);
 }
 
 export async function fetchJob(id: string): Promise<Job | undefined> {
@@ -131,8 +191,75 @@ export async function fetchJob(id: string): Promise<Job | undefined> {
     return [...created, ...DEMO_JOBS].find((job) => job.id === id);
   }
   const { data, error } = await supabase.from('jobs').select('*').eq('id', id).maybeSingle();
-  if (error) return DEMO_JOBS.find((job) => job.id === id);
+  if (error) {
+    setReadError('job', `Couldn't load that job: ${error.message}`);
+    return undefined;
+  }
+  setReadError('job', null);
   return data ? mapJob(data as Row) : undefined;
+}
+
+/**
+ * Move every one of a client's jobs onto their new name.
+ *
+ * Jobs reference their client by NAME STRING — `client_contact.name`, falling
+ * back to the `client_name` column — and fetchClientJobs matches on it
+ * case-insensitively. So renaming a client without this cascade silently
+ * detaches all of their work: the client screen shows zero jobs, jobs_count
+ * drops to 0, and in demo mode a duplicate client reappears under the old name
+ * still holding everything.
+ *
+ * Returns how many jobs moved so the caller can tell the user.
+ */
+export async function renameClientAcrossJobs(
+  oldName: string,
+  newName: string,
+): Promise<{ updated: number; error?: string }> {
+  const from = oldName.trim();
+  const to = newName.trim();
+  if (!from || !to || from.toLowerCase() === to.toLowerCase()) return { updated: 0 };
+
+  const jobs = await fetchJobs();
+  const matches = jobs.filter((job) => job.client_name.toLowerCase() === from.toLowerCase());
+  if (!matches.length) return { updated: 0 };
+
+  if (!isSupabaseConfigured) {
+    // Seed jobs are immutable, but jobsStore.upsert shadows them and fetchJobs
+    // prefers the local copy — so this works for seeded and created jobs alike.
+    for (const job of matches) {
+      await jobsStore.upsert({ ...job, client_name: to });
+    }
+    return { updated: matches.length };
+  }
+
+  const ids = matches.map((job) => job.id);
+  // Read the existing blobs first: client_contact also carries email and phone,
+  // and writing { name } alone would drop them.
+  const { data, error: readError } = await supabase
+    .from('jobs')
+    .select('id, client_contact')
+    .in('id', ids);
+  if (readError) return { updated: 0, error: readError.message };
+
+  const contactById = new Map<string, Row>(
+    ((data ?? []) as Row[]).map((row) => [String(row.id), (row.client_contact ?? {}) as Row]),
+  );
+
+  let updated = 0;
+  for (const id of ids) {
+    const contact = contactById.get(id) ?? {};
+    const { error } = await supabase
+      .from('jobs')
+      .update({ client_contact: { ...contact, name: to } })
+      .eq('id', id);
+    // Report the partial result rather than claiming a clean rename: some jobs
+    // have already moved and the caller needs to know the split happened.
+    if (error) return { updated, error: error.message };
+    updated += 1;
+  }
+
+  jobsStore.notifyChanged();
+  return { updated };
 }
 
 export interface JobPatch {
@@ -162,7 +289,15 @@ export async function updateJob(job: Job, patch: JobPatch): Promise<{ error?: st
     if (patch.status === 'completed') update.completed_at = new Date().toISOString();
   }
   if (patch.client_name !== undefined) {
-    update.client_contact = { name: patch.client_name };
+    // Merge, don't replace: client_contact also holds email and phone, and
+    // writing { name } alone silently discarded both on every save.
+    const { data: existing } = await supabase
+      .from('jobs')
+      .select('client_contact')
+      .eq('id', job.id)
+      .single();
+    const contact = (existing?.client_contact ?? {}) as Row;
+    update.client_contact = { ...contact, name: patch.client_name };
   }
   if (
     patch.address !== undefined ||
@@ -218,6 +353,12 @@ export async function createJob(
     const job: Job = {
       id: `local-job-${Date.now()}`,
       title: input.title,
+      // Same field the connected insert writes to the `description` column, so
+      // the job detail screen's scope-of-work block works in demo mode too.
+      // Left empty when there are no notes — the connected insert has to fall
+      // back to the title because the web client rejects a blank description,
+      // and the detail screen drops a scope block that only repeats the title.
+      description: input.notes || undefined,
       client_name: input.client_name || 'Unknown client',
       address: input.street,
       city: input.city,
@@ -287,9 +428,13 @@ export async function fetchReviewRequests(): Promise<ReviewRequest[]> {
     .select('*')
     .order('sent_at', { ascending: false })
     .limit(50);
-  if (error) return DEMO_REVIEW_REQUESTS;
+  if (error) {
+    setReadError('reviews', `Couldn't load review requests: ${error.message}`);
+    return [];
+  }
+  setReadError('reviews', null);
   // Live columns are customer_phone / project_name (see web AdminReviews).
-  return (data as Row[]).map((row) => ({
+  return ((data ?? []) as Row[]).map((row) => ({
     id: str(row, 'id', String(row.id ?? '')),
     customer_name: str(row, 'customer_name', 'Customer'),
     contact: str(row, 'customer_phone', str(row, 'contact', str(row, 'email'))),
@@ -363,8 +508,13 @@ export async function fetchMedia(): Promise<MediaItem[]> {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
-  if (error) return applyTagOverrides([...pending, ...DEMO_MEDIA]);
-  return applyTagOverrides([...pending, ...(data as Row[]).map(mapMediaRow)]);
+  if (error) {
+    // Queued photos are this device's own uploads, so they still belong here.
+    setReadError('media', `Couldn't load photos: ${error.message}`);
+    return applyTagOverrides(pending);
+  }
+  setReadError('media', null);
+  return applyTagOverrides([...pending, ...((data ?? []) as Row[]).map(mapMediaRow)]);
 }
 
 export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
@@ -379,7 +529,11 @@ export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
     .eq('job_id', jobId)
     .order('created_at', { ascending: false })
     .limit(60);
-  if (error || !data) return applyTagOverrides(pending);
-  return applyTagOverrides([...pending, ...(data as Row[]).map(mapMediaRow)]);
+  if (error) {
+    setReadError('jobMedia', `Couldn't load photos for this job: ${error.message}`);
+    return applyTagOverrides(pending);
+  }
+  setReadError('jobMedia', null);
+  return applyTagOverrides([...pending, ...((data ?? []) as Row[]).map(mapMediaRow)]);
 }
 

@@ -13,7 +13,17 @@ import type { ClientRecord } from '@/lib/types';
 const STORAGE_KEY = 'lsr-client-edits-v1';
 
 export interface ClientPatch {
+  /**
+   * The job<->client join key. Jobs store a client NAME string, not an id
+   * (see fetchClientJobs in lib/clients.ts, which matches on
+   * job.client_name === client.name), so changing this on an existing client
+   * detaches every job they have. Callers editing an existing client should
+   * leave it undefined; only creation sets it.
+   */
   name?: string;
+  first_name?: string;
+  last_name?: string;
+  business_name?: string;
   phone?: string;
   email?: string;
 }
@@ -75,6 +85,9 @@ export const clientsStore = {
     const record: ClientRecord = {
       id: `local-client-${Date.now()}`,
       name: input.name.trim(),
+      first_name: input.first_name?.trim() || undefined,
+      last_name: input.last_name?.trim() || undefined,
+      business_name: input.business_name?.trim() || undefined,
       phone: input.phone?.trim() ?? '',
       email: input.email?.trim() ?? '',
       jobs_count: 0,
@@ -84,7 +97,14 @@ export const clientsStore = {
       try {
         const { data } = await supabase
           .from('clients')
-          .insert({ name: record.name, phone: record.phone || null, email: record.email || null })
+          .insert({
+            name: record.name,
+            first_name: record.first_name || null,
+            last_name: record.last_name || null,
+            business_name: record.business_name || null,
+            phone: record.phone || null,
+            email: record.email || null,
+          })
           .select('id')
           .single();
         if (data?.id) record.id = String(data.id);
@@ -109,6 +129,11 @@ export const clientsStore = {
           .from('clients')
           .update({
             ...(patch.name !== undefined ? { name: patch.name } : {}),
+            ...(patch.first_name !== undefined ? { first_name: patch.first_name || null } : {}),
+            ...(patch.last_name !== undefined ? { last_name: patch.last_name || null } : {}),
+            ...(patch.business_name !== undefined
+              ? { business_name: patch.business_name || null }
+              : {}),
             ...(patch.phone !== undefined ? { phone: patch.phone || null } : {}),
             ...(patch.email !== undefined ? { email: patch.email || null } : {}),
           })
