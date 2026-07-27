@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { MediaThumb } from '@/components/media-thumb';
-import { Badge, Button, Card, IconTile, type IconName } from '@/components/ui/basics';
+import { Badge, Button, Card, IconTile, type IconName, type Tone } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,9 +14,12 @@ import { fetchJob, fetchJobMedia } from '@/lib/data';
 import { notify } from '@/lib/format';
 import {
   buildPublishContent,
+  isDelivered,
   publishJob,
   DESTINATION_LABELS,
   type Destination,
+  type DestinationResult,
+  type DeliveryStatus,
 } from '@/lib/publish';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -25,6 +28,14 @@ const DESTINATIONS: { key: Destination; icon: IconName; sub: string }[] = [
   { key: 'website', icon: 'globe-outline', sub: 'Project page via your site automation' },
   { key: 'gohighlevel', icon: 'flash-outline', sub: 'Trigger your GoHighLevel workflows' },
 ];
+
+const STATUS_BADGE: Record<DeliveryStatus, { label: string; tone: Tone }> = {
+  queued: { label: 'Queued', tone: 'success' },
+  sent: { label: 'Sent', tone: 'success' },
+  failed: { label: 'Not delivered', tone: 'danger' },
+  'not-configured': { label: 'Not delivered', tone: 'warning' },
+  demo: { label: 'Demo', tone: 'warning' },
+};
 
 export default function PublishScreen() {
   const { colors } = useTheme();
@@ -45,7 +56,8 @@ export default function PublishScreen() {
     gohighlevel: true,
   });
   const [publishing, setPublishing] = useState(false);
-  const [done, setDone] = useState(false);
+  // Null until we have a real per-destination answer from publishJob.
+  const [results, setResults] = useState<DestinationResult[] | null>(null);
 
   const generated = useMemo(
     () => (job ? buildPublishContent(job, business?.name ?? 'We', (media ?? []).length) : null),
@@ -68,10 +80,6 @@ export default function PublishScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [media]);
-
-  if (!initializing && !user) {
-    return <Redirect href="/login" />;
-  }
 
   const togglePhoto = (photoId: string) => {
     setSelected((prev) => {
@@ -104,7 +112,7 @@ export default function PublishScreen() {
       notify('Publish failed', result.error);
       return;
     }
-    setDone(true);
+    setResults(result.results);
   };
 
   const rows = useMemo(() => {
@@ -114,23 +122,91 @@ export default function PublishScreen() {
     return chunked;
   }, [media]);
 
-  if (done && job) {
+  // Below every hook, so signing out never changes the hook order.
+  if (!initializing && !user) {
+    return <Redirect href="/login" />;
+  }
+
+  if (results && job) {
+    const deliveredCount = results.filter((result) => isDelivered(result.status)).length;
+    const allDelivered = deliveredCount === results.length;
+    const allDemo = results.every((result) => result.status === 'demo');
+    const nothingConfigured = results.every((result) => result.status === 'not-configured');
+
+    // Never announce a delivery we did not observe — say exactly what happened.
+    let icon: IconName = 'checkmark-circle';
+    let tone: Tone = 'success';
+    let heading = 'Project published';
+    let body = `${job.title} is marked completed and on its way to:`;
+    if (allDemo) {
+      // Demo mode: the flow completed, but no post left this device.
+      icon = 'flask-outline';
+      tone = 'warning';
+      heading = 'Published in demo mode';
+      body = `${job.title} is marked completed. Nothing was actually posted — this is what a real publish would look like:`;
+    } else if (!allDelivered && deliveredCount > 0) {
+      icon = 'alert-circle';
+      tone = 'warning';
+      heading = 'Partly delivered';
+      body = `${job.title} is marked completed, but only some destinations were reached:`;
+    } else if (nothingConfigured) {
+      icon = 'link-outline';
+      tone = 'warning';
+      heading = 'No publish destination configured';
+      body = `${job.title} is marked completed, but nothing was sent anywhere:`;
+    } else if (deliveredCount === 0) {
+      // Nothing reached a destination, so nothing was recorded either — do not
+      // imply the post is stored somewhere waiting to go out.
+      icon = 'alert-circle';
+      tone = 'danger';
+      heading = 'Not delivered';
+      body = `${job.title} is marked completed, but nothing was sent — your post is still here, so you can try again:`;
+    }
+
     return (
       <Screen>
-        <DetailHeader title="Published" />
-        <Card style={{ alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xxl }}>
-          <IconTile icon="checkmark-circle" tone="success" size={56} />
-          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>
-            Project published
-          </Text>
-          <Text style={{ fontSize: 13.5, color: colors.textSecondary, textAlign: 'center' }}>
-            {job.title} is marked completed and queued for:
-          </Text>
-          <View style={{ gap: 6, alignItems: 'center' }}>
-            {chosenDestinations.map((key) => (
-              <Badge key={key} label={DESTINATION_LABELS[key]} tone="success" />
+        <DetailHeader title={allDelivered || allDemo ? 'Published' : 'Publish result'} />
+        <Card style={{ gap: Spacing.lg, paddingVertical: Spacing.xl }}>
+          <View style={{ alignItems: 'center', gap: Spacing.md }}>
+            <IconTile icon={icon} tone={tone} size={56} />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{heading}</Text>
+            <Text style={{ fontSize: 13.5, color: colors.textSecondary, textAlign: 'center' }}>
+              {body}
+            </Text>
+          </View>
+          <View style={{ gap: Spacing.sm }}>
+            {results.map((result) => (
+              <View key={result.destination} style={styles.resultRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                    {DESTINATION_LABELS[result.destination]}
+                  </Text>
+                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                    {result.detail}
+                  </Text>
+                </View>
+                <Badge
+                  label={STATUS_BADGE[result.status].label}
+                  tone={STATUS_BADGE[result.status].tone}
+                />
+              </View>
             ))}
           </View>
+          {allDemo ? (
+            <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+              Demo result — connect Supabase and your publish webhook to post to Google and run
+              your automations for real.
+            </Text>
+          ) : null}
+          {nothingConfigured ? (
+            <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+              Set EXPO_PUBLIC_API_BASE_URL and EXPO_PUBLIC_PUBLISH_WEBHOOK_ID so completed
+              projects can be delivered.
+            </Text>
+          ) : null}
+          {deliveredCount === 0 && !nothingConfigured && !allDemo ? (
+            <Button label="Try again" icon="refresh-outline" onPress={() => setResults(null)} />
+          ) : null}
           <Button
             label="Back to job"
             variant="secondary"
@@ -325,5 +401,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
 });

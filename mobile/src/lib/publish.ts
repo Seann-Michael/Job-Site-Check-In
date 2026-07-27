@@ -7,12 +7,19 @@
  *    'gmb', status 'scheduled') — the web app's syndication pipeline picks
  *    it up and posts it.
  *  - Website + GoHighLevel: delivered by the web app's Automation workflows.
- *    When EXPO_PUBLIC_API_BASE_URL and EXPO_PUBLIC_PUBLISH_WEBHOOK_ID are
- *    set, the app fires the workflow webhook directly; otherwise the
- *    completed-job payload is recorded and the web automations take over.
+ *    This needs EXPO_PUBLIC_API_BASE_URL and EXPO_PUBLIC_PUBLISH_WEBHOOK_ID.
+ *    Without them there is no delivery route, so nothing leaves the device.
  *
- * A local record of every publication is kept on-device so the job screen
- * can show what went where.
+ * The job is always marked completed, but delivery is reported per
+ * destination and only destinations that actually got somewhere are written
+ * to the on-device record the job screen reads. We never claim a delivery we
+ * did not observe.
+ *
+ * Demo mode (Supabase unconfigured and no webhook) is the one exception, and
+ * works like the rest of the app: there is nothing to deliver to, so every
+ * destination reports 'demo' — spelled out as demo behaviour wherever it is
+ * shown — and the record is still written so the job screen's Published
+ * section works. A demo result never reports 'sent' or 'queued'.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,8 +41,37 @@ export const DESTINATION_LABELS: Record<Destination, string> = {
   gohighlevel: 'GoHighLevel',
 };
 
+/**
+ * How the automation webhook call went.
+ *  - 'sent'           — the webhook accepted the payload.
+ *  - 'failed'         — we tried to deliver and the attempt was rejected.
+ *  - 'not-configured' — no webhook is set up, so nothing was sent.
+ */
+export type WebhookOutcome = 'sent' | 'failed' | 'not-configured';
+
+/**
+ * What actually happened for one destination. Everything the webhook can
+ * report, plus:
+ *  - 'queued' — a row was written to the pipeline the web app reads.
+ *  - 'demo'   — nothing is connected at all, so this is demo behaviour and no
+ *               post was made anywhere.
+ */
+export type DeliveryStatus = WebhookOutcome | 'queued' | 'demo';
+
+/** 'queued' and 'sent' are the only statuses that mean something left here. */
+export function isDelivered(status: DeliveryStatus): boolean {
+  return status === 'queued' || status === 'sent';
+}
+
+export interface DestinationResult {
+  destination: Destination;
+  status: DeliveryStatus;
+  detail: string;
+}
+
 export interface PublishRecord {
   job_id: string;
+  /** Destinations that were queued or sent — or, in demo mode, demoed. */
   destinations: Destination[];
   published_at: string;
   title: string;
@@ -89,7 +125,13 @@ export interface QueuedPost {
   created_at: string;
 }
 
-/** The publish queue — what the syndication pipeline has picked up or will. */
+/**
+ * The publish queue — what the syndication pipeline has picked up or will.
+ *
+ * In demo mode there is no pipeline, so this replays the on-device records.
+ * Screens render `status` verbatim as a badge, so it says 'demo' rather than
+ * 'scheduled': nothing is actually waiting to go out to Google.
+ */
 export async function fetchRecentPosts(): Promise<QueuedPost[]> {
   if (!isSupabaseConfigured) {
     const records = await getPublished();
@@ -97,7 +139,7 @@ export async function fetchRecentPosts(): Promise<QueuedPost[]> {
       id: record.job_id,
       title: record.title,
       platform: 'gmb',
-      status: 'scheduled',
+      status: 'demo',
       created_at: record.published_at,
     }));
   }
@@ -136,9 +178,31 @@ async function savePublishRecord(record: PublishRecord): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
 }
 
+const WEBHOOK_DETAIL: Record<WebhookOutcome, string> = {
+  sent: 'Handed off to your automation workflow.',
+  failed: 'The delivery request was rejected — nothing was sent.',
+  'not-configured': 'No publish connection is set up, so nothing was sent.',
+};
+
+/**
+ * Demo-mode copy. Nothing is connected, so each destination says plainly that
+ * no post was made — this must never read as a real post to Google or a real
+ * automation run.
+ */
+const DEMO_DETAIL: Record<Destination, string> = {
+  gmb: 'Demo mode — nothing was posted to Google. Sample result only.',
+  website: 'Demo mode — nothing was sent to your website. Sample result only.',
+  gohighlevel: 'Demo mode — no GoHighLevel workflow ran. Sample result only.',
+};
+
+/** Statuses worth keeping in the on-device record the job screen reads. */
+function isRecorded(status: DeliveryStatus): boolean {
+  return isDelivered(status) || status === 'demo';
+}
+
 /** Fire the web app's Automation workflow webhook (website/GHL delivery). */
-async function fireWorkflowWebhook(payload: Record<string, unknown>): Promise<boolean> {
-  if (!API_BASE || !PUBLISH_WEBHOOK_ID) return false;
+async function fireWorkflowWebhook(payload: Record<string, unknown>): Promise<WebhookOutcome> {
+  if (!API_BASE || !PUBLISH_WEBHOOK_ID) return 'not-configured';
   try {
     const response = await fetch(
       `${API_BASE.replace(/\/$/, '')}/api/workflows/webhook/${PUBLISH_WEBHOOK_ID}`,
@@ -148,10 +212,16 @@ async function fireWorkflowWebhook(payload: Record<string, unknown>): Promise<bo
         body: JSON.stringify(payload),
       },
     );
-    return response.ok;
+    return response.ok ? 'sent' : 'failed';
   } catch {
-    return false;
+    return 'failed';
   }
+}
+
+export interface PublishOutcome {
+  error?: string;
+  /** One entry per chosen destination; empty when publishing errored out. */
+  results: DestinationResult[];
 }
 
 export async function publishJob(options: {
@@ -159,17 +229,21 @@ export async function publishJob(options: {
   media: MediaItem[];
   destinations: Destination[];
   content: PublishContent;
-}): Promise<{ error?: string; webhookFired?: boolean }> {
+}): Promise<PublishOutcome> {
   const { job, media, destinations, content } = options;
   const now = new Date().toISOString();
   const business = await workspace.getCurrent();
   const imageUrls = media.map((item) => item.uri).filter(Boolean) as string[];
+  // Only true once a social_media_posts row really exists for this job.
+  let gmbQueued = false;
 
   if (isSupabaseConfigured) {
     // Queue the GMB post into the same table the web pipeline reads.
     if (destinations.includes('gmb')) {
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return { error: 'Sign in with your real account to publish.' };
+      if (!auth.user) {
+        return { error: 'Sign in with your real account to publish.', results: [] };
+      }
       const { error } = await supabase.from('social_media_posts').insert({
         user_id: auth.user.id,
         title: content.title,
@@ -184,7 +258,8 @@ export async function publishJob(options: {
         scheduled_for: now,
         status: 'scheduled',
       });
-      if (error) return { error: error.message };
+      if (error) return { error: error.message, results: [] };
+      gmbQueued = true;
     }
 
     // Mark the job completed (web Project shape: status + completed_at).
@@ -196,7 +271,7 @@ export async function publishJob(options: {
     await jobsStore.updateStatus(job.id, 'completed');
   }
 
-  const webhookFired = await fireWorkflowWebhook({
+  const webhookOutcome = await fireWorkflowWebhook({
     event: 'job.completed',
     job_id: job.id,
     title: job.title,
@@ -209,13 +284,35 @@ export async function publishJob(options: {
     completed_at: now,
   });
 
-  await savePublishRecord({
-    job_id: job.id,
-    destinations,
-    published_at: now,
-    title: content.title,
+  const results: DestinationResult[] = destinations.map((destination) => {
+    if (destination === 'gmb' && gmbQueued) {
+      return {
+        destination,
+        status: 'queued',
+        detail: 'Added to your posting queue — your web app publishes it.',
+      };
+    }
+    // Nothing is connected: this is demo mode, not a delivery failure. Report
+    // it as demo rather than pretending either way.
+    if (webhookOutcome === 'not-configured' && !isSupabaseConfigured) {
+      return { destination, status: 'demo', detail: DEMO_DETAIL[destination] };
+    }
+    return { destination, status: webhookOutcome, detail: WEBHOOK_DETAIL[webhookOutcome] };
   });
+
+  // Record what genuinely went somewhere — plus demo results, so the demo flow
+  // is complete. A real destination we never reached is still left out, so the
+  // job screen cannot show a "Published to…" badge we did not earn.
+  const recorded = results.filter((result) => isRecorded(result.status));
+  if (recorded.length > 0) {
+    await savePublishRecord({
+      job_id: job.id,
+      destinations: recorded.map((result) => result.destination),
+      published_at: now,
+      title: content.title,
+    });
+  }
   jobsStore.notifyChanged();
 
-  return { webhookFired };
+  return { results };
 }
