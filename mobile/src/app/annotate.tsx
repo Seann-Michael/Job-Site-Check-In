@@ -6,6 +6,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useRef, useState } from 'react';
 import {
   PanResponder,
+  PixelRatio,
   Platform,
   Pressable,
   StyleSheet,
@@ -44,6 +45,40 @@ const TOOLS: { value: Tool; icon: string; label: string }[] = [
 ];
 
 const STROKE = 4;
+const TEXT_SIZE = 22;
+/** Keeps placed labels clear of the rounded corners / clipped edges of the frame. */
+const TEXT_INSET = 10;
+/** Longest edge of the exported image. */
+const CAPTURE_LONG_EDGE = 1600;
+/** Frame ratio used until the source image reports its own dimensions. */
+const FALLBACK_ASPECT = 4 / 3;
+/** Stops a tall portrait frame from pushing the tools off a small screen. */
+const MAX_FRAME_HEIGHT = 380;
+
+/**
+ * Text is drawn centred on the tap (anchor 'middle' plus a baseline nudge) and
+ * clamped inside the frame — SVG clips anything outside it, so an unclamped
+ * label tapped near an edge simply vanished.
+ */
+function placeText(
+  x: number,
+  y: number,
+  text: string,
+  frame: { width: number; height: number },
+): { x: number; y: number } {
+  const baseline = y + TEXT_SIZE * 0.35;
+  if (frame.width <= 0 || frame.height <= 0) return { x, y: baseline };
+  // ~0.55em per character is close enough for bold system text at this size.
+  const halfWidth = (text.length * TEXT_SIZE * 0.55) / 2;
+  const minX = TEXT_INSET + halfWidth;
+  const maxX = frame.width - TEXT_INSET - halfWidth;
+  const minY = TEXT_INSET + TEXT_SIZE * 0.85;
+  const maxY = frame.height - TEXT_INSET;
+  return {
+    x: maxX < minX ? frame.width / 2 : Math.min(Math.max(x, minX), maxX),
+    y: maxY < minY ? frame.height / 2 : Math.min(Math.max(baseline, minY), maxY),
+  };
+}
 
 function arrowHead(x1: number, y1: number, x2: number, y2: number): string {
   const angle = Math.atan2(y2 - y1, x2 - x1);
@@ -73,7 +108,11 @@ export default function AnnotateScreen() {
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [draft, setDraft] = useState<Shape | null>(null);
   const [textDraft, setTextDraft] = useState('');
+  const [textHint, setTextHint] = useState<string | null>(null);
   const [working, setWorking] = useState<'share' | 'save' | null>(null);
+  // Source aspect ratio, so a portrait photo is not saved centre-cropped.
+  const [aspect, setAspect] = useState(FALLBACK_ASPECT);
+  const [available, setAvailable] = useState(0);
 
   const shotRef = useRef<View>(null);
   // Refs so the PanResponder (created once) always sees current tool/color.
@@ -86,6 +125,7 @@ export default function AnnotateScreen() {
   const startRef = useRef({ x: 0, y: 0 });
   const pointsRef = useRef('');
   const draftRef = useRef<Shape | null>(null);
+  const frameRef = useRef({ width: 0, height: 0 });
 
   const setDraftBoth = (shape: Shape | null) => {
     draftRef.current = shape;
@@ -96,6 +136,10 @@ export default function AnnotateScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      // The frame lives inside Screen's ScrollView: without these two the
+      // ScrollView steals the responder mid-stroke and the page scrolls away.
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: (event) => {
         const { locationX: x, locationY: y } = event.nativeEvent;
         startRef.current = { x, y };
@@ -113,12 +157,20 @@ export default function AnnotateScreen() {
             break;
           case 'text': {
             const text = textRef.current.trim();
-            if (text) {
-              setShapes((current) => [
-                ...current,
-                { kind: 'text', x, y, text, color: currentColor },
-              ]);
+            if (!text) {
+              // Used to be a bare `break` — the tap looked like a dead button.
+              setTextHint('Type your label in the box above first, then tap the photo.');
+              break;
             }
+            const spot = placeText(x, y, text, frameRef.current);
+            setShapes((current) => [
+              ...current,
+              { kind: 'text', x: spot.x, y: spot.y, text, color: currentColor },
+            ]);
+            // Clear the buffer so the next tap does not stamp the same label again.
+            textRef.current = '';
+            setTextDraft('');
+            setTextHint(null);
             break;
           }
         }
@@ -157,6 +209,13 @@ export default function AnnotateScreen() {
         }
       },
       onPanResponderRelease: () => {
+        const finished = draftRef.current;
+        if (finished) setShapes((current) => [...current, finished]);
+        setDraftBoth(null);
+      },
+      // Same commit path as release: a stroke cut short by another responder
+      // used to stay on screen forever without ever being added to `shapes`.
+      onPanResponderTerminate: () => {
         const finished = draftRef.current;
         if (finished) setShapes((current) => [...current, finished]);
         setDraftBoth(null);
@@ -216,10 +275,11 @@ export default function AnnotateScreen() {
             key={key}
             x={shape.x}
             y={shape.y}
+            textAnchor="middle"
             fill={shape.color}
             stroke="#00000055"
             strokeWidth={0.5}
-            fontSize={22}
+            fontSize={TEXT_SIZE}
             fontWeight="bold">
             {shape.text}
           </SvgText>
@@ -227,21 +287,35 @@ export default function AnnotateScreen() {
     }
   };
 
-  const capture = async (): Promise<{ uri: string; base64: string } | null> => {
+  const capture = async (): Promise<{
+    uri: string;
+    base64: string;
+    width: number;
+    height: number;
+  } | null> => {
     if (Platform.OS === 'web') {
       notify('Not on web', 'Annotation export works on your phone (iOS/Android).');
       return null;
     }
+    // Export at the source ratio — a fixed 1600x1200 squashed portrait photos.
+    const width = aspect >= 1 ? CAPTURE_LONG_EDGE : Math.round(CAPTURE_LONG_EDGE * aspect);
+    const height = aspect >= 1 ? Math.round(CAPTURE_LONG_EDGE / aspect) : CAPTURE_LONG_EDGE;
+    // iOS treats these as layout points and renders at the screen scale, so a
+    // 1200x1600 request became 3600x4800 pixels on a 3x phone. Ask for
+    // points = pixels / ratio there; Android's resize is already in pixels.
+    // (The same points-vs-pixels correction is applied in stamp-host.tsx.)
+    const ratio = Platform.OS === 'ios' ? PixelRatio.get() || 1 : 1;
     const uri = await captureRef(shotRef, {
       format: 'jpg',
       quality: 0.9,
       result: 'tmpfile',
-      width: 1600,
+      width: Math.round(width / ratio),
+      height: Math.round(height / ratio),
     });
     const base64 = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    return { uri, base64 };
+    return { uri, base64, width, height };
   };
 
   const handleShare = async () => {
@@ -268,8 +342,8 @@ export default function AnnotateScreen() {
         const result = await savePreparedImage(item.job_id, item.job_title, item.category, {
           uri: shot.uri,
           base64: shot.base64,
-          width: 1600,
-          height: 1200,
+          width: shot.width,
+          height: shot.height,
         });
         if (result.error) notify('Could not save', result.error);
         else {
@@ -284,8 +358,16 @@ export default function AnnotateScreen() {
     }
   };
 
+  const frameWidth = available > 0 ? Math.min(available, MAX_FRAME_HEIGHT * aspect) : 0;
+  // Explicit size (rather than aspectRatio alone) so a tall portrait frame stays
+  // inside MAX_FRAME_HEIGHT without letterboxing the exported image.
+  const frameStyle =
+    frameWidth > 0
+      ? { width: frameWidth, height: frameWidth / aspect }
+      : { width: '100%' as const, aspectRatio: aspect };
+
   return (
-    <Screen>
+    <Screen avoidKeyboard>
       <DetailHeader
         title="Annotate"
         actions={[
@@ -296,41 +378,72 @@ export default function AnnotateScreen() {
 
       {item?.uri ? (
         <>
+          {/* Above the photo: below it the field sits under the keyboard. */}
+          {tool === 'text' ? (
+            <View style={{ gap: Spacing.xs }}>
+              <Card style={styles.textCard}>
+                <Ionicons name="text-outline" size={18} color={colors.textMuted} />
+                <TextInput
+                  value={textDraft}
+                  onChangeText={(value) => {
+                    setTextDraft(value);
+                    if (textHint) setTextHint(null);
+                  }}
+                  placeholder="Label text (e.g. Leak here)"
+                  placeholderTextColor={colors.textMuted}
+                  style={{ flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 }}
+                />
+              </Card>
+              {textHint ? (
+                <Text style={[styles.textHint, { color: colors.warningStrong }]}>{textHint}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <Section
             title={
               tool === 'text'
-                ? 'Type below, then tap the photo to place it'
+                ? 'Tap the photo to place your label'
                 : 'Draw directly on the photo'
             }>
-            <View ref={shotRef} collapsable={false} style={styles.shot}>
-              <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-              <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
-                <Svg style={StyleSheet.absoluteFill}>
-                  {shapes.map((shape, index) => renderShape(shape, `s-${index}`))}
-                  {draft ? renderShape(draft, 'draft') : null}
-                </Svg>
+            <View
+              style={styles.frameWrap}
+              onLayout={(event) => setAvailable(event.nativeEvent.layout.width)}>
+              <View
+                ref={shotRef}
+                collapsable={false}
+                style={[styles.shot, frameStyle]}
+                onLayout={(event) => {
+                  const { width, height } = event.nativeEvent.layout;
+                  frameRef.current = { width, height };
+                }}>
+                <Image
+                  source={{ uri: item.uri }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  onLoad={(event) => {
+                    const { width, height } = event.source;
+                    if (width > 0 && height > 0) setAspect(width / height);
+                  }}
+                />
+                <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
+                  <Svg style={StyleSheet.absoluteFill}>
+                    {shapes.map((shape, index) => renderShape(shape, `s-${index}`))}
+                    {draft ? renderShape(draft, 'draft') : null}
+                  </Svg>
+                </View>
               </View>
             </View>
           </Section>
-
-          {tool === 'text' ? (
-            <Card style={styles.textCard}>
-              <Ionicons name="text-outline" size={18} color={colors.textMuted} />
-              <TextInput
-                value={textDraft}
-                onChangeText={setTextDraft}
-                placeholder="Label text (e.g. Leak here)"
-                placeholderTextColor={colors.textMuted}
-                style={{ flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 }}
-              />
-            </Card>
-          ) : null}
 
           <View style={styles.toolRow}>
             {TOOLS.map((entry) => (
               <Pressable
                 key={entry.value}
-                onPress={() => setTool(entry.value)}
+                onPress={() => {
+                  setTool(entry.value);
+                  setTextHint(null);
+                }}
                 style={[
                   styles.toolButton,
                   {
@@ -401,9 +514,11 @@ export default function AnnotateScreen() {
 }
 
 const styles = StyleSheet.create({
-  shot: {
+  frameWrap: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    alignItems: 'center',
+  },
+  shot: {
     borderRadius: Radius.lg,
     overflow: 'hidden',
     backgroundColor: '#05070B',
@@ -436,5 +551,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+  },
+  textHint: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    paddingHorizontal: Spacing.xs,
   },
 });

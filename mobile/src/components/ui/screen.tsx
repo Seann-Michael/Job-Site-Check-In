@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,30 +21,44 @@ export function Screen({
   children,
   refreshing,
   onRefresh,
+  avoidKeyboard,
 }: {
   children: React.ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** Opt in to lifting the content above the on-screen keyboard (screens with inputs). */
+  avoidKeyboard?: boolean;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const scroll = (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing ?? false}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        ) : undefined
+      }>
+      {children}
+    </ScrollView>
+  );
   return (
     <View
       style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl
-              refreshing={refreshing ?? false}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          ) : undefined
-        }>
-        {children}
-      </ScrollView>
+      {avoidKeyboard ? (
+        <KeyboardAvoidingView
+          style={styles.root}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {scroll}
+        </KeyboardAvoidingView>
+      ) : (
+        scroll
+      )}
     </View>
   );
 }

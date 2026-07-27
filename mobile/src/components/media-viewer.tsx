@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TagEditor } from '@/components/tag-editor';
 import { Radius, Spacing } from '@/constants/theme';
@@ -26,6 +26,14 @@ import { setMediaTags } from '@/lib/media-tags';
 import { TEAM_NAMES } from '@/lib/team-presence';
 import { useAuth } from '@/providers/auth-provider';
 import type { MediaItem } from '@/lib/types';
+
+/**
+ * Caps on OS font scaling. The caption chips are 10–13pt and sit in a fixed-width
+ * row, so unbounded Dynamic Type / Android large-font scaling clips them. Body
+ * copy (captions, comment text) is deliberately left uncapped.
+ */
+const CHIP_FONT_SCALE = 1.2;
+const LABEL_FONT_SCALE = 1.3;
 
 /** Comment text with @mentions tinted. */
 function CommentText({ text, color, accent }: { text: string; color: string; accent: string }) {
@@ -46,15 +54,7 @@ function CommentText({ text, color, accent }: { text: string; color: string; acc
 }
 
 
-/** Full-screen swipeable photo viewer with native share. */
-export function MediaViewer({
-  items,
-  initialIndex,
-  visible,
-  onClose,
-  onLogoSticker,
-  onAnnotate,
-}: {
+type MediaViewerProps = {
   items: MediaItem[];
   initialIndex: number;
   visible: boolean;
@@ -63,11 +63,67 @@ export function MediaViewer({
   onLogoSticker?: (item: MediaItem) => void;
   /** Open the annotation editor for a photo. */
   onAnnotate?: (item: MediaItem) => void;
-}) {
+};
+
+/**
+ * Full-screen swipeable photo viewer with native share.
+ *
+ * The body lives in its own component so that `useSafeAreaInsets()` reads the
+ * SafeAreaProvider nested *inside* the modal. On Android a Modal is its own
+ * window, so the root provider's insets would be counted a second time on top
+ * of the window's own inset. `statusBarTranslucent` / `navigationBarTranslucent`
+ * make the modal window span the whole screen so the nested provider measures
+ * the real insets; both props are no-ops on iOS and web.
+ *
+ * The nested provider deliberately takes no `initialMetrics`, and passing
+ * `initialWindowMetrics` would be a regression, not a fix. Do not "restore" it.
+ *
+ * It is true that safe-area-context renders `null` for its children until it has
+ * insets (SafeAreaContext.tsx: `{insets != null ? <Provider>…</Provider> : null}`)
+ * and that RN's Modal returns `null` while `visible === false`, so this provider
+ * remounts on every open. But the seed on that remount is
+ * `initialMetrics?.insets ?? initialSafeAreaInsets ?? parentInsets ?? null`
+ * (SafeAreaContext.tsx, `SafeAreaProvider`), and `parentInsets` is just
+ * `useContext(SafeAreaInsetsContext)`. A Modal renders its children in the same
+ * React tree, so context crosses the modal boundary: expo-router mounts a root
+ * `<SafeAreaProvider>` around the whole app in `ExpoRoot`, and every screen that
+ * renders a MediaViewer sits under it. That root provider itself renders nothing
+ * until its own insets resolve, so by the time this component can mount at all,
+ * `parentInsets` is non-null. The seed is therefore non-null on the first commit
+ * and children render immediately — there is no blank frame to patch.
+ *
+ * Passing `initialWindowMetrics` would take priority over `parentInsets` in that
+ * `??` chain and pin the first frame to the launch orientation's insets, which is
+ * wrong after a rotate — strictly worse than the live parent value we get today.
+ * The constant is also `null` on web, so it would buy nothing there either.
+ */
+export function MediaViewer(props: MediaViewerProps) {
+  return (
+    <Modal
+      visible={props.visible}
+      animationType="fade"
+      onRequestClose={props.onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
+      <SafeAreaProvider>
+        <MediaViewerBody {...props} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function MediaViewerBody({
+  items,
+  initialIndex,
+  visible,
+  onClose,
+  onLogoSticker,
+  onAnnotate,
+}: MediaViewerProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [index, setIndex] = React.useState(initialIndex);
   const [editingTags, setEditingTags] = React.useState(false);
   const [tagDraft, setTagDraft] = React.useState<string[]>([]);
@@ -86,6 +142,10 @@ export function MediaViewer({
 
   const current = items[index];
   const currentId = current?.id;
+
+  // Keep the caption stack off the top toolbar on short phones; it scrolls once capped.
+  const captionMaxHeight = Math.round(windowHeight * 0.55);
+  const commentListMaxHeight = Math.min(200, Math.round(windowHeight * 0.25));
 
   React.useEffect(() => {
     if (!visible || !currentId) return;
@@ -121,7 +181,13 @@ export function MediaViewer({
 
   const startEditingTags = () => {
     setTagDraft(current?.tags ?? []);
+    setShowComments(false);
     setEditingTags(true);
+  };
+
+  const toggleComments = () => {
+    setEditingTags(false);
+    setShowComments((open) => !open);
   };
 
   const saveTags = () => {
@@ -144,82 +210,95 @@ export function MediaViewer({
   };
 
   return (
-    <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={styles.root}>
-        <FlatList
-          data={items}
-          horizontal
-          pagingEnabled
-          initialScrollIndex={Math.min(initialIndex, Math.max(0, items.length - 1))}
-          getItemLayout={(_, i) => ({ length: windowWidth, offset: windowWidth * i, index: i })}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(event) => {
-            setIndex(Math.round(event.nativeEvent.contentOffset.x / windowWidth));
-          }}
-          renderItem={({ item }) => (
-            <View style={[styles.page, { width: windowWidth }]}>
-              {item.uri ? (
-                <Image
-                  source={{ uri: item.uri }}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="contain"
-                  transition={100}
+    <View style={styles.root}>
+      <FlatList
+        data={items}
+        horizontal
+        pagingEnabled
+        initialScrollIndex={Math.min(initialIndex, Math.max(0, items.length - 1))}
+        getItemLayout={(_, i) => ({ length: windowWidth, offset: windowWidth * i, index: i })}
+        keyExtractor={(item) => item.id}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(event) => {
+          setIndex(Math.round(event.nativeEvent.contentOffset.x / windowWidth));
+        }}
+        renderItem={({ item }) => (
+          <View style={[styles.page, { width: windowWidth }]}>
+            {item.uri ? (
+              <Image
+                source={{ uri: item.uri }}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                transition={100}
+              />
+            ) : (
+              <View style={styles.placeholder}>
+                <Ionicons
+                  name={item.media_type === 'video' ? 'videocam' : 'image-outline'}
+                  size={64}
+                  color="#5A6B85"
                 />
-              ) : (
-                <View style={styles.placeholder}>
-                  <Ionicons
-                    name={item.media_type === 'video' ? 'videocam' : 'image-outline'}
-                    size={64}
-                    color="#5A6B85"
-                  />
-                  <Text style={styles.placeholderText}>
-                    Placeholder tile — real photos appear here after capture
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        />
-
-        <View style={[styles.topBar, { paddingTop: insets.top + Spacing.sm }]}>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </Pressable>
-          <Text style={styles.counter}>
-            {items.length > 0 ? `${index + 1} / ${items.length}` : ''}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-            {onAnnotate && current?.uri && current.media_type === 'image' ? (
-              <Pressable
-                onPress={() => onAnnotate(current)}
-                hitSlop={10}
-                style={styles.iconButton}>
-                <Ionicons name="pencil-outline" size={19} color="#FFFFFF" />
-              </Pressable>
-            ) : null}
-            {onLogoSticker && current?.uri && current.media_type === 'image' ? (
-              <Pressable
-                onPress={() => onLogoSticker(current)}
-                hitSlop={10}
-                style={styles.iconButton}>
-                <Ionicons name="color-wand-outline" size={20} color="#FFFFFF" />
-              </Pressable>
-            ) : null}
-            <Pressable onPress={handleShare} hitSlop={10} style={styles.iconButton}>
-              <Ionicons name="share-outline" size={22} color="#FFFFFF" />
-            </Pressable>
+                <Text style={styles.placeholderText}>
+                  Placeholder tile — real photos appear here after capture
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
+        )}
+      />
 
-        {current ? (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            pointerEvents="box-none"
-            style={[styles.caption, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <View style={[styles.topBar, { paddingTop: insets.top + Spacing.sm }]}>
+        <Pressable onPress={onClose} hitSlop={10} style={styles.iconButton}>
+          <Ionicons name="close" size={24} color="#FFFFFF" />
+        </Pressable>
+        <Text style={styles.counter} maxFontSizeMultiplier={LABEL_FONT_SCALE}>
+          {items.length > 0 ? `${index + 1} / ${items.length}` : ''}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+          {onAnnotate && current?.uri && current.media_type === 'image' ? (
+            <Pressable onPress={() => onAnnotate(current)} hitSlop={10} style={styles.iconButton}>
+              <Ionicons name="pencil-outline" size={19} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
+          {onLogoSticker && current?.uri && current.media_type === 'image' ? (
+            <Pressable
+              onPress={() => onLogoSticker(current)}
+              hitSlop={10}
+              style={styles.iconButton}>
+              <Ionicons name="color-wand-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
+          <Pressable onPress={handleShare} hitSlop={10} style={styles.iconButton}>
+            <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
+
+      {current ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          pointerEvents="box-none"
+          style={styles.caption}>
+          {/*
+            The scrim doubles as the scroll clip: `behavior="padding"` overwrites
+            paddingBottom on the KeyboardAvoidingView itself, so the safe-area gap
+            has to live on this child as a margin instead.
+          */}
+          <ScrollView
+            style={[
+              styles.captionScrim,
+              { maxHeight: captionMaxHeight, marginBottom: insets.bottom + Spacing.lg },
+            ]}
+            contentContainerStyle={styles.captionContent}
+            scrollEnabled={showComments || editingTags}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
             {showComments ? (
               <View style={[styles.commentPanel, { backgroundColor: colors.card }]}>
-                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                  style={{ maxHeight: commentListMaxHeight }}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled">
                   {comments.length === 0 ? (
                     <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
                       No comments yet — mention a teammate with @name.
@@ -228,7 +307,9 @@ export function MediaViewer({
                     comments.map((comment) => (
                       <View key={comment.id} style={styles.commentRow}>
                         <View style={{ flex: 1, gap: 1 }}>
-                          <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.textSecondary }}>
+                          <Text
+                            style={{ fontSize: 11.5, fontWeight: '700', color: colors.textSecondary }}
+                            maxFontSizeMultiplier={LABEL_FONT_SCALE}>
                             {comment.author} · {timeAgo(comment.created_at)}
                           </Text>
                           <CommentText
@@ -255,7 +336,9 @@ export function MediaViewer({
                           key={name}
                           onPress={() => insertMention(name)}
                           style={[styles.mentionChip, { backgroundColor: colors.primarySoft }]}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primaryStrong }}>
+                          <Text
+                            style={{ fontSize: 11, fontWeight: '700', color: colors.primaryStrong }}
+                            maxFontSizeMultiplier={CHIP_FONT_SCALE}>
                             @{name.split(' ')[0]}
                           </Text>
                         </Pressable>
@@ -296,35 +379,43 @@ export function MediaViewer({
               {current.job_title || 'Job photo'}
             </Text>
             <View style={styles.captionMeta}>
-              <Text style={styles.captionText}>
+              <Text
+                style={styles.captionText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={LABEL_FONT_SCALE}>
                 {current.category.toUpperCase()} · {formatDate(current.taken_at)}
               </Text>
               {typeof current.latitude === 'number' ? (
                 <View style={styles.geoChip}>
                   <Ionicons name="location" size={11} color="#34D399" />
-                  <Text style={styles.geoText}>GPS</Text>
+                  <Text style={styles.geoText} maxFontSizeMultiplier={CHIP_FONT_SCALE}>
+                    GPS
+                  </Text>
                 </View>
               ) : null}
               <Pressable onPress={startEditingTags} hitSlop={8} style={styles.tagButton}>
                 <Ionicons name="pricetag-outline" size={11} color="#7DD3FC" />
-                <Text style={styles.tagButtonText}>
+                <Text
+                  style={styles.tagButtonText}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={CHIP_FONT_SCALE}>
                   {current.tags?.length ? current.tags.map((t) => `#${t}`).join(' ') : 'Add tags'}
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => setShowComments((open) => !open)}
-                hitSlop={8}
-                style={styles.tagButton}>
+              <Pressable onPress={toggleComments} hitSlop={8} style={styles.tagButton}>
                 <Ionicons name="chatbubble-outline" size={11} color="#7DD3FC" />
-                <Text style={styles.tagButtonText}>
+                <Text
+                  style={styles.tagButtonText}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={CHIP_FONT_SCALE}>
                   {comments.length > 0 ? `${comments.length}` : 'Comment'}
                 </Text>
               </Pressable>
             </View>
-          </KeyboardAvoidingView>
-        ) : null}
-      </View>
-    </Modal>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : null}
+    </View>
   );
 }
 
@@ -375,6 +466,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: Spacing.lg,
+  },
+  /** Dark scrim so white caption text stays legible over bright photos — matches the toolbar pills. */
+  captionScrim: {
+    backgroundColor: '#00000080',
+    borderRadius: Radius.lg,
+  },
+  captionContent: {
+    padding: Spacing.md,
     gap: 4,
   },
   captionTitle: {
@@ -384,12 +483,15 @@ const styles = StyleSheet.create({
   },
   captionMeta: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
+    rowGap: 6,
   },
   captionText: {
     color: '#94A3B8',
     fontSize: 12,
+    flexShrink: 1,
   },
   geoChip: {
     flexDirection: 'row',
@@ -419,6 +521,7 @@ const styles = StyleSheet.create({
     color: '#7DD3FC',
     fontSize: 10,
     fontWeight: '700',
+    flexShrink: 1,
   },
   tagPanel: {
     borderRadius: Radius.lg,
