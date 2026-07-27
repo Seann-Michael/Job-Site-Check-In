@@ -1,7 +1,8 @@
 /**
  * Business logo for photo stickers — one logo per business (workspace).
- * Picked from the device gallery, kept locally for offline stamping, and
- * uploaded to the Supabase 'avatars' bucket (with a best-effort
+ * Picked from the device gallery (PNG only, so transparency survives and the
+ * uploaded content-type is always honest), kept locally for offline stamping,
+ * and uploaded to the Supabase 'avatars' bucket (with a best-effort
  * businesses.logo_url update) when configured, so the logo follows the
  * business across devices.
  */
@@ -55,19 +56,44 @@ export async function getLogoUri(businessId: string): Promise<string | null> {
   return null;
 }
 
-/** Open the gallery, store the chosen logo for this business. */
-export async function pickLogo(businessId: string): Promise<string | null> {
+export interface LogoPickResult {
+  /** Set when a logo was accepted and stored. */
+  uri?: string;
+  /** The picked file was rejected; show this to the user. */
+  error?: string;
+  /** Neither field set means the user backed out — callers say nothing. */
+}
+
+const PNG_REQUIRED =
+  'Logos must be PNG files. Export your logo as a .png (transparent background works best) and choose it again.';
+
+/**
+ * The gallery picker cannot filter by file format, so PNG is enforced here on
+ * the picked asset. mimeType is authoritative when the platform provides it;
+ * otherwise fall back to the file extension. Anything we cannot positively
+ * identify as PNG is rejected rather than silently relabelled — an iPhone HEIC
+ * used to be uploaded as image/png with HEIC bytes inside.
+ */
+function isPngAsset(asset: ImagePicker.ImagePickerAsset): boolean {
+  const mime = asset.mimeType?.toLowerCase();
+  if (mime) return mime === 'image/png';
+  const name = (asset.fileName ?? asset.uri).split('?')[0];
+  return name.split('.').pop()?.toLowerCase() === 'png';
+}
+
+/** Open the gallery, store the chosen logo for this business. PNG only. */
+export async function pickLogo(businessId: string): Promise<LogoPickResult> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: false,
     quality: 1,
     base64: true,
   });
-  if (result.canceled || !result.assets?.length) return null;
+  if (result.canceled || !result.assets?.length) return {};
   const asset = result.assets[0];
 
-  const rawExt = asset.uri.split('.').pop()?.toLowerCase() ?? 'png';
-  const ext = ['png', 'jpg', 'jpeg', 'webp'].includes(rawExt) ? rawExt : 'png';
+  if (!isPngAsset(asset)) return { error: PNG_REQUIRED };
+  const ext = 'png';
 
   let uri = asset.uri;
   try {
@@ -83,10 +109,9 @@ export async function pickLogo(businessId: string): Promise<string | null> {
   if (isSupabaseConfigured && !businessId.startsWith('demo') && asset.base64) {
     try {
       const path = `business-logos/${businessId}.${ext}`;
-      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
       const { error } = await supabase.storage
         .from('avatars')
-        .upload(path, decode(asset.base64), { contentType, upsert: true });
+        .upload(path, decode(asset.base64), { contentType: 'image/png', upsert: true });
       if (!error) {
         const {
           data: { publicUrl },
@@ -101,7 +126,7 @@ export async function pickLogo(businessId: string): Promise<string | null> {
   const map = await loadMap();
   map[businessId] = uri;
   await saveMap(map);
-  return uri;
+  return { uri };
 }
 
 export async function clearLogo(businessId: string): Promise<void> {

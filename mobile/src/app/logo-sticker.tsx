@@ -17,6 +17,7 @@ import { fetchMedia } from '@/lib/data';
 import { notify } from '@/lib/format';
 import { getLogoUri, pickLogo } from '@/lib/logo';
 import { savePreparedImage } from '@/lib/media-capture';
+import { workspace } from '@/lib/workspace';
 import { useAuth } from '@/providers/auth-provider';
 
 const SIZES = [
@@ -41,6 +42,9 @@ export default function LogoStickerScreen() {
   const [logoVisible, setLogoVisible] = useState(true);
   const [size, setSize] = useState('medium');
   const [working, setWorking] = useState<'share' | 'save' | null>(null);
+  // The logo is stored per business; without one the picker below can't run.
+  const [workspaceError, setWorkspaceError] = useState<string | null>(() => workspace.lastError());
+  useEffect(() => workspace.subscribe(() => setWorkspaceError(workspace.lastError())), []);
 
   const shotRef = useRef<View>(null);
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -74,10 +78,19 @@ export default function LogoStickerScreen() {
     return <Redirect href="/login" />;
   }
 
+  const blocked = !business;
+  const blockedReason = workspaceError ?? 'Still loading your business…';
+  /** Blocked *and* we know why — the pre-load gap is not worth alarming about. */
+  const loadFailed = blocked && Boolean(workspaceError);
+
   const handlePickLogo = async () => {
-    if (!business) return;
-    const uri = await pickLogo(business.id);
-    if (uri) setLogoUri(uri);
+    if (!business) {
+      notify('Logo unavailable', blockedReason);
+      return;
+    }
+    const result = await pickLogo(business.id);
+    if (result.error) notify('PNG logos only', result.error);
+    else if (result.uri) setLogoUri(result.uri);
   };
 
   const capture = async (): Promise<{ uri: string; base64: string } | null> => {
@@ -203,12 +216,32 @@ export default function LogoStickerScreen() {
             </>
           ) : (
             <Card style={{ alignItems: 'center', gap: Spacing.md }}>
-              <Ionicons name="image-outline" size={28} color={colors.textMuted} />
-              <Text style={{ fontSize: 13.5, color: colors.textSecondary, textAlign: 'center' }}>
-                {business?.name ?? 'This business'} doesn&apos;t have a logo yet. Add one to start
-                stamping photos.
+              <Ionicons
+                name={
+                  loadFailed ? 'cloud-offline-outline' : blocked ? 'hourglass-outline' : 'image-outline'
+                }
+                size={28}
+                color={loadFailed ? colors.dangerStrong : colors.textMuted}
+              />
+              {/* Without a business we cannot tell "no logo yet" from "we never
+                  got to look", so say which one it is rather than blaming the
+                  business for an empty logo we never actually read. */}
+              <Text
+                style={{
+                  fontSize: 13.5,
+                  color: loadFailed ? colors.dangerStrong : colors.textSecondary,
+                  textAlign: 'center',
+                }}>
+                {blocked
+                  ? `${blockedReason} Logos are stored per business, so this one can't be loaded or changed yet.`
+                  : `${business?.name ?? 'This business'} doesn't have a logo yet. Add a PNG to start stamping photos.`}
               </Text>
-              <Button label="Choose logo" icon="add" onPress={() => void handlePickLogo()} />
+              <Button
+                label="Choose PNG logo"
+                icon="add"
+                disabled={blocked}
+                onPress={() => void handlePickLogo()}
+              />
             </Card>
           )}
         </>

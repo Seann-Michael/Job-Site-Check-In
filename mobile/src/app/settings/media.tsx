@@ -6,17 +6,21 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { notify } from '@/lib/format';
 import { clearLogo, getLogoUri, pickLogo } from '@/lib/logo';
 import {
   DEFAULT_MEDIA_PREFS,
   getMediaPrefs,
   setMediaPrefs,
+  STAMP_POSITION_LABELS,
+  STAMP_POSITIONS,
   type MediaPrefs,
   type PhotoQuality,
 } from '@/lib/media-prefs';
+import { workspace } from '@/lib/workspace';
 import { useAuth } from '@/providers/auth-provider';
 import type { MediaCategory } from '@/lib/types';
 
@@ -24,6 +28,13 @@ const QUALITY_OPTIONS: { value: PhotoQuality; label: string; sub: string }[] = [
   { value: 'standard', label: 'Standard', sub: '2048px — fast uploads, great for posts' },
   { value: 'high', label: 'High', sub: '3072px — sharper detail, larger uploads' },
   { value: 'original', label: 'Original', sub: 'Full camera resolution, biggest files' },
+];
+
+/** The nine stamp positions laid out as the 3x3 grid the user taps. */
+const POSITION_ROWS = [
+  STAMP_POSITIONS.slice(0, 3),
+  STAMP_POSITIONS.slice(3, 6),
+  STAMP_POSITIONS.slice(6, 9),
 ];
 
 const CATEGORY_OPTIONS: { value: MediaCategory | 'ask'; label: string }[] = [
@@ -40,6 +51,10 @@ export default function MediaSettingsScreen() {
   const { business } = useWorkspace();
   const [prefs, setPrefs] = useState<MediaPrefs>(DEFAULT_MEDIA_PREFS);
   const [logoUri, setLogoUri] = useState<string | null>(null);
+  // Tells "still loading" apart from "the businesses query failed" — without a
+  // business the logo picker and the business/logo stamps cannot run at all.
+  const [workspaceError, setWorkspaceError] = useState<string | null>(() => workspace.lastError());
+  useEffect(() => workspace.subscribe(() => setWorkspaceError(workspace.lastError())), []);
 
   useEffect(() => {
     void getMediaPrefs().then(setPrefs);
@@ -57,6 +72,10 @@ export default function MediaSettingsScreen() {
     setPrefs((prev) => ({ ...prev, ...patch }));
     void setMediaPrefs(patch);
   };
+
+  /** Everything on this screen that needs `business.id` is dead without one. */
+  const blocked = !business;
+  const blockedReason = workspaceError ?? 'Still loading your business…';
 
   return (
     <Screen>
@@ -132,20 +151,41 @@ export default function MediaSettingsScreen() {
                 {logoUri ? 'Logo set' : 'No logo yet'}
               </Text>
               <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
-                Used for logo stickers and the capture stamp
+                PNG only — used for logo stickers and the capture stamp
               </Text>
             </View>
           </View>
+          {blocked ? (
+            <View style={styles.gpsRow}>
+              <IconTile
+                icon={workspaceError ? 'cloud-offline-outline' : 'hourglass-outline'}
+                size={34}
+                tone={workspaceError ? 'danger' : 'neutral'}
+              />
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                  {workspaceError ? 'Logo controls unavailable' : 'Loading your business…'}
+                </Text>
+                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                  {workspaceError
+                    ? `${workspaceError} The logo is stored per business, so it can't be changed until one loads.`
+                    : 'The logo is stored per business — the controls turn on as soon as it loads.'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', gap: Spacing.md }}>
             <Button
-              label={logoUri ? 'Change logo' : 'Choose logo'}
+              label={logoUri ? 'Change logo' : 'Choose PNG logo'}
               icon="image-outline"
               variant="secondary"
+              disabled={blocked}
               style={{ flex: 1 }}
               onPress={() => {
                 if (!business) return;
-                void pickLogo(business.id).then((uri) => {
-                  if (uri) setLogoUri(uri);
+                void pickLogo(business.id).then((result) => {
+                  if (result.error) notify('PNG logos only', result.error);
+                  else if (result.uri) setLogoUri(result.uri);
                 });
               }}
             />
@@ -154,6 +194,7 @@ export default function MediaSettingsScreen() {
                 label="Remove"
                 icon="trash-outline"
                 variant="secondary"
+                disabled={blocked}
                 style={{ flex: 1 }}
                 onPress={() => {
                   if (!business) return;
@@ -163,13 +204,25 @@ export default function MediaSettingsScreen() {
             ) : null}
           </View>
           <View style={styles.gpsRow}>
-            <IconTile icon="color-wand-outline" size={34} tone={prefs.stampLogo ? 'primary' : 'neutral'} />
+            <IconTile
+              icon="color-wand-outline"
+              size={34}
+              tone={prefs.stampLogo && !blocked ? 'primary' : 'neutral'}
+            />
             <View style={{ flex: 1, gap: 1 }}>
               <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
                 Logo stamp on capture
               </Text>
-              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
-                Auto-place the logo bottom-right on new photos
+              {/* Red only for a real failure — the brief gap before the first
+                  load resolves is not something to alarm anyone about. */}
+              <Text
+                style={{
+                  fontSize: 12.5,
+                  color: blocked && workspaceError ? colors.dangerStrong : colors.textSecondary,
+                }}>
+                {blocked
+                  ? `Not being applied — ${blockedReason}`
+                  : 'Auto-place the logo on new photos, wherever you pick below'}
               </Text>
             </View>
             <Switch
@@ -179,6 +232,55 @@ export default function MediaSettingsScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+
+          {prefs.stampLogo ? (
+            <View style={{ gap: Spacing.sm }}>
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                Tap a cell to choose where the logo sits on the photo.
+              </Text>
+              <View style={{ gap: Spacing.sm }}>
+                {POSITION_ROWS.map((row, rowIndex) => (
+                  <View key={rowIndex} style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                    {row.map((position) => {
+                      const selected = prefs.stampPosition === position;
+                      return (
+                        <Pressable
+                          key={position}
+                          accessibilityRole="button"
+                          accessibilityLabel={STAMP_POSITION_LABELS[position]}
+                          accessibilityState={{ selected }}
+                          onPress={() => update({ stampPosition: position })}
+                          style={({ pressed }) => [
+                            styles.gridCell,
+                            {
+                              borderColor: selected ? colors.primary : colors.border,
+                              backgroundColor: selected ? colors.primarySoft : colors.card,
+                            },
+                            pressed && !selected && { backgroundColor: colors.cardPressed },
+                          ]}>
+                          <View
+                            style={[
+                              styles.gridDot,
+                              { backgroundColor: selected ? colors.primary : colors.textMuted },
+                            ]}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+              <Text
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: '600',
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                }}>
+                {STAMP_POSITION_LABELS[prefs.stampPosition]}
+              </Text>
+            </View>
+          ) : null}
         </Card>
       </Section>
 
@@ -205,31 +307,45 @@ export default function MediaSettingsScreen() {
                 sub: 'Overlay latitude/longitude (needs GPS on)',
               },
             ]
-          ).map((row, index) => (
-            <View
-              key={row.key}
-              style={[
-                styles.row,
-                index > 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: colors.border,
-                },
-              ]}>
-              <IconTile icon={row.icon} size={34} tone={prefs[row.key] ? 'primary' : 'neutral'} />
-              <View style={{ flex: 1, gap: 1 }}>
-                <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
-                  {row.label}
-                </Text>
-                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{row.sub}</Text>
+          ).map((row, index) => {
+            // Only the business-name stamp needs the current business to render.
+            const rowBlocked = blocked && row.key === 'stampBusiness';
+            return (
+              <View
+                key={row.key}
+                style={[
+                  styles.row,
+                  index > 0 && {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: colors.border,
+                  },
+                ]}>
+                <IconTile
+                  icon={row.icon}
+                  size={34}
+                  tone={prefs[row.key] && !rowBlocked ? 'primary' : 'neutral'}
+                />
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                    {row.label}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 12.5,
+                      color: rowBlocked && workspaceError ? colors.dangerStrong : colors.textSecondary,
+                    }}>
+                    {rowBlocked ? `Not being applied — ${blockedReason}` : row.sub}
+                  </Text>
+                </View>
+                <Switch
+                  value={prefs[row.key]}
+                  onValueChange={(value) => update({ [row.key]: value })}
+                  trackColor={{ true: colors.primary, false: colors.cardPressed }}
+                  thumbColor="#FFFFFF"
+                />
               </View>
-              <Switch
-                value={prefs[row.key]}
-                onValueChange={(value) => update({ [row.key]: value })}
-                trackColor={{ true: colors.primary, false: colors.cardPressed }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          ))}
+            );
+          })}
         </Card>
       </Section>
 
@@ -294,5 +410,19 @@ const styles = StyleSheet.create({
   logoEmpty: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** aspectRatio 4/3 per cell makes the whole 3x3 grid a 4:3 photo shape. */
+  gridCell: {
+    flex: 1,
+    aspectRatio: 4 / 3,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridDot: {
+    width: 8,
+    height: 8,
+    borderRadius: Radius.full,
   },
 });

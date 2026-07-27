@@ -10,6 +10,42 @@ const STORAGE_KEY = 'lsr-media-prefs-v1';
 
 export type PhotoQuality = 'standard' | 'high' | 'original';
 
+/** Where the logo watermark sits on the photo — `${vertical}-${horizontal}`. */
+export type StampPosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'middle-left'
+  | 'middle-center'
+  | 'middle-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
+export const STAMP_POSITIONS: StampPosition[] = [
+  'top-left',
+  'top-center',
+  'top-right',
+  'middle-left',
+  'middle-center',
+  'middle-right',
+  'bottom-left',
+  'bottom-center',
+  'bottom-right',
+];
+
+export const STAMP_POSITION_LABELS: Record<StampPosition, string> = {
+  'top-left': 'Top left',
+  'top-center': 'Top centre',
+  'top-right': 'Top right',
+  'middle-left': 'Middle left',
+  'middle-center': 'Centre',
+  'middle-right': 'Middle right',
+  'bottom-left': 'Bottom left',
+  'bottom-center': 'Bottom centre',
+  'bottom-right': 'Bottom right',
+};
+
 export interface MediaPrefs {
   /** standard = 2048px, high = 3072px, original = no downscale. */
   quality: PhotoQuality;
@@ -23,8 +59,10 @@ export interface MediaPrefs {
   stampGps: boolean;
   /** Burn the business name onto the photo. */
   stampBusiness: boolean;
-  /** Place the business logo (bottom-right) on captured photos. */
+  /** Place the business logo on captured photos, at `stampPosition`. */
   stampLogo: boolean;
+  /** Which of the nine grid cells the logo watermark is placed in. */
+  stampPosition: StampPosition;
 }
 
 export const DEFAULT_MEDIA_PREFS: MediaPrefs = {
@@ -35,6 +73,7 @@ export const DEFAULT_MEDIA_PREFS: MediaPrefs = {
   stampGps: true,
   stampBusiness: true,
   stampLogo: false,
+  stampPosition: 'bottom-right',
 };
 
 export const QUALITY_DIMENSIONS: Record<PhotoQuality, number | null> = {
