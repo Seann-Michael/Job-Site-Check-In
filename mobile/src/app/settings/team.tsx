@@ -1,160 +1,149 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * Settings > Team — a read-only view of `fetchTeam`, the shared roster.
+ *
+ * This screen used to run its own `users` query with no business filter, so a
+ * connected project showed every account in the whole database as if they were
+ * colleagues, and it kept a private copy of the three sample names. Both now
+ * come from '@/lib/team'.
+ *
+ * The roster is honest about being sampled (`isDemo`/`demoReason`), and this
+ * screen is the one place that has to be blunt about it: nobody has signed in
+ * to this project yet, so what everyone actually sees today is `DEMO_TEAM`.
+ * Sample rows are labelled as samples rather than presented as the user's team.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { Avatar, Badge, Button, Card } from '@/components/ui/basics';
+import { Avatar, Badge, Card } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { notify } from '@/lib/format';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { useWorkspace } from '@/hooks/use-workspace';
+import { fetchTeam, type TeamRoster } from '@/lib/team';
 import { useAuth } from '@/providers/auth-provider';
-
-const INVITES_KEY = 'lsr-pending-invites-v1';
-
-interface Member {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
-const DEMO_MEMBERS: Member[] = [
-  { id: 'm-1', name: 'Alex Morgan', email: 'demo@localseoranker.com', role: 'Owner' },
-  { id: 'm-2', name: 'Jordan Reyes', email: 'jordan@westsidehs.com', role: 'Field tech' },
-  { id: 'm-3', name: 'Casey Nguyen', email: 'casey@westsidehs.com', role: 'Office' },
-];
-
-async function fetchMembers(): Promise<Member[]> {
-  if (!isSupabaseConfigured) return DEMO_MEMBERS;
-  const { data, error } = await supabase.from('users').select('id, name, email, role').limit(25);
-  if (error || !data?.length) return DEMO_MEMBERS;
-  return (data as Record<string, unknown>[]).map((row) => ({
-    id: String(row.id),
-    name: typeof row.name === 'string' && row.name ? row.name : String(row.email ?? 'Member'),
-    email: String(row.email ?? ''),
-    role: typeof row.role === 'string' ? row.role : 'member',
-  }));
-}
 
 export default function TeamSettingsScreen() {
   const { colors } = useTheme();
   const { user, initializing } = useAuth();
+  const { business } = useWorkspace();
 
-  const [members, setMembers] = useState<Member[]>([]);
-  const [invites, setInvites] = useState<string[]>([]);
-  const [email, setEmail] = useState('');
+  const [roster, setRoster] = useState<TeamRoster | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // `business` is null while useWorkspace loads, so the roster cannot be a
+  // fetch-once call — it has to re-run once the workspace resolves, or an
+  // unscoped sample list would stick. fetchTeam never rejects.
+  const businessId = business?.id ?? null;
+  const load = useCallback(() => fetchTeam(businessId, user), [businessId, user]);
 
   useEffect(() => {
-    void fetchMembers().then(setMembers);
-    AsyncStorage.getItem(INVITES_KEY)
-      .then((raw) => {
-        if (raw) setInvites(JSON.parse(raw) as string[]);
-      })
-      .catch(() => undefined);
-  }, []);
+    let alive = true;
+    void load().then((next) => {
+      if (alive) setRoster(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    void load()
+      .then(setRoster)
+      .finally(() => setRefreshing(false));
+  }, [load]);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;
   }
 
-  const handleInvite = () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      notify('Invalid email', 'Enter a valid email address to invite.');
-      return;
-    }
-    if (invites.includes(trimmed) || members.some((m) => m.email.toLowerCase() === trimmed)) {
-      notify('Already added', 'That email is already on the team or invited.');
-      return;
-    }
-    const next = [...invites, trimmed];
-    setInvites(next);
-    AsyncStorage.setItem(INVITES_KEY, JSON.stringify(next)).catch(() => undefined);
-    setEmail('');
-    notify(
-      'Invite noted',
-      'Invite emails send from the web dashboard for now — this keeps the list ready.',
-    );
-  };
-
-  const removeInvite = (target: string) => {
-    const next = invites.filter((invite) => invite !== target);
-    setInvites(next);
-    AsyncStorage.setItem(INVITES_KEY, JSON.stringify(next)).catch(() => undefined);
+  const members = roster?.members ?? [];
+  const isDemo = roster?.isDemo ?? false;
+  const divider = {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   };
 
   return (
-    <Screen>
+    <Screen refreshing={refreshing} onRefresh={refresh}>
       <DetailHeader title="Team" />
 
-      <Section title="Invite">
-        <Card style={{ gap: Spacing.md }}>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="teammate@email.com"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={[
-              styles.input,
-              { backgroundColor: colors.input, borderColor: colors.border, color: colors.text },
-            ]}
-            onSubmitEditing={handleInvite}
-          />
-          <Button label="Add invite" icon="person-add-outline" onPress={handleInvite} />
+      {roster && isDemo && roster.demoReason ? (
+        <Card style={{ gap: Spacing.sm }}>
+          <View style={styles.noteRow}>
+            <Ionicons name="people-outline" size={16} color={colors.warningStrong} />
+            <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: colors.text }}>
+              These are sample teammates
+            </Text>
+          </View>
+          <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+            {roster.demoReason} Nothing here is a real colleague, and none of these people can be
+            contacted from the app.
+          </Text>
+          {roster.error ? (
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>
+              Lookup failed: {roster.error}
+            </Text>
+          ) : null}
         </Card>
-      </Section>
+      ) : null}
 
-      {invites.length > 0 ? (
-        <Section title={`Pending invites (${invites.length})`}>
+      <Section title={roster ? `Team (${members.length})` : 'Team'}>
+        {roster === null ? (
+          <Card style={styles.noteRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ fontSize: 14, color: colors.textSecondary }}>Loading team…</Text>
+          </Card>
+        ) : (
           <Card style={{ padding: 0 }}>
-            {invites.map((invite, index) => (
-              <View
-                key={invite}
-                style={[
-                  styles.row,
-                  index > 0 && {
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: colors.border,
-                  },
-                ]}>
-                <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
-                <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>{invite}</Text>
-                <Pressable hitSlop={8} onPress={() => removeInvite(invite)}>
-                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-                </Pressable>
+            {members.map((member, index) => (
+              <View key={member.id} style={[styles.row, index > 0 && divider]}>
+                <Avatar name={member.name} size={36} />
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text
+                    style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}
+                    numberOfLines={1}>
+                    {member.name}
+                  </Text>
+                  {member.email ? (
+                    <Text style={{ fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
+                      {member.email}
+                    </Text>
+                  ) : null}
+                </View>
+                {member.isYou ? <Badge label="You" tone="primary" /> : null}
+                {/* A sampled row's role is invented too, so it says so instead. */}
+                {isDemo && !member.isYou ? (
+                  <Badge label="Sample" tone="warning" />
+                ) : member.role ? (
+                  <Badge
+                    label={member.role}
+                    tone={member.role === 'Owner' ? 'primary' : 'neutral'}
+                  />
+                ) : null}
               </View>
             ))}
           </Card>
-        </Section>
-      ) : null}
+        )}
+      </Section>
 
-      <Section title={`Members (${members.length})`}>
-        <Card style={{ padding: 0 }}>
-          {members.map((member, index) => (
-            <View
-              key={member.id}
-              style={[
-                styles.row,
-                index > 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: colors.border,
-                },
-              ]}>
-              <Avatar name={member.name} size={36} />
-              <View style={{ flex: 1, gap: 1 }}>
-                <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
-                  {member.name}
-                </Text>
-                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{member.email}</Text>
-              </View>
-              <Badge label={member.role} tone={member.role === 'Owner' ? 'primary' : 'neutral'} />
-            </View>
-          ))}
+      <Section title="Adding teammates">
+        <Card style={{ gap: Spacing.sm }}>
+          <View style={styles.noteRow}>
+            <Ionicons name="mail-outline" size={16} color={colors.textMuted} />
+            <Text style={{ flex: 1, fontSize: 12.5, color: colors.textSecondary }}>
+              Sending an invite is not available yet — not from this app and not from the web
+              dashboard. There is no invite email behind either one, so this screen deliberately
+              offers no invite box rather than collecting an address that would reach nobody.
+            </Text>
+          </View>
+          <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
+            Accounts are created and linked to a business outside the app for now. Once someone is
+            linked and has signed in, they appear in this list.
+          </Text>
         </Card>
       </Section>
     </Screen>
@@ -162,12 +151,10 @@ export default function TeamSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    height: 46,
-    fontSize: 15,
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   row: {
     flexDirection: 'row',
