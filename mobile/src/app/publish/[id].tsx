@@ -12,22 +12,42 @@ import { useData } from '@/hooks/use-data';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchJob, fetchJobMedia } from '@/lib/data';
 import { notify } from '@/lib/format';
+import { jobExtras } from '@/lib/job-extras';
 import {
   buildPublishContent,
+  collectPublishFacts,
+  getPhotoRelease,
   isDelivered,
   publishJob,
+  scrubPublishText,
+  setPhotoRelease,
   DESTINATION_LABELS,
   type Destination,
   type DestinationResult,
   type DeliveryStatus,
+  type PrivacyRedaction,
 } from '@/lib/publish';
+import { tasksStore } from '@/lib/tasks-store';
 import { useAuth } from '@/providers/auth-provider';
 
-const DESTINATIONS: { key: Destination; icon: IconName; sub: string }[] = [
-  { key: 'gmb', icon: 'storefront-outline', sub: 'Post with photos to your Google profile' },
-  { key: 'website', icon: 'globe-outline', sub: 'Project page via your site automation' },
-  { key: 'gohighlevel', icon: 'flash-outline', sub: 'Trigger your GoHighLevel workflows' },
-];
+/**
+ * The destinations publish.ts accepts, in its own order. Derived from its
+ * labels so this screen can never offer one it does not know about, or name one
+ * differently.
+ *
+ * This app posts nowhere itself: a destination is a *request* carried in the
+ * handoff, and the web app decides how — or whether — to fulfil it. So there is
+ * no per-platform copy here, and nothing on this screen claims to know how a
+ * post reaches Google, a website or anything else.
+ */
+const DESTINATIONS = Object.keys(DESTINATION_LABELS) as Destination[];
+
+/** Decoration only — never a statement about how a destination is reached. */
+const DESTINATION_ICONS: Record<Destination, IconName> = {
+  gmb: 'storefront-outline',
+  website: 'globe-outline',
+  gohighlevel: 'flash-outline',
+};
 
 const STATUS_BADGE: Record<DeliveryStatus, { label: string; tone: Tone }> = {
   queued: { label: 'Queued', tone: 'success' },
@@ -46,25 +66,78 @@ export default function PublishScreen() {
 
   const { data: job } = useData(() => fetchJob(id ?? ''));
   const { data: media } = useData(() => fetchJobMedia(id ?? ''));
+  // Guarded: getTasks seeds a checklist for whatever key it is handed, and an
+  // empty id would leave a stray one behind.
+  const { data: tasks } = useData(() => (id ? tasksStore.getTasks(id) : Promise.resolve([])));
+  const { data: extras } = useData(() => jobExtras.get(id ?? ''));
+  const { data: storedRelease } = useData(() => getPhotoRelease(id ?? ''));
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [caption, setCaption] = useState('');
   const [title, setTitle] = useState('');
-  const [destinations, setDestinations] = useState<Record<Destination, boolean>>({
-    gmb: true,
-    website: true,
-    gohighlevel: true,
-  });
+  // The exact copy the reviewer approved — any later edit invalidates it.
+  const [approvedSnapshot, setApprovedSnapshot] = useState<string | null>(null);
+  const [release, setRelease] = useState<boolean | null>(null);
+  const [destinations, setDestinations] = useState<Record<Destination, boolean>>(
+    () =>
+      Object.fromEntries(DESTINATIONS.map((key) => [key, true])) as Record<Destination, boolean>,
+  );
   const [publishing, setPublishing] = useState(false);
   // Null until we have a real per-destination answer from publishJob.
   const [results, setResults] = useState<DestinationResult[] | null>(null);
+  const [redactions, setRedactions] = useState<PrivacyRedaction[] | null>(null);
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
 
-  const generated = useMemo(
-    () => (job ? buildPublishContent(job, business?.name ?? 'We', (media ?? []).length) : null),
-    [job, business, media],
+  const chosenMedia = useMemo(
+    () => (media ?? []).filter((item) => selected.has(item.id)),
+    [media, selected],
   );
 
-  // Prefill: caption from the generator, photo selection favoring after/final.
+  const contentInput = useMemo(
+    () =>
+      job
+        ? {
+            job,
+            businessName: business?.name ?? 'We',
+            media: chosenMedia,
+            tasks: tasks ?? [],
+            checkins: extras?.checkins ?? [],
+            // `keywords` used to be passed separately here as well; it is read
+            // off `job` inside buildPublishContent now, so there is one source.
+            notes: extras?.notes ?? [],
+          }
+        : null,
+    [job, business, chosenMedia, tasks, extras],
+  );
+
+  const generated = useMemo(
+    () => (contentInput ? buildPublishContent(contentInput) : null),
+    [contentInput],
+  );
+  const facts = useMemo(
+    () => (contentInput ? collectPublishFacts(contentInput) : null),
+    [contentInput],
+  );
+
+  // The evidence behind the generated copy, so the reviewer can see it is not
+  // invented. Only facts that actually exist get a chip.
+  const factChips = useMemo(() => {
+    if (!facts) return [];
+    const chips: string[] = [];
+    if (facts.onSiteMinutes > 0) {
+      const hours = Math.floor(facts.onSiteMinutes / 60);
+      const rest = facts.onSiteMinutes % 60;
+      chips.push(hours > 0 ? `${hours}h ${rest}m on site` : `${rest}m on site`);
+    }
+    if (facts.completedTasks.length > 0) {
+      chips.push(`${facts.completedTasks.length}/${facts.taskCount} checklist`);
+    }
+    for (const entry of facts.photosByPhase) chips.push(`${entry.count} ${entry.label}`);
+    for (const material of facts.materials) chips.push(material);
+    return chips;
+  }, [facts]);
+
+  // Prefill once: after that the text belongs to the reviewer.
   useEffect(() => {
     if (generated && !caption) {
       setCaption(generated.content);
@@ -81,6 +154,29 @@ export default function PublishScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [media]);
 
+  useEffect(() => {
+    if (release === null && storedRelease) setRelease(storedRelease.granted);
+  }, [storedRelease, release]);
+
+  // What the privacy gate would strip from what is on screen right now.
+  const pending = useMemo(() => {
+    if (!job) return { redactions: [], title, caption };
+    const scrubbedTitle = scrubPublishText(title, job);
+    const scrubbedCaption = scrubPublishText(caption, job);
+    const merged: PrivacyRedaction[] = [];
+    for (const entry of [...scrubbedTitle.redactions, ...scrubbedCaption.redactions]) {
+      const existing = merged.find((item) => item.label === entry.label);
+      if (existing) existing.count += entry.count;
+      else merged.push({ ...entry });
+    }
+    return { redactions: merged, title: scrubbedTitle.text, caption: scrubbedCaption.text };
+  }, [job, title, caption]);
+
+  const snapshot = `${title}\u0000${caption}`;
+  const approved = approvedSnapshot === snapshot;
+  const releaseGranted = release === true;
+  const needsRelease = chosenMedia.length > 0 && !releaseGranted;
+
   const togglePhoto = (photoId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -94,6 +190,23 @@ export default function PublishScreen() {
     (key) => destinations[key],
   );
 
+  const applyRedactions = () => {
+    setTitle(pending.title);
+    setCaption(pending.caption);
+  };
+
+  const regenerate = () => {
+    if (!generated) return;
+    setTitle(generated.title);
+    setCaption(generated.content);
+  };
+
+  const toggleRelease = async (value: boolean) => {
+    if (!id) return;
+    setRelease(value);
+    await setPhotoRelease(id, value, user?.name || user?.email);
+  };
+
   const handlePublish = async () => {
     if (!job || !generated || publishing) return;
     if (chosenDestinations.length === 0) {
@@ -103,15 +216,18 @@ export default function PublishScreen() {
     setPublishing(true);
     const result = await publishJob({
       job,
-      media: (media ?? []).filter((item) => selected.has(item.id)),
+      media: chosenMedia,
       destinations: chosenDestinations,
       content: { ...generated, title, content: caption },
+      approved,
     });
     setPublishing(false);
     if (result.error) {
       notify('Publish failed', result.error);
       return;
     }
+    setRedactions(result.redactions ?? null);
+    setPhotoNote(result.photoNote ?? null);
     setResults(result.results);
   };
 
@@ -134,10 +250,12 @@ export default function PublishScreen() {
     const nothingConfigured = results.every((result) => result.status === 'not-configured');
 
     // Never announce a delivery we did not observe — say exactly what happened.
+    // 'queued'/'sent' means the web app took the handoff, which is not the same
+    // as a post being live: only the web app can say that, so we do not.
     let icon: IconName = 'checkmark-circle';
     let tone: Tone = 'success';
-    let heading = 'Project published';
-    let body = `${job.title} is marked completed and on its way to:`;
+    let heading = 'Handed off for publishing';
+    let body = `${job.title} is marked completed. Your web app has the post and publishes it from here:`;
     if (allDemo) {
       // Demo mode: the flow completed, but no post left this device.
       icon = 'flask-outline';
@@ -165,7 +283,7 @@ export default function PublishScreen() {
 
     return (
       <Screen>
-        <DetailHeader title={allDelivered || allDemo ? 'Published' : 'Publish result'} />
+        <DetailHeader title={allDemo ? 'Demo publish' : 'Publish result'} />
         <Card style={{ gap: Spacing.lg, paddingVertical: Spacing.xl }}>
           <View style={{ alignItems: 'center', gap: Spacing.md }}>
             <IconTile icon={icon} tone={tone} size={56} />
@@ -192,20 +310,32 @@ export default function PublishScreen() {
               </View>
             ))}
           </View>
-          {allDemo ? (
-            <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
-              Demo result — connect Supabase and your publish webhook to post to Google and run
-              your automations for real.
+          {redactions && redactions.length > 0 ? (
+            <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: 'center' }}>
+              Removed before publishing:{' '}
+              {redactions.map((entry) => `${entry.label} (${entry.count})`).join(', ')}.
             </Text>
           ) : null}
-          {nothingConfigured ? (
+          {photoNote ? (
+            <Text style={{ fontSize: 12, color: colors.warningStrong, textAlign: 'center' }}>
+              {photoNote}
+            </Text>
+          ) : null}
+          {allDemo ? (
             <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
-              Set EXPO_PUBLIC_API_BASE_URL and EXPO_PUBLIC_PUBLISH_WEBHOOK_ID so completed
-              projects can be delivered.
+              This is a demo build with nothing connected, so no post exists anywhere.
             </Text>
           ) : null}
           {deliveredCount === 0 && !nothingConfigured && !allDemo ? (
-            <Button label="Try again" icon="refresh-outline" onPress={() => setResults(null)} />
+            <Button
+              label="Try again"
+              icon="refresh-outline"
+              onPress={() => {
+                setResults(null);
+                setRedactions(null);
+                setPhotoNote(null);
+              }}
+            />
           ) : null}
           <Button
             label="Back to job"
@@ -234,6 +364,47 @@ export default function PublishScreen() {
               </Text>
             </View>
           </Card>
+
+          <Section title="Privacy">
+            <Card style={{ gap: Spacing.md }}>
+              <View style={styles.destRowFlush}>
+                <IconTile
+                  icon={releaseGranted ? 'shield-checkmark-outline' : 'shield-outline'}
+                  size={36}
+                  tone={releaseGranted ? 'success' : 'warning'}
+                />
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                    Customer photo release
+                  </Text>
+                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                    Confirm this customer agreed their photos can be published. Without it, no
+                    photo from this job leaves the app.
+                  </Text>
+                </View>
+                <Switch
+                  value={releaseGranted}
+                  onValueChange={(value) => void toggleRelease(value)}
+                  trackColor={{ true: colors.success, false: colors.cardPressed }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                Every post is stripped of the customer&apos;s name, street address, phone and
+                email. Only {job.city ? `${job.city}` : 'the city'}
+                {job.state ? `, ${job.state}` : ''}
+                {job.zip ? ` ${job.zip}` : ''} is published. Photos are re-encoded to remove EXIF
+                location data before they are sent.
+              </Text>
+              {needsRelease ? (
+                <Text style={{ fontSize: 12.5, color: colors.warningStrong }}>
+                  {chosenMedia.length} photo{chosenMedia.length === 1 ? '' : 's'} selected — turn
+                  on the release, or deselect them to publish text only.
+                </Text>
+              ) : null}
+            </Card>
+          </Section>
 
           {rows.length > 0 ? (
             <Section title={`Photos (${selected.size} selected)`}>
@@ -271,6 +442,24 @@ export default function PublishScreen() {
 
           <Section title="Post">
             <Card style={{ gap: Spacing.md }}>
+              {factChips.length > 0 ? (
+                <View style={{ gap: Spacing.xs }}>
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                    Written from what was recorded on this job:
+                  </Text>
+                  <View style={styles.chipRow}>
+                    {factChips.map((chip) => (
+                      <Badge key={chip} label={chip} />
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  Nothing has been recorded on this job yet — no completed check-in, no checklist
+                  item signed off, no photos selected and no materials named in the notes. Write
+                  the post yourself before publishing.
+                </Text>
+              )}
               <TextInput
                 value={title}
                 onChangeText={setTitle}
@@ -301,14 +490,63 @@ export default function PublishScreen() {
                   {caption.length} chars
                 </Text>
               </View>
+              {pending.redactions.length > 0 ? (
+                <View style={{ gap: Spacing.sm }}>
+                  <Text style={{ fontSize: 12.5, color: colors.warningStrong }}>
+                    Personal details in this copy will be removed before it is published:{' '}
+                    {pending.redactions
+                      .map((entry) => `${entry.label} (${entry.count})`)
+                      .join(', ')}
+                    .
+                  </Text>
+                  <Button
+                    label="Remove them now"
+                    icon="eye-off-outline"
+                    variant="secondary"
+                    onPress={applyRedactions}
+                  />
+                </View>
+              ) : null}
+              <Button
+                label="Rewrite from job details"
+                icon="refresh-outline"
+                variant="ghost"
+                onPress={regenerate}
+              />
             </Card>
           </Section>
 
-          <Section title="Publish to">
+          <Section title="Review">
+            <Card style={styles.destRowFlush}>
+              <IconTile
+                icon={approved ? 'checkmark-circle' : 'create-outline'}
+                size={36}
+                tone={approved ? 'success' : 'warning'}
+              />
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
+                  {approved ? 'Approved for publishing' : 'Approve this copy'}
+                </Text>
+                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                  {approved
+                    ? 'Editing the title or caption clears this.'
+                    : 'Read the post above. Nothing is published until you approve it.'}
+                </Text>
+              </View>
+              <Switch
+                value={approved}
+                onValueChange={(value) => setApprovedSnapshot(value ? snapshot : null)}
+                trackColor={{ true: colors.success, false: colors.cardPressed }}
+                thumbColor="#FFFFFF"
+              />
+            </Card>
+          </Section>
+
+          <Section title="Ask your web app to publish to">
             <Card style={{ padding: 0 }}>
               {DESTINATIONS.map((destination, index) => (
                 <View
-                  key={destination.key}
+                  key={destination}
                   style={[
                     styles.destRow,
                     index > 0 && {
@@ -317,28 +555,36 @@ export default function PublishScreen() {
                     },
                   ]}>
                   <IconTile
-                    icon={destination.icon}
+                    icon={DESTINATION_ICONS[destination]}
                     size={36}
-                    tone={destinations[destination.key] ? 'primary' : 'neutral'}
+                    tone={destinations[destination] ? 'primary' : 'neutral'}
                   />
                   <View style={{ flex: 1, gap: 1 }}>
                     <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
-                      {DESTINATION_LABELS[destination.key]}
-                    </Text>
-                    <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
-                      {destination.sub}
+                      {DESTINATION_LABELS[destination]}
                     </Text>
                   </View>
                   <Switch
-                    value={destinations[destination.key]}
+                    value={destinations[destination]}
                     onValueChange={(value) =>
-                      setDestinations((prev) => ({ ...prev, [destination.key]: value }))
+                      setDestinations((prev) => ({ ...prev, [destination]: value }))
                     }
                     trackColor={{ true: colors.primary, false: colors.cardPressed }}
                     thumbColor="#FFFFFF"
                   />
                 </View>
               ))}
+              <View
+                style={[
+                  styles.destNote,
+                  { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                ]}>
+                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                  This app never posts to a platform itself. It hands your approved post to your
+                  web app, which decides how each of these is published — so what happens next is
+                  reported back here, not guessed at.
+                </Text>
+              </View>
             </Card>
           </Section>
 
@@ -346,11 +592,15 @@ export default function PublishScreen() {
             label="Publish project"
             icon="megaphone-outline"
             loading={publishing}
+            disabled={!approved || needsRelease || chosenDestinations.length === 0}
             onPress={handlePublish}
           />
           <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
-            Marks the job completed. Delivery runs through your web app&apos;s syndication
-            pipeline and automations.
+            {!approved
+              ? 'Approve the copy above to enable publishing.'
+              : needsRelease
+                ? 'Turn on the customer photo release to publish these photos.'
+                : 'Marks the job completed. Copy is scrubbed and photos are stripped of location data before anything is sent.'}
           </Text>
         </>
       ) : (
@@ -401,6 +651,25 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  /** Footnote under the destination rows, matching their horizontal padding. */
+  destNote: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  /** Same row as destRow, but inside a Card that already has its padding. */
+  destRowFlush: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
   },
   resultRow: {
     flexDirection: 'row',
