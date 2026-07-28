@@ -16,7 +16,7 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchMedia } from '@/lib/data';
 import { notify } from '@/lib/format';
 import { getLogoUri, pickLogo } from '@/lib/logo';
-import { savePreparedImage } from '@/lib/media-capture';
+import { captureNotice, savePreparedImage } from '@/lib/media-capture';
 import { workspace } from '@/lib/workspace';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -137,11 +137,11 @@ export default function LogoStickerScreen() {
           width: 1600,
           height: 1200,
         });
-        if (result.error) notify('Could not save', result.error);
-        else {
-          notify('Saved', 'The logo version was added to the job media.');
-          router.back();
-        }
+        // `status`, not the presence of a message: a queued item is saved on
+        // this device and already in the job — it must never read as lost.
+        const notice = captureNotice(result, 'The logo version was added to the job media.');
+        notify(notice.title, notice.body);
+        if (result.status !== 'failed') router.back();
       }
     } catch (error) {
       notify('Could not save', error instanceof Error ? error.message : 'Try again.');

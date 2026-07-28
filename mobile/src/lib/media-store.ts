@@ -11,19 +11,37 @@ import type { MediaItem } from '@/lib/types';
 
 const STORAGE_KEY = 'lsr-captured-media-v1';
 
+/**
+ * Items here carry `thumb_uri` (the on-device 384px copy the capture pipeline
+ * writes beside the original) as well as `uri`, so the demo-mode grids render
+ * thumbnails instead of decoding 200 full-resolution files.
+ */
 let captured: MediaItem[] = [];
 let loaded = false;
+let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
-async function load(): Promise<void> {
-  if (loaded) return;
-  loaded = true;
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (raw) captured = JSON.parse(raw) as MediaItem[];
-  } catch {
-    captured = [];
+/**
+ * `loaded` flips only once the stored items are in memory, and concurrent
+ * callers share the one read — otherwise a capture racing app start writes its
+ * single item over everything already on disk.
+ */
+function load(): Promise<void> {
+  if (loaded) return Promise.resolve();
+  if (!loading) {
+    loading = (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as MediaItem[]) : [];
+        if (Array.isArray(parsed)) captured = parsed;
+      } catch {
+        captured = [];
+      }
+      loaded = true;
+      loading = null;
+    })();
   }
+  return loading;
 }
 
 function emit() {

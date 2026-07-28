@@ -24,7 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { fetchMedia } from '@/lib/data';
 import { notify } from '@/lib/format';
-import { savePreparedImage } from '@/lib/media-capture';
+import { captureNotice, savePreparedImage } from '@/lib/media-capture';
 import { useAuth } from '@/providers/auth-provider';
 
 type Tool = 'draw' | 'arrow' | 'circle' | 'text';
@@ -345,11 +345,11 @@ export default function AnnotateScreen() {
           width: shot.width,
           height: shot.height,
         });
-        if (result.error) notify('Could not save', result.error);
-        else {
-          notify('Saved', 'The annotated version was added to the job media.');
-          router.back();
-        }
+        // `status`, not the presence of a message: a queued item is saved on
+        // this device and already in the job — it must never read as lost.
+        const notice = captureNotice(result, 'The annotated version was added to the job media.');
+        notify(notice.title, notice.body);
+        if (result.status !== 'failed') router.back();
       }
     } catch (error) {
       notify('Could not save', error instanceof Error ? error.message : 'Try again.');

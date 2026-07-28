@@ -16,7 +16,7 @@ import { useMediaRefresh } from '@/hooks/use-media-refresh';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchJob, fetchJobMedia } from '@/lib/data';
 import { notify } from '@/lib/format';
-import { savePreparedImage } from '@/lib/media-capture';
+import { captureNotice, savePreparedImage } from '@/lib/media-capture';
 import { useAuth } from '@/providers/auth-provider';
 import type { MediaItem } from '@/lib/types';
 
@@ -181,12 +181,14 @@ export default function BeforeAfterScreen() {
           width: 1200,
           height: layout === 'side' ? 800 : 1500,
         });
-        if (result.error) {
-          notify('Could not save', result.error);
-        } else {
-          refresh();
-          notify('Saved to job', 'The collage was added to this job as a Final photo.');
-        }
+        // `status`, not the presence of a message: a queued collage is on this
+        // device and already in the job — it must never read as lost.
+        if (result.status !== 'failed') refresh();
+        const notice = captureNotice(
+          result,
+          'The collage was added to this job as a Final photo.',
+        );
+        notify(notice.title, notice.body);
       }
     } catch (error) {
       notify('Could not save', error instanceof Error ? error.message : 'Try again.');
