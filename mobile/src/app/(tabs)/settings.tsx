@@ -163,6 +163,12 @@ export default function SettingsScreen() {
             onPress={() => router.push('/settings/media')}
           />
           <SettingsRow
+            icon="link-outline"
+            label="Integrations"
+            sub="Google Business Profile, GoHighLevel"
+            onPress={() => router.push('/settings/integrations')}
+          />
+          <SettingsRow
             icon="cloud-upload-outline"
             label="Uploads"
             sub="Offline queue — view and retry"

@@ -176,6 +176,46 @@ function QuickActions({
   );
 }
 
+/** Entry point to the Google Business Profile posts manager. */
+function GooglePostsCard() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  return (
+    <Card style={styles.postsCard} onPress={() => router.push('/gmb-posts')}>
+      <IconTile icon="megaphone-outline" size={40} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+          Google posts
+        </Text>
+        <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+          See what is live on Google — edit, delete, or publish with a photo
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+    </Card>
+  );
+}
+
+/** Entry point to Google reviews (Business Profile API) with replies. */
+function GoogleReviewsCard() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  return (
+    <Card style={styles.postsCard} onPress={() => router.push('/gmb-reviews')}>
+      <IconTile icon="star-outline" size={40} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+          Google reviews
+        </Text>
+        <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+          Read what customers wrote and reply from your phone
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+    </Card>
+  );
+}
+
 function RecentPosts() {
   const { colors } = useTheme();
   const { data: posts, refresh } = useData(fetchRecentPosts);
@@ -316,6 +356,10 @@ export default function GmbScreen() {
               }))}
             />
           </Section>
+          <GooglePostsCard />
+
+          <GoogleReviewsCard />
+
           <RecentPosts />
           <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
             Demo data — connect Supabase to see your real profile.
@@ -406,6 +450,10 @@ export default function GmbScreen() {
               <AuditList items={data.audit} />
             </Section>
           ) : null}
+          <GooglePostsCard />
+
+          <GoogleReviewsCard />
+
           <RecentPosts />
         </>
       )}
@@ -492,6 +540,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md - 2,
+  },
+  postsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
   postRow: {
     flexDirection: 'row',
