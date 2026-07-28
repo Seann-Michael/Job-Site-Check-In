@@ -27,11 +27,18 @@ export default function PublicGallery() {
     if (!token) return;
     const loadGallery = async () => {
       try {
-        const { data, error } = await supabaseClient
-          .from("shared_galleries")
-          .select("token, job_title, business_name, photo_urls, created_at")
-          .eq("token", token)
-          .single();
+        // Token-argument RPC, NOT a table select.
+        //
+        // supabase/migrations/…w0_10… closes anon SELECT on shared_galleries.
+        // A `FOR SELECT TO anon` policy could not require the .eq("token", …)
+        // filter — PostgREST happily serves a bare select — so the anon key
+        // that ships in the app bundle could list every gallery of every
+        // tenant. A function argument cannot be omitted.
+        const { data: rows, error } = await supabaseClient.rpc(
+          "gallery_by_token",
+          { p_token: token },
+        );
+        const data = Array.isArray(rows) ? rows[0] : rows;
 
         if (!error && data) {
           setGallery({
