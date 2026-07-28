@@ -87,7 +87,8 @@ export default function SettingsScreen() {
           <Text style={{ fontSize: 13, color: colors.textSecondary }}>{user?.email ?? ''}</Text>
         </View>
         <View style={{ gap: 6, alignItems: 'flex-end' }}>
-          <Badge label={business?.plan ?? 'Pro Plan'} tone="primary" />
+          {/* Only a real plan from the business row — no invented tier. */}
+          {business?.plan ? <Badge label={business.plan} tone="primary" /> : null}
           {user?.isDemo ? <Badge label="Demo" tone="warning" /> : null}
         </View>
       </Card>
@@ -121,8 +122,14 @@ export default function SettingsScreen() {
           <SettingsRow
             isFirst
             icon="business-outline"
-            label={business?.name ?? 'Business'}
-            sub="Switch business"
+            label="Business profile"
+            sub="Name, contact details, address"
+            onPress={() => router.push('/settings/business-profile')}
+          />
+          <SettingsRow
+            icon="swap-horizontal-outline"
+            label="Switch business"
+            sub={business?.name ?? 'Choose the business you work in'}
             onPress={() => router.push('/settings/business')}
           />
           <SettingsRow

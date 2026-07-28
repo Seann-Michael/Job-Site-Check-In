@@ -13,15 +13,22 @@ export default function ProfileSettingsScreen() {
   const { colors } = useTheme();
   const { user, initializing, isSupabaseConfigured, updateName, changePassword } = useAuth();
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [saving, setSaving] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [changing, setChanging] = useState(false);
 
   useEffect(() => {
-    if (user) setName(user.name);
+    if (!user) return;
+    setFirstName(user.firstName);
+    setLastName(user.lastName);
   }, [user]);
+
+  // Previews the same string the provider will store as `user.name`.
+  const displayName =
+    [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || user?.name || 'User';
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;
@@ -35,7 +42,7 @@ export default function ProfileSettingsScreen() {
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
-    const result = await updateName(name);
+    const result = await updateName(firstName, lastName);
     setSaving(false);
     if (result.error) {
       notify('Could not save', result.error);
@@ -67,26 +74,36 @@ export default function ProfileSettingsScreen() {
       <DetailHeader title="Profile" />
 
       <Card style={styles.headerCard}>
-        <Avatar name={name || user?.name || 'User'} size={56} />
+        <Avatar name={displayName} size={56} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
-            {name || user?.name}
-          </Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{displayName}</Text>
           <Text style={{ fontSize: 13, color: colors.textSecondary }}>{user?.email}</Text>
         </View>
       </Card>
 
       <Section title="Your details">
         <Card style={{ gap: Spacing.md }}>
-          <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Full name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>First name</Text>
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Alex"
+                placeholderTextColor={colors.textMuted}
+                style={fieldStyle}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Last name</Text>
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Morgan"
+                placeholderTextColor={colors.textMuted}
+                style={fieldStyle}
+              />
+            </View>
           </View>
           <View style={{ gap: 5 }}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>

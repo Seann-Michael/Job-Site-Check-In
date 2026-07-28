@@ -21,12 +21,16 @@ export default function BusinessSettingsScreen() {
 
   return (
     <Screen>
-      <DetailHeader title="Business" />
+      <DetailHeader title="Switch business" />
 
       <Section title="Active business">
         <Card style={{ padding: 0 }}>
           {businesses.map((item, index) => {
             const selected = item.id === business?.id;
+            // Only what the row actually has: its plan if the row carries one,
+            // otherwise where it is. Neither is invented, so either can be absent.
+            const sub =
+              item.plan ?? [item.address?.city, item.address?.state].filter(Boolean).join(', ');
             return (
               <Pressable
                 key={item.id}
@@ -44,7 +48,9 @@ export default function BusinessSettingsScreen() {
                   <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>
                     {item.name}
                   </Text>
-                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{item.plan}</Text>
+                  {sub ? (
+                    <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{sub}</Text>
+                  ) : null}
                 </View>
                 {selected ? (
                   <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -56,7 +62,8 @@ export default function BusinessSettingsScreen() {
       </Section>
 
       <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
-        Jobs, media, and your GMB profile follow the active business. Add businesses from the web
+        Jobs, media, and your GMB profile follow the active business. Edit its name, contact
+        details, and address under Settings → Business profile. Add businesses from the web
         dashboard.
       </Text>
     </Screen>

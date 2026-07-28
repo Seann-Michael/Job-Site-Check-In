@@ -48,14 +48,17 @@ export default function BillingSettingsScreen() {
         <View style={styles.planRow}>
           <IconTile icon="ribbon-outline" size={44} />
           <View style={{ flex: 1, gap: 2 }}>
+            {/* Only a tier the business row actually names. Claiming one the
+                customer may not have — and an "Active" badge to match — is
+                worse than saying nothing. */}
             <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>
-              {business?.plan ?? 'Pro Plan'}
+              {business?.plan ?? 'No plan on file'}
             </Text>
             <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
               {business?.name ?? 'Your business'}
             </Text>
           </View>
-          <Badge label="Active" tone="success" />
+          {business?.plan ? <Badge label="Active" tone="success" /> : null}
         </View>
         <View style={[styles.planMeta, { borderTopColor: colors.border }]}>
           <View style={styles.metaItem}>

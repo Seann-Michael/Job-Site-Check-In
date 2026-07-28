@@ -94,10 +94,36 @@ export interface GmbProfile {
   photo_count: number;
 }
 
+/**
+ * The `businesses.address` JSONB blob. Shaped exactly as the web app writes it
+ * (the `addressBlob` in client/pages/Settings.tsx handleSave) and reads it back
+ * (same file, plus client/pages/BusinessDetail.tsx). Every part is optional
+ * because rows written by other paths only fill some of it.
+ */
+export interface BusinessAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+}
+
 export interface Business {
   id: string;
   name: string;
-  plan: string;
+  /**
+   * Subscription tier, read from the row's `metadata` blob — the same source
+   * the web admin screens use (`metadata.plan`, falling back to
+   * `metadata.subscription_plan`; see client/pages/BusinessManagement.tsx and
+   * SuperAdminWorkspaces.tsx). Undefined when the row names no plan: there is
+   * no default worth guessing, so render it conditionally.
+   */
+  plan?: string;
+  description?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: BusinessAddress;
 }
 
 export interface ClientRecord {
