@@ -5,23 +5,42 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-/** Chip-style tag list with inline add/remove. */
+/**
+ * Chip-style tag list with inline add/remove.
+ *
+ * `mode` decides what happens to the text the user typed:
+ *   'tag'    — hashtag labels. Lowercased, a leading '#' stripped, rendered
+ *              '#like-this'. Right for the free-form labels used to filter.
+ *   'phrase' — the text exactly as typed, only with runs of whitespace
+ *              collapsed, rendered without a '#'. Right for SEO keyword
+ *              phrases, where case and punctuation are part of the term:
+ *              lowercasing "Westlake OH" into "westlake oh" changes the term.
+ *
+ * Both modes dedupe case-insensitively — "Gutter Guards" and "gutter guards"
+ * are one keyword, and the first spelling entered is the one kept.
+ */
 export function TagEditor({
   tags,
   onChange,
   placeholder = 'Add a tag...',
+  mode = 'tag',
 }: {
   tags: string[];
   onChange: (tags: string[]) => void;
   placeholder?: string;
+  mode?: 'tag' | 'phrase';
 }) {
   const { colors } = useTheme();
   const [draft, setDraft] = useState('');
+  const isPhrase = mode === 'phrase';
 
   const addTag = () => {
-    const cleaned = draft.trim().replace(/^#/, '').toLowerCase();
+    const cleaned = isPhrase
+      ? draft.trim().replace(/\s+/g, ' ')
+      : draft.trim().replace(/^#/, '').toLowerCase();
     if (!cleaned) return;
-    if (!tags.includes(cleaned)) onChange([...tags, cleaned]);
+    const exists = tags.some((tag) => tag.toLowerCase() === cleaned.toLowerCase());
+    if (!exists) onChange([...tags, cleaned]);
     setDraft('');
   };
 
@@ -31,7 +50,7 @@ export function TagEditor({
         {tags.map((tag) => (
           <View key={tag} style={[styles.chip, { backgroundColor: colors.primarySoft }]}>
             <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.primaryStrong }}>
-              #{tag}
+              {isPhrase ? tag : `#${tag}`}
             </Text>
             <Pressable hitSlop={6} onPress={() => onChange(tags.filter((t) => t !== tag))}>
               <Ionicons name="close" size={13} color={colors.primaryStrong} />
@@ -44,7 +63,11 @@ export function TagEditor({
           styles.inputRow,
           { backgroundColor: colors.input, borderColor: colors.border },
         ]}>
-        <Ionicons name="pricetag-outline" size={15} color={colors.textMuted} />
+        <Ionicons
+          name={isPhrase ? 'search-outline' : 'pricetag-outline'}
+          size={15}
+          color={colors.textMuted}
+        />
         <TextInput
           value={draft}
           onChangeText={setDraft}

@@ -38,11 +38,14 @@ export function NotesSection({
   notes,
   voiceNotes,
   author,
+  bare = false,
 }: {
   jobId: string;
   notes: JobNote[];
   voiceNotes: VoiceNote[];
   author: string;
+  /** Drop the "Notes (n)" Section heading — for use inside a tab that already names itself. */
+  bare?: boolean;
 }) {
   const { colors } = useTheme();
   const [newNote, setNewNote] = useState('');
@@ -144,9 +147,8 @@ export function NotesSection({
     }
   };
 
-  return (
-    <Section title={`Notes (${feed.length})`}>
-      <Card style={{ padding: 0 }}>
+  const body = (
+    <Card style={{ padding: 0 }}>
         <View style={styles.inputRow}>
           <Ionicons name="create-outline" size={20} color={colors.textMuted} />
           <TextInput
@@ -243,9 +245,11 @@ export function NotesSection({
             </Pressable>
           </View>
         ))}
-      </Card>
-    </Section>
+    </Card>
   );
+
+  if (bare) return body;
+  return <Section title={`Notes (${feed.length})`}>{body}</Section>;
 }
 
 const styles = StyleSheet.create({

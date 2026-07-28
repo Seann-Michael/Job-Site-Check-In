@@ -6,6 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { jobInWorkspace } from '@/lib/job-meta';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = 'lsr-media-comments-v1';
@@ -63,11 +64,41 @@ const lastHydrated: Record<string, number> = {};
 // delete failed.
 const deletedCommentIds = new Set<string>();
 
+/**
+ * The job a photo hangs off, or null when this client cannot establish one.
+ *
+ * media_comments carries no business column, and neither does job_media — the
+ * photo's job is the only route to a tenant. Ids that were never uploaded
+ * (device captures, queued uploads, demo seeds) are not uuids, so the
+ * comparison errors and they answer null: correct, since they have no server
+ * comments to read either way.
+ */
+async function jobForMedia(mediaId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('job_media')
+      .select('job_id')
+      .eq('id', mediaId)
+      .maybeSingle();
+    if (error || !data?.job_id) return null;
+    return String(data.job_id);
+  } catch {
+    return null;
+  }
+}
+
 async function hydrateFromServer(mediaId: string): Promise<void> {
   if (!isSupabaseConfigured || !mediaId) return;
   const now = Date.now();
   if (now - (lastHydrated[mediaId] ?? 0) < 15_000) return;
   lastHydrated[mediaId] = now;
+  // A media id reaches this store from a route/deep-link param the same way a
+  // job id does, so the photo's owner is established before its thread is read:
+  // comments carry teammates' names and whatever they wrote about a site. If
+  // the job cannot be resolved, or is not this workspace's, nothing is read and
+  // the comments already on this device are left alone.
+  const jobId = await jobForMedia(mediaId);
+  if (!jobId || !(await jobInWorkspace(jobId))) return;
   try {
     const { data, error } = await supabase
       .from('media_comments')

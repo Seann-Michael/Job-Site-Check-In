@@ -36,10 +36,12 @@ export default function EditJobScreen() {
 
   const [title, setTitle] = useState('');
   const [service, setService] = useState<ServiceType>('general');
+  const [description, setDescription] = useState('');
   const [clientName, setClientName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState<string[]>([]);
   const [value, setValue] = useState('');
   const [group, setGroup] = useState('');
   const [groupSuggestions, setGroupSuggestions] = useState<string[]>([]);
@@ -50,10 +52,18 @@ export default function EditJobScreen() {
     if (job && !loaded) {
       setTitle(job.title);
       setService(job.service_type);
+      // Older jobs were created with the title copied into description because
+      // the web client rejects a blank one — showing that back would invite the
+      // user to "keep" a scope that only repeats the title.
+      setDescription(job.description && job.description !== job.title ? job.description : '');
       setClientName(job.client_name === 'Unknown client' ? '' : job.client_name);
       setAddress(job.address);
       setCity(job.city);
       setTags(job.tags ?? []);
+      // undefined means the job has none recorded — on a pre-migration database
+      // that is every job, and an empty editor is exactly the right thing to
+      // show for it.
+      setKeywords(job.keywords ?? []);
       setLoaded(true);
       void jobMeta.get(job.id).then((meta) => {
         setValue(meta.value != null ? String(meta.value) : '');
@@ -75,6 +85,10 @@ export default function EditJobScreen() {
   const handleSave = async () => {
     if (!job || saving || !title.trim()) return;
     setSaving(true);
+    // Sent only when it actually changed: `keywords` makes updateJob rebuild the
+    // metadata blob and probe the pending jobs.keywords column, which is wasted
+    // work on a save that never touched them.
+    const keywordsChanged = keywords.join('\u0000') !== (job.keywords ?? []).join('\u0000');
     const result = await updateJob(job, {
       title: title.trim(),
       service_type: service,
@@ -82,6 +96,12 @@ export default function EditJobScreen() {
       address: address.trim(),
       city: city.trim(),
       tags,
+      // Never write it blank: the web client refuses an empty description, so
+      // createJob seeds it with the title and clearing the field here returns
+      // it to exactly that. The detail screen hides a scope that only repeats
+      // the title, so the job reads as having none.
+      description: description.trim() || title.trim(),
+      ...(keywordsChanged ? { keywords } : {}),
     });
     const parsedValue = Number(value.replace(/[^0-9.]/g, ''));
     await jobMeta.set(job.id, {
@@ -142,6 +162,20 @@ export default function EditJobScreen() {
                     );
                   })}
                 </View>
+              </View>
+              <View style={{ gap: 5 }}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Scope of work — what you're doing on this job."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  style={[...fieldStyle, styles.multiline]}
+                />
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  Shown as the scope of work on the job screen and in reports.
+                </Text>
               </View>
             </Card>
           </Section>
@@ -214,6 +248,21 @@ export default function EditJobScreen() {
             </Card>
           </Section>
 
+          <Section title="Local SEO keywords">
+            <Card style={{ gap: Spacing.md }}>
+              <TagEditor
+                tags={keywords}
+                onChange={setKeywords}
+                mode="phrase"
+                placeholder="e.g. gutter guard installation Westlake OH"
+              />
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                Phrases you want this job to rank for. Saved exactly as you type them — capitals
+                and punctuation included.
+              </Text>
+            </Card>
+          </Section>
+
           <Button label="Save changes" loading={saving} disabled={!title.trim()} onPress={handleSave} />
         </>
       ) : (
@@ -236,6 +285,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     height: 44,
     fontSize: 15,
+  },
+  multiline: {
+    height: 76,
+    paddingTop: 10,
+    textAlignVertical: 'top',
   },
   chips: {
     flexDirection: 'row',

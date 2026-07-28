@@ -1,49 +1,55 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import * as Sharing from 'expo-sharing';
 import {
   ActivityIndicator,
   Alert,
   Linking,
-  Modal,
   Platform,
   Pressable,
   Share,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategorySheet } from '@/components/category-sheet';
 import { ContactRow } from '@/components/contact-row';
+import { JobActionSheet } from '@/components/job/job-action-sheet';
+import { JobActivityTab } from '@/components/job/job-activity-tab';
+import { JobAssignSheet } from '@/components/job/job-assign-sheet';
+import { JobChecklistTab } from '@/components/job/job-checklist-tab';
+import { JobDocumentsTab } from '@/components/job/job-documents-tab';
+import { JobStatusSheet } from '@/components/job/job-status-sheet';
 import { JOB_STATUS_TONES, SERVICE_ICONS } from '@/components/job-card';
 import { MediaThumb } from '@/components/media-thumb';
 import { MediaViewer } from '@/components/media-viewer';
 import { NotesSection } from '@/components/notes-section';
-import { TagEditor } from '@/components/tag-editor';
-import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
+import { Badge, Button, Card, IconTile, Segmented } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchClients } from '@/lib/clients';
-import { dataErrors, fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
+import { dataErrors, deleteJob, fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
 import { openDirections } from '@/lib/directions';
 import { jobExtras, visitDuration } from '@/lib/job-extras';
-import { getLocationFix } from '@/lib/media-capture';
 import { TagList } from '@/components/tag-editor';
 import { tasksStore } from '@/lib/tasks-store';
-import { formatDate, formatDateTime, JOB_STATUS_LABELS, notify, timeAgo } from '@/lib/format';
+import { formatDate, JOB_STATUS_LABELS, notify, timeAgo } from '@/lib/format';
 import { jobsStore } from '@/lib/jobs-store';
-import { captureJobMedia, openAppSettings, type CaptureSource } from '@/lib/media-capture';
+import {
+  captureJobMedia,
+  getLocationFix,
+  openAppSettings,
+  type CaptureSource,
+} from '@/lib/media-capture';
 import { getMediaPrefs } from '@/lib/media-prefs';
 import { DESTINATION_LABELS, getPublishRecord } from '@/lib/publish';
 import { exportJobReport } from '@/lib/report';
 import { formatJobValue, jobMeta } from '@/lib/job-meta';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { TEAM_NAMES, useJobPresence } from '@/lib/team-presence';
+import { fetchTeam } from '@/lib/team';
+import { useJobPresence } from '@/lib/team-presence';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
@@ -58,82 +64,19 @@ function chunk<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
-const STATUS_ORDER: JobStatus[] = [
-  'draft',
-  'active',
-  'in_progress',
-  'paused',
-  'completed',
-  'cancelled',
-];
-
 /**
- * Bottom sheet for changing the job status. A real sheet rather than an
- * Alert menu so it works on web too.
+ * The lower half of the screen is tabbed rather than stacked: everything that
+ * identifies the job (hero, actions, check-in) stays pinned above, and the four
+ * long-running lists share one pane below.
  */
-function StatusSheet({
-  visible,
-  current,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean;
-  current: JobStatus;
-  onSelect: (status: JobStatus) => void;
-  onClose: () => void;
-}) {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+type JobTab = 'activity' | 'checklist' | 'notes' | 'documents';
 
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.card, paddingBottom: insets.bottom + Spacing.lg },
-          ]}
-          onPress={(event) => event.stopPropagation()}>
-          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>Job status</Text>
-          <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-            Everyone on this job sees the status you pick here.
-          </Text>
-          {STATUS_ORDER.map((status) => {
-            const selected = status === current;
-            return (
-              <Pressable
-                key={status}
-                onPress={() => onSelect(status)}
-                style={({ pressed }) => [
-                  styles.statusRow,
-                  { borderColor: selected ? colors.primary : colors.border },
-                  pressed && { backgroundColor: colors.cardPressed },
-                ]}>
-                <Badge label={JOB_STATUS_LABELS[status]} tone={JOB_STATUS_TONES[status]} />
-                <View style={{ flex: 1 }} />
-                {selected ? (
-                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                ) : null}
-              </Pressable>
-            );
-          })}
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.sheetCancel,
-              { borderColor: colors.border },
-              pressed && { backgroundColor: colors.cardPressed },
-            ]}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textSecondary }}>
-              Cancel
-            </Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
+const TABS: { value: JobTab; label: string }[] = [
+  { value: 'activity', label: 'Activity' },
+  { value: 'checklist', label: 'Checklist' },
+  { value: 'notes', label: 'Notes' },
+  { value: 'documents', label: 'Docs' },
+];
 
 export default function JobDetailScreen() {
   const { colors } = useTheme();
@@ -187,10 +130,15 @@ export default function JobDetailScreen() {
   const [pendingCategory, setPendingCategory] = useState<MediaCategory | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [newTask, setNewTask] = useState('');
   const [checkingIn, setCheckingIn] = useState(false);
-  const [taggingDocId, setTaggingDocId] = useState<string | null>(null);
   const [statusSheetVisible, setStatusSheetVisible] = useState(false);
+  const [tab, setTab] = useState<JobTab>('activity');
+  const [actionsVisible, setActionsVisible] = useState(false);
+  const [assignVisible, setAssignVisible] = useState(false);
+  const [addingDocument, setAddingDocument] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // Survives the moment between "row is gone" and "we have navigated away".
+  const [deleted, setDeleted] = useState(false);
   const { data: clients } = useData(fetchClients);
   const { data: extras, refresh: refreshExtras } = useData(() => jobExtras.get(id ?? ''));
   useEffect(() => jobExtras.subscribe(refreshExtras), [refreshExtras]);
@@ -198,25 +146,27 @@ export default function JobDetailScreen() {
   const { data: meta, refresh: refreshMeta } = useData(() => jobMeta.get(id ?? ''));
   useEffect(() => jobMeta.subscribe(refreshMeta), [refreshMeta]);
 
-  const assignTeam = () => {
+  // The shared roster: names for the assign sheet, and the only way a
+  // job_media.uploaded_by id becomes a person in the activity feed. The
+  // business arrives asynchronously, so re-read once it (or the user) lands —
+  // otherwise the first, business-less answer would be a sample roster forever.
+  const { data: roster, refresh: refreshRoster } = useData(() =>
+    fetchTeam(business?.id, user),
+  );
+  const rosterKey = `${business?.id ?? ''}|${user?.id ?? ''}`;
+  const lastRosterKey = useRef(rosterKey);
+  useEffect(() => {
+    if (lastRosterKey.current === rosterKey) return;
+    lastRosterKey.current = rosterKey;
+    refreshRoster();
+  }, [rosterKey, refreshRoster]);
+
+  const toggleAssignee = (name: string) => {
     const assignees = meta?.assignees ?? [];
-    const names = [...new Set([user?.name ?? 'You', ...TEAM_NAMES])];
-    Alert.alert(
-      'Assign teammates',
-      'Tap a name to add or remove them.',
-      [
-        ...names.map((name) => ({
-          text: `${assignees.includes(name) ? '✓ ' : ''}${name}`,
-          onPress: () => {
-            const next = assignees.includes(name)
-              ? assignees.filter((entry) => entry !== name)
-              : [...assignees, name];
-            void jobMeta.set(id ?? '', { assignees: next });
-          },
-        })),
-        { text: 'Done', style: 'cancel' as const },
-      ],
-    );
+    const next = assignees.includes(name)
+      ? assignees.filter((entry) => entry !== name)
+      : [...assignees, name];
+    void jobMeta.set(id ?? '', { assignees: next });
   };
 
   // Customer contact: the job row's client_contact first, the client
@@ -282,10 +232,38 @@ export default function JobDetailScreen() {
   };
 
   const handleAddDocument = async () => {
-    if (!id) return;
-    const result = await jobExtras.addDocument(id);
-    if (result.error) notify('Could not attach', result.error);
-    else if (result.added) notify('Document attached', 'Saved with this job.');
+    if (!id || addingDocument) return;
+    setAddingDocument(true);
+    try {
+      const result = await jobExtras.addDocument(id);
+      if (result.error) notify('Could not attach', result.error);
+      else if (result.added) notify('Document attached', 'Saved with this job.');
+    } finally {
+      setAddingDocument(false);
+    }
+  };
+
+  /**
+   * Irreversible, and there is no undo — the sheet confirms first. deleteJob
+   * clears the row (when connected), the local copy, its media and a tombstone
+   * so the job cannot reappear, then emits; we leave the screen ourselves
+   * because this route's job no longer exists.
+   */
+  const handleDeleteJob = async () => {
+    if (!job || deleting) return;
+    setDeleting(true);
+    const result = await deleteJob(job);
+    setDeleting(false);
+    if (result.error) {
+      setActionsVisible(false);
+      notify('Could not delete', result.error);
+      return;
+    }
+    setDeleted(true);
+    setActionsVisible(false);
+    notify('Job deleted', `"${job.title}" and everything on it were removed.`);
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   };
 
   const startCapture = useCallback(
@@ -431,37 +409,6 @@ export default function JobDetailScreen() {
     else refreshJob();
   };
 
-  const openJobMenu = () => {
-    if (!job) return;
-    if (Platform.OS === 'web') {
-      router.push({ pathname: '/job/edit/[id]', params: { id: job.id } });
-      return;
-    }
-    Alert.alert(job.title, 'Manage this job', [
-      {
-        text: 'Edit job',
-        onPress: () => router.push({ pathname: '/job/edit/[id]', params: { id: job.id } }),
-      },
-      job.status !== 'active'
-        ? { text: 'Mark active', onPress: () => void setStatus('active') }
-        : { text: 'Mark in progress', onPress: () => void setStatus('in_progress') },
-      job.status !== 'paused'
-        ? { text: 'Pause job', onPress: () => void setStatus('paused') }
-        : { text: 'Resume job', onPress: () => void setStatus('active') },
-      { text: 'Mark completed', onPress: () => void setStatus('completed') },
-      {
-        text: meta?.archived ? 'Unarchive job' : 'Archive job',
-        onPress: () => void jobMeta.toggle(job.id, 'archived'),
-      },
-      {
-        text: 'Cancel job',
-        style: 'destructive',
-        onPress: () => void setStatus('cancelled'),
-      },
-      { text: 'Close', style: 'cancel' },
-    ]);
-  };
-
   return (
     <>
       <Screen>
@@ -472,12 +419,30 @@ export default function JobDetailScreen() {
               icon: meta?.starred ? 'star' : 'star-outline',
               onPress: () => void jobMeta.toggle(id ?? '', 'starred'),
             },
-            { icon: 'share-outline', onPress: () => void shareJob() },
-            { icon: 'ellipsis-horizontal', onPress: openJobMenu },
+            // Both share paths and Delete live in one sheet now — an
+            // Alert-based menu was invisible on web, which put Delete out of
+            // reach there entirely. Hidden while there is no job to act on.
+            ...(job
+              ? [
+                  {
+                    icon: 'ellipsis-horizontal' as const,
+                    onPress: () => setActionsVisible(true),
+                  },
+                ]
+              : []),
           ]}
         />
 
-        {job ? (
+        {deleted ? (
+          // The job really is gone; say so plainly instead of flashing the
+          // "not found" dead end while the navigation away completes.
+          <Card style={styles.stateRow}>
+            <IconTile icon="trash-outline" tone="neutral" size={40} />
+            <Text style={{ color: colors.textSecondary, fontSize: 14, flex: 1 }}>
+              This job was deleted.
+            </Text>
+          </Card>
+        ) : job ? (
           <>
             <Card style={{ gap: Spacing.md }}>
               <View style={styles.heroRow}>
@@ -584,7 +549,7 @@ export default function JobDetailScreen() {
                       : 'Nobody assigned yet'}
                   </Text>
                   <Pressable
-                    onPress={assignTeam}
+                    onPress={() => setAssignVisible(true)}
                     hitSlop={8}
                     style={({ pressed }) => [
                       styles.directionsChip,
@@ -715,17 +680,6 @@ export default function JobDetailScreen() {
               />
             )}
 
-            {jobMedia.length > 0 ? (
-              <Button
-                label="Before / After collage"
-                icon="images-outline"
-                variant="secondary"
-                onPress={() =>
-                  router.push({ pathname: '/before-after/[id]', params: { id: job.id } })
-                }
-              />
-            ) : null}
-
             <View style={{ flexDirection: 'row', gap: Spacing.md }}>
               <Button
                 label="PDF report"
@@ -735,13 +689,17 @@ export default function JobDetailScreen() {
                 loading={exporting}
                 onPress={() => void handleExportReport()}
               />
-              <Button
-                label="Share gallery"
-                icon="link-outline"
-                variant="secondary"
-                style={{ flex: 1 }}
-                onPress={() => router.push({ pathname: '/share/[id]', params: { id: job.id } })}
-              />
+              {jobMedia.length > 0 ? (
+                <Button
+                  label="Before / After"
+                  icon="images-outline"
+                  variant="secondary"
+                  style={{ flex: 1 }}
+                  onPress={() =>
+                    router.push({ pathname: '/before-after/[id]', params: { id: job.id } })
+                  }
+                />
+              ) : null}
             </View>
 
             {mediaRows.length > 0 || mediaError ? (
@@ -787,208 +745,51 @@ export default function JobDetailScreen() {
               </Section>
             ) : null}
 
-            {(extras?.checkins ?? []).length > 0 ? (
-              <Section title={`Site visits (${extras?.checkins.length})`}>
-                <Card style={{ padding: 0 }}>
-                  {(extras?.checkins ?? [])
-                    .slice()
-                    .reverse()
-                    .map((visit, index) => (
-                      <Pressable
-                        key={visit.id}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/visit-detail',
-                            params: { jobId: id ?? '', visitId: visit.id },
-                          })
-                        }
-                        style={({ pressed }) => [
-                          styles.visitRow,
-                          index > 0 && {
-                            borderTopWidth: StyleSheet.hairlineWidth,
-                            borderTopColor: colors.border,
-                          },
-                          pressed && { backgroundColor: colors.cardPressed },
-                        ]}>
-                        <Text style={{ width: 52, fontSize: 12.5, fontWeight: '700', color: colors.textSecondary }}>
-                          Day {(extras?.checkins.length ?? 0) - index}
-                        </Text>
-                        <View style={{ flex: 1, gap: 1 }}>
-                          <Text style={{ fontSize: 13.5, color: colors.text }}>
-                            {formatDate(visit.checked_in_at)} ·{' '}
-                            {new Date(visit.checked_in_at).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })}
-                            {visit.checked_out_at
-                              ? ` – ${new Date(visit.checked_out_at).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                })}`
-                              : ' – now'}
-                          </Text>
-                          {visit.user_name ? (
-                            <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
-                              {visit.user_name}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <Text style={{ fontSize: 12.5, fontWeight: '600', color: visit.checked_out_at ? colors.textSecondary : colors.success }}>
-                          {visitDuration(visit.checked_in_at, visit.checked_out_at)}
-                        </Text>
-                        {typeof visit.latitude === 'number' ? (
-                          <Ionicons name="location" size={12} color={colors.success} />
-                        ) : null}
-                        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-                      </Pressable>
-                    ))}
-                </Card>
-              </Section>
-            ) : null}
-
-            <NotesSection
-              jobId={id ?? ''}
-              notes={extras?.notes ?? []}
-              voiceNotes={extras?.voiceNotes ?? []}
-              author={user?.name ?? 'You'}
-            />
-
-            <Section
-              title={`Documents (${extras?.documents.length ?? 0})`}
-              action={
-                <Pressable hitSlop={8} onPress={() => void handleAddDocument()}>
-                  <Ionicons name="add-circle" size={22} color={colors.primary} />
-                </Pressable>
-              }>
-              {(extras?.documents ?? []).length === 0 ? (
-                <Card>
-                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                    Attach contracts, estimates, or permits — tap + to add one.
-                  </Text>
-                </Card>
-              ) : (
-                <Card style={{ padding: 0 }}>
-                  {(extras?.documents ?? []).map((doc, index) => (
-                    <View key={doc.id}>
-                      <Pressable
-                        onPress={() => {
-                          if (doc.uri.startsWith('http')) void Linking.openURL(doc.uri);
-                          else void Sharing.shareAsync(doc.uri).catch(() => undefined);
-                        }}
-                        style={({ pressed }) => [
-                          styles.taskRow,
-                          index > 0 && {
-                            borderTopWidth: StyleSheet.hairlineWidth,
-                            borderTopColor: colors.border,
-                          },
-                          pressed && { backgroundColor: colors.cardPressed },
-                        ]}>
-                        <Ionicons name="document-text-outline" size={19} color={colors.primary} />
-                        <View style={{ flex: 1, gap: 1 }}>
-                          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }} numberOfLines={1}>
-                            {doc.name}
-                          </Text>
-                          <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
-                            {doc.size > 0 ? `${Math.max(1, Math.round(doc.size / 1024))} KB · ` : ''}
-                            {formatDateTime(doc.added_at)}
-                          </Text>
-                          {doc.tags?.length && taggingDocId !== doc.id ? (
-                            <TagList tags={doc.tags} />
-                          ) : null}
-                        </View>
-                        <Pressable
-                          hitSlop={8}
-                          onPress={() =>
-                            setTaggingDocId((current) => (current === doc.id ? null : doc.id))
-                          }>
-                          <Ionicons
-                            name="pricetag-outline"
-                            size={15}
-                            color={taggingDocId === doc.id ? colors.primary : colors.textMuted}
-                          />
-                        </Pressable>
-                        <Pressable
-                          hitSlop={8}
-                          onPress={() => void jobExtras.deleteDocument(id ?? '', doc.id)}>
-                          <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
-                        </Pressable>
-                      </Pressable>
-                      {taggingDocId === doc.id ? (
-                        <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
-                          <TagEditor
-                            tags={doc.tags ?? []}
-                            onChange={(tags) =>
-                              void jobExtras.setDocumentTags(id ?? '', doc.id, tags)
-                            }
-                            placeholder="Tag this document..."
-                          />
-                        </View>
-                      ) : null}
-                    </View>
-                  ))}
-                </Card>
-              )}
-            </Section>
-
-            <Section title="Checklist">
-              <Card style={{ padding: 0 }}>
-                {(tasks ?? []).map((task, index) => (
-                  <Pressable
-                    key={task.id}
-                    onPress={() => void tasksStore.toggle(id ?? '', task.id, user?.name ?? 'You')}
-                    style={({ pressed }) => [
-                      styles.taskRow,
-                      index > 0 && {
-                        borderTopWidth: StyleSheet.hairlineWidth,
-                        borderTopColor: colors.border,
-                      },
-                      pressed && { backgroundColor: colors.cardPressed },
-                    ]}>
-                    <Ionicons
-                      name={task.done ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={task.done ? colors.success : colors.textMuted}
-                    />
-                    <View style={{ flex: 1, gap: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: task.done ? colors.textSecondary : colors.text,
-                          textDecorationLine: task.done ? 'line-through' : 'none',
-                        }}>
-                        {task.label}
-                      </Text>
-                      {task.done && task.done_at ? (
-                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                          {task.done_by ?? 'Team member'} · {formatDateTime(task.done_at)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ))}
-                <View
-                  style={[
-                    styles.taskRow,
-                    { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-                  ]}>
-                  <Ionicons name="add-circle-outline" size={20} color={colors.textMuted} />
-                  <TextInput
-                    value={newTask}
-                    onChangeText={setNewTask}
-                    placeholder="Add a task..."
-                    placeholderTextColor={colors.textMuted}
-                    style={{ flex: 1, fontSize: 14, color: colors.text, paddingVertical: 0 }}
-                    onSubmitEditing={() => {
-                      if (newTask.trim()) {
-                        void tasksStore.add(id ?? '', newTask);
-                        setNewTask('');
-                      }
-                    }}
-                    returnKeyType="done"
-                  />
-                </View>
-              </Card>
-            </Section>
+            {/* Everything above stays pinned; the four long lists share this
+                pane. Site visits are no longer a stack of their own — each
+                check-in and checkout is an Activity row that still opens the
+                same visit detail screen. */}
+            <View style={{ gap: Spacing.md }}>
+              <Segmented
+                options={TABS}
+                value={tab}
+                onChange={(value) => setTab(value as JobTab)}
+              />
+              {tab === 'activity' ? (
+                <JobActivityTab
+                  jobId={id ?? ''}
+                  media={jobMedia}
+                  extras={extras}
+                  tasks={tasks ?? []}
+                  publishRecord={publishRecord}
+                  roster={roster}
+                />
+              ) : null}
+              {tab === 'checklist' ? (
+                <JobChecklistTab
+                  jobId={id ?? ''}
+                  tasks={tasks ?? []}
+                  author={user?.name ?? 'You'}
+                />
+              ) : null}
+              {tab === 'notes' ? (
+                <NotesSection
+                  bare
+                  jobId={id ?? ''}
+                  notes={extras?.notes ?? []}
+                  voiceNotes={extras?.voiceNotes ?? []}
+                  author={user?.name ?? 'You'}
+                />
+              ) : null}
+              {tab === 'documents' ? (
+                <JobDocumentsTab
+                  jobId={id ?? ''}
+                  documents={extras?.documents ?? []}
+                  onAdd={() => void handleAddDocument()}
+                  adding={addingDocument}
+                />
+              ) : null}
+            </View>
           </>
         ) : jobLoading ? (
           <Card style={styles.stateRow}>
@@ -1021,7 +822,7 @@ export default function JobDetailScreen() {
           </Card>
         )}
       </Screen>
-      <StatusSheet
+      <JobStatusSheet
         visible={statusSheetVisible}
         current={job?.status ?? 'active'}
         onSelect={(status) => {
@@ -1029,6 +830,38 @@ export default function JobDetailScreen() {
           void setStatus(status);
         }}
         onClose={() => setStatusSheetVisible(false)}
+      />
+      <JobActionSheet
+        visible={actionsVisible && !!job}
+        jobTitle={job?.title ?? 'This job'}
+        archived={!!meta?.archived}
+        mediaCount={jobMediaData?.length ?? 0}
+        deleting={deleting}
+        onClose={() => setActionsVisible(false)}
+        onEdit={() => {
+          setActionsVisible(false);
+          if (job) router.push({ pathname: '/job/edit/[id]', params: { id: job.id } });
+        }}
+        onShareDetails={() => {
+          setActionsVisible(false);
+          void shareJob();
+        }}
+        onShareGallery={() => {
+          setActionsVisible(false);
+          if (job) router.push({ pathname: '/share/[id]', params: { id: job.id } });
+        }}
+        onToggleArchive={() => {
+          setActionsVisible(false);
+          if (job) void jobMeta.toggle(job.id, 'archived');
+        }}
+        onDelete={() => void handleDeleteJob()}
+      />
+      <JobAssignSheet
+        visible={assignVisible}
+        roster={roster}
+        assignees={meta?.assignees ?? []}
+        onToggle={toggleAssignee}
+        onClose={() => setAssignVisible(false)}
       />
       <CategorySheet
         visible={sheetVisible}
@@ -1074,13 +907,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
   publishedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1118,20 +944,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  visitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md - 2,
-  },
-  noteRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md - 2,
-  },
   presenceDot: {
     width: 9,
     height: 9,
@@ -1148,49 +960,5 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 14.5,
     fontWeight: '700',
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: '#00000066',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: Radius.full,
-    marginBottom: Spacing.xs,
-  },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  sheetSubtitle: {
-    fontSize: 13,
-    marginBottom: Spacing.xs,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  sheetCancel: {
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md,
-    marginTop: Spacing.xs,
   },
 });
