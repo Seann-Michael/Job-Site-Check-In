@@ -85,8 +85,8 @@ const TYPE_FILTERS = [
 ];
 
 const SCOPES = [
-  { value: 'company', label: 'Company' },
-  { value: 'mine', label: 'Mine' },
+  { value: 'company', label: 'Company Feed' },
+  { value: 'mine', label: 'My Stuff' },
 ];
 
 const TASK_SCOPES = [

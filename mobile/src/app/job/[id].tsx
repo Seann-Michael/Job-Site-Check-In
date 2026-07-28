@@ -770,6 +770,7 @@ export default function JobDetailScreen() {
                   jobId={id ?? ''}
                   tasks={tasks ?? []}
                   author={user?.name ?? 'You'}
+                  roster={roster ?? undefined}
                 />
               ) : null}
               {tab === 'notes' ? (
