@@ -43,6 +43,15 @@ export interface Job {
   client_email?: string;
   state?: string;
   zip?: string;
+  /**
+   * Local-SEO keywords for the job — the pending `jobs.keywords` text[] column.
+   *
+   * Until that migration lands the value round-trips through
+   * `jobs.metadata.keywords` when connected and through lib/jobs-store.ts in
+   * demo mode, so it is populated either way; see mapJob/updateJob/createJob in
+   * lib/data.ts, which probe the real column once and fall back.
+   */
+  keywords?: string[];
 }
 
 export type ReviewRequestStatus = 'sent' | 'viewed' | 'completed' | 'expired' | 'scheduled';
@@ -69,11 +78,40 @@ export interface MediaItem {
   taken_at: string;
   /** Public URL (Supabase Storage) or local file URI for captured photos. */
   uri?: string;
+  /**
+   * On-device or Storage 384px thumbnail. Grids render this and keep `uri` for
+   * the full-size viewer — a 200-photo job otherwise decodes 200 originals.
+   *
+   * Absent on videos, on every photo taken before the thumbnailing pipeline
+   * shipped, and on web uploads. Its absence is normal, not an error: callers
+   * fall back to `uri`.
+   */
+  thumb_uri?: string;
   latitude?: number;
   longitude?: number;
   /** Waiting in the offline upload queue. */
   pending?: boolean;
   tags?: string[];
+
+  /*
+   * Attribution. `captured_at` and `uploaded_at` are different events on
+   * purpose: a photo shot on a roof with no signal sits in the queue for hours
+   * before it reaches the server, so collapsing them makes every offline photo
+   * claim it was taken the moment it finally synced. `taken_at` above stays the
+   * single best-available display date every screen already reads.
+   *
+   * Each is undefined when nothing on the row states it — never guessed from a
+   * neighbouring field. The columns behind them are a pending migration; the
+   * capture pipeline mirrors the same values into `job_media.metadata`, and
+   * mapMediaRow in lib/data.ts reads either, so these are populated before and
+   * after the migration lands.
+   */
+  /** `job_media.uploaded_by` — an auth user id, never a display name. */
+  uploaded_by?: string;
+  /** When the shutter fired (`job_media.captured_at`). */
+  captured_at?: string;
+  /** When the row reached the server (`job_media.uploaded_at`). */
+  uploaded_at?: string;
 }
 
 export type AuditStatus = 'pass' | 'warn' | 'fail';

@@ -10,6 +10,7 @@
 import { DEMO_GMB_AUDIT, DEMO_GMB_PROFILE } from '@/lib/demo-data';
 import { getBusinessDetails, type BusinessDetails } from '@/lib/places';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { workspace } from '@/lib/workspace';
 
 export interface GmbProfileRow {
   id?: string;
@@ -46,9 +47,32 @@ export interface GmbCounts {
   services: number;
 }
 
+/**
+ * What the GMB tab actually has to show.
+ *
+ *   'demo'         — Supabase isn't configured, so the sample profile stands in
+ *                    and every screen labels it as sample.
+ *   'disconnected' — nothing of this user's to show. The optional `reason` is
+ *                    the whole point of this variant having two shapes:
+ *                      absent  — this business genuinely has no profile
+ *                                connected yet, so "Connect your profile" is
+ *                                the honest next step;
+ *                      present — the question could not be answered (the
+ *                                businesses list failed, or the gmb_profiles
+ *                                read failed), or this workspace cannot hold a
+ *                                profile at all. Inviting a connect here would
+ *                                be a claim we cannot make: the user may
+ *                                already have a profile, and following the
+ *                                prompt upserts straight over it. The screen
+ *                                shows the reason instead of the connect form.
+ *   'connected'    — this business's own profile row.
+ *
+ * Same discipline as lib/data.ts: record why the answer is empty rather than
+ * inventing a state that happens to render.
+ */
 export type GmbData =
   | { mode: 'demo' }
-  | { mode: 'disconnected' }
+  | { mode: 'disconnected'; reason?: string }
   | { mode: 'connected'; profile: GmbProfileRow; audit: GmbAuditRow[]; counts: GmbCounts };
 
 type Row = Record<string, unknown>;
@@ -94,13 +118,94 @@ async function tableCount(table: string, businessId: string): Promise<number> {
   return count;
 }
 
+/**
+ * Is a Google Business Profile connected for the current business? Asked once,
+ * and answered for both the read (fetchGmbData) and the write (connectGmb), so
+ * the two can never disagree about whose profile is whose.
+ *
+ * Scope first. `gmb_profiles` holds one row per business across every tenant,
+ * so an unfiltered read returns whichever row the database hands back first —
+ * another company's name, address, phone, rating and score, presented on the
+ * GMB tab and the Activity score card as this user's own. That is both a
+ * cross-tenant leak and a false claim about this business; it has only ever
+ * looked right because today's database holds a single company. `business_id`
+ * is already on the table (saveProfileAndAudit writes it, gmb_audit_results is
+ * filtered by it), so this needs no migration.
+ *
+ * Four answers, because "no profile" and "no answer" are different facts:
+ *   'connected' — this business's own row.
+ *   'none'      — a real business with no gmb_profiles row. The only state in
+ *                 which offering to connect one is a true statement.
+ *   'sample'    — the placeholder workspace.getBusinesses() stands in with when
+ *                 the businesses table comes back empty. It owns no row on the
+ *                 server, so there is nothing to show and nothing to connect
+ *                 to — and the first row of a shared table is not a stand-in
+ *                 for it.
+ *   'unknown'   — the businesses list failed to load, or the gmb_profiles read
+ *                 itself failed. Nothing is the only honest answer: an
+ *                 unscoped read is precisely the leak the filter exists to
+ *                 prevent, and a blank "connect your profile" invitation is
+ *                 precisely the false claim this state exists to avoid.
+ * The last two carry the sentence a screen can show verbatim.
+ */
+type ProfileLookup =
+  | { state: 'connected'; businessId: string; row: Row }
+  | { state: 'none'; businessId: string }
+  | { state: 'sample'; reason: string }
+  | { state: 'unknown'; reason: string };
+
+const SAMPLE_REASON =
+  "You're in the sample workspace, so there's no business to connect a Google Business " +
+  'Profile to. Create one in the web dashboard first.';
+
+async function lookupProfile(): Promise<ProfileLookup> {
+  const business = await workspace.getCurrent();
+  if (!business) {
+    return {
+      state: 'unknown',
+      reason:
+        workspace.lastError() ??
+        ("Your business hasn't loaded yet, so we can't tell whether a Google Business " +
+          'Profile is connected.'),
+    };
+  }
+  // Demo ids are prefixed `demo` by workspace.ts; they match no business_id.
+  if (business.id.startsWith('demo')) return { state: 'sample', reason: SAMPLE_REASON };
+
+  const { data, error } = await supabase
+    .from('gmb_profiles')
+    .select('*')
+    .eq('business_id', business.id)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    // A failed read is not an unconnected business. Collapsing the two is what
+    // invites someone who already has a profile to connect a second one.
+    return {
+      state: 'unknown',
+      reason: `Couldn't check whether a Google Business Profile is connected: ${error.message}`,
+    };
+  }
+  if (!data) return { state: 'none', businessId: business.id };
+  return { state: 'connected', businessId: business.id, row: data as Row };
+}
+
 export async function fetchGmbData(): Promise<GmbData> {
   if (!isSupabaseConfigured) return { mode: 'demo' };
 
-  const { data, error } = await supabase.from('gmb_profiles').select('*').limit(1).maybeSingle();
-  if (error || !data) return { mode: 'disconnected' };
+  const lookup = await lookupProfile();
+  if (lookup.state !== 'connected') {
+    // Nothing of this user's to show in any of the three cases — never another
+    // tenant's profile, never a sample one dressed up as real. Demo data
+    // belongs to `mode: 'demo'` alone, which is reached only when Supabase is
+    // unconfigured. What differs is what the screen may say: 'none' is a real
+    // "not connected yet", the other two carry their reason instead.
+    return lookup.state === 'none'
+      ? { mode: 'disconnected' }
+      : { mode: 'disconnected', reason: lookup.reason };
+  }
 
-  const profile = mapProfile(data as Row);
+  const profile = mapProfile(lookup.row);
   const [auditRes, hours, qas, categories, services] = await Promise.all([
     supabase
       .from('gmb_audit_results')
@@ -205,21 +310,28 @@ async function saveProfileAndAudit(
 export async function connectGmb(placeId: string): Promise<{ error?: string }> {
   if (!isSupabaseConfigured) return { error: 'Supabase is not configured.' };
 
-  // Mobile has no workspace switcher yet — key the profile to the first
-  // business in the workspace, matching the single-business common case.
-  const { data: business, error: businessError } = await supabase
-    .from('businesses')
-    .select('id')
-    .limit(1)
-    .maybeSingle();
-  if (businessError || !business) {
-    return { error: 'No business found in your workspace. Create one in the web dashboard first.' };
-  }
+  // The same lookup fetchGmbData reads back, for two reasons.
+  //
+  // Scope: file the profile against the *active* business. Taking the first row
+  // of `businesses` picked an arbitrary tenant's company — the profile would be
+  // written under someone else's id, and because the upsert conflicts on
+  // business_id it would overwrite whatever profile that company already had.
+  //
+  // Certainty: that same upsert (plus the audit delete in saveProfileAndAudit)
+  // replaces this business's own profile too. So a write that goes ahead while
+  // the connected/not-connected question is unanswered can destroy a real
+  // connection the read simply failed to see. When we can't tell, we don't
+  // write — 'unknown' and 'sample' already carry the sentence to say why.
+  const lookup = await lookupProfile();
+  if (lookup.state === 'unknown' || lookup.state === 'sample') return { error: lookup.reason };
 
+  // 'connected' is deliberately allowed through: re-connecting the same
+  // business is what the upsert is for, and the caller reached this knowing a
+  // profile is there. Only the states that cannot vouch for that are refused.
   const details = await getBusinessDetails(placeId);
   if (!details) return { error: 'Could not load business details from Google.' };
 
-  return saveProfileAndAudit(String((business as Row).id), details);
+  return saveProfileAndAudit(lookup.businessId, details);
 }
 
 /** Refresh profile + audit from Google, like the web Scan button. */
