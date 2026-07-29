@@ -22,9 +22,42 @@ interface Project {
   createdAt: string;
 }
 
+/** Keep only the string entries of a value that may or may not be an array. */
+const asStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+
+/**
+ * Keywords have no dedicated column on jobs — derive them from the jsonb
+ * columns that may carry them (seo_targets as a plain array or {keywords},
+ * metadata.keywords), and come back empty when none do.
+ */
+const deriveKeywords = (seoTargets: unknown, metadata: unknown): string[] => {
+  const direct = asStringArray(seoTargets);
+  if (direct.length > 0) return direct;
+  const fromTargets = asStringArray(
+    (seoTargets as { keywords?: unknown } | null)?.keywords,
+  );
+  if (fromTargets.length > 0) return fromTargets;
+  return asStringArray((metadata as { keywords?: unknown } | null)?.keywords);
+};
+
+/**
+ * job_media.file_path is a full public URL for mobile uploads and a path
+ * relative to the public media bucket for web uploads (see ClientDetail's
+ * getSupabaseUrl) — normalize both to something an <img> can load.
+ */
+const toPublicUrl = (path: unknown): string | null => {
+  if (typeof path !== "string" || !path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/media/${path}`;
+};
+
 export default function PublicProject() {
   const { id } = useParams();
   const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,22 +66,49 @@ export default function PublicProject() {
       try {
         const { data, error } = await supabaseClient
           .from("jobs")
-          .select("id, name, description, photos, keywords, created_at, media")
+          .select("id, name, description, created_at")
           .eq("id", id)
           .single();
 
-        if (!error && data) {
-          setProject({
-            id: data.id,
-            name: data.name,
-            description: data.description ?? "",
-            photos: data.photos ?? data.media ?? [],
-            keywords: data.keywords ?? [],
-            createdAt: data.created_at,
-          });
+        if (error || !data) return;
+
+        // Photos live in job_media — the table the mobile app writes — not
+        // on the jobs row itself.
+        const { data: mediaRows } = await supabaseClient
+          .from("job_media")
+          .select("file_path, media_type, created_at")
+          .eq("job_id", id)
+          .eq("media_type", "image")
+          .order("created_at", { ascending: true });
+
+        const photos = (mediaRows ?? [])
+          .map((row: { file_path: unknown }) => toPublicUrl(row.file_path))
+          .filter((url): url is string => url !== null);
+
+        // Best-effort keywords from jsonb columns; queried separately so a
+        // database without them cannot take the whole page down.
+        let keywords: string[] = [];
+        const { data: extra } = await supabaseClient
+          .from("jobs")
+          .select("seo_targets, metadata")
+          .eq("id", id)
+          .single();
+        if (extra) {
+          keywords = deriveKeywords(extra.seo_targets, extra.metadata);
         }
+
+        setProject({
+          id: data.id,
+          name: data.name,
+          description: data.description ?? "",
+          photos,
+          keywords,
+          createdAt: data.created_at,
+        });
       } catch {
         // Project not found — show "not found" state
+      } finally {
+        setLoading(false);
       }
     };
     loadProject();
@@ -57,6 +117,20 @@ export default function PublicProject() {
   const getPhotoUrl = (photo: TaggedPhoto | string): string => {
     return typeof photo === "string" ? photo : photo.url;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground animate-pulse">
+              Loading project…
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!project) {
     return (

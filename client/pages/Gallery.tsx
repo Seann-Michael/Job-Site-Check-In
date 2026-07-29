@@ -47,6 +47,9 @@ import { toast } from "sonner";
 
 interface PhotoWithMetadata {
   url: string;
+  /** 384px copy the mobile capture pipeline stores beside the original.
+   *  Absent on web uploads and older rows — grids fall back to `url`. */
+  thumbnailUrl?: string;
   projectId: string;
   projectName: string;
   projectAddress: string;
@@ -213,15 +216,24 @@ export default function Gallery() {
           const tags: string[] = media.metadata?.tags || [];
           tags.forEach((tag: string) => tagSet.add(tag));
 
-          const uploadedBy = media.uploaded_by || media.metadata?.uploadedBy || "User";
+          // Display names live in metadata: mobile writes uploaded_by_name,
+          // older web uploads wrote uploadedBy. The uploaded_by column is an
+          // auth user id, not something to print.
+          const uploadedBy =
+            media.metadata?.uploaded_by_name || media.metadata?.uploadedBy || "User";
           userSet.add(uploadedBy);
 
           allPhotos.push({
             url: media.file_path,
+            thumbnailUrl: media.metadata?.thumbnail_path || undefined,
             projectId: project.id,
             projectName: project.name,
             projectAddress: project.location || project.address || "",
-            uploadedAt: media.created_at,
+            // Prefer the real capture time (mobile records it even for photos
+            // synced days later); the captured_at column is a pending
+            // migration, so metadata is the working source today.
+            uploadedAt:
+              media.captured_at || media.metadata?.captured_at || media.created_at,
             uploadedBy,
             tags,
             isPrimary: media.is_featured || false,
@@ -415,7 +427,8 @@ export default function Gallery() {
           tags: fileData.tags
             ? fileData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
             : [],
-          uploadedBy: "Current User",
+          // The uploader is attributed inside uploadProjectMedia from the
+          // signed-in user — no hardcoded name here.
         })
       );
 
@@ -858,7 +871,22 @@ export default function Gallery() {
                               <VideoThumbnail url={photo.url} onClick={() => setSelectedPhoto(photo)} />
                             ) : (
                               <ImageWithFallback
-                                photo={photo}
+                                // Tiles render the mobile-generated 384px
+                                // thumbnail when the row has one, with the
+                                // full-size original as the fallback; the
+                                // detail modal always uses the original.
+                                photo={
+                                  photo.thumbnailUrl
+                                    ? {
+                                        ...photo,
+                                        url: photo.thumbnailUrl,
+                                        metadata: {
+                                          ...photo.metadata,
+                                          fallbackUrls: [photo.url],
+                                        },
+                                      }
+                                    : photo
+                                }
                                 alt={`${photo.type} from ${photo.projectName}`}
                                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
                               />
@@ -1100,7 +1128,8 @@ export default function Gallery() {
                 <div className="flex items-start gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Uploaded on</p>
+                    {/* Capture time when the row records one, upload time otherwise. */}
+                    <p className="text-xs text-muted-foreground">Date</p>
                     <p className="font-medium">
                       {selectedPhoto.uploadedAt
                         ? new Date(selectedPhoto.uploadedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
+import { workspaceService } from "@/lib/workspaceService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,38 @@ export default function Payments() {
       .catch(() => setProviderStatus({ stripe: false, paypal: false }));
   }, []);
 
+  // Stripe redirects back here with ?success=1&session_id=... — confirm the
+  // session server-side so the purchased plan is recorded on the business
+  // (businesses.metadata.plan, read by the web admin screens and mobile app).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (params.get("success") !== "1" || !sessionId) return;
+    fetch("/api/payments/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.applied) {
+          toast.success(`Payment confirmed — you're on the ${data.plan} plan.`);
+        } else {
+          toast.warning(
+            data.message ||
+              "Payment received, but the plan couldn't be recorded on your account. Contact support if it doesn't show up.",
+            { duration: 8000 },
+          );
+        }
+      })
+      .catch(() => {
+        toast.warning(
+          "Payment received, but the server couldn't be reached to record your plan. Reload this page to retry.",
+          { duration: 8000 },
+        );
+      });
+  }, []);
+
   const handleCheckout = async (plan: (typeof PLANS)[0]) => {
     const selectedProvider = provider;
     if (providerStatus && !providerStatus[selectedProvider]) {
@@ -100,6 +133,17 @@ export default function Payments() {
         } catch { return ""; }
       })();
 
+      // Which business this purchase is for — the payment confirmation writes
+      // the plan onto that businesses row, where web admin + mobile read it.
+      let wsState = workspaceService.getState();
+      if (!wsState.initialized) {
+        try {
+          wsState = await workspaceService.initialize();
+        } catch {
+          // Checkout can still proceed; the plan just can't be auto-recorded.
+        }
+      }
+
       const endpoint = `/api/create-checkout-${selectedProvider}`;
       const res = await fetch(endpoint, {
         method: "POST",
@@ -109,6 +153,7 @@ export default function Payments() {
           amount: billing === "annual" ? amount : plan.price,
           planName: `${plan.name} (${billing === "annual" ? "Annual" : "Monthly"})`,
           email: userEmail,
+          businessId: wsState.currentBusinessId || undefined,
         }),
       });
 

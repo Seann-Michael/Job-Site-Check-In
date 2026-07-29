@@ -444,10 +444,15 @@ async function uploadThumbnail(item: QueuedUpload, storageKey: string): Promise<
 }
 
 /**
- * `job_media.uploaded_by / captured_at / uploaded_at` arrive with a migration
- * that has not been applied yet. Probe once per session and fall back to the
- * columns that exist today; the same values always go into `metadata` too, so
- * nothing is lost either way.
+ * `job_media.captured_at / uploaded_at` arrive with a migration that has not
+ * been applied yet. Probe once per session and fall back to the columns that
+ * exist today; the same values always go into `metadata` too, so nothing is
+ * lost either way.
+ *
+ * `uploaded_by` is NOT part of this probe: that column already exists on the
+ * live database. It used to ride along in the same "extended" payload, so the
+ * missing captured_at column failed the whole insert and the fallback dropped
+ * the uploader too — every mobile upload landed with uploaded_by null.
  */
 let extendedMediaColumns: boolean | null = null;
 
@@ -544,7 +549,6 @@ async function insertMediaRow(
   const extended = {
     captured_at: item.taken_at,
     uploaded_at: uploadedAt,
-    ...(item.uploaded_by ? { uploaded_by: item.uploaded_by } : {}),
   };
 
   const insert = async (payload: Record<string, unknown>) => {
@@ -553,18 +557,40 @@ async function insertMediaRow(
     return (data ?? {}) as Record<string, unknown>;
   };
 
-  if (extendedMediaColumns === false) return insert(base);
+  // The uploader travels separately from the pending-migration columns, so a
+  // missing captured_at never costs the attribution. Dropped only for its own
+  // failures: a database without the column, or an id it will not accept.
+  const withUploader = (payload: Record<string, unknown>): Record<string, unknown> =>
+    item.uploaded_by ? { ...payload, uploaded_by: item.uploaded_by } : payload;
+
+  const insertAttributed = async (payload: Record<string, unknown>) => {
+    if (!item.uploaded_by) return insert(payload);
+    try {
+      return await insert(withUploader(payload));
+    } catch (error) {
+      if (isBadUploaderReference(error) || isMissingColumnError(error)) return insert(payload);
+      throw error;
+    }
+  };
+
+  if (extendedMediaColumns === false) return insertAttributed(base);
   try {
-    const row = await insert({ ...base, ...extended });
+    const row = await insert(withUploader({ ...base, ...extended }));
     extendedMediaColumns = true;
     return row;
   } catch (error) {
     if (isMissingColumnError(error)) {
-      // Pre-migration database: the values still live in `metadata`.
+      // Pre-migration database: captured_at/uploaded_at still live in
+      // `metadata`, and the uploader gets its own attempt against the base
+      // columns instead of being thrown away with them.
       extendedMediaColumns = false;
-      return insert(base);
+      return insertAttributed(base);
     }
-    if (isBadUploaderReference(error)) return insert(base);
+    if (isBadUploaderReference(error)) {
+      const row = await insert({ ...base, ...extended });
+      extendedMediaColumns = true;
+      return row;
+    }
     throw error;
   }
 }

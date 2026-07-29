@@ -68,6 +68,9 @@ import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
 interface TaggedPhoto {
   url: string;
+  /** 384px copy the mobile capture pipeline stores beside the original.
+   *  Absent on web uploads and older rows — grids fall back to `url`. */
+  thumbnailUrl?: string;
   tags: string[];
   uploadedAt: string;
   uploadedBy: string;
@@ -250,9 +253,18 @@ export default function ProjectDetail() {
           // Convert ProjectMedia objects to TaggedPhoto format
           const convertedPhotos: TaggedPhoto[] = dbMedia.map((media: any) => ({
             url: media.file_path,
+            thumbnailUrl: media.metadata?.thumbnail_path || undefined,
             tags: media.metadata?.tags || [],
-            uploadedAt: media.created_at,
-            uploadedBy: media.uploaded_by || "Unknown",
+            // Prefer the real capture time (mobile records it in metadata even
+            // for photos synced days later); the captured_at column is a
+            // pending migration.
+            uploadedAt:
+              media.captured_at || media.metadata?.captured_at || media.created_at,
+            // Display names live in metadata: mobile writes uploaded_by_name,
+            // older web uploads wrote uploadedBy. The uploaded_by column is an
+            // auth user id, not something to print.
+            uploadedBy:
+              media.metadata?.uploaded_by_name || media.metadata?.uploadedBy || "Unknown",
             isPrimary: media.is_featured,
             media_type: media.media_type || "image",
             mime_type: media.mime_type,
@@ -263,11 +275,44 @@ export default function ProjectDetail() {
 
           // Extract address from client_contact (where EditProject stores it)
           const clientContact = (foundProject as any).client_contact || {};
+          // metadata.address is an OBJECT ({street, city, state, zipCode, …})
+          // on jobs created by the mobile app and by AdminAddProject — format
+          // it into a display string, never render it raw (React throws on
+          // object children).
+          const metaAddress = foundProject.metadata?.address;
+          const formattedMetaAddress =
+            metaAddress && typeof metaAddress === "object"
+              ? [
+                  metaAddress.street,
+                  metaAddress.city,
+                  [metaAddress.state, metaAddress.zipCode].filter(Boolean).join(" "),
+                ]
+                  .filter(Boolean)
+                  .join(", ")
+              : metaAddress || "";
+          // metadata.notes is a plain STRING on mobile-created jobs (the New
+          // Job form's notes field); this page stores notes as an array of
+          // note objects. Wrap the string as a single imported note so it
+          // shows up — and so addNote's array spread can't shatter it into
+          // per-character entries.
+          const rawNotes = foundProject.metadata?.notes ?? foundProject.notes;
+          const normalizedNotes = Array.isArray(rawNotes)
+            ? rawNotes
+            : typeof rawNotes === "string" && rawNotes.trim()
+              ? [
+                  {
+                    id: "imported",
+                    content: rawNotes,
+                    createdAt: foundProject.created_at || new Date().toISOString(),
+                    createdBy: "Mobile",
+                  },
+                ]
+              : [];
           // Ensure all required arrays exist
           const projectWithDefaults = {
             ...foundProject,
-            address: foundProject.address || clientContact.address || foundProject.metadata?.address || "",
-            notes: foundProject.metadata?.notes || foundProject.notes || [],
+            address: foundProject.address || clientContact.address || formattedMetaAddress || "",
+            notes: normalizedNotes,
             activityLog: foundProject.activityLog || [],
             tasks: foundProject.tasks || [],
             checklist: foundProject.checklist || [],
@@ -343,9 +388,14 @@ export default function ProjectDetail() {
   const markProjectCompleted = () => {
     if (!project) return;
 
+    const now = new Date().toISOString();
     const updatedProject = {
       ...project,
-      completedDate: new Date().toISOString().split("T")[0],
+      // completed_at is the real jobs column (and what the mobile app writes);
+      // completedDate is this page's legacy display field, kept for state that
+      // predates the column.
+      completed_at: now,
+      completedDate: now.split("T")[0],
       status: "completed",
     };
 
@@ -456,7 +506,8 @@ export default function ProjectDetail() {
             url: uploadedMedia.file_path,
             tags: tagsArray,
             uploadedAt: uploadedMedia.created_at,
-            uploadedBy: uploadedMedia.uploaded_by || "Unknown",
+            // uploadProjectMedia stamps the signed-in user's name here.
+            uploadedBy: uploadedMedia.metadata?.uploaded_by_name || "Unknown",
             isPrimary: shouldBePrimary,
             media_type: uploadedMedia.media_type || "image",
             mime_type: uploadedMedia.mime_type,
@@ -569,7 +620,8 @@ export default function ProjectDetail() {
             url: uploadedMedia.file_path,
             tags: [],
             uploadedAt: uploadedMedia.created_at,
-            uploadedBy: uploadedMedia.uploaded_by || "Unknown",
+            // uploadProjectMedia stamps the signed-in user's name here.
+            uploadedBy: uploadedMedia.metadata?.uploaded_by_name || "Unknown",
             isPrimary: shouldBePrimary,
             media_type: uploadedMedia.media_type || "image",
             mime_type: uploadedMedia.mime_type,
@@ -1055,8 +1107,21 @@ export default function ProjectDetail() {
         await dataService.updateProject(project.id, { description: trimmed });
       } else if (field === "address") {
         const existingContact = (project as any).client_contact || {};
+        // Written to BOTH homes: client_contact.address is where this page has
+        // always kept it, and metadata.address.street is where the mobile app
+        // (and AdminAddProject) read and write it — updating only one side
+        // leaves the other showing a stale address.
+        const existingMetadata = (project as any).metadata || {};
+        const existingAddress =
+          typeof existingMetadata.address === "object" && existingMetadata.address !== null
+            ? existingMetadata.address
+            : {};
         await dataService.updateProject(project.id, {
           client_contact: { ...existingContact, address: trimmed },
+          metadata: {
+            ...existingMetadata,
+            address: { ...existingAddress, street: trimmed },
+          },
         });
       }
       toast.success("Saved");
@@ -1562,9 +1627,12 @@ export default function ProjectDetail() {
                         <p className="text-sm text-green-700">
                           <span key="completion-date-text">
                             Completed on{" "}
-                            {project.completedDate
+                            {/* completed_at is the real jobs column (what the
+                                mobile app and Mark Completed write);
+                                completedDate is this page's legacy field. */}
+                            {(project as any).completed_at || project.completedDate
                               ? new Date(
-                                  project.completedDate,
+                                  (project as any).completed_at || project.completedDate,
                                 ).toLocaleDateString()
                               : "Unknown"}
                           </span>
@@ -1918,7 +1986,18 @@ export default function ProjectDetail() {
                                   ) : (
                                     <>
                                       <ImageWithFallback
-                                        photo={photo}
+                                        // Tiles render the mobile-generated
+                                        // 384px thumbnail when the row has
+                                        // one, with the original as fallback;
+                                        // the viewer always gets the original.
+                                        photo={
+                                          typeof photo === "object" && photo.thumbnailUrl
+                                            ? {
+                                                url: photo.thumbnailUrl,
+                                                metadata: { fallbackUrls: [photo.url] },
+                                              }
+                                            : photo
+                                        }
                                         alt={`Photo ${index + 1}`}
                                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                                         onClick={(e) => {

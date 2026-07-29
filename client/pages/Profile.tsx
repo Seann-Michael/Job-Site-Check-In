@@ -158,7 +158,23 @@ export default function Profile() {
 
       if (error) throw error;
 
-      toast.success("Profile updated successfully!");
+      // Mirror the name into Supabase auth user_metadata as well — the mobile
+      // app builds its user identity from there (auth-provider userFromSession)
+      // and never reads public.users, so without this a name changed here would
+      // never reach the phone. Same dual write mobile's updateName does.
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          name: fullName,
+          first_name: profileData.firstName,
+          last_name: profileData.lastName,
+        },
+      });
+      if (authError) {
+        console.warn("Profile saved, but syncing the name to auth metadata failed:", authError.message);
+        toast.warning("Profile saved, but the name may not update in the mobile app until you save again.");
+      } else {
+        toast.success("Profile updated successfully!");
+      }
     } catch (error) {
       console.error("Failed to save profile:", error);
       toast.error("Failed to update profile");

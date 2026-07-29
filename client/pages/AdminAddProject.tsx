@@ -74,7 +74,10 @@ export default function AdminAddProject() {
     description: "",
     type: "renovation" as const,
     priority: "medium" as const,
-    status: "planning" as const,
+    // Must be a member of the project_status enum (draft, active, in_progress,
+    // paused, completed, cancelled) — the old "planning" default made the
+    // insert itself fail.
+    status: "active" as const,
     // Address search field
     addressSearch: "",
     // Structured address fields
@@ -457,9 +460,12 @@ export default function AdminAddProject() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="planning">Planning</SelectItem>
+                      {/* Options mirror the project_status enum exactly — the
+                          mobile app reads these same values back. */}
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="on_hold">On Hold</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>

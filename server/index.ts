@@ -77,7 +77,12 @@ import { handleResolveUrl } from "./routes/resolveUrl";
 import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
 import { handleGoogleAuthorize, handleGoogleCallback } from "./routes/googleOAuth";
 import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
-import { handleStripeCheckout, handlePaypalCheckout, handlePaymentStatus } from "./routes/payments";
+import {
+  handleStripeCheckout,
+  handleStripeConfirm,
+  handlePaypalCheckout,
+  handlePaymentStatus,
+} from "./routes/payments";
 import {
   handleLogin,
   handleLogout,
@@ -141,6 +146,8 @@ export function createServer() {
   app.get("/api/payments/status", handlePaymentStatus);
   app.post("/api/create-checkout-stripe", handleStripeCheckout);
   app.post("/api/create-checkout-paypal", handlePaypalCheckout);
+  // Success-redirect confirmation: records the purchased plan on the business
+  app.post("/api/payments/confirm", handleStripeConfirm);
 
   // Auth API Routes
   app.post("/api/auth/login", handleLogin);

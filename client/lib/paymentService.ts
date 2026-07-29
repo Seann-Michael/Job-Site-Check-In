@@ -2,6 +2,11 @@ export interface CheckoutRequest {
   provider: "stripe" | "paypal";
   mode: "one_time" | "subscription";
   amount: number;
+  /** Plan label recorded on the business once the payment is confirmed. */
+  planName?: string;
+  /** Business the purchase is for — without it the plan can't be recorded. */
+  businessId?: string;
+  email?: string;
 }
 
 export async function createCheckoutSession(body: CheckoutRequest) {

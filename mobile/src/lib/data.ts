@@ -103,6 +103,29 @@ const SERVICE_TYPES: ServiceType[] = [
   'general',
 ];
 
+/**
+ * The jobs.type column is a Postgres enum (project_type) the web app owns:
+ * seo_audit…ongoing_optimization plus the home-service values below and
+ * 'other'. Only four of our ServiceTypes are members of it, so writing any of
+ * the rest ('general' included — the form's default) makes the INSERT/UPDATE
+ * itself fail with 22P02 on a connected database.
+ */
+const PROJECT_TYPE_SERVICE_TYPES: ServiceType[] = [
+  'plumbing',
+  'roofing',
+  'landscaping',
+  'painting',
+];
+
+/**
+ * What to write into jobs.type for a ServiceType. Values the enum knows pass
+ * through; the rest become 'other', and the precise value always travels in
+ * metadata.service_type beside it, so mapJob reads it back losslessly.
+ */
+function toProjectType(service: ServiceType): string {
+  return (PROJECT_TYPE_SERVICE_TYPES as readonly string[]).includes(service) ? service : 'other';
+}
+
 const MEDIA_CATEGORIES: MediaItem['category'][] = ['before', 'after', 'progress', 'final'];
 
 const REVIEW_STATUSES: ReviewRequest['status'][] = [
@@ -270,9 +293,14 @@ function mapJob(row: Row): Job {
     typeof metadata.address === 'object' && metadata.address !== null
       ? (metadata.address as Row)
       : undefined;
+  // Older web jobs (ProjectDetail's inline address edit) keep the address as a
+  // single string on client_contact.address — every pre-mobile row in the live
+  // database stores it there and nowhere else — so it is the last resort here,
+  // shown as-is rather than parsed into street/city guesses.
   const address =
     str(row, 'address') ||
-    (metaAddress ? str(metaAddress, 'street') : str(metadata, 'address'));
+    (metaAddress ? str(metaAddress, 'street') : str(metadata, 'address')) ||
+    str(contact, 'address');
   const city = str(row, 'city') || (metaAddress ? str(metaAddress, 'city') : str(metadata, 'city'));
   const state = metaAddress ? str(metaAddress, 'state') : str(row, 'state');
   const zip = metaAddress
@@ -294,11 +322,12 @@ function mapJob(row: Row): Job {
     state: state || undefined,
     zip: zip || undefined,
     status: oneOf(str(row, 'status'), JOB_STATUSES, 'active'),
-    service_type: oneOf(
-      str(row, 'service_type') || (metaAddress ? '' : str(metadata, 'service_type')),
-      SERVICE_TYPES,
-      'general',
-    ),
+    // metadata.service_type carries the precise value this app wrote (the type
+    // column can only say 'other' for gutters/drainage/snow_removal/general);
+    // web-created jobs never write it, so their type column — whose four
+    // service values are ServiceTypes verbatim — is read next, and everything
+    // the enum can say that we can't (renovation, hvac, …) lands on 'general'.
+    service_type: oneOf(str(metadata, 'service_type') || str(row, 'type'), SERVICE_TYPES, 'general'),
     start_date: str(row, 'started_at', str(row, 'start_date', str(row, 'created_at'))),
     photo_count: num(row, 'photo_count'),
     review_requested: Boolean(row.review_requested),
@@ -482,7 +511,13 @@ export async function updateJob(job: Job, patch: JobPatch): Promise<{ error?: st
 
   const update: Record<string, unknown> = {};
   if (patch.title !== undefined) update.name = patch.title;
-  if (patch.service_type !== undefined) update.type = patch.service_type;
+  // Mapped through the enum, and only when it actually changed: an untouched
+  // service type on a web-created job (renovation, hvac, … — all shown here as
+  // 'general') must never be written back, or saving an unrelated edit would
+  // relabel the job 'other'.
+  if (patch.service_type !== undefined && patch.service_type !== job.service_type) {
+    update.type = toProjectType(patch.service_type);
+  }
   if (patch.description !== undefined) update.description = patch.description;
   if (patch.status !== undefined) {
     update.status = patch.status;
@@ -528,7 +563,12 @@ export async function updateJob(job: Job, patch: JobPatch): Promise<{ error?: st
               ? { lat: next.latitude, lng: next.longitude }
               : existingAddress.coordinates,
         },
-        service_type: next.service_type,
+        // Only restamped when the user actually changed it: mapJob shows a web
+        // job's unrepresentable type (renovation, hvac, …) as 'general', and
+        // writing that back would shadow the real type column for good.
+        ...(patch.service_type !== undefined && patch.service_type !== job.service_type
+          ? { service_type: patch.service_type }
+          : {}),
         tags: next.tags ?? [],
         // Keywords live here whether or not the column exists, so the column
         // write below is an upgrade rather than the only copy.
@@ -573,8 +613,14 @@ export async function deleteJob(job: Job): Promise<{ error?: string }> {
   const mediaIds = await jobMediaIds(job.id);
 
   if (isSupabaseConfigured) {
+    // Also collected up front: once the delete cascades through job_media
+    // there is no record left of which objects in the public 'media' bucket
+    // belonged to this job, and every "deleted" photo would stay fetchable by
+    // its URL forever.
+    const storageKeys = await jobMediaStorageKeys(job.id);
     const { error } = await supabase.from('jobs').delete().eq('id', job.id);
     if (error) return { error: error.message };
+    await removeMediaObjects(storageKeys);
   }
 
   await purgeJobLocalData(job.id, mediaIds);
@@ -598,6 +644,69 @@ async function jobMediaIds(jobId: string): Promise<string[]> {
     }
   }
   return [...ids];
+}
+
+/** Object key inside the 'media' bucket, recovered from a stored public URL. */
+function mediaStorageKey(url: string): string | undefined {
+  const marker = '/storage/v1/object/public/media/';
+  const index = url.indexOf(marker);
+  if (index === -1) return undefined;
+  const key = url.slice(index + marker.length).split('?')[0];
+  if (!key) return undefined;
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    return key;
+  }
+}
+
+/** The thumbnail key the capture pipeline would have used for an object
+ *  (media-capture.ts thumbKeyFor): same directory, thumbs/, .jpg. */
+function derivedThumbKey(key: string): string | undefined {
+  const slash = key.lastIndexOf('/');
+  if (slash === -1) return undefined;
+  return `${key.slice(0, slash)}/thumbs/${key.slice(slash + 1).replace(/\.[^.]+$/, '')}.jpg`;
+}
+
+/**
+ * Storage keys for every object a job's media rows point at — originals plus
+ * the thumbs/ copies the capture pipeline uploads beside them. Read before the
+ * job row is deleted, because the cascade takes the file paths with it.
+ */
+async function jobMediaStorageKeys(jobId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('job_media')
+      .select('file_path, metadata')
+      .eq('job_id', jobId);
+    if (error) return [];
+    const keys = new Set<string>();
+    for (const row of (data ?? []) as Row[]) {
+      const key = mediaStorageKey(str(row, 'file_path'));
+      if (!key) continue;
+      keys.add(key);
+      // Recorded thumbnail when the row has one; the derived key otherwise —
+      // removing a key that never existed is a no-op, not an error.
+      const metadata = (row.metadata ?? {}) as Row;
+      const thumb =
+        mediaStorageKey(str(metadata, 'thumbnail_path')) ?? derivedThumbKey(key);
+      if (thumb) keys.add(thumb);
+    }
+    return [...keys];
+  } catch {
+    // Best effort: an unlistable row leaves its object behind, nothing worse.
+    return [];
+  }
+}
+
+/** Best-effort bucket cleanup — the rows are already gone either way. */
+async function removeMediaObjects(keys: string[]): Promise<void> {
+  if (!keys.length) return;
+  try {
+    await supabase.storage.from('media').remove(keys);
+  } catch {
+    // An orphaned object costs storage, not correctness.
+  }
 }
 
 /** AsyncStorage maps keyed by job id, and the module that owns each one. */
@@ -682,6 +791,15 @@ export interface NewJobInput {
   title: string;
   service_type: ServiceType;
   client_name: string;
+  /**
+   * Server id of the matched `clients` row, when the client has one. Written
+   * to jobs.client_id alongside client_contact: the web client screens join
+   * jobs to clients by client_id, this app joins by the name string, so a job
+   * carrying only one key is invisible on the other platform. Callers must
+   * never pass a `local-…` or `client-…` id — those don't address a row (see
+   * isServerId in clients-store.ts), and jobs.client_id is a uuid column.
+   */
+  client_id?: string;
   client_phone?: string;
   client_email?: string;
   street: string;
@@ -746,20 +864,42 @@ export async function createJob(
     return { job };
   }
 
+  // A job without a business_id is an orphan: fetchJobs here and getProjects on
+  // the web both filter on that column, so no screen anywhere could ever list
+  // it. Refusing the insert — the same rule fetchReviewRequests applies — beats
+  // writing a row nobody can see.
+  const scope = await currentScope();
+  if (scope.kind === 'sample') {
+    return {
+      error:
+        "You're in the sample workspace, so jobs can't be saved to a real business yet.",
+    };
+  }
+  if (scope.kind === 'unknown') {
+    return { error: `${NO_SCOPE_REASON}, so the job can't be created. Please try again.` };
+  }
+
   // Same payload shape the web app's AdminAddProject sends to createProject.
-  const business = await workspace.getCurrent();
   const payload: Record<string, unknown> = {
-    ...(business && !business.id.startsWith('demo') ? { business_id: business.id } : {}),
+    business_id: scope.businessId,
     name: input.title,
     // The web client rejects a blank description, so the title stands in when
     // neither a scope nor notes were entered.
     description: input.description || input.notes || input.title,
-    type: input.service_type,
+    // jobs.type is the web app's project_type enum, which cannot say gutters/
+    // drainage/snow_removal/general — those insert as 'other', and the precise
+    // value rides in metadata.service_type below, where mapJob reads it first.
+    type: toProjectType(input.service_type),
     status: 'active',
     priority: 'medium',
     client_contact: input.client_name
       ? { name: input.client_name, email: input.client_email ?? '', phone: input.client_phone ?? '' }
       : undefined,
+    // Both join keys when we have both: client_contact.name is what this app
+    // reads back, client_id is what the web's client detail screen and job
+    // counts read. The column exists today (the web already writes it), and
+    // per NewJobInput it is only ever a real row id.
+    ...(input.client_id ? { client_id: input.client_id } : {}),
     metadata: {
       address: {
         street: input.street,
@@ -864,6 +1004,19 @@ export async function fetchReviewRequests(): Promise<ReviewRequest[]> {
     job_title: str(row, 'project_name', str(row, 'job_title')),
     rating: typeof row.rating === 'number' ? (row.rating as number) : undefined,
   }));
+}
+
+/**
+ * Whether a job_media row belongs in a photo grid at all. The web app also
+ * writes media_type='document' rows (PDFs and the like) into job_media;
+ * force-mapping those to 'image' rendered an <Image> pointed at a PDF URL — a
+ * broken tile. They belong to the web app's Documents panel, so they are held
+ * out of the grids here rather than mislabeled. A row with no media_type at
+ * all predates the column and has always been an image.
+ */
+function isPhotoOrVideoRow(row: Row): boolean {
+  const mediaType = str(row, 'media_type');
+  return mediaType === 'image' || mediaType === 'video' || mediaType === '';
 }
 
 function mapMediaRow(row: Row): MediaItem {
@@ -1002,7 +1155,10 @@ export async function fetchMedia(): Promise<MediaItem[]> {
     return applyTagOverrides(pending);
   }
   setReadError('media', null);
-  return applyTagOverrides([...pending, ...((data ?? []) as Row[]).map(mapMediaRow)]);
+  return applyTagOverrides([
+    ...pending,
+    ...((data ?? []) as Row[]).filter(isPhotoOrVideoRow).map(mapMediaRow),
+  ]);
 }
 
 export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
@@ -1036,6 +1192,9 @@ export async function fetchJobMedia(jobId: string): Promise<MediaItem[]> {
     return applyTagOverrides(pending);
   }
   setReadError('jobMedia', null);
-  return applyTagOverrides([...pending, ...((data ?? []) as Row[]).map(mapMediaRow)]);
+  return applyTagOverrides([
+    ...pending,
+    ...((data ?? []) as Row[]).filter(isPhotoOrVideoRow).map(mapMediaRow),
+  ]);
 }
 

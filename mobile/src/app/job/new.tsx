@@ -278,10 +278,23 @@ export default function NewJobScreen() {
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
+    // The web joins jobs to clients by jobs.client_id; this app joins by the
+    // name string. When the job is going onto an existing client that has a
+    // real server row, send that id too so the job shows up on the client's
+    // screen on both platforms. `local-…` and `client-…` ids are device-local
+    // or derived-from-a-name (see clients-store.ts isServerId) — they address
+    // no row, so they never leave the device.
+    const serverClientId =
+      attachedClient &&
+      !attachedClient.id.startsWith('local-') &&
+      !attachedClient.id.startsWith('client-')
+        ? attachedClient.id
+        : undefined;
     const result = await createJob({
       title: title.trim(),
       service_type: service,
       client_name: resolvedClientName,
+      client_id: serverClientId,
       client_phone: clientPhone.trim() || undefined,
       client_email: clientEmail.trim() || undefined,
       street: street.trim(),

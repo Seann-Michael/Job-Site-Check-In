@@ -90,7 +90,15 @@ export default function LogoStickerScreen() {
     }
     const result = await pickLogo(business.id);
     if (result.error) notify('PNG logos only', result.error);
-    else if (result.uri) setLogoUri(result.uri);
+    else if (result.uri) {
+      setLogoUri(result.uri);
+      if (result.syncError) {
+        notify(
+          'Logo saved on this device only',
+          `Couldn't sync it to your business, so other devices and the web dashboard won't see it. (${result.syncError})`,
+        );
+      }
+    }
   };
 
   const capture = async (): Promise<{ uri: string; base64: string } | null> => {

@@ -1013,24 +1013,59 @@ export class DataService {
       data: { publicUrl },
     } = supabase.storage.from("media").getPublicUrl(filePath);
 
+    // Attribution both apps can read: the uploaded_by column carries the auth
+    // user id (the mobile app's "My Stuff" scope filters on it) and metadata
+    // carries the display name (both galleries read metadata.uploaded_by_name).
+    // Previously nothing set the column and metadata got a hardcoded
+    // "Current User", so mobile could never attribute a web upload.
+    const uploader = await this.getCurrentUser().catch(() => null);
+    const uploaderId =
+      uploader?.id &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uploader.id)
+        ? uploader.id
+        : undefined;
+    const uploaderName = uploader?.name || uploader?.email || undefined;
+
+    const mediaRecord = {
+      job_id: projectId,
+      filename: fileName,
+      original_name: file.name,
+      file_path: publicUrl,
+      file_size: file.size,
+      mime_type: file.type,
+      media_type: mediaType,
+      category: metadata.category || "general",
+      description: metadata.description,
+      is_featured: metadata.is_featured || false,
+      metadata: {
+        ...metadata,
+        ...(uploaderId ? { uploaded_by: uploaderId } : {}),
+        ...(uploaderName ? { uploaded_by_name: uploaderName } : {}),
+      },
+      ...(uploaderId ? { uploaded_by: uploaderId } : {}),
+    };
+
     // Create media record
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("job_media")
-      .insert({
-        job_id: projectId,
-        filename: fileName,
-        original_name: file.name,
-        file_path: publicUrl,
-        file_size: file.size,
-        mime_type: file.type,
-        media_type: mediaType,
-        category: metadata.category || "general",
-        description: metadata.description,
-        is_featured: metadata.is_featured || false,
-        metadata: metadata,
-      })
+      .insert(mediaRecord)
       .select()
       .single();
+
+    if (
+      error &&
+      uploaderId &&
+      (error.code === "23503" || /foreign key|uuid/i.test(error.message || ""))
+    ) {
+      // The database refused the uploader id (no matching users row): keep the
+      // upload and the name in metadata, drop only the column.
+      const { uploaded_by: _droppedUploader, ...withoutUploader } = mediaRecord;
+      ({ data, error } = await supabase
+        .from("job_media")
+        .insert(withoutUploader)
+        .select()
+        .single());
+    }
 
     if (error) throw error;
     return data;
@@ -1126,8 +1161,54 @@ export class DataService {
     }
   }
 
+  /** Object key inside the 'media' bucket, recovered from a stored public URL. */
+  private mediaStorageKey(url?: string | null): string | undefined {
+    if (!url) return undefined;
+    const marker = "/storage/v1/object/public/media/";
+    const index = url.indexOf(marker);
+    if (index === -1) return undefined;
+    const key = url.slice(index + marker.length).split("?")[0];
+    if (!key) return undefined;
+    try {
+      return decodeURIComponent(key);
+    } catch {
+      return key;
+    }
+  }
+
+  /**
+   * Keys for every object a media row points at: the original, plus the
+   * thumbs/ copy the mobile capture pipeline uploads beside it (recorded at
+   * metadata.thumbnail_path, or derivable from the original's key — removing
+   * a key that never existed is a no-op, not an error).
+   */
+  private mediaObjectKeys(filePath?: string | null, metadata?: any): string[] {
+    const key = this.mediaStorageKey(filePath);
+    if (!key) return [];
+    const keys = [key];
+    let thumbKey = this.mediaStorageKey(metadata?.thumbnail_path);
+    if (!thumbKey) {
+      const slash = key.lastIndexOf("/");
+      if (slash !== -1) {
+        const name = key.slice(slash + 1).replace(/\.[^.]+$/, "");
+        thumbKey = `${key.slice(0, slash)}/thumbs/${name}.jpg`;
+      }
+    }
+    if (thumbKey && thumbKey !== key) keys.push(thumbKey);
+    return keys;
+  }
+
   async deleteProjectMedia(id: string): Promise<void> {
     this.checkSupabaseConfig();
+
+    // Read the row first: it is the only record of which objects in the
+    // public 'media' bucket belong to it. Deleting only the row left the
+    // file (and its thumbnail) fetchable by URL forever.
+    const { data: row } = await supabase
+      .from("job_media")
+      .select("file_path, metadata")
+      .eq("id", id)
+      .maybeSingle();
 
     const { error } = await supabase
       .from("job_media")
@@ -1135,6 +1216,17 @@ export class DataService {
       .eq("id", id);
 
     if (error) throw error;
+
+    // Best-effort: the row is gone either way, and an orphaned object costs
+    // storage, not correctness.
+    const keys = this.mediaObjectKeys(row?.file_path, row?.metadata);
+    if (keys.length) {
+      try {
+        await supabase.storage.from("media").remove(keys);
+      } catch (storageError) {
+        console.warn("Could not remove storage objects for media", id, storageError);
+      }
+    }
   }
 
   async deleteProjectPhoto(id: string): Promise<void> {

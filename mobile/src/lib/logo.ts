@@ -2,9 +2,11 @@
  * Business logo for photo stickers — one logo per business (workspace).
  * Picked from the device gallery (PNG only, so transparency survives and the
  * uploaded content-type is always honest), kept locally for offline stamping,
- * and uploaded to the Supabase 'avatars' bucket (with a best-effort
- * businesses.logo_url update) when configured, so the logo follows the
- * business across devices.
+ * and uploaded to the Supabase 'media' bucket (the only bucket this project
+ * has) with the public URL recorded in `businesses.settings.businessLogo` —
+ * the same key the web app's Settings page reads and writes — so the logo
+ * follows the business across devices. Sync failures are reported to callers
+ * via `LogoPickResult.syncError` instead of being swallowed.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,22 +37,27 @@ export async function getLogoUri(businessId: string): Promise<string | null> {
   const map = await loadMap();
   if (map[businessId]) return map[businessId];
 
-  // Another device may have set the logo — check the business row.
+  // Another device (or the web Settings page) may have set the logo — it
+  // lives in the settings JSONB under `businessLogo`, the key the web writes.
   if (isSupabaseConfigured && !businessId.startsWith('demo')) {
     try {
       const { data } = await supabase
         .from('businesses')
-        .select('logo_url')
+        .select('settings')
         .eq('id', businessId)
         .maybeSingle();
-      const url = (data as { logo_url?: unknown } | null)?.logo_url;
+      const settings = (data as { settings?: unknown } | null)?.settings;
+      const url =
+        settings && typeof settings === 'object' && !Array.isArray(settings)
+          ? (settings as Record<string, unknown>).businessLogo
+          : undefined;
       if (typeof url === 'string' && url) {
         map[businessId] = url;
         await saveMap(map);
         return url;
       }
     } catch {
-      // Column may not exist yet — local-only is fine.
+      // Unreachable server — local-only is fine.
     }
   }
   return null;
@@ -61,7 +68,13 @@ export interface LogoPickResult {
   uri?: string;
   /** The picked file was rejected; show this to the user. */
   error?: string;
-  /** Neither field set means the user backed out — callers say nothing. */
+  /**
+   * Set alongside `uri` when the logo was kept locally but could NOT be
+   * synced to the business record — other devices and the web dashboard will
+   * not see it. Callers should tell the user so.
+   */
+  syncError?: string;
+  /** No field set means the user backed out — callers say nothing. */
 }
 
 const PNG_REQUIRED =
@@ -105,28 +118,55 @@ export async function pickLogo(businessId: string): Promise<LogoPickResult> {
     // Web / copy failure: keep the picker uri.
   }
 
-  // Best-effort sync so the business logo exists server-side too.
+  // Sync so the business logo exists server-side too. The local logo still
+  // works for stamping either way, but a failure here means other devices and
+  // the web dashboard won't see it — so it is reported, not swallowed.
+  let syncError: string | undefined;
   if (isSupabaseConfigured && !businessId.startsWith('demo') && asset.base64) {
     try {
       const path = `business-logos/${businessId}.${ext}`;
-      const { error } = await supabase.storage
-        .from('avatars')
+      const { error: uploadError } = await supabase.storage
+        .from('media')
         .upload(path, decode(asset.base64), { contentType: 'image/png', upsert: true });
-      if (!error) {
+      if (uploadError) {
+        syncError = uploadError.message;
+      } else {
         const {
           data: { publicUrl },
-        } = supabase.storage.from('avatars').getPublicUrl(path);
-        await supabase.from('businesses').update({ logo_url: publicUrl }).eq('id', businessId);
+        } = supabase.storage.from('media').getPublicUrl(path);
+        // `?v=` busts caches on other devices — the path itself never changes.
+        const url = `${publicUrl}?v=${Date.now()}`;
+        // The web app keeps the logo in the settings JSONB, so merge that one
+        // key into the existing blob rather than replacing the whole thing.
+        const { data: row, error: readError } = await supabase
+          .from('businesses')
+          .select('settings')
+          .eq('id', businessId)
+          .maybeSingle();
+        if (readError) {
+          syncError = readError.message;
+        } else {
+          const existing = (row as { settings?: unknown } | null)?.settings;
+          const blob =
+            existing && typeof existing === 'object' && !Array.isArray(existing)
+              ? (existing as Record<string, unknown>)
+              : {};
+          const { error: writeError } = await supabase
+            .from('businesses')
+            .update({ settings: { ...blob, businessLogo: url } })
+            .eq('id', businessId);
+          if (writeError) syncError = writeError.message;
+        }
       }
-    } catch {
-      // Local logo still works for stamping.
+    } catch (error) {
+      syncError = error instanceof Error ? error.message : 'Network request failed';
     }
   }
 
   const map = await loadMap();
   map[businessId] = uri;
   await saveMap(map);
-  return { uri };
+  return { uri, syncError };
 }
 
 export async function clearLogo(businessId: string): Promise<void> {

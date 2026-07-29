@@ -1,5 +1,5 @@
 // @ts-nocheck - Temporary suppression of type errors
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { workspaceService } from "@/lib/workspaceService";
 import { supabase } from "@/lib/dataService";
 import { useSearchParams } from "react-router-dom";
@@ -33,7 +33,6 @@ import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete
 import { GoogleBusinessProfileFinder } from "@/components/GoogleMaps/GoogleBusinessProfileFinder";
 import { USStatesSelect } from "@/components/ui/us-states-select";
 import { BusinessTypesSelect } from "@/components/ui/business-types-select";
-import { FileUpload } from "@/components/ui/file-upload";
 import {
   Save,
   Building2,
@@ -516,6 +515,32 @@ export default function Settings() {
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
 
+  // Logo upload state (logo lives in Supabase storage; settings.businessLogo
+  // holds its public URL — the same key the mobile app reads and writes)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * The direct businesses-row values as they were LOADED from Supabase — the
+   * save baseline. handleSave writes only fields that differ from this, so a
+   * tab opened before an edit made elsewhere (the mobile app, another tab)
+   * can't silently revert that edit by re-saving stale values. Null until the
+   * row has actually been loaded; without a baseline nothing is written to the
+   * businesses row at all (localStorage/default fallbacks must never reach it).
+   */
+  const dbBaselineRef = useRef<null | {
+    businessName: string;
+    phone: string;
+    email: string;
+    website: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    businessLogo: string;
+  }>(null);
+
   const handleConnectGoogle = () => {
     const authUrl = `/api/oauth/google_my_business/authorize?workspace_id=${encodeURIComponent(settings.subAccountId || "")}`;
     const popup = window.open(
@@ -591,6 +616,10 @@ export default function Settings() {
         provider: "stripe",
         mode: "subscription",
         amount: selectedUpgradePlan.price,
+        planName: selectedUpgradePlan.name,
+        // Ties the checkout to this business so the payment confirmation can
+        // record the plan in businesses.metadata (read by web admin + mobile).
+        businessId: workspaceService.getState().currentBusinessId || undefined,
       });
       if (result?.url) {
         window.location.href = result.url;
@@ -630,21 +659,37 @@ export default function Settings() {
             .single();
 
           if (biz) {
-            if (biz.name) loadedSettings.businessName = biz.name;
-            if (biz.phone) loadedSettings.phone = biz.phone;
-            if (biz.email) loadedSettings.email = biz.email;
-            if (biz.website) loadedSettings.website = biz.website;
-            if (biz.address && typeof biz.address === "object") {
-              if (biz.address.street) loadedSettings.address = biz.address.street;
-              if (biz.address.city) loadedSettings.city = biz.address.city;
-              if (biz.address.state) loadedSettings.state = biz.address.state;
-              if (biz.address.zip) loadedSettings.zipCode = biz.address.zip;
-              if (biz.address.country) loadedSettings.country = biz.address.country;
-            }
-            // Merge extra settings blob
+            // Merge the extra settings blob first, so the direct columns below
+            // stay authoritative even if an old blob carried copies of them.
             if (biz.settings && typeof biz.settings === "object") {
               Object.assign(loadedSettings, biz.settings);
             }
+            // Direct columns: the DB row is the ONLY baseline. Empty values
+            // stay empty rather than resurrecting stale localStorage/default
+            // copies — a field cleared on another device must show as cleared.
+            const addr =
+              biz.address && typeof biz.address === "object" ? biz.address : {};
+            loadedSettings.businessName = biz.name || "";
+            loadedSettings.phone = biz.phone || "";
+            loadedSettings.email = biz.email || "";
+            loadedSettings.website = biz.website || "";
+            loadedSettings.address = addr.street || "";
+            loadedSettings.city = addr.city || "";
+            loadedSettings.state = addr.state || "";
+            loadedSettings.zipCode = addr.zip || "";
+            loadedSettings.country = addr.country || "United States";
+            dbBaselineRef.current = {
+              businessName: loadedSettings.businessName,
+              phone: loadedSettings.phone,
+              email: loadedSettings.email,
+              website: loadedSettings.website,
+              address: loadedSettings.address,
+              city: loadedSettings.city,
+              state: loadedSettings.state,
+              zipCode: loadedSettings.zipCode,
+              country: loadedSettings.country,
+              businessLogo: loadedSettings.businessLogo || "",
+            };
           }
         }
 
@@ -702,24 +747,57 @@ export default function Settings() {
 
       // Persist to Supabase
       const wsState = workspaceService.getState();
-      if (wsState.currentBusinessId) {
-        const addressBlob = {
-          street: settings.address || "",
-          city: settings.city || "",
-          state: settings.state || "",
-          zip: settings.zipCode || "",
-          country: settings.country || "United States",
-        };
-
-        // Fields stored on the businesses row directly
+      const baseline = dbBaselineRef.current;
+      if (wsState.currentBusinessId && !baseline) {
+        // The businesses row never loaded into this tab, so there is nothing to
+        // diff against — writing the form now would push localStorage/default
+        // fallbacks over the real record. Keep the local copy and say so.
+        toast.warning(
+          "Saved on this device only — your business record couldn't be loaded, so nothing was overwritten on the server. Reload the page and save again to sync.",
+        );
+        return;
+      }
+      if (wsState.currentBusinessId && baseline) {
+        // Only the direct columns changed in THIS tab are written. Writing the
+        // whole form would silently revert edits made elsewhere (the mobile
+        // app, another tab) since this page loaded — mobile sends a diff for
+        // exactly the same reason (app/settings/business-profile.tsx).
         const directFields: Record<string, any> = {
-          name: settings.businessName,
-          phone: settings.phone,
-          email: settings.email,
-          website: settings.website,
-          address: addressBlob,
           updated_at: new Date().toISOString(),
         };
+        if (
+          settings.businessName &&
+          settings.businessName !== baseline.businessName
+        ) {
+          directFields.name = settings.businessName;
+        }
+        // phone and email are NOT NULL columns on businesses — a cleared
+        // field must be written as "" (never null) or the whole save fails.
+        if ((settings.phone || "") !== baseline.phone) {
+          directFields.phone = settings.phone || "";
+        }
+        if ((settings.email || "") !== baseline.email) {
+          directFields.email = settings.email || "";
+        }
+        if ((settings.website || "") !== baseline.website) {
+          directFields.website = settings.website || null;
+        }
+        // `address` is one JSONB column, so any change rewrites the whole blob.
+        const addressChanged =
+          (settings.address || "") !== baseline.address ||
+          (settings.city || "") !== baseline.city ||
+          (settings.state || "") !== baseline.state ||
+          (settings.zipCode || "") !== baseline.zipCode ||
+          (settings.country || "United States") !== baseline.country;
+        if (addressChanged) {
+          directFields.address = {
+            street: settings.address || "",
+            city: settings.city || "",
+            state: settings.state || "",
+            zip: settings.zipCode || "",
+            country: settings.country || "United States",
+          };
+        }
         if (settings.googlePlaceId) directFields.google_place_id = settings.googlePlaceId;
 
         // Extra settings stored in the settings blob
@@ -765,15 +843,62 @@ export default function Settings() {
           enableSounds: settings.enableSounds,
           desktopNotifications: settings.desktopNotifications,
           notificationFrequency: settings.notificationFrequency,
-          businessLogo: settings.businessLogo,
           businessTypes: settings.businessTypes,
           rssIncludeImages: settings.rssIncludeImages,
         };
+        // businessLogo: the mobile app writes this same key when a logo is
+        // picked on the phone, so a stale copy from this tab must not clobber
+        // a newer phone upload — only send it when it changed here.
+        if ((settings.businessLogo || "") !== baseline.businessLogo) {
+          settingsBlob.businessLogo = settings.businessLogo || "";
+        }
 
-        await supabase
+        // Re-fetch the stored blob so keys this page doesn't manage (and an
+        // unchanged businessLogo written by the phone) survive the save.
+        const { data: freshRow, error: freshError } = await supabase
           .from("businesses")
-          .update({ ...directFields, settings: settingsBlob })
+          .select("settings")
+          .eq("id", wsState.currentBusinessId)
+          .maybeSingle();
+        if (freshError) {
+          toast.error(
+            `Couldn't reach the server — settings were saved on this device only. (${freshError.message})`,
+          );
+          return;
+        }
+        const freshSettings =
+          freshRow?.settings && typeof freshRow.settings === "object"
+            ? freshRow.settings
+            : {};
+
+        const { error: saveError } = await supabase
+          .from("businesses")
+          .update({
+            ...directFields,
+            settings: { ...freshSettings, ...settingsBlob },
+          })
           .eq("id", wsState.currentBusinessId);
+        if (saveError) {
+          toast.error(
+            `Couldn't save to the server — settings were saved on this device only. (${saveError.message})`,
+          );
+          return;
+        }
+
+        // The server holds these values now; move the baseline forward so the
+        // next save diffs against what was actually written.
+        dbBaselineRef.current = {
+          businessName: settings.businessName || baseline.businessName,
+          phone: settings.phone || "",
+          email: settings.email || "",
+          website: settings.website || "",
+          address: settings.address || "",
+          city: settings.city || "",
+          state: settings.state || "",
+          zipCode: settings.zipCode || "",
+          country: settings.country || "United States",
+          businessLogo: settings.businessLogo || "",
+        };
       }
 
       toast.success("Settings saved successfully!");
@@ -785,6 +910,59 @@ export default function Settings() {
       toast.error("Failed to save settings");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Upload a picked logo file to the public 'media' storage bucket (the only
+   * bucket this project has — the mobile app uploads to the same
+   * business-logos/ folder) and keep its public URL in settings.businessLogo.
+   * A URL, not a base64 blob: the mobile app reads this key to show and stamp
+   * the logo, and a multi-megabyte data-URL in the settings JSONB would never
+   * reach it. The URL is persisted on Save Changes like every other setting.
+   */
+  const handleLogoFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be 5MB or smaller.");
+      return;
+    }
+    const businessId = workspaceService.getState().currentBusinessId;
+    if (!businessId) {
+      toast.error(
+        "Your business hasn't loaded yet, so the logo can't be stored. Try again in a moment.",
+      );
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      const ext =
+        file.type === "image/png"
+          ? "png"
+          : file.type === "image/webp"
+            ? "webp"
+            : "jpg";
+      const path = `business-logos/${businessId}.${ext}`;
+      const { error } = await supabase.storage
+        .from("media")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (error) throw error;
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("media").getPublicUrl(path);
+      // `?v=` busts caches — the storage path itself never changes.
+      updateSetting("businessLogo", `${publicUrl}?v=${Date.now()}`);
+      toast.success("Logo uploaded — click Save Changes to keep it.");
+    } catch (error) {
+      toast.error(
+        `Couldn't upload the logo: ${error instanceof Error ? error.message : "upload failed"}`,
+      );
+    } finally {
+      setIsUploadingLogo(false);
     }
   };
 
@@ -999,17 +1177,64 @@ export default function Settings() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <FileUpload
-                        label="Business Logo"
-                        value={settings.businessLogo || ""}
-                        onChange={(fileUrl) =>
-                          updateSetting("businessLogo", fileUrl)
-                        }
-                        accept="image/*"
-                        maxSize={5}
-                        description="Upload a logo for your business (max 5MB)"
-                        previewClassName="w-20 h-20"
-                      />
+                      <Label>Business Logo</Label>
+                      <div className="flex items-center gap-4">
+                        {settings.businessLogo ? (
+                          <img
+                            src={settings.businessLogo}
+                            alt="Business logo"
+                            className="w-20 h-20 rounded-lg border bg-muted object-contain"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-lg border border-dashed bg-muted flex items-center justify-center">
+                            <Image className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              disabled={isUploadingLogo}
+                              onClick={() => logoInputRef.current?.click()}
+                            >
+                              {isUploadingLogo ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Upload className="h-4 w-4" />
+                              )}
+                              {settings.businessLogo
+                                ? "Change Logo"
+                                : "Upload Logo"}
+                            </Button>
+                            {settings.businessLogo && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  updateSetting("businessLogo", "")
+                                }
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            PNG, JPG or WebP up to 5MB. Stored with your
+                            business after you click Save Changes.
+                          </p>
+                        </div>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={handleLogoFileChange}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
