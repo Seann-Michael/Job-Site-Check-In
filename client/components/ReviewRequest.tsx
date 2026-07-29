@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,23 +17,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, Mail, MessageSquare, Send, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
+export interface ReviewRequestCustomerDetails {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  projectName: string;
+}
+
 interface ReviewRequestProps {
   isOpen: boolean;
   onClose: () => void;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
-  projectName: string;
-  onSend: (method: "sms" | "email" | "both", message: string) => void;
+  projectName?: string;
+  /**
+   * Public review-gate link included in the default message. When absent, a
+   * "[review link]" placeholder is shown instead and the caller is expected to
+   * substitute the real link before delivering the message (e.g. after
+   * creating the review_requests row).
+   */
+  reviewLink?: string;
+  /** Render the customer fields as inputs (new-request flow with no row yet). */
+  editableCustomer?: boolean;
+  onSend: (
+    method: "sms" | "email" | "both",
+    message: string,
+    details: ReviewRequestCustomerDetails,
+  ) => void;
 }
 
 export function ReviewRequest({
   isOpen,
   onClose,
-  customerName = "Customer",
+  customerName,
   customerEmail,
   customerPhone,
   projectName,
+  reviewLink,
+  editableCustomer = false,
   onSend,
 }: ReviewRequestProps) {
   const [selectedMethod, setSelectedMethod] = useState<
@@ -42,8 +64,28 @@ export function ReviewRequest({
   const [customMessage, setCustomMessage] = useState("");
   const [useCustomMessage, setUseCustomMessage] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [name, setName] = useState(customerName ?? "");
+  const [phone, setPhone] = useState(customerPhone ?? "");
+  const [email, setEmail] = useState(customerEmail ?? "");
+  const [project, setProject] = useState(projectName ?? "");
 
-  const defaultMessage = `Hi ${customerName}! We've completed your ${projectName} project. We'd greatly appreciate if you could leave us a Google review. Here's the link: [Your Google Business Link]`;
+  // Re-seed the customer fields each time the dialog opens for a new target
+  useEffect(() => {
+    if (isOpen) {
+      setName(customerName ?? "");
+      setPhone(customerPhone ?? "");
+      setEmail(customerEmail ?? "");
+      setProject(projectName ?? "");
+    }
+  }, [isOpen, customerName, customerEmail, customerPhone, projectName]);
+
+  const trimmedName = name.trim();
+  const trimmedPhone = phone.trim();
+  const trimmedEmail = email.trim();
+  const displayName = trimmedName || "Customer";
+  const displayProject = project.trim() || "recent";
+
+  const defaultMessage = `Hi ${displayName}! We've completed your ${displayProject} project. We'd greatly appreciate if you could leave us a review. Here's the link: ${reviewLink ?? "[review link]"}`;
 
   const handleSend = () => {
     const messageToSend = useCustomMessage ? customMessage : defaultMessage;
@@ -53,24 +95,34 @@ export function ReviewRequest({
       return;
     }
 
-    if (selectedMethod === "email" && !customerEmail) {
+    if (editableCustomer && !trimmedName) {
+      toast.error("Please enter the customer's name");
+      return;
+    }
+
+    if (selectedMethod === "email" && !trimmedEmail) {
       toast.error("Customer email is required for email requests");
       return;
     }
 
-    if (selectedMethod === "sms" && !customerPhone) {
+    if (selectedMethod === "sms" && !trimmedPhone) {
       toast.error("Customer phone number is required for SMS requests");
       return;
     }
 
-    if (selectedMethod === "both" && (!customerEmail || !customerPhone)) {
+    if (selectedMethod === "both" && (!trimmedEmail || !trimmedPhone)) {
       toast.error(
         "Both email and phone number are required for combined sending",
       );
       return;
     }
 
-    onSend(selectedMethod, messageToSend);
+    onSend(selectedMethod, messageToSend, {
+      customerName: displayName,
+      customerPhone: trimmedPhone,
+      customerEmail: trimmedEmail,
+      projectName: project.trim(),
+    });
     onClose();
   };
 
@@ -106,38 +158,101 @@ export function ReviewRequest({
               <CardTitle className="text-sm">Customer Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Name</Label>
-                  <p className="font-medium">{customerName}</p>
+              {editableCustomer ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="rr-customer-name"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Name
+                    </Label>
+                    <Input
+                      id="rr-customer-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Customer name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="rr-project-name"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Project
+                    </Label>
+                    <Input
+                      id="rr-project-name"
+                      value={project}
+                      onChange={(e) => setProject(e.target.value)}
+                      placeholder="Project name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="rr-customer-phone"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Phone
+                    </Label>
+                    <Input
+                      id="rr-customer-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="rr-customer-email"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Email
+                    </Label>
+                    <Input
+                      id="rr-customer-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="customer@email.com"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Project
-                  </Label>
-                  <p className="font-medium">{projectName}</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Name</Label>
+                    <p className="font-medium">{displayName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Project
+                    </Label>
+                    <p className="font-medium">{project || "—"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <p
+                      className={
+                        trimmedPhone ? "font-medium" : "text-muted-foreground"
+                      }
+                    >
+                      {trimmedPhone || "Not provided"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p
+                      className={
+                        trimmedEmail ? "font-medium" : "text-muted-foreground"
+                      }
+                    >
+                      {trimmedEmail || "Not provided"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Phone</Label>
-                  <p
-                    className={
-                      customerPhone ? "font-medium" : "text-muted-foreground"
-                    }
-                  >
-                    {customerPhone || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <p
-                    className={
-                      customerEmail ? "font-medium" : "text-muted-foreground"
-                    }
-                  >
-                    {customerEmail || "Not provided"}
-                  </p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -153,7 +268,7 @@ export function ReviewRequest({
                   <MessageSquare className="h-6 w-6 mx-auto mb-2 text-green-600" />
                   <p className="font-medium text-sm">SMS Only</p>
                   <p className="text-xs text-muted-foreground">Text message</p>
-                  {!customerPhone && (
+                  {!trimmedPhone && (
                     <Badge variant="destructive" className="mt-2 text-xs">
                       No phone
                     </Badge>
@@ -169,7 +284,7 @@ export function ReviewRequest({
                   <Mail className="h-6 w-6 mx-auto mb-2 text-blue-600" />
                   <p className="font-medium text-sm">Email Only</p>
                   <p className="text-xs text-muted-foreground">Email message</p>
-                  {!customerEmail && (
+                  {!trimmedEmail && (
                     <Badge variant="destructive" className="mt-2 text-xs">
                       No email
                     </Badge>
@@ -185,7 +300,7 @@ export function ReviewRequest({
                   <Send className="h-6 w-6 mx-auto mb-2 text-purple-600" />
                   <p className="font-medium text-sm">Both</p>
                   <p className="text-xs text-muted-foreground">SMS + Email</p>
-                  {(!customerEmail || !customerPhone) && (
+                  {(!trimmedEmail || !trimmedPhone) && (
                     <Badge variant="destructive" className="mt-2 text-xs">
                       Missing info
                     </Badge>
@@ -252,9 +367,9 @@ export function ReviewRequest({
           <Button
             onClick={handleSend}
             disabled={
-              (selectedMethod === "email" && !customerEmail) ||
-              (selectedMethod === "sms" && !customerPhone) ||
-              (selectedMethod === "both" && (!customerEmail || !customerPhone))
+              (selectedMethod === "email" && !trimmedEmail) ||
+              (selectedMethod === "sms" && !trimmedPhone) ||
+              (selectedMethod === "both" && (!trimmedEmail || !trimmedPhone))
             }
             className="gap-2"
           >

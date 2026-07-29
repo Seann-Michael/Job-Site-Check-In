@@ -94,6 +94,10 @@ export default function ReviewGate() {
   );
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  // Set only when the id resolved to a real review_requests row, so
+  // submissions can be attributed to the right business and request.
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [remoteRequestId, setRemoteRequestId] = useState<string | null>(null);
   const [seoReviewText, setSeoReviewText] = useState("");
   const [showSeoVersion, setShowSeoVersion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,6 +158,21 @@ export default function ReviewGate() {
             .eq("id", requestId)
             .single();
 
+          if (reviewReq?.id) {
+            // Record the open so both dashboards show a Viewed date.
+            // Fire-and-forget: a failed write must never block the customer.
+            supabaseClient
+              .from("review_requests")
+              .update({ status: "viewed", viewed_at: new Date().toISOString() })
+              .eq("id", requestId)
+              .in("status", ["sent", "scheduled"])
+              .then(
+                () => undefined,
+                () => undefined,
+              );
+            setRemoteRequestId(requestId);
+          }
+
           if (reviewReq?.business_id) {
             const { data: biz } = await supabaseClient
               .from("businesses")
@@ -162,6 +181,7 @@ export default function ReviewGate() {
               .single();
 
             if (biz) {
+              setBusinessId(reviewReq.business_id);
               const s = { ...(biz.settings || {}), businessName: biz.name } as Record<string, any>;
               buildFromSettings(s, requestId, reviewReq.customer_name, reviewReq.project_name);
               return;
@@ -242,6 +262,60 @@ export default function ReviewGate() {
     toast.success("Review copied to clipboard!");
   };
 
+  /**
+   * Records the submission in the shared reviews table so the dashboards can
+   * show completions. The live review_requests status CHECK has no 'completed'
+   * value, so the completion IS the reviews row — AdminReviews links it back
+   * via metadata.review_request_id. Returns false when nothing was saved.
+   */
+  const recordSubmission = async (text: string, toGoogle: boolean) => {
+    if (isAdminPreview) return true; // preview never writes
+    const metadata: Record<string, any> = {
+      source: "review_gate",
+      redirected_to_google: toGoogle,
+    };
+    if (remoteRequestId) metadata.review_request_id = remoteRequestId;
+    try {
+      const { error } = await supabaseClient.from("reviews").insert({
+        business_id: businessId,
+        // 'internal' is not in the live review_platform enum; 'custom' is the
+        // honest value for a gate submission that isn't a verified Google review.
+        platform: "custom",
+        rating,
+        title: reviewRequest?.projectName || null,
+        text: text.trim() || "(no comment provided)",
+        author: { name: reviewRequest?.customerName || "Customer" },
+        date: new Date().toISOString(),
+        metadata,
+      });
+      return !error;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    const saved = await recordSubmission(reviewText, false);
+    setIsSubmitting(false);
+    if (!saved) {
+      toast.error("We couldn't save your feedback. Please try again.");
+      return;
+    }
+    setSubmitted(true);
+  };
+
+  const handleGoogleRedirect = (text: string) => {
+    copyToClipboard(text);
+    // Best-effort completion record — never blocks the customer's redirect
+    void recordSubmission(text, true);
+    setTimeout(() => {
+      window.open(reviewRequest!.googleReviewUrl, "_blank");
+      setSubmitted(true);
+    }, 500);
+  };
+
   if (!reviewRequest) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
@@ -261,7 +335,7 @@ export default function ReviewGate() {
           <h2 className="text-xl font-semibold text-blue-900 mb-2">
             Thank You!
           </h2>
-          {redirectToGoogle ? (
+          {redirectToGoogle && reviewRequest.googleReviewUrl ? (
             <div className="space-y-3">
               <p className="text-blue-700">
                 You'll be redirected to Google to complete your review.
@@ -273,7 +347,8 @@ export default function ReviewGate() {
             </div>
           ) : (
             <p className="text-blue-700">
-              Your feedback has been recorded. We appreciate your input!
+              {gateSettings.thankYouMessage ||
+                "Your feedback has been recorded. We appreciate your input!"}
             </p>
           )}
         </div>
@@ -301,6 +376,18 @@ export default function ReviewGate() {
       )}
       <div className="p-4">
       <div className="max-w-xl mx-auto py-8">
+        {/* Setup warning — only shown to the admin previewing the gate */}
+        {isAdminPreview && !reviewRequest.googleReviewUrl && (
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-6 text-sm text-amber-800">
+            <p className="font-semibold mb-1">Setup needed: no Google review link</p>
+            <p>
+              No Google review URL is configured for this business, so customers
+              won't be sent to Google — their reviews will be recorded here
+              instead. Add your Google review link in the Review Gate editor.
+            </p>
+          </div>
+        )}
+
         {/* Business Header */}
         <div className="text-center mb-8">
           {reviewRequest.businessLogo && (
@@ -409,6 +496,21 @@ export default function ReviewGate() {
               </div>
             )}
 
+            {/* Feedback submit — below-threshold ratings, and above-threshold
+                ones when no Google URL is configured (the Google buttons in
+                the enhanced block below cover the remaining case) */}
+            {rating > 0 &&
+              (!redirectToGoogle || !reviewRequest.googleReviewUrl) &&
+              !(showSeoVersion && seoReviewText) && (
+              <Button
+                onClick={handleSubmitFeedback}
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+              >
+                {isSubmitting ? "Submitting..." : gateSettings.buttonText}
+              </Button>
+            )}
+
             {/* Enhanced Review */}
             {showSeoVersion && seoReviewText && (
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
@@ -426,34 +528,37 @@ export default function ReviewGate() {
                 <div className="bg-white p-4 rounded-lg border border-blue-200 text-sm mb-4 shadow-sm">
                   {seoReviewText}
                 </div>
-                <div className="space-y-3">
+                {reviewRequest.googleReviewUrl ? (
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => handleGoogleRedirect(seoReviewText)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Enhanced & Continue to Google
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleGoogleRedirect(reviewText)}
+                      className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      Use Original & Continue to Google
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                ) : (
+                  // No Google review URL is configured for this business, so a
+                  // "Continue to Google" button would open a blank tab. Fall
+                  // back to recording the review here instead.
                   <Button
-                    onClick={() => {
-                      copyToClipboard(seoReviewText);
-                      setTimeout(() => {
-                        window.open(reviewRequest.googleReviewUrl, "_blank");
-                      }, 500);
-                    }}
+                    onClick={handleSubmitFeedback}
+                    disabled={isSubmitting}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
                   >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Enhanced & Continue to Google
-                    <ExternalLink className="h-4 w-4 ml-2" />
+                    {isSubmitting ? "Submitting..." : gateSettings.buttonText}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      copyToClipboard(reviewText);
-                      setTimeout(() => {
-                        window.open(reviewRequest.googleReviewUrl, "_blank");
-                      }, 500);
-                    }}
-                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
-                  >
-                    Use Original & Continue to Google
-                    <ExternalLink className="h-4 w-4 ml-2" />
-                  </Button>
-                </div>
+                )}
               </div>
             )}
           </div>

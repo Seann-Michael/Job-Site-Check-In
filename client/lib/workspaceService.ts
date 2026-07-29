@@ -100,11 +100,30 @@ class WorkspaceService {
     this.listeners.forEach((fn) => fn({ ...this.state }));
   }
 
+  private initPromise: Promise<WorkspaceState> | null = null;
+
   // -------------------------------------------------------------------------
-  // Initialization — called once in main.tsx
+  // Initialization — kicked off once in main.tsx. Idempotent: concurrent
+  // callers share the same in-flight promise instead of re-running the flow.
   // -------------------------------------------------------------------------
 
-  async initialize(): Promise<WorkspaceState> {
+  initialize(): Promise<WorkspaceState> {
+    if (!this.initPromise) this.initPromise = this.doInitialize();
+    return this.initPromise;
+  }
+
+  /**
+   * Await this before reading getCurrentBusinessId()/getBusinessIds().
+   * Resolves once initialization has completed (starting it if it hasn't),
+   * so cold-load callers never observe the pre-init null business id and
+   * accidentally run unscoped queries or stamp rows with a null tenant.
+   */
+  whenReady(): Promise<WorkspaceState> {
+    if (this.state.initialized) return Promise.resolve(this.getState());
+    return this.initialize();
+  }
+
+  private async doInitialize(): Promise<WorkspaceState> {
     try {
       const workspaceUser = await this.resolveWorkspaceUser();
 

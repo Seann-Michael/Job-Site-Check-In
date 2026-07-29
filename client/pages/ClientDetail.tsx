@@ -35,6 +35,11 @@ import {
 import { toast } from "sonner";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase, dataService } from "@/lib/dataService";
+import {
+  clientDisplayLabel,
+  escapeLikePattern,
+  renameClientAcrossJobs,
+} from "@/lib/clientNames";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 import { workspaceService } from "@/lib/workspaceService";
 import {
@@ -55,6 +60,7 @@ import {
 interface Client {
   id: string;
   name: string;
+  business_id?: string;
   business_name?: string;
   first_name?: string;
   last_name?: string;
@@ -229,7 +235,9 @@ export default function ClientDetail() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [newJobName, setNewJobName] = useState("");
-  const [newJobType, setNewJobType] = useState("residential");
+  // Must be a value of the Postgres project_type enum — the old
+  // residential/commercial list wasn't in it, so every insert failed.
+  const [newJobType, setNewJobType] = useState("renovation");
   const [creatingJob, setCreatingJob] = useState(false);
   const [showMediaUploader, setShowMediaUploader] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -254,13 +262,42 @@ export default function ClientDetail() {
       if (error) throw error;
       setClient(data as any);
 
-      // Load linked projects
-      const { data: projectData } = await supabase
-        .from("jobs")
-        .select("id, name, status, type, created_at")
-        .eq("client_id", id)
-        .order("created_at", { ascending: false });
-      setProjects((projectData || []) as any);
+      // Load linked projects. Jobs reference a client two ways — web-created
+      // jobs carry client_id, mobile-created jobs carry only the name string
+      // inside client_contact — so both keys are read and merged, or every
+      // mobile job is invisible here.
+      const clientName = ((data as any)?.name || "").trim();
+      let nameQuery = clientName
+        ? supabase
+            .from("jobs")
+            .select("id, name, status, type, created_at, client_contact")
+            .ilike("client_contact->>name", escapeLikePattern(clientName))
+        : null;
+      if (nameQuery && (data as any)?.business_id) {
+        nameQuery = nameQuery.eq("business_id", (data as any).business_id);
+      }
+      const [{ data: idData }, nameResult] = await Promise.all([
+        supabase
+          .from("jobs")
+          .select("id, name, status, type, created_at")
+          .eq("client_id", id),
+        nameQuery ?? Promise.resolve({ data: null }),
+      ]);
+      // Exact case-insensitive equality, like mobile's fetchClientJobs — the
+      // ilike only narrowed the fetch.
+      const nameData = ((nameResult.data || []) as any[]).filter(
+        (j) =>
+          typeof j.client_contact?.name === "string" &&
+          j.client_contact.name.trim().toLowerCase() === clientName.toLowerCase()
+      );
+      const byJobId = new Map<string, any>();
+      [...(idData || []), ...nameData].forEach((j: any) => {
+        if (!byJobId.has(j.id)) byJobId.set(j.id, j);
+      });
+      const projectData = [...byJobId.values()].sort((a, b) =>
+        (b.created_at || "").localeCompare(a.created_at || "")
+      );
+      setProjects(projectData as any);
 
       // Load media across all linked projects
       // Always load client-level media (no job)
@@ -368,15 +405,75 @@ export default function ClientDetail() {
 
   const saveField = async () => {
     if (!client || !editingField) return;
+    const value = fieldValue.trim();
+    if (editingField === "name" && !value) {
+      // `name` is the string mobile jobs join on — it can't be blanked.
+      toast.error("Client name is required");
+      return;
+    }
     try {
+      const updates: Record<string, any> = {
+        [editingField]: value,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Keep `name` — the join key mobile jobs match on — coherent with the
+      // name parts, the way the mobile edit screen recomposes it: person
+      // (first + last) wins, the company stands in only when there's no person.
+      let nextName: string | null = null;
+      if (editingField === "name") {
+        nextName = value;
+        // Sync the split fields too: mobile recomposes `name` from first/last
+        // on its next save, so stale parts would silently revert this rename.
+        const parts = value.split(/\s+/).filter(Boolean);
+        updates.first_name = parts[0] || null;
+        updates.last_name = parts.slice(1).join(" ") || null;
+      } else if (editingField === "first_name" || editingField === "last_name") {
+        const first =
+          editingField === "first_name" ? value : (client.first_name || "").trim();
+        const last =
+          editingField === "last_name" ? value : (client.last_name || "").trim();
+        const person = [first, last].filter(Boolean).join(" ");
+        nextName = person || (client.business_name || "").trim() || client.name;
+      } else if (editingField === "business_name") {
+        const person = [client.first_name, client.last_name]
+          .map((part) => (part || "").trim())
+          .filter(Boolean)
+          .join(" ");
+        if (!person) nextName = value || client.name;
+      }
+
+      const renamed =
+        nextName !== null &&
+        nextName.trim() !== "" &&
+        nextName.trim().toLowerCase() !== (client.name || "").trim().toLowerCase();
+      if (renamed) {
+        updates.name = nextName;
+        // Mobile jobs join to clients by the client_contact.name string, so
+        // the jobs move BEFORE the client row is renamed — and if the cascade
+        // fails, the rename is abandoned rather than orphaning their work.
+        const result = await renameClientAcrossJobs(
+          client.name,
+          nextName!,
+          client.business_id
+        );
+        if (result.error) {
+          toast.error(
+            `Couldn't rename — jobs keep the old name: ${result.error}`
+          );
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("clients")
-        .update({ [editingField]: fieldValue.trim(), updated_at: new Date().toISOString() })
+        .update(updates)
         .eq("id", client.id);
       if (error) throw error;
-      setClient({ ...client, [editingField]: fieldValue.trim() });
+      setClient({ ...client, ...updates } as Client);
       setEditingField(null);
-      toast.success("Saved");
+      toast.success(renamed ? "Saved — jobs moved to the new name" : "Saved");
+      if (renamed) loadClient(); // the jobs tab joins on the name too
     } catch (err) {
       console.error(err);
       toast.error("Failed to save");
@@ -479,6 +576,17 @@ export default function ClientDetail() {
         status: "draft",
         business_id: businessId || undefined,
         client_id: id,
+        // Mobile joins jobs to clients by the client_contact.name string, so
+        // write both keys or this job never appears under the client there.
+        ...(client?.name
+          ? {
+              client_contact: {
+                name: client.name,
+                email: client.email || "",
+                phone: client.phone || "",
+              },
+            }
+          : {}),
       } as any);
       toast.success("Job created and assigned to this client");
       setShowNewJobDialog(false);
@@ -526,6 +634,10 @@ export default function ClientDetail() {
   const initials = (name: string) =>
     name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 
+  // Same label precedence mobile renders: person (first/last) over raw name
+  // over company. The raw `name` stays the join key underneath.
+  const displayName = clientDisplayLabel(client);
+
   const inlineFieldProps = { editingField, fieldValue, setFieldValue, saveField, cancelEdit, startEdit };
 
   return (
@@ -543,7 +655,7 @@ export default function ClientDetail() {
           </Button>
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base flex-shrink-0">
-              {initials(client.name)}
+              {initials(displayName)}
             </div>
             <div className="min-w-0 flex-1">
               {editingField === "name" ? (
@@ -566,7 +678,7 @@ export default function ClientDetail() {
                   className="flex items-center gap-2 cursor-pointer group/name"
                   onClick={() => startEdit("name", client.name)}
                 >
-                  <h1 className="text-xl font-bold truncate">{client.name}</h1>
+                  <h1 className="text-xl font-bold truncate">{displayName}</h1>
                   <Edit className="h-4 w-4 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
                 </div>
               )}
@@ -1038,7 +1150,7 @@ export default function ClientDetail() {
       <Dialog open={showNewJobDialog} onOpenChange={setShowNewJobDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>New Job for {client?.name}</DialogTitle>
+            <DialogTitle>New Job for {displayName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
@@ -1061,19 +1173,27 @@ export default function ClientDetail() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="residential">Residential</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="industrial">Industrial</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
+                  {/* Trade subset of the project_type enum — values not in the
+                      enum make the insert fail with a Postgres error. */}
+                  <SelectItem value="renovation">Renovation</SelectItem>
+                  <SelectItem value="construction">Construction</SelectItem>
+                  <SelectItem value="repair">Repair</SelectItem>
+                  <SelectItem value="painting">Painting</SelectItem>
+                  <SelectItem value="landscaping">Landscaping</SelectItem>
+                  <SelectItem value="driveway">Driveway</SelectItem>
+                  <SelectItem value="roofing">Roofing</SelectItem>
+                  <SelectItem value="flooring">Flooring</SelectItem>
+                  <SelectItem value="plumbing">Plumbing</SelectItem>
+                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="hvac">HVAC</SelectItem>
+                  <SelectItem value="cleaning">Cleaning</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <p className="text-xs text-muted-foreground">
               This job will be automatically assigned to{" "}
-              <span className="font-medium">{client?.name}</span>. You can fill
+              <span className="font-medium">{displayName}</span>. You can fill
               in the full details after creation.
             </p>
           </div>

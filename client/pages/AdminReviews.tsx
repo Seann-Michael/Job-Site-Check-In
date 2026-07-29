@@ -58,6 +58,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { formatTableDate } from "@/lib/dateUtils";
 import { supabase } from "@/lib/dataService";
+import { workspaceService } from "@/lib/workspaceService";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { ReviewAnalyticsSection } from "@/components/ReviewAnalyticsSection";
 
@@ -239,6 +240,15 @@ function ReviewDataTable({
                     )}
                     {virtualItems.map((vRow) => {
                       const request = data[vRow.index];
+                      // Row-based sends can only offer channels we have
+                      // contact details for, and rows without a phone number
+                      // (e.g. completed reviews from the reviews table, which
+                      // store no contact info) have none — the send dialog
+                      // would open with every method disabled. Hide the
+                      // resend/send-now action instead of offering a dead end.
+                      const canResend = Boolean(
+                        request.customerPhone && request.customerPhone !== "N/A",
+                      );
                       return (
                         <tr
                           key={request.id}
@@ -351,12 +361,12 @@ function ReviewDataTable({
                                 <DropdownMenuItem onClick={() => onCopyLink(request.id)}>
                                   <Copy className="h-4 w-4 mr-2" /> Copy Link
                                 </DropdownMenuItem>
-                                {tab !== "scheduled" && (
+                                {tab !== "scheduled" && canResend && (
                                   <DropdownMenuItem onClick={() => onResend(request.id)}>
                                     <Send className="h-4 w-4 mr-2" /> Resend Request
                                   </DropdownMenuItem>
                                 )}
-                                {tab === "scheduled" && (
+                                {tab === "scheduled" && canResend && (
                                   <DropdownMenuItem onClick={() => onResend(request.id)}>
                                     <Send className="h-4 w-4 mr-2" /> Send Now
                                   </DropdownMenuItem>
@@ -502,6 +512,8 @@ export default function AdminReviews() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [showReviewRequest, setShowReviewRequest] = useState(false);
+  // The row the send dialog is operating on; null = composing a brand-new request
+  const [activeRequest, setActiveRequest] = useState<ReviewRequest | null>(null);
   const [analyticsTimeRange, setAnalyticsTimeRange] = useState("12");
   const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0);
 
@@ -523,10 +535,12 @@ export default function AdminReviews() {
     // Load completed reviews from Supabase
     const { data: supabaseReviews } = await supabase
       .from("reviews")
-      .select("id, business_id, platform, rating, title, text, author, date, created_at")
+      .select("id, business_id, platform, rating, title, text, author, date, metadata, created_at")
       .order("date", { ascending: false });
 
-    // Map Supabase reviews to ReviewRequest shape
+    // Map Supabase reviews to ReviewRequest shape. The review gate records its
+    // submissions here with metadata.review_request_id linking back to the
+    // review_requests row (the live status CHECK has no 'completed' value).
     const dbReviews: ReviewRequest[] = (supabaseReviews ?? []).map((r: any) => ({
       id: r.id,
       customerName: r.author?.name ?? "Customer",
@@ -538,8 +552,17 @@ export default function AdminReviews() {
       submittedAt: r.date,
       sentAt: r.created_at,
       linkClicked: true,
-      redirectedToGoogle: r.platform === "google",
+      redirectedToGoogle:
+        r.platform === "google" || r.metadata?.redirected_to_google === true,
     }));
+
+    // Requests that already produced a submission move to the Past tab as the
+    // review row instead of lingering under Current/Scheduled.
+    const completedRequestIds = new Set(
+      (supabaseReviews ?? [])
+        .map((r: any) => r.metadata?.review_request_id)
+        .filter(Boolean),
+    );
 
     // Load pending/sent/viewed review requests from Supabase
     const { data: pendingRows } = await supabase
@@ -547,35 +570,20 @@ export default function AdminReviews() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    const pendingReviews: ReviewRequest[] = (pendingRows ?? []).map((r: any) => ({
-      id: r.id,
-      customerName: r.customer_name,
-      customerPhone: r.customer_phone ?? "N/A",
-      projectName: r.project_name ?? "Project",
-      status: r.status as ReviewRequest["status"],
-      sentAt: r.sent_at,
-      viewedAt: r.viewed_at,
-      linkClicked: r.status === "viewed",
-    }));
+    const pendingReviews: ReviewRequest[] = (pendingRows ?? [])
+      .filter((r: any) => !completedRequestIds.has(r.id))
+      .map((r: any) => ({
+        id: r.id,
+        customerName: r.customer_name,
+        customerPhone: r.customer_phone ?? "N/A",
+        projectName: r.project_name ?? "Project",
+        status: r.status as ReviewRequest["status"],
+        sentAt: r.sent_at,
+        viewedAt: r.viewed_at,
+        linkClicked: r.status === "viewed",
+      }));
 
-    // Merge with localStorage-submitted review requests (from Send Review Request flow)
-    let submissions: any[] = [];
-    try { submissions = JSON.parse(localStorage.getItem("reviewSubmissions") || "[]"); } catch { submissions = []; }
-    const localReviews: ReviewRequest[] = submissions.map((sub: any) => ({
-      id: sub.requestId,
-      customerName: sub.customerName,
-      customerPhone: "N/A",
-      projectName: "Recent Project",
-      status: "completed" as const,
-      rating: sub.rating,
-      reviewText: sub.reviewText,
-      submittedAt: sub.submittedAt,
-      sentAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      linkClicked: true,
-      redirectedToGoogle: sub.redirectedToGoogle,
-    }));
-
-    const allRequests = [...pendingReviews, ...dbReviews, ...localReviews];
+    const allRequests = [...pendingReviews, ...dbReviews];
     setReviewRequests(allRequests);
 
     // Calculate stats from real data
@@ -596,45 +604,107 @@ export default function AdminReviews() {
     });
   };
 
-  const handleSendReviewRequest = (
+  // Open the send dialog seeded with a real row (Send Now / Resend actions)
+  const openSendDialog = (id: string) => {
+    const request = reviewRequests.find((r) => r.id === id) ?? null;
+    setActiveRequest(request);
+    setShowReviewRequest(true);
+  };
+
+  const handleSendReviewRequest = async (
     method: "sms" | "email" | "both",
     message: string,
+    details: {
+      customerName: string;
+      customerPhone: string;
+      customerEmail: string;
+      projectName: string;
+    },
   ) => {
-    const customerName = "";
-    const customerPhone = "";
-    const customerEmail = "";
-    const projectName = "";
+    // Rows with status "completed" come from the reviews table, not
+    // review_requests — resending one creates a fresh request row instead.
+    const isExistingRequest =
+      activeRequest !== null && activeRequest.status !== "completed";
+    let requestId = isExistingRequest ? activeRequest.id : null;
+
+    if (isExistingRequest) {
+      // Persist the send so the row leaves Scheduled/Expired on every client
+      if (
+        activeRequest.status === "scheduled" ||
+        activeRequest.status === "expired"
+      ) {
+        const { error } = await supabase
+          .from("review_requests")
+          .update({ status: "sent", sent_at: new Date().toISOString() })
+          .eq("id", activeRequest.id);
+        if (error) {
+          toast.error(`Could not update the review request: ${error.message}`);
+          return;
+        }
+      }
+    } else {
+      // New request: create the shared review_requests row so the review gate
+      // can resolve the link and the mobile app sees the same request.
+      // Wait for workspace init before stamping business_id — on a cold load
+      // the synchronous getter is still null, and a NULL-stamped row is
+      // invisible to mobile's scoped fetch and gives the review gate no
+      // branding for the link that's about to reach a customer. Fail closed
+      // if there's genuinely no workspace rather than writing that row.
+      const { currentBusinessId } = await workspaceService.whenReady();
+      if (!currentBusinessId) {
+        toast.error(
+          "No active business workspace — the review request can't be saved. Reload the page and try again.",
+        );
+        return;
+      }
+      const { data, error } = await supabase
+        .from("review_requests")
+        .insert({
+          customer_name: details.customerName,
+          customer_phone: details.customerPhone,
+          project_name: details.projectName || "Project",
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          business_id: currentBusinessId,
+        })
+        .select("id")
+        .single();
+      if (error || !data?.id) {
+        toast.error(
+          `Could not save the review request: ${error?.message ?? "no id returned"}`,
+        );
+        return;
+      }
+      requestId = String(data.id);
+    }
+
+    // Make sure the delivered message carries the real review link
+    const reviewLink = `${window.location.origin}/review/${requestId}`;
+    let finalMessage = message;
+    if (!finalMessage.includes(reviewLink)) {
+      finalMessage = finalMessage.includes("[review link]")
+        ? finalMessage.replace("[review link]", reviewLink)
+        : `${finalMessage} ${reviewLink}`;
+    }
 
     if (method === "sms" || method === "both") {
-      const phoneUrl = `sms:${customerPhone}?body=${encodeURIComponent(message)}`;
+      const phoneUrl = `sms:${details.customerPhone}?body=${encodeURIComponent(finalMessage)}`;
       window.open(phoneUrl);
     }
 
     if (method === "email" || method === "both") {
-      const subject = `Review Request for ${projectName}`;
-      const emailUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+      const subject = `Review Request for ${details.projectName || "your project"}`;
+      const emailUrl = `mailto:${details.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalMessage)}`;
       window.open(emailUrl);
     }
 
-    // Store the review request
-    const reviewId = Math.random().toString(36).substr(2, 9);
-    const newRequest: ReviewRequest = {
-      id: reviewId,
-      customerName,
-      customerPhone,
-      projectName,
-      status: "sent",
-      sentAt: new Date().toISOString(),
-    };
-
-    const existingRequests = JSON.parse(
-      localStorage.getItem("reviewRequests") || "[]",
+    // Honest wording: this opens the operator's own messaging app — nothing is
+    // delivered until they hit send there.
+    toast.success(
+      "Request saved — finish sending the message in the app that just opened",
     );
-    existingRequests.push(newRequest);
-    localStorage.setItem("reviewRequests", JSON.stringify(existingRequests));
-
-    toast.success(`Review request sent via ${method}!`);
     setShowReviewRequest(false);
+    setActiveRequest(null);
     loadReviewData();
   };
 
@@ -644,7 +714,17 @@ export default function AdminReviews() {
     toast.success("Review link copied to clipboard!");
   };
 
-  const cancelReviewRequest = (id: string, customerName: string) => {
+  const cancelReviewRequest = async (id: string, customerName: string) => {
+    // Persist first — an optimistic-only cancel reverts on reload and keeps
+    // showing as pending on mobile.
+    const { error } = await supabase
+      .from("review_requests")
+      .update({ status: "expired" })
+      .eq("id", id);
+    if (error) {
+      toast.error(`Could not cancel the request: ${error.message}`);
+      return;
+    }
     setReviewRequests((prev) =>
       prev.map((request) =>
         request.id === id
@@ -736,7 +816,10 @@ export default function AdminReviews() {
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
-              onClick={() => setShowReviewRequest(true)}
+              onClick={() => {
+                setActiveRequest(null);
+                setShowReviewRequest(true);
+              }}
               className="gap-2 whitespace-nowrap w-full sm:w-auto"
             >
               <Send className="h-4 w-4" />
@@ -1015,7 +1098,7 @@ export default function AdminReviews() {
                 onPageChange={(p) => setPage(p)}
                 onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
                 onCopyLink={copyReviewLink}
-                onResend={() => setShowReviewRequest(true)}
+                onResend={openSendDialog}
                 onCancel={cancelReviewRequest}
                 onCopyText={copyReviewText}
                 onRowClick={(request: any) => navigate(`/admin/reviews/${request.id}`, { state: { request } })}
@@ -1027,14 +1110,29 @@ export default function AdminReviews() {
           ))}
         </Tabs>
 
-        {/* Review Request Dialog */}
+        {/* Review Request Dialog — seeded from the actual row when sending an
+            existing request; editable inputs when composing a new one. There is
+            no email column on review_requests, so row-based sends only offer
+            the channels we actually have contact details for. */}
         <ReviewRequest
           isOpen={showReviewRequest}
-          onClose={() => setShowReviewRequest(false)}
-          customerName="Customer"
-          customerPhone="(555) 123-4567"
-          customerEmail="customer@email.com"
-          projectName="Recent Project"
+          onClose={() => {
+            setShowReviewRequest(false);
+            setActiveRequest(null);
+          }}
+          customerName={activeRequest?.customerName}
+          customerPhone={
+            activeRequest && activeRequest.customerPhone !== "N/A"
+              ? activeRequest.customerPhone
+              : undefined
+          }
+          projectName={activeRequest?.projectName}
+          reviewLink={
+            activeRequest && activeRequest.status !== "completed"
+              ? `${window.location.origin}/review/${activeRequest.id}`
+              : undefined
+          }
+          editableCustomer={!activeRequest}
           onSend={handleSendReviewRequest}
         />
       </div>

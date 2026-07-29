@@ -37,6 +37,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { workspaceService } from "@/lib/workspaceService";
+import {
+  clientDisplayLabel,
+  renameClientAcrossJobs,
+} from "@/lib/clientNames";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/dataService";
@@ -55,11 +59,19 @@ type SortDir = "asc" | "desc";
 interface ClientRow {
   id: string;
   name: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   phone: string;
   address: string;
   notes: string;
   business_id?: string;
+  /**
+   * The CLIENT'S OWN company (clients.business_name) — the same fact mobile
+   * shows next to the person. Not the tenant workspace: that used to be what
+   * this column displayed, labelled "Business", which meant the same word
+   * labelled two different facts across platforms.
+   */
   businessName: string;
   jobCount: number;
   lastActivity: string | null;
@@ -97,50 +109,64 @@ export default function Clients() {
   const loadClients = async () => {
     setLoading(true);
     try {
+      // Scope to the active business, the way mobile's fetchClients does —
+      // an unscoped read is every tenant's customers, not a longer list.
+      // Wait for workspace init first: on a cold load getCurrentBusinessId()
+      // is still null and the queries below would run unscoped.
+      // Legacy rows with business_id NULL (created before inserts were
+      // stamped) are deliberately kept visible here: no scoped read anywhere
+      // returns them, so hiding them on the web too would strand them with no
+      // screen left to see or fix them from.
+      const { currentBusinessId: businessId } = await workspaceService.whenReady();
+      if (!businessId) {
+        // Fail closed: no workspace means no tenant to scope to — show an
+        // empty list rather than every tenant's data.
+        setClients([]);
+        return;
+      }
       const { data: clientData, error } = await supabase
         .from("clients")
-        .select("*");
+        .select("*")
+        .or(`business_id.eq.${businessId},business_id.is.null`);
       if (error) throw error;
 
-      // Build business name lookup
-      const businessIds = [
-        ...new Set(
-          (clientData || []).map((c: any) => c.business_id).filter(Boolean)
-        ),
-      ];
-      const businessMap: Record<string, string> = {};
-      if (businessIds.length > 0) {
-        const { data: bizData } = await supabase
-          .from("businesses")
-          .select("id, name")
-          .in("id", businessIds);
-        (bizData || []).forEach((b: any) => {
-          businessMap[b.id] = b.name;
-        });
-      }
-
-      // Fetch job stats per client (count + latest activity timestamp)
+      // Fetch job stats per client (count + latest activity timestamp).
+      // Jobs reference a client two ways — web-created jobs carry client_id,
+      // mobile-created jobs carry only the name string in client_contact — so
+      // match on either key or every mobile job counts as zero.
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("client_id, updated_at, created_at")
-        .not("client_id", "is", null);
+        .select("client_id, client_contact, updated_at, created_at")
+        .eq("business_id", businessId);
+
+      const idByName: Record<string, string> = {};
+      (clientData || []).forEach((c: any) => {
+        const key = (c.name || "").trim().toLowerCase();
+        if (key && !idByName[key]) idByName[key] = c.id;
+      });
 
       const jobStats: Record<string, { count: number; latest: string }> = {};
       (jobData || []).forEach((j: any) => {
-        if (!j.client_id) return;
+        const contactName =
+          typeof j.client_contact?.name === "string"
+            ? j.client_contact.name.trim().toLowerCase()
+            : "";
+        const clientId = j.client_id || (contactName ? idByName[contactName] : undefined);
+        if (!clientId) return;
         const ts = j.updated_at || j.created_at || "";
-        if (!jobStats[j.client_id]) {
-          jobStats[j.client_id] = { count: 1, latest: ts };
+        if (!jobStats[clientId]) {
+          jobStats[clientId] = { count: 1, latest: ts };
         } else {
-          jobStats[j.client_id].count++;
-          if (ts > jobStats[j.client_id].latest)
-            jobStats[j.client_id].latest = ts;
+          jobStats[clientId].count++;
+          if (ts > jobStats[clientId].latest)
+            jobStats[clientId].latest = ts;
         }
       });
 
       const rows: ClientRow[] = (clientData || []).map((c: any) => ({
         ...c,
-        businessName: businessMap[c.business_id] || "",
+        // The client's own company, same as mobile — not the tenant workspace.
+        businessName: c.business_name || "",
         jobCount: jobStats[c.id]?.count || 0,
         lastActivity:
           jobStats[c.id]?.latest || c.updated_at || c.created_at || null,
@@ -156,7 +182,21 @@ export default function Clients() {
   };
 
   useEffect(() => {
+    // loadClients awaits workspace init itself, so the cold-load call below
+    // runs scoped once init lands. The subscription re-runs the load whenever
+    // the active business changes afterwards (e.g. company switcher).
     loadClients();
+    let lastBusinessId: string | null | undefined;
+    const unsubscribe = workspaceService.subscribe((state) => {
+      if (
+        lastBusinessId !== undefined &&
+        state.currentBusinessId !== lastBusinessId
+      ) {
+        loadClients();
+      }
+      lastBusinessId = state.currentBusinessId;
+    });
+    return unsubscribe;
   }, []);
 
   const handleSort = (key: SortKey) => {
@@ -174,6 +214,7 @@ export default function Clients() {
       ? clients.filter(
           (c) =>
             c.name.toLowerCase().includes(q) ||
+            clientDisplayLabel(c).toLowerCase().includes(q) ||
             c.businessName.toLowerCase().includes(q) ||
             (c.email || "").toLowerCase().includes(q) ||
             (c.phone || "").toLowerCase().includes(q) ||
@@ -238,14 +279,78 @@ export default function Clients() {
     setSaving(true);
     try {
       if (editClient) {
+        const newName = form.name.trim();
+        const renamed =
+          newName.toLowerCase() !== (editClient.name || "").trim().toLowerCase();
+        let moved = 0;
+        if (renamed) {
+          // Mobile jobs join to clients by the client_contact.name string, so
+          // the jobs have to move BEFORE the client row is renamed — and if
+          // the cascade fails, the rename is abandoned rather than orphaning
+          // the client's work (mirrors mobile's edit screen). The cascade
+          // requires a business scope (it fails closed without one), so
+          // legacy clients with a NULL business_id are scoped to the active
+          // workspace they're being edited from.
+          const { currentBusinessId } = await workspaceService.whenReady();
+          const result = await renameClientAcrossJobs(
+            editClient.name,
+            newName,
+            editClient.business_id ?? currentBusinessId
+          );
+          if (result.error) {
+            toast.error(
+              `Couldn't rename client: ${result.error}${
+                result.updated
+                  ? ` (${result.updated} job(s) already moved)`
+                  : ""
+              }`
+            );
+            return;
+          }
+          moved = result.updated;
+        }
+        const updates: Record<string, any> = {
+          ...form,
+          name: newName,
+          updated_at: new Date().toISOString(),
+        };
+        if (renamed) {
+          // Keep the split fields coherent: mobile recomposes `name` from
+          // first/last on its next save, so stale parts would silently revert
+          // this rename (and cascade the jobs back with it).
+          const parts = newName.split(/\s+/).filter(Boolean);
+          updates.first_name = parts[0] || null;
+          updates.last_name = parts.slice(1).join(" ") || null;
+        }
         const { error } = await supabase
           .from("clients")
-          .update({ ...form, updated_at: new Date().toISOString() })
+          .update(updates)
           .eq("id", editClient.id);
         if (error) throw error;
-        toast.success("Client updated");
+        toast.success(
+          moved
+            ? `Client updated — ${moved} job${moved === 1 ? "" : "s"} moved to the new name`
+            : "Client updated"
+        );
       } else {
-        const { error } = await supabase.from("clients").insert([form]);
+        // Stamp the active business, exactly as the bulk import does: an
+        // unstamped row is invisible to mobile's business-scoped fetch.
+        // Wait for workspace init so a cold load can't slip through with a
+        // null id — and fail closed if there's genuinely no workspace, since
+        // an unstamped insert would be invisible everywhere.
+        const { currentBusinessId: businessId } = await workspaceService.whenReady();
+        if (!businessId) {
+          toast.error(
+            "No active business workspace — the client can't be saved. Reload the page and try again."
+          );
+          return;
+        }
+        const payload: Record<string, any> = {
+          ...form,
+          name: form.name.trim(),
+          business_id: businessId,
+        };
+        const { error } = await supabase.from("clients").insert([payload]);
         if (error) throw error;
         toast.success("Client added");
       }
@@ -261,7 +366,7 @@ export default function Clients() {
 
   const deleteClient = async (client: ClientRow, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return;
+    if (!confirm(`Delete ${clientDisplayLabel(client)}? This cannot be undone.`)) return;
     try {
       const { error } = await supabase
         .from("clients")
@@ -332,10 +437,18 @@ export default function Clients() {
 
   const runBulkImport = async () => {
     if (!bulkRows.length) return;
+    // Same stamping rule as the single-add path: wait for workspace init and
+    // fail closed rather than importing rows no scoped fetch would ever see.
+    const { currentBusinessId: businessId } = await workspaceService.whenReady();
+    if (!businessId) {
+      toast.error(
+        "No active business workspace — clients can't be imported. Reload the page and try again."
+      );
+      return;
+    }
     setBulkImporting(true);
     const errors: string[] = [];
     let success = 0;
-    const businessId = workspaceService.getCurrentBusinessId();
     for (let i = 0; i < bulkRows.length; i++) {
       const row = bulkRows[i];
       try {
@@ -348,8 +461,8 @@ export default function Clients() {
           email: row["email"] || null,
           address: row["address"] || null,
           notes: row["notes"] || null,
+          business_id: businessId,
         };
-        if (businessId) payload["business_id"] = businessId;
         const { error } = await supabase.from("clients").insert([payload]);
         if (error) throw error;
         success++;
@@ -441,7 +554,7 @@ export default function Clients() {
         <div className="relative flex-shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, business, phone, email or address…"
+            placeholder="Search by name, company, phone, email or address…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -492,7 +605,7 @@ export default function Clients() {
                     className="sticky top-0 z-10 border-b bg-muted/80 backdrop-blur-sm"
                     style={{ display: "grid", gridTemplateColumns: COLS, padding: "0 16px", gap: "8px", alignItems: "center", height: "40px" }}
                   >
-                    <ColHeader col="businessName" label="Business" />
+                    <ColHeader col="businessName" label="Company" />
                     <ColHeader col="name" label="Customer Name" />
                     <ColHeader col="phone" label="Phone" />
                     <ColHeader col="email" label="Email" />
@@ -532,7 +645,7 @@ export default function Clients() {
                               height: "52px",
                             }}
                           >
-                            {/* Business Name */}
+                            {/* Company (the client's own business_name) */}
                             <div className="min-w-0">
                               {client.businessName ? (
                                 <span className="text-sm truncate block">
@@ -545,10 +658,11 @@ export default function Clients() {
                               )}
                             </div>
 
-                            {/* Customer Name */}
+                            {/* Customer Name — same precedence mobile shows:
+                                person (first/last) over the raw join-key name */}
                             <div className="min-w-0">
                               <span className="text-sm font-medium truncate block">
-                                {client.name}
+                                {clientDisplayLabel(client)}
                               </span>
                             </div>
 
@@ -661,7 +775,7 @@ export default function Clients() {
                   Sorted by{" "}
                   <span className="font-medium capitalize">
                     {sortKey === "businessName"
-                      ? "Business"
+                      ? "Company"
                       : sortKey === "name"
                         ? "Customer Name"
                         : sortKey === "jobCount"

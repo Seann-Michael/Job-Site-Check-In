@@ -11,7 +11,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { fetchJob, fetchJobMedia } from '@/lib/data';
 import { formatDate, notify } from '@/lib/format';
-import { galleryUrl, shareLinks } from '@/lib/share-links';
+import { galleryUrl, shareBaseUrl, shareLinks } from '@/lib/share-links';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 import { useWorkspace } from '@/hooks/use-workspace';
 import type { MediaItem } from '@/lib/types';
@@ -38,6 +39,12 @@ export default function ShareGalleryScreen() {
   const media = (mediaData ?? []).filter((item) => item.uri && item.media_type === 'image');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sharing, setSharing] = useState(false);
+  // No base URL means no link worth handing to a customer — same rule as
+  // review links (review-qr.tsx): never invent a domain we do not control.
+  const hasBaseUrl = shareBaseUrl() !== null;
+  // Demo mode (no Supabase): links exist on this device only and the public
+  // gallery page behind them is not live, so everything must say so.
+  const demoMode = !isSupabaseConfigured;
 
   // Everything selected by default once media loads.
   const seeded = React.useRef(false);
@@ -62,17 +69,36 @@ export default function ShareGalleryScreen() {
   };
 
   const handleShare = async () => {
-    if (!job || selected.size === 0 || sharing) return;
+    if (!job || selected.size === 0 || sharing || !hasBaseUrl) return;
     setSharing(true);
     try {
-      const link = await shareLinks.create(job.id, [...selected], {
+      const result = await shareLinks.create(job.id, [...selected], {
         jobTitle: job.title,
         businessName: business?.name,
         photoUrls: media
           .filter((item) => selected.has(item.id) && item.uri)
           .map((item) => item.uri!),
       });
-      const url = galleryUrl(link);
+      if (!result.ok) {
+        // The server row is what makes the public page live. No row means the
+        // URL would be dead — so no link was created and none is shared.
+        notify(
+          'Could not create the link',
+          "Share links need the web app's gallery feature, which isn't set up yet. No link was created, so nothing was shared.",
+        );
+        return;
+      }
+      if (result.demo) {
+        // Demo link: on-device only, the public page behind it is not live.
+        // Don't hand a dead URL to the share sheet — say what it is instead.
+        notify(
+          'Demo link created',
+          "Demo mode: this link is saved on this device only and doesn't open a live web gallery. Connect the app to your account to share real links.",
+        );
+        return;
+      }
+      const url = galleryUrl(result.link);
+      if (!url) return;
       await Share.share({
         message: [
           `${job.title} — photo gallery from ${job.client_name ? `your project` : 'our team'}`,
@@ -80,10 +106,7 @@ export default function ShareGalleryScreen() {
           url,
         ].join('\n'),
       });
-      notify(
-        'Gallery link created',
-        'The link goes live on your website when the web app is connected.',
-      );
+      notify('Gallery link created', 'Your client can open this link in any web browser.');
     } catch {
       // Share sheet dismissed.
     } finally {
@@ -149,45 +172,71 @@ export default function ShareGalleryScreen() {
         </Section>
       )}
 
+      {!hasBaseUrl ? (
+        <Card style={{ flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' }}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.warningStrong} />
+          <Text style={{ flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 19 }}>
+            EXPO_PUBLIC_APP_URL is not set to your deployed web app, so this build has no
+            address for the public gallery page. Links aren&apos;t created rather than handing
+            your client one that points somewhere you don&apos;t control. Set it and rebuild.
+          </Text>
+        </Card>
+      ) : null}
+
       <Button
-        label={selected.size > 0 ? `Share gallery link (${selected.size} photos)` : 'Select photos to share'}
+        label={
+          !hasBaseUrl
+            ? 'Sharing unavailable'
+            : selected.size === 0
+              ? 'Select photos to share'
+              : demoMode
+                ? `Create demo link (${selected.size} photos)`
+                : `Share gallery link (${selected.size} photos)`
+        }
         icon="link-outline"
         loading={sharing}
+        disabled={!hasBaseUrl}
         onPress={() => void handleShare()}
       />
 
       {(links ?? []).length > 0 ? (
-        <Section title="Shared links">
+        <Section title={demoMode ? 'Demo links (not live on the web)' : 'Shared links'}>
           <Card style={{ padding: 0 }}>
-            {(links ?? []).map((link, index) => (
-              <View
-                key={link.token}
-                style={[
-                  styles.linkRow,
-                  index > 0 && {
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: colors.border,
-                  },
-                ]}>
-                <Ionicons name="link-outline" size={18} color={colors.primary} />
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }} numberOfLines={1}>
-                    {galleryUrl(link)}
-                  </Text>
-                  <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
-                    {link.photo_ids.length} photos · {formatDate(link.created_at)}
-                  </Text>
+            {(links ?? []).map((link, index) => {
+              const url = galleryUrl(link);
+              return (
+                <View
+                  key={link.token}
+                  style={[
+                    styles.linkRow,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: colors.border,
+                    },
+                  ]}>
+                  <Ionicons name="link-outline" size={18} color={colors.primary} />
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+                      {url ?? 'No link — set EXPO_PUBLIC_APP_URL and rebuild'}
+                    </Text>
+                    <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
+                      {link.photo_ids.length} photos · {formatDate(link.created_at)}
+                      {demoMode ? ' · Demo — not live' : ''}
+                    </Text>
+                  </View>
+                  {url && !demoMode ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => void Share.share({ message: url }).catch(() => undefined)}>
+                      <Ionicons name="share-outline" size={17} color={colors.textSecondary} />
+                    </Pressable>
+                  ) : null}
+                  <Pressable hitSlop={8} onPress={() => void shareLinks.remove(link.token)}>
+                    <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+                  </Pressable>
                 </View>
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => void Share.share({ message: galleryUrl(link) }).catch(() => undefined)}>
-                  <Ionicons name="share-outline" size={17} color={colors.textSecondary} />
-                </Pressable>
-                <Pressable hitSlop={8} onPress={() => void shareLinks.remove(link.token)}>
-                  <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
-                </Pressable>
-              </View>
-            ))}
+              );
+            })}
           </Card>
         </Section>
       ) : null}

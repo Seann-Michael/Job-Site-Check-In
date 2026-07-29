@@ -176,16 +176,37 @@ export async function handleWorkflowWebhook(req: Request, res: Response) {
       return res.status(500).json({ error: "Failed to create execution" });
     }
 
-    // Queue workflow execution (async)
-    executeWorkflow(execution.id, workflow, payload).catch((error) => {
-      console.error("Error executing workflow:", error);
-    });
+    // Execute the workflow now, and report what actually happened. A caller
+    // must be able to tell accepted-and-executed apart from
+    // accepted-but-steps-failed, so we do not answer before the steps have run.
+    const run = await executeWorkflow(execution.id, workflow, payload);
+    const failedSteps = run.steps.filter((step) => step.status === "failed");
 
-    // Return immediately with execution ID
+    // When the caller asked for specific publish destinations (the mobile
+    // app's payload does), report an outcome for every one of them so nothing
+    // falls back to an optimistic default on the client.
+    const requestedDestinations: string[] = Array.isArray(payload?.destinations)
+      ? payload.destinations.filter((d: unknown): d is string => typeof d === "string")
+      : [];
+    const results =
+      requestedDestinations.length > 0
+        ? requestedDestinations.map((destination) =>
+            destinationOutcome(destination, run.steps)
+          )
+        : undefined;
+
     res.json({
-      success: true,
+      success: run.status === "completed",
       executionId: execution.id,
-      message: "Workflow triggered successfully",
+      status: run.status,
+      steps: run.steps,
+      ...(results ? { results } : {}),
+      message:
+        run.status === "completed"
+          ? run.steps.length > 0
+            ? "Workflow executed successfully"
+            : "Workflow accepted, but it has no action steps — nothing was done"
+          : `Workflow ran, but ${failedSteps.length > 0 ? `${failedSteps.length} of ${run.steps.length} step${run.steps.length === 1 ? "" : "s"} failed` : "it failed"}${run.errorMessage ? `: ${run.errorMessage}` : ""}`,
     });
   } catch (error) {
     console.error("Error in handleWorkflowWebhook:", error);
@@ -196,73 +217,173 @@ export async function handleWorkflowWebhook(req: Request, res: Response) {
   }
 }
 
-// Execute workflow and its actions
+/** What actually happened when one workflow step ran. */
+interface StepResult {
+  stepId: string;
+  app: string;
+  action: string;
+  status: "succeeded" | "failed";
+  error?: string;
+}
+
+interface WorkflowRunResult {
+  status: "completed" | "failed";
+  steps: StepResult[];
+  /** Set when the run failed before/outside individual steps. */
+  errorMessage?: string;
+}
+
+// Execute workflow and its actions. Every step's real outcome is collected,
+// and the execution record's status reflects it: a step that did no work is a
+// FAILED step, never a silent success.
 async function executeWorkflow(
   executionId: string,
   workflow: any,
   triggerData: WebhookPayload
-) {
+): Promise<WorkflowRunResult> {
   try {
-    const steps = workflow.steps as WorkflowStep[];
+    const steps = (Array.isArray(workflow.steps) ? workflow.steps : []) as WorkflowStep[];
 
     // Find action steps (skip trigger)
     const actionSteps = steps.filter((step) => step.type === "action");
 
-    // Execute each action
+    // Execute each action and record what actually happened
+    const results: StepResult[] = [];
     for (const step of actionSteps) {
-      try {
-        await executeAction(step, triggerData, executionId);
-      } catch (error) {
-        console.error(`Error executing action ${step.id}:`, error);
-      }
+      results.push(await executeAction(step, triggerData, executionId));
     }
 
-    // Mark execution as complete
+    const failed = results.filter((result) => result.status === "failed");
+    const status: "completed" | "failed" = failed.length > 0 ? "failed" : "completed";
+
     await supabase
       .from("workflow_executions")
       .update({
-        status: "completed",
+        status,
+        ...(failed.length > 0
+          ? {
+              error_message: failed
+                .map((result) => `${result.app}_${result.action}: ${result.error}`)
+                .join("; "),
+            }
+          : {}),
         completed_at: new Date().toISOString(),
       })
       .eq("id", executionId);
+
+    return { status, steps: results };
   } catch (error) {
     console.error("Error in executeWorkflow:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     await supabase
       .from("workflow_executions")
       .update({
         status: "failed",
-        error_message: error instanceof Error ? error.message : "Unknown error",
+        error_message: message,
         completed_at: new Date().toISOString(),
       })
       .eq("id", executionId);
+    return { status: "failed", steps: [], errorMessage: message };
   }
 }
 
-// Execute individual action
+// Execute individual action and report its real outcome. An action this
+// server cannot perform (no handler, or a handler that is not implemented
+// yet) is a FAILED step with a reason — never a pretend success.
 async function executeAction(
   step: WorkflowStep,
   triggerData: WebhookPayload,
   executionId: string
-) {
-  const { app, action, config } = step;
+): Promise<StepResult> {
+  const { id, app, action, config } = step;
+  const base = { stepId: id, app, action };
 
-  switch (`${app}_${action}`) {
-    case "webhook_send_webhook": {
-      await sendWebhook(config, triggerData, executionId);
-      break;
+  try {
+    switch (`${app}_${action}`) {
+      case "webhook_send_webhook": {
+        const failure = await sendWebhook(config, triggerData, executionId);
+        return failure
+          ? { ...base, status: "failed", error: failure }
+          : { ...base, status: "succeeded" };
+      }
+      case "jobs_create_job":
+        return {
+          ...base,
+          status: "failed",
+          error: "jobs_create_job is not implemented yet — no job was created",
+        };
+      case "reviews_send_review_email":
+        return {
+          ...base,
+          status: "failed",
+          error:
+            "reviews_send_review_email is not implemented yet — no email was sent",
+        };
+      // Add more action handlers as needed
+      default:
+        return {
+          ...base,
+          status: "failed",
+          error: `no handler for ${app}_${action}`,
+        };
     }
-    case "jobs_create_job": {
-      await createJobAction(config, triggerData, executionId);
-      break;
-    }
-    case "reviews_send_review_email": {
-      await sendReviewEmail(config, triggerData, executionId);
-      break;
-    }
-    // Add more action handlers as needed
-    default:
-      console.log(`No handler for action: ${app}_${action}`);
+  } catch (error) {
+    return {
+      ...base,
+      status: "failed",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
+}
+
+/**
+ * Which builder apps publish to which destination a caller can request. The
+ * mobile client's `destinations` are requests ('gmb' | 'website' |
+ * 'gohighlevel'); only steps of these apps actually fulfil them. A generic
+ * webhook step is deliberately NOT mapped to any destination — this server
+ * cannot know where an arbitrary webhook points, so it never claims one
+ * reached a named platform.
+ */
+const DESTINATION_STEP_APPS: Record<string, string[]> = {
+  gmb: ["gmb"],
+  website: ["rss"],
+};
+
+/**
+ * The honest per-destination outcome for one requested destination, in the
+ * shape the mobile client already understands ({ destination, status,
+ * detail } with status 'sent' | 'failed'). A destination no step publishes
+ * to, or whose step failed, is reported failed — never assumed delivered.
+ */
+function destinationOutcome(
+  destination: string,
+  steps: StepResult[]
+): { destination: string; status: "sent" | "failed"; detail: string } {
+  const apps = DESTINATION_STEP_APPS[destination] ?? [];
+  const matching = steps.filter((step) => apps.includes(step.app));
+
+  if (matching.length === 0) {
+    return {
+      destination,
+      status: "failed",
+      detail: `This workflow has no step that publishes to ${destination}, so nothing was published there.`,
+    };
+  }
+
+  const failed = matching.find((step) => step.status === "failed");
+  if (failed) {
+    return {
+      destination,
+      status: "failed",
+      detail: `Publishing step ${failed.app}_${failed.action} failed (${failed.error}) — nothing was published to ${destination}.`,
+    };
+  }
+
+  return {
+    destination,
+    status: "sent",
+    detail: `Workflow step ${matching[0].app}_${matching[0].action} completed.`,
+  };
 }
 
 /** Replace {{variable.path}} tokens in a string using a flat context object */
@@ -301,12 +422,13 @@ function buildContext(payload: WebhookPayload): Record<string, any> {
   };
 }
 
-// Send webhook action
+// Send webhook action. Returns null on success, or a reason string when the
+// delivery did not succeed (the target answered with a non-2xx status).
 async function sendWebhook(
   config: Record<string, any>,
   payload: WebhookPayload,
   executionId: string
-) {
+): Promise<string | null> {
   const {
     target_url,
     // legacy key support
@@ -416,56 +538,11 @@ async function sendWebhook(
 
     if (!response.ok) {
       console.warn(`Webhook responded with ${response.status}: ${responseBody.slice(0, 200)}`);
+      return `webhook target responded with HTTP ${response.status}`;
     }
+    return null;
   } finally {
     clearTimeout(timeoutId);
-  }
-}
-
-// Create job action
-async function createJobAction(
-  config: Record<string, any>,
-  triggerData: WebhookPayload,
-  executionId: string
-) {
-  try {
-    const { jobTitle, jobDescription, assignedTo } = config;
-
-    console.log("Creating job:", {
-      jobTitle,
-      jobDescription,
-      assignedTo,
-      triggerData,
-      executionId,
-    });
-
-    // TODO: Integrate with jobs system
-    // For now, just log the action
-  } catch (error) {
-    console.error("Error creating job:", error);
-  }
-}
-
-// Send review email action
-async function sendReviewEmail(
-  config: Record<string, any>,
-  triggerData: WebhookPayload,
-  executionId: string
-) {
-  try {
-    const { emailTemplate, delayHours } = config;
-
-    console.log("Sending review email:", {
-      emailTemplate,
-      delayHours,
-      triggerData,
-      executionId,
-    });
-
-    // TODO: Integrate with email system
-    // For now, just log the action
-  } catch (error) {
-    console.error("Error sending review email:", error);
   }
 }
 
