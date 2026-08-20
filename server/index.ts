@@ -7,7 +7,7 @@ import { pinoHttp } from "pino-http";
 
 import { logger } from "./lib/logger";
 import { getEnv, validateEnv, EnvError } from "./lib/env";
-import { requireAuth } from "./middleware/requireAuth";
+import { requireAuth, requireRole } from "./middleware/requireAuth";
 
 import { mediaRouter, publicMediaRouter } from "./routes/media";
 import { aiRouter } from "./routes/ai";
@@ -35,13 +35,8 @@ import {
   handlePaypalCheckout,
   handlePaymentStatus,
 } from "./routes/payments";
-import {
-  handleLogin,
-  handleLogout,
-  handleChangePassword,
-  handleEnableMFA,
-  handleVerifyMFA,
-} from "./routes/authApi";
+import { handleLogout, handleChangePassword } from "./routes/authApi";
+import { handleImpersonate } from "./routes/admin";
 import { handleAIReviewResponse } from "./routes/aiReview";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
@@ -180,11 +175,15 @@ export function createServer(options: CreateServerOptions = {}) {
   // DataForSEO proxy
   app.use("/api/dataforseo", requireAuth, dataForSEORouter);
 
-  // Twilio (auth deferred to a later step)
-  app.post("/api/twilio/sms/send", handleSendSMS);
-  app.post("/api/twilio/review-request", handleSendReviewRequest);
+  // Twilio — sending SMS requires a signed-in user. The `test` endpoint makes
+  // an authenticated upstream call and leaks account info, so it's protected
+  // too. `status` returns only booleans (safe to leave open). The inbound
+  // webhook stays open because Twilio calls it (signature verification is
+  // deferred to the Twilio step — see server/routes/README.md).
+  app.post("/api/twilio/sms/send", requireAuth, handleSendSMS);
+  app.post("/api/twilio/review-request", requireAuth, handleSendReviewRequest);
   app.post("/api/webhooks/twilio", handleTwilioWebhook);
-  app.get("/api/twilio/test", handleTwilioTest);
+  app.get("/api/twilio/test", requireAuth, handleTwilioTest);
   app.get("/api/twilio/status", handleTwilioStatus);
 
   // Google Maps helpers
@@ -209,12 +208,13 @@ export function createServer(options: CreateServerOptions = {}) {
   app.post("/api/create-checkout-paypal", handlePaypalCheckout);
   app.post("/api/payments/confirm", handleStripeConfirm);
 
-  // Auth API (deferred to a later step)
-  app.post("/api/auth/login", handleLogin);
+  // Auth API. Login + password reset happen client-side directly against
+  // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.
   app.post("/api/auth/logout", handleLogout);
-  app.post("/api/auth/change-password", handleChangePassword);
-  app.post("/api/auth/enable-mfa", handleEnableMFA);
-  app.post("/api/auth/verify-mfa", handleVerifyMFA);
+  app.post("/api/auth/change-password", requireAuth, handleChangePassword);
+
+  // Admin
+  app.post("/api/admin/impersonate", requireAuth, requireRole("super_admin"), handleImpersonate);
 
   // Workflows
   app.post("/api/webhooks/register", requireAuth, handleRegisterWebhook);

@@ -146,7 +146,7 @@ export function AppLayout({
 
   // Check if current user is a superadmin (but exclude impersonated accounts)
   const showSuperAdmin =
-    currentUser?.role === "superadmin" && !currentUser?.isImpersonated;
+    currentUser?.role === "super_admin" && !currentUser?.isImpersonated;
 
   // Handle sign out
   const handleSignOut = async () => {

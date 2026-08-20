@@ -64,46 +64,28 @@ export default function PublicProject() {
     if (!id) return;
     const loadProject = async () => {
       try {
-        const { data, error } = await supabaseClient
-          .from("jobs")
-          .select("id, name, description, created_at")
-          .eq("id", id)
-          .single();
+        const { data, error } = await supabaseClient.rpc("public_job", {
+          p_id: id,
+        });
 
-        if (error || !data) return;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (error || !row) return;
 
-        // Photos live in job_media — the table the mobile app writes — not
-        // on the jobs row itself.
-        const { data: mediaRows } = await supabaseClient
-          .from("job_media")
-          .select("file_path, media_type, created_at")
-          .eq("job_id", id)
-          .eq("media_type", "image")
-          .order("created_at", { ascending: true });
-
-        const photos = (mediaRows ?? [])
-          .map((row: { file_path: unknown }) => toPublicUrl(row.file_path))
+        // photo_paths carries the mobile/web media URLs the job_media table
+        // used to hold; normalize each through toPublicUrl.
+        const photos = asStringArray(row.photo_paths)
+          .map((path) => toPublicUrl(path))
           .filter((url): url is string => url !== null);
 
-        // Best-effort keywords from jsonb columns; queried separately so a
-        // database without them cannot take the whole page down.
-        let keywords: string[] = [];
-        const { data: extra } = await supabaseClient
-          .from("jobs")
-          .select("seo_targets, metadata")
-          .eq("id", id)
-          .single();
-        if (extra) {
-          keywords = deriveKeywords(extra.seo_targets, extra.metadata);
-        }
+        const keywords = deriveKeywords(row.seo_targets, row.metadata);
 
         setProject({
-          id: data.id,
-          name: data.name,
-          description: data.description ?? "",
+          id: row.id,
+          name: row.name,
+          description: row.description ?? "",
           photos,
           keywords,
-          createdAt: data.created_at,
+          createdAt: row.created_at,
         });
       } catch {
         // Project not found — show "not found" state

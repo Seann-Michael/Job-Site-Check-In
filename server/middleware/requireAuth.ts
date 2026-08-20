@@ -59,6 +59,12 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
       db.from("businesses").select("id").eq("owner_id", user.id),
     ]);
 
+    // A valid token with no profile row is an anomaly (the signup trigger
+    // creates the row). Refuse rather than proceed with a null-role profile.
+    if (!row) {
+      return res.status(401).json({ error: "User profile not found" });
+    }
+
     req.profile = {
       id: user.id,
       email: (row as any)?.email ?? user.email,

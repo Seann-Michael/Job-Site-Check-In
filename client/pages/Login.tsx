@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  Zap,
   Star,
   MapPin,
   BarChart3,
@@ -20,9 +19,9 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { AccountManager } from "@/lib/accountManager";
+import { signInWithPassword } from "@/lib/auth";
 import supabaseClient from "@/lib/supabaseClient";
 
 interface LoginFormData {
@@ -102,6 +101,7 @@ type SlideSource = typeof slides[number] & { image_url?: string };
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeSlides, setActiveSlides] = useState<SlideSource[]>(slides);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -172,18 +172,6 @@ export default function Login() {
     }, 300);
   };
 
-  const devBypass = (role: "admin" | "superadmin") => {
-    const user =
-      role === "superadmin"
-        ? { id: "1", name: "Super Admin", email: "superadmin@projectlens.com", role: "superadmin" }
-        : { id: "3", name: "Dev Admin", email: "admin@example.com", role: "admin" };
-    localStorage.setItem("auth_user", JSON.stringify(user));
-    localStorage.setItem("current_user", JSON.stringify(user));
-    localStorage.setItem("auth_token", "dev_bypass_token_" + Date.now());
-    toast.success(`Dev bypass: signed in as ${user.name}`);
-    navigate(role === "superadmin" ? "/super-admin" : "/admin/jobs", { replace: true });
-  };
-
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
     if (!formData.email.trim()) {
@@ -202,29 +190,24 @@ export default function Login() {
     setIsLoading(true);
     setErrors({});
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const account = AccountManager.authenticateAccount(formData.email, formData.password);
-      if (account) {
-        localStorage.setItem(
-          "current_user",
-          JSON.stringify({
-            id: account.id,
-            name: account.name,
-            email: account.email,
-            accountNumber: account.accountNumber,
-            role: account.role,
-            businessName: account.businessName,
-            phoneVerified: account.phoneVerified,
-            emailVerified: account.emailVerified,
-          }),
-        );
-        toast.success("Login successful!");
-        navigate("/admin/jobs");
-      } else {
+      await signInWithPassword(formData.email, formData.password);
+      toast.success("Login successful!");
+      const from =
+        (location.state as { from?: { pathname?: string } } | null)?.from
+          ?.pathname || "/admin/jobs";
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      const message: string = err?.message || "Something went wrong. Please try again.";
+      if (/email not confirmed/i.test(message)) {
+        setErrors({
+          general:
+            "Your email isn't confirmed yet. Please check your inbox for the confirmation link.",
+        });
+      } else if (/invalid login credentials/i.test(message)) {
         setErrors({ general: "Invalid email or password" });
+      } else {
+        setErrors({ general: message });
       }
-    } catch {
-      setErrors({ general: "Something went wrong. Please try again." });
     } finally {
       setIsLoading(false);
     }
@@ -377,34 +360,6 @@ export default function Login() {
               Sign Up Here
             </Link>
           </p>
-
-          {/* DEV BYPASS — remove before production */}
-          <div className="mt-6 border border-dashed border-yellow-400 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/20 space-y-2">
-            <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1">
-              <Zap className="h-3 w-3" />
-              Dev Bypass — remove before launch
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
-                onClick={() => devBypass("admin")}
-              >
-                Skip → Admin
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
-                onClick={() => devBypass("superadmin")}
-              >
-                Skip → Super Admin
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
 

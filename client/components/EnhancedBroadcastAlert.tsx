@@ -159,13 +159,11 @@ export function EnhancedBroadcastAlert() {
 
       switch (message.targetAudience) {
         case "business-owners":
-          return (
-            currentUser.role === "admin" || currentUser.role === "editor"
-          );
+          return currentUser.role === "business_owner";
         case "agency-admins":
-          return currentUser.role === "agency";
+          return currentUser.role === "agency_admin";
         case "staff":
-          return currentUser.role === "viewer" || currentUser.role === "editor";
+          return currentUser.role === "staff" || currentUser.role === "viewer";
         case "custom":
           return message.customUserIds?.includes(currentUser.id) || false;
         default:

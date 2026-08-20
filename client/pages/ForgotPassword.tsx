@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mail, CheckCircle, Shield } from "lucide-react";
+import { sendPasswordReset } from "@/lib/auth";
 
 export default function ForgotPassword() {
   const { toast } = useToast();
@@ -44,10 +45,8 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await sendPasswordReset(email);
 
-      // In a real app, this would send a password reset email
       setEmailSent(true);
 
       toast({
@@ -59,7 +58,9 @@ export default function ForgotPassword() {
       toast({
         title: "Error",
         description:
-          "There was an error sending the reset email. Please try again.",
+          error instanceof Error
+            ? error.message
+            : "There was an error sending the reset email. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -71,8 +72,7 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await sendPasswordReset(email);
 
       toast({
         title: "Email Resent",
@@ -81,7 +81,10 @@ export default function ForgotPassword() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to resend email. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to resend email. Please try again.",
         variant: "destructive",
       });
     } finally {

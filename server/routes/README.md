@@ -108,10 +108,60 @@ Action handlers: `webhook_send_webhook` (optional `config.signing_secret` adds a
 | GET | `/api/rss/:workflowId` | no | RSS 2.0 XML |
 | POST | `/api/rss/:workflowId/items` | auth | `{ item_title*, item_description?, item_link?, feed_title?, sub_account_id? }` -> `{ success, item }` |
 
-## Unchanged (auth/payments step pending)
+## Auth (`/api/auth/*`, strict rate limit 20/15min)
 
-`/api/auth/*`, `/api/twilio/*`, `/api/webhooks/twilio`, `/api/payments/*`,
-`/api/create-checkout-*`. `/api/webhooks/stripe` has a raw-body parser mounted but no handler yet.
+Login and password reset are **not** server endpoints anymore — the client talks
+to Supabase directly (`supabase.auth.signInWithPassword` /
+`supabase.auth.resetPasswordForEmail`). MFA is deferred (fake handlers removed).
+
+| Method | Path | Auth | Request | Response |
+|---|---|---|---|---|
+| POST | `/api/auth/logout` | no | | `{ success:true }` (session teardown is client-side) |
+| POST | `/api/auth/change-password` | **auth** | `{ oldPassword*, newPassword* (>=8) }` | `{ success:true, message }` |
+
+`change-password` changes **only the caller's own** password (identity comes from
+the bearer token, never the body). The current password is verified with an anon
+Supabase client (`signInWithPassword`) before the service-role admin API sets the
+new one. `400` bad/missing current password or `newPassword` < 8; `503` when
+`SUPABASE_ANON_KEY` is not configured.
+
+**Removed:** `POST /api/auth/login`, `POST /api/auth/enable-mfa`,
+`POST /api/auth/verify-mfa` (and their handlers).
+
+## Admin (`/api/admin/*`)
+
+| Method | Path | Auth | Request | Response |
+|---|---|---|---|---|
+| POST | `/api/admin/impersonate` | **auth + super_admin** | `{ userId* }` | `{ email, token, actionLink }` |
+
+Impersonation without the target's password: the server generates a one-time
+magic-link OTP for the target user (`auth.admin.generateLink({ type:"magiclink" })`)
+and returns it. **The client completes impersonation by calling**
+`supabase.auth.verifyOtp({ email, token, type:"magiclink" })` (using the returned
+`email` + `token`), which yields a real session for the target user. `actionLink`
+is the full magic-link URL as an alternative. Every call writes an `audit_logs`
+row (`action:"login"`, `resource_type:"user"`, `details.event:"impersonate"` with
+actor/target ids + emails). `400` missing/self `userId`, `403` caller not
+super_admin, `404` target not found.
+
+## Twilio (`/api/twilio/*`)
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/api/twilio/sms/send` | **auth** | `{ to*, message*, campaignId?, businessId? }` -> `{ success, messageId, status }` |
+| POST | `/api/twilio/review-request` | **auth** | `{ to*, businessName*, reviewLink*, customerName?, businessId? }` |
+| GET | `/api/twilio/test` | **auth** | upstream account check (leaks account info -> protected) |
+| GET | `/api/twilio/status` | no | `{ success, configured, hasPhoneNumber }` — booleans only, no secrets |
+| POST | `/api/webhooks/twilio` | no | Twilio delivery-status callbacks. **Left open because Twilio calls it; still needs Twilio signature (`X-Twilio-Signature`) verification — deferred to the Twilio step.** |
+
+## Still open (intentionally)
+
+- `/api/payments/*`, `/api/create-checkout-*` — deferred to the payments step (not touched here).
+- `/api/webhooks/stripe` — raw-body parser mounted, handler lands with payments.
+- `/api/webhooks/twilio` — Twilio-called, signature verification deferred (above).
+- `/api/workflows/webhook/:workflowId` — public but HMAC-verified.
+- `/api/rss/:workflowId` (GET feed) and `/api/oauth/google_my_business/callback` — public by design (feed readers / OAuth redirect with a single-use state nonce).
+- `/api/twilio/status`, `/health`, `/api/health` — no secrets, safe to leave open.
 
 ## Removed
 
@@ -124,7 +174,9 @@ Required (server refuses to start without): `SUPABASE_URL` (alias `VITE_SUPABASE
 `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL` (alias `VITE_APP_URL`; public origin, e.g.
 `https://app.example.com`).
 
-Optional: `CORS_ORIGINS` (comma list; default `APP_URL`), `PORT` (default 8080),
+Optional: `SUPABASE_ANON_KEY` (alias `VITE_SUPABASE_ANON_KEY`; required for
+`/api/auth/change-password` old-password verification), `CORS_ORIGINS` (comma
+list; default `APP_URL`), `PORT` (default 8080),
 `LOG_LEVEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_VISION_MODEL`,
 `GOOGLE_MAPS_API_KEY` (alias `VITE_GOOGLE_MAPS_API_KEY`), `GOOGLE_OAUTH_CLIENT_ID`,
 `GOOGLE_OAUTH_CLIENT_SECRET`, `DATAFORSEO_USERNAME`, `DATAFORSEO_PASSWORD`,

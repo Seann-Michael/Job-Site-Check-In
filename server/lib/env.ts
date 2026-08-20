@@ -7,6 +7,7 @@ import { logger } from "./logger";
  */
 const ALIASES: Record<string, string[]> = {
   SUPABASE_URL: ["VITE_SUPABASE_URL"],
+  SUPABASE_ANON_KEY: ["VITE_SUPABASE_ANON_KEY"],
   GOOGLE_MAPS_API_KEY: ["VITE_GOOGLE_MAPS_API_KEY"],
   APP_URL: ["VITE_APP_URL"],
 };
@@ -44,6 +45,7 @@ export function getAppUrl(): string {
 const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "APP_URL"];
 
 const OPTIONAL: Array<[string, string]> = [
+  ["SUPABASE_ANON_KEY", "Self-service password change (old-password verification)"],
   ["STRIPE_SECRET_KEY", "Payments (Stripe)"],
   ["PAYPAL_CLIENT_ID", "Payments (PayPal)"],
   ["PAYPAL_CLIENT_SECRET", "Payments (PayPal)"],

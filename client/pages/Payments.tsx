@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { workspaceService } from "@/lib/workspaceService";
+import { getCurrentUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -127,11 +128,7 @@ export default function Payments() {
     try {
       const annualDiscount = billing === "annual" ? 0.8 : 1;
       const amount = Math.round(plan.price * annualDiscount * (billing === "annual" ? 12 : 1));
-      const userEmail = (() => {
-        try {
-          return JSON.parse(localStorage.getItem("auth_user") || "{}").email || "";
-        } catch { return ""; }
-      })();
+      const userEmail = getCurrentUser()?.email || "";
 
       // Which business this purchase is for — the payment confirmation writes
       // the plan onto that businesses row, where web admin + mobile read it.

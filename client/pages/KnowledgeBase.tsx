@@ -194,9 +194,11 @@ export default function KnowledgeBase() {
   const userMatchesArticle = (userType: HelpArticle["user_type"]) => {
     if (userType === "all") return true;
     if (!currentUser) return false;
-    if (userType === "business" && currentUser.role === "admin") return true;
-    if (userType === "agency" && currentUser.role === "agency") return true;
-    if (userType === "admin" && currentUser.role === "superadmin") return true;
+    if (userType === "business" && currentUser.role === "business_owner")
+      return true;
+    if (userType === "agency" && currentUser.role === "agency_admin")
+      return true;
+    if (userType === "admin" && currentUser.role === "super_admin") return true;
     return false;
   };
 

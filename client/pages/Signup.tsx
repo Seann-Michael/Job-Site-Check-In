@@ -11,7 +11,7 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  Zap,
+  CheckCircle,
   Star,
   MapPin,
   BarChart3,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { AccountManager } from "@/lib/accountManager";
+import { signUpWithPassword } from "@/lib/auth";
 import supabaseClient from "@/lib/supabaseClient";
 
 interface SignupFormData {
@@ -121,6 +121,7 @@ export default function Signup() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   // Fetch custom signup slides from Supabase; keep defaults if none configured
   useEffect(() => {
@@ -166,18 +167,6 @@ export default function Signup() {
       setCurrentSlide(index);
       setAnimating(false);
     }, 300);
-  };
-
-  const devBypass = (role: "admin" | "superadmin") => {
-    const user =
-      role === "superadmin"
-        ? { id: "1", name: "Super Admin", email: "superadmin@projectlens.com", role: "superadmin" }
-        : { id: "3", name: "Dev Admin", email: "admin@example.com", role: "admin" };
-    localStorage.setItem("auth_user", JSON.stringify(user));
-    localStorage.setItem("current_user", JSON.stringify(user));
-    localStorage.setItem("auth_token", "dev_bypass_token_" + Date.now());
-    toast.success(`Dev bypass: signed in as ${user.name}`);
-    navigate(role === "superadmin" ? "/super-admin" : "/admin/jobs", { replace: true });
   };
 
   const handleGoogleSignUp = async () => {
@@ -231,26 +220,33 @@ export default function Signup() {
     setIsLoading(true);
     setErrors({});
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const emailExists = AccountManager.getAccountByEmail(formData.email);
-      if (emailExists) {
-        setErrors({ email: "An account with this email already exists" });
-        return;
-      }
-      AccountManager.createAccount({
-        name: formData.name,
+      const trimmedName = formData.name.trim();
+      const [firstName, ...rest] = trimmedName.split(/\s+/);
+      const lastName = rest.join(" ");
+
+      const result = await signUpWithPassword({
         email: formData.email,
-        phone: "",
         password: formData.password,
-        emailVerified: false,
-        phoneVerified: false,
-        role: "admin" as const,
-        businessName: formData.name + "'s Business",
+        firstName,
+        lastName,
       });
-      toast.success("Account created! Please sign in.");
-      navigate("/login");
-    } catch {
-      setErrors({ general: "Something went wrong. Please try again." });
+
+      if (result.session) {
+        // Email confirmation disabled — user is signed in immediately.
+        toast.success("Account created! Let's set up your business.");
+        navigate("/onboarding", { replace: true });
+      } else {
+        // Confirmation required — no session yet.
+        setAwaitingConfirmation(true);
+        toast.success("Account created! Please confirm your email.");
+      }
+    } catch (err: any) {
+      const message: string = err?.message || "Something went wrong. Please try again.";
+      if (/already registered|already exists|user already/i.test(message)) {
+        setErrors({ email: "An account with this email already exists" });
+      } else {
+        setErrors({ general: message });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -281,6 +277,19 @@ export default function Signup() {
 
           <h1 className="text-3xl font-bold mb-1">Create your account</h1>
           <p className="text-muted-foreground mb-8">Get started free — no credit card required</p>
+
+          {awaitingConfirmation && (
+            <Alert className="mb-6">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Check your email to confirm your account.</strong>
+                <br />
+                We sent a confirmation link to{" "}
+                <strong>{formData.email}</strong>. Click it, then sign in to
+                finish setting up your business.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* ── Google Sign-Up (primary) ── */}
           <Button
@@ -439,34 +448,6 @@ export default function Signup() {
               Sign In Here
             </Link>
           </p>
-
-          {/* DEV BYPASS — remove before production */}
-          <div className="mt-6 border border-dashed border-yellow-400 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/20 space-y-2">
-            <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1">
-              <Zap className="h-3 w-3" />
-              Dev Bypass — remove before launch
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
-                onClick={() => devBypass("admin")}
-              >
-                Skip → Admin
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-950/40"
-                onClick={() => devBypass("superadmin")}
-              >
-                Skip → Super Admin
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
 

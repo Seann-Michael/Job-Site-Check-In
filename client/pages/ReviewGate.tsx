@@ -186,12 +186,12 @@ export default function ReviewGate() {
           return;
         }
 
-        const { data: reviewReq, error } = await supabaseClient
-          .from("review_requests")
-          .select("id, business_id, customer_name, project_name")
-          .eq("id", id)
-          .maybeSingle();
+        const { data: rows, error } = await supabaseClient.rpc(
+          "review_request_public",
+          { p_id: id },
+        );
 
+        const reviewReq = Array.isArray(rows) ? rows[0] : rows;
         if (error || !reviewReq?.business_id) {
           setNotFound(true);
           return;
@@ -200,21 +200,26 @@ export default function ReviewGate() {
         // Record the open so both dashboards show a Viewed date.
         // Fire-and-forget: a failed write must never block the customer.
         supabaseClient
-          .from("review_requests")
-          .update({ status: "viewed", viewed_at: new Date().toISOString() })
-          .eq("id", reviewReq.id)
-          .in("status", ["sent", "scheduled"])
+          .rpc("review_request_mark_viewed", { p_id: reviewReq.id })
           .then(
             () => undefined,
             () => undefined,
           );
         setRemoteRequestId(reviewReq.id);
 
-        const settings = await loadBusiness(reviewReq.business_id);
-        if (!settings) {
-          setNotFound(true);
-          return;
-        }
+        // Replicate loadBusiness's merge logic against the RPC row shape
+        // (business_name / settings / address) since anon can no longer
+        // select from the businesses table directly.
+        const addr = (reviewReq.address || {}) as Record<string, any>;
+        const rpcSettings = reviewReq.settings || {};
+        const settings = {
+          ...rpcSettings,
+          businessName: reviewReq.business_name,
+          address: rpcSettings.address ?? addr.street ?? addr.address,
+          city: rpcSettings.city ?? addr.city,
+          state: rpcSettings.state ?? addr.state,
+        } as Record<string, any>;
+
         setBusinessId(reviewReq.business_id);
         buildFromSettings(
           settings,
@@ -256,23 +261,14 @@ export default function ReviewGate() {
    */
   const recordSubmission = async (text: string, toGoogle: boolean) => {
     if (isAdminPreview) return true; // preview never writes
-    const metadata: Record<string, any> = {
-      source: "review_gate",
-      redirected_to_google: toGoogle,
-    };
-    if (remoteRequestId) metadata.review_request_id = remoteRequestId;
     try {
-      const { error } = await supabaseClient.from("reviews").insert({
-        business_id: businessId,
-        // 'internal' is not in the live review_platform enum; 'custom' is the
-        // honest value for a gate submission that isn't a verified Google review.
-        platform: "custom",
-        rating,
-        title: reviewRequest?.projectName || null,
-        text: text.trim() || "(no comment provided)",
-        author: { name: reviewRequest?.customerName || "Customer" },
-        date: new Date().toISOString(),
-        metadata,
+      const { error } = await supabaseClient.rpc("submit_gate_review", {
+        p_request_id: remoteRequestId,
+        p_rating: rating,
+        p_title: reviewRequest?.projectName || null,
+        p_text: text,
+        p_author_name: reviewRequest?.customerName || "Customer",
+        p_to_google: toGoogle,
       });
       return !error;
     } catch {

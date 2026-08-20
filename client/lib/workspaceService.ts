@@ -9,7 +9,6 @@
  */
 
 import { supabaseClient as supabase } from "./supabaseClient";
-import { getCurrentUser as getLocalUser } from "./auth";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,6 +112,21 @@ class WorkspaceService {
   }
 
   /**
+   * Clear all workspace state and allow initialize() to run again. Called when
+   * the signed-in identity changes (login / logout / impersonation).
+   */
+  reset(): void {
+    this.initPromise = null;
+    this.state = {
+      user: null,
+      currentBusinessId: null,
+      businessIds: [],
+      initialized: false,
+    };
+    this.emit();
+  }
+
+  /**
    * Await this before reading getCurrentBusinessId()/getBusinessIds().
    * Resolves once initialization has completed (starting it if it hasn't),
    * so cold-load callers never observe the pre-init null business id and
@@ -175,7 +189,7 @@ class WorkspaceService {
   // -------------------------------------------------------------------------
 
   private async resolveWorkspaceUser(): Promise<WorkspaceUser | null> {
-    // 1. Real Supabase auth session
+    // The Supabase auth session is the sole source of identity.
     try {
       const {
         data: { user: authUser },
@@ -184,31 +198,9 @@ class WorkspaceService {
         return await this.syncUserRecord(authUser.id, authUser.email ?? "");
       }
     } catch {
-      // Supabase auth not available — fall through
+      // Supabase auth not available / no session.
     }
-
-    // 2. Local demo/localStorage user
-    const localUser = getLocalUser();
-    if (!localUser) return null;
-
-    // If the local user ID is a valid UUID, try syncing with Supabase
-    if (isValidUUID(localUser.id)) {
-      return await this.syncUserRecord(
-        localUser.id,
-        localUser.email ?? "",
-        localUser.name,
-      );
-    }
-
-    // Non-UUID local ID — no Supabase row can exist for this user.
-    console.warn(`[workspace] local user id "${localUser.id}" is not a UUID.`);
-    return {
-      id: localUser.id,
-      email: localUser.email ?? "",
-      name: localUser.name ?? localUser.email ?? "",
-      role: localUser.role ?? "viewer",
-      subAccountId: null,
-    };
+    return null;
   }
 
   /**

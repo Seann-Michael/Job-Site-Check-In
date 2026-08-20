@@ -143,9 +143,7 @@ export default function IdeaDetail() {
     setIdea({ ...idea, upvotes: newUpvotes, downvotes: newDownvotes, userVote: newUserVote });
 
     try {
-      const userEmail = (() => {
-        try { return JSON.parse(localStorage.getItem("auth_user") || "{}").email || ""; } catch { return ""; }
-      })();
+      const userEmail = currentUser?.email || "";
 
       await supabaseClient.from("ideas").update({ upvotes: newUpvotes, downvotes: newDownvotes }).eq("id", idea.id);
 
@@ -174,9 +172,7 @@ export default function IdeaDetail() {
     setIsSubmittingComment(true);
     try {
       const authorName = currentUser.name || currentUser.email || "User";
-      const authorEmail = (() => {
-        try { return JSON.parse(localStorage.getItem("auth_user") || "{}").email || ""; } catch { return ""; }
-      })();
+      const authorEmail = currentUser.email || "";
 
       const { data, error } = await supabaseClient
         .from("idea_comments")

@@ -54,7 +54,7 @@ export default function Index() {
 
   // Redirect super admin users to super admin dashboard
   useEffect(() => {
-    if (currentUser?.role === "superadmin" && !currentUser?.isImpersonated) {
+    if (currentUser?.role === "super_admin" && !currentUser?.isImpersonated) {
       navigate("/super-admin", { replace: true });
       return;
     }

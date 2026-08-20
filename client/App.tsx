@@ -5,7 +5,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Suspense, lazy } from "react";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ProtectedRoute, PublicOnlyRoute } from "./components/ProtectedRoute";
+import { AuthProvider } from "@/hooks/useAuthContext";
 import { queryClient } from "@/lib/queryClient";
 
 // Lazy load pages for better performance
@@ -36,6 +37,8 @@ const SuperAdminStaff = lazy(() => import("./pages/SuperAdminStaff"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Login = lazy(() => import("./pages/Login"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Support = lazy(() => import("./pages/Support"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const ReviewGate = lazy(() => import("./pages/ReviewGate"));
@@ -86,6 +89,7 @@ const App = () => (
       <BrowserRouter>
         <ThemeProvider defaultTheme="light" storageKey="local-seo-ranker-theme">
           <TooltipProvider>
+            <AuthProvider>
             <Sonner />
             <Suspense
               fallback={
@@ -128,13 +132,36 @@ const App = () => (
                   path="/signin"
                   element={<Navigate to="/login" replace />}
                 />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
+                <Route
+                  path="/login"
+                  element={
+                    <PublicOnlyRoute>
+                      <Login />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/signup"
+                  element={
+                    <PublicOnlyRoute>
+                      <Signup />
+                    </PublicOnlyRoute>
+                  }
+                />
                 <Route
                   path="/sign-up"
                   element={<Navigate to="/signup" replace />}
                 />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route
+                  path="/onboarding"
+                  element={
+                    <ProtectedRoute>
+                      <Onboarding />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
                 <Route path="/public/job/:id" element={<PublicProject />} />
@@ -301,7 +328,7 @@ const App = () => (
                 <Route
                   path="/super-admin"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdmin />
                     </ProtectedRoute>
                   }
@@ -309,7 +336,7 @@ const App = () => (
                 <Route
                   path="/super-admin/businesses"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <BusinessManagement />
                     </ProtectedRoute>
                   }
@@ -317,7 +344,7 @@ const App = () => (
                 <Route
                   path="/super-admin/business/:businessId"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <BusinessDetail />
                     </ProtectedRoute>
                   }
@@ -370,7 +397,7 @@ const App = () => (
                 <Route
                   path="/super-admin/settings"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminSettings />
                     </ProtectedRoute>
                   }
@@ -378,7 +405,7 @@ const App = () => (
                 <Route
                   path="/super-admin/staff"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminStaff />
                     </ProtectedRoute>
                   }
@@ -386,7 +413,7 @@ const App = () => (
                 <Route
                   path="/super-admin/ideas"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminIdeas />
                     </ProtectedRoute>
                   }
@@ -394,7 +421,7 @@ const App = () => (
                 <Route
                   path="/super-admin/broadcast"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminBroadcast />
                     </ProtectedRoute>
                   }
@@ -402,7 +429,7 @@ const App = () => (
                 <Route
                   path="/super-admin/templates"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminMessageTemplates />
                     </ProtectedRoute>
                   }
@@ -410,7 +437,7 @@ const App = () => (
                 <Route
                   path="/super-admin/analytics"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminAnalytics />
                     </ProtectedRoute>
                   }
@@ -418,7 +445,7 @@ const App = () => (
                 <Route
                   path="/super-admin/automation"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminAutomation />
                     </ProtectedRoute>
                   }
@@ -426,7 +453,7 @@ const App = () => (
                 <Route
                   path="/super-admin/segments"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminSegmentation />
                     </ProtectedRoute>
                   }
@@ -434,7 +461,7 @@ const App = () => (
                 <Route
                   path="/super-admin/email"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminEmailIntegration />
                     </ProtectedRoute>
                   }
@@ -442,7 +469,7 @@ const App = () => (
                 <Route
                   path="/super-admin/performance"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminPerformance />
                     </ProtectedRoute>
                   }
@@ -450,7 +477,7 @@ const App = () => (
                 <Route
                   path="/super-admin/quality"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminQuality />
                     </ProtectedRoute>
                   }
@@ -458,7 +485,7 @@ const App = () => (
                 <Route
                   path="/super-admin/help"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminHelp />
                     </ProtectedRoute>
                   }
@@ -466,7 +493,7 @@ const App = () => (
                 <Route
                   path="/super-admin/support"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminSupport />
                     </ProtectedRoute>
                   }
@@ -474,7 +501,7 @@ const App = () => (
                 <Route
                   path="/super-admin/users"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminUsers />
                     </ProtectedRoute>
                   }
@@ -482,7 +509,7 @@ const App = () => (
                 <Route
                   path="/super-admin/workspaces"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminWorkspaces />
                     </ProtectedRoute>
                   }
@@ -490,7 +517,7 @@ const App = () => (
                 <Route
                   path="/super-admin/workspaces/:id"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminWorkspaceDetail />
                     </ProtectedRoute>
                   }
@@ -498,7 +525,7 @@ const App = () => (
                 <Route
                   path="/super-admin/communications"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminCommunications />
                     </ProtectedRoute>
                   }
@@ -506,7 +533,7 @@ const App = () => (
                 <Route
                   path="/super-admin/leads"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminLeads />
                     </ProtectedRoute>
                   }
@@ -692,6 +719,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+            </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>
       </BrowserRouter>

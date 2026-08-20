@@ -1,3 +1,29 @@
+/**
+ * auth.ts
+ *
+ * Thin, mostly-synchronous facade over Supabase Auth.
+ *
+ * A module-level cache `{ session, profile }` is populated once by `initAuth()`
+ * (called from main.tsx before first paint) and kept fresh by
+ * `supabaseClient.auth.onAuthStateChange`. Synchronous getters read from that
+ * cache so the ~20 legacy call sites keep working unchanged.
+ */
+
+import type { Session } from "@supabase/supabase-js";
+import { supabaseClient } from "./supabaseClient";
+import { workspaceService } from "./workspaceService";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type UserRole =
+  | "super_admin"
+  | "agency_admin"
+  | "business_owner"
+  | "staff"
+  | "viewer";
+
 export interface BusinessProfile {
   id: string;
   accountId: string; // Format: XXX-XXX-XXX
@@ -13,7 +39,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "editor" | "viewer" | "superadmin" | "agency";
+  role: UserRole;
   avatar?: string;
   isImpersonated?: boolean;
   agencyId?: string;
@@ -24,124 +50,311 @@ export interface User {
   businesses?: BusinessProfile[];
 }
 
-export function getCurrentUser(): User | null {
-  try {
-    const userStr = localStorage.getItem("auth_user");
-    if (userStr) {
-      return JSON.parse(userStr);
-    } else {
-      // Initialize with default user for demo
-      const defaultUser: User = {
-        id: "1",
-        name: "John Smith",
-        email: "john@smithconstruction.com",
-        role: "admin",
-        firstName: "John",
-        lastName: "Smith",
-        currentBusinessId: "business-1",
-        businesses: [
-          {
-            id: "business-1",
-            accountId: "102-456-789",
-            name: "Smith Construction LLC",
-            description: "General contracting and home renovations",
-            address: "123 Main St, Springfield, IL 62701",
-            phone: "(555) 123-4567",
-            website: "https://smithconstruction.com",
-          },
-          {
-            id: "business-2",
-            accountId: "203-567-890",
-            name: "Smith Property Management",
-            description: "Residential and commercial property management",
-            address: "456 Oak Ave, Springfield, IL 62702",
-            phone: "(555) 234-5678",
-            website: "https://smithproperties.com",
-          },
-          {
-            id: "business-3",
-            accountId: "304-678-901",
-            name: "Elite Home Renovations",
-            description: "Premium kitchen and bathroom remodeling",
-            address: "789 Pine St, Springfield, IL 62703",
-            phone: "(555) 345-6789",
-            website: "https://elitehomerenos.com",
-          },
-        ],
-      };
-      localStorage.setItem("auth_user", JSON.stringify(defaultUser));
-      localStorage.setItem("auth_token", "demo_token_" + Date.now());
-      return defaultUser;
+interface ProfileRow {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  avatar_url?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// In-memory cache
+// ---------------------------------------------------------------------------
+
+interface AuthCache {
+  session: Session | null;
+  profile: ProfileRow | null;
+}
+
+const cache: AuthCache = { session: null, profile: null };
+let initialized = false;
+let initPromise: Promise<void> | null = null;
+
+// ---------------------------------------------------------------------------
+// Change notification (drives AuthProvider / useAuth re-renders)
+// ---------------------------------------------------------------------------
+
+type AuthListener = () => void;
+const listeners = new Set<AuthListener>();
+
+export function subscribeAuth(fn: AuthListener): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
+function emit() {
+  listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error("[auth] listener error:", err);
     }
-  } catch {
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Session / profile plumbing
+// ---------------------------------------------------------------------------
+
+async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .from("users")
+      .select("id, email, name, role, avatar_url, first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) {
+      console.warn("[auth] fetchProfile error:", error.message);
+      return null;
+    }
+    return (data as ProfileRow | null) ?? null;
+  } catch (err) {
+    console.warn("[auth] fetchProfile failed:", err);
     return null;
   }
+}
+
+/**
+ * Apply a Supabase session to the cache, refreshing the profile row and keeping
+ * workspace state in sync with the session identity.
+ */
+async function applySession(session: Session | null): Promise<void> {
+  const prevUserId = cache.session?.user?.id ?? null;
+  const nextUserId = session?.user?.id ?? null;
+
+  cache.session = session;
+  cache.profile = session?.user ? await fetchProfile(session.user.id) : null;
+
+  // Re-scope the workspace whenever the signed-in identity changes.
+  if (nextUserId !== prevUserId) {
+    workspaceService.reset();
+    if (nextUserId) {
+      try {
+        await workspaceService.initialize();
+      } catch (err) {
+        console.warn("[auth] workspace re-init failed:", err);
+      }
+    }
+  }
+
+  emit();
+}
+
+/**
+ * Populate the auth cache from the current Supabase session and subscribe to
+ * future auth-state changes. Idempotent — safe to await from multiple places.
+ */
+export async function initAuth(): Promise<void> {
+  if (initialized) return;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      await applySession(data.session ?? null);
+    } catch (err) {
+      console.warn("[auth] initAuth failed:", err);
+      cache.session = null;
+      cache.profile = null;
+    }
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      void applySession(session ?? null);
+    });
+
+    initialized = true;
+  })();
+
+  return initPromise;
+}
+
+/** True once initAuth() has completed at least one pass. */
+export function isAuthReady(): boolean {
+  return initialized;
+}
+
+// ---------------------------------------------------------------------------
+// Synchronous getters (read from cache)
+// ---------------------------------------------------------------------------
+
+export function getCurrentUser(): User | null {
+  const { session, profile } = cache;
+  if (!session?.user) return null;
+
+  const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+  const role =
+    (profile?.role as UserRole | undefined) ??
+    (typeof meta.role === "string" ? (meta.role as UserRole) : undefined) ??
+    "business_owner";
+
+  const firstName =
+    profile?.first_name ??
+    (typeof meta.first_name === "string" ? meta.first_name : undefined) ??
+    undefined;
+  const lastName =
+    profile?.last_name ??
+    (typeof meta.last_name === "string" ? meta.last_name : undefined) ??
+    undefined;
+
+  const composedName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const name =
+    profile?.name ??
+    (typeof meta.name === "string" ? meta.name : undefined) ??
+    (composedName || undefined) ??
+    session.user.email ??
+    "";
+
+  return {
+    id: profile?.id ?? session.user.id,
+    email: profile?.email ?? session.user.email ?? "",
+    name: name || session.user.email || "",
+    role,
+    avatar: profile?.avatar_url ?? undefined,
+    firstName: firstName ?? undefined,
+    lastName: lastName ?? undefined,
+    currentBusinessId: workspaceService.getCurrentBusinessId() ?? undefined,
+  };
 }
 
 export function getAuthToken(): string | null {
-  return localStorage.getItem("auth_token");
+  return cache.session?.access_token ?? null;
 }
 
 export function isAuthenticated(): boolean {
-  return !!getCurrentUser() && !!getAuthToken();
-}
-
-export function signOut(): void {
-  localStorage.removeItem("auth_user");
-  localStorage.removeItem("auth_token");
+  return !!cache.session?.user;
 }
 
 export function isSuperAdmin(): boolean {
-  const user = getCurrentUser();
-  return user?.role === "superadmin";
+  return getCurrentUser()?.role === "super_admin";
 }
 
 export function isAgencyAdmin(): boolean {
-  const user = getCurrentUser();
-  return user?.role === "agency";
+  return getCurrentUser()?.role === "agency_admin";
 }
 
 export function requireAuth(): boolean {
-  if (!isAuthenticated()) {
-    return false;
-  }
-  return true;
+  return isAuthenticated();
 }
 
+// ---------------------------------------------------------------------------
+// Business helpers — delegate to workspaceService (the source of truth)
+// ---------------------------------------------------------------------------
+
 export function getCurrentBusiness(): BusinessProfile | null {
-  const user = getCurrentUser();
-  if (!user?.businesses || !user.currentBusinessId) {
-    return null;
-  }
-  return user.businesses.find((b) => b.id === user.currentBusinessId) || null;
+  const id = workspaceService.getCurrentBusinessId();
+  if (!id) return null;
+  return {
+    id,
+    accountId: workspaceService.getSubAccountId() ?? "",
+    name: "",
+  };
 }
 
 export function getUserBusinesses(): BusinessProfile[] {
-  const user = getCurrentUser();
-  return user?.businesses || [];
+  return workspaceService.getBusinessIds().map((id) => ({
+    id,
+    accountId: workspaceService.getSubAccountId() ?? "",
+    name: "",
+  }));
 }
 
 export function switchToBusiness(businessId: string): boolean {
-  const user = getCurrentUser();
-  if (!user?.businesses) {
-    return false;
-  }
-
-  const business = user.businesses.find((b) => b.id === businessId);
-  if (!business) {
-    return false;
-  }
-
-  const updatedUser = {
-    ...user,
-    currentBusinessId: businessId,
-  };
-
-  localStorage.setItem("auth_user", JSON.stringify(updatedUser));
+  if (!workspaceService.getBusinessIds().includes(businessId)) return false;
+  void workspaceService.switchBusiness(businessId);
   return true;
 }
 
 export function canSwitchBusinesses(): boolean {
-  const user = getCurrentUser();
-  return user?.role === "admin" && (user?.businesses?.length || 0) > 1;
+  return workspaceService.getBusinessIds().length > 1;
+}
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
+
+export async function signOut(): Promise<void> {
+  try {
+    await supabaseClient.auth.signOut();
+  } catch (err) {
+    console.error("[auth] signOut error:", err);
+  }
+  cache.session = null;
+  cache.profile = null;
+  workspaceService.reset();
+  try {
+    localStorage.removeItem("workspace_business_id");
+  } catch {
+    /* ignore */
+  }
+  emit();
+  if (typeof window !== "undefined") {
+    window.location.assign("/login");
+  }
+}
+
+export async function signInWithPassword(email: string, password: string) {
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+  });
+  if (error) throw error;
+  await applySession(data.session ?? null);
+  return data;
+}
+
+export async function signUpWithPassword(params: {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+}) {
+  const { email, password, firstName, lastName } = params;
+  const name = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      // The DB trigger reads name / first_name / last_name from user metadata
+      // to populate the public.users row on signup.
+      data: {
+        name: name || undefined,
+        first_name: firstName || undefined,
+        last_name: lastName || undefined,
+      },
+      emailRedirectTo:
+        typeof window !== "undefined"
+          ? `${window.location.origin}/login`
+          : undefined,
+    },
+  });
+  if (error) throw error;
+
+  // If email confirmation is disabled Supabase returns a session immediately.
+  if (data.session) {
+    await applySession(data.session);
+  }
+  return data;
+}
+
+export async function sendPasswordReset(email: string) {
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo:
+      typeof window !== "undefined"
+        ? `${window.location.origin}/reset-password`
+        : undefined,
+  });
+  if (error) throw error;
+}
+
+export async function updatePassword(newPassword: string) {
+  const { error } = await supabaseClient.auth.updateUser({
+    password: newPassword,
+  });
+  if (error) throw error;
 }

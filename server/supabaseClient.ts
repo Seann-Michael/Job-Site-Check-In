@@ -27,6 +27,25 @@ export function getSupabaseClient(): SupabaseClient {
   return _client;
 }
 
+/**
+ * Fresh Supabase client using the ANON (public) key, with no session
+ * persistence. Used to *verify* a user-supplied password via
+ * `signInWithPassword` without touching the service-role singleton (and
+ * without ever caching that session). A new client is returned per call so
+ * concurrent verifications never share auth state.
+ *
+ * Returns null when SUPABASE_ANON_KEY (alias VITE_SUPABASE_ANON_KEY) is not
+ * configured, so callers can respond 503 rather than crash.
+ */
+export function createAnonClient(): SupabaseClient | null {
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_ANON_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 /** Test hook: replace the singleton (used by vitest). */
 export function __setSupabaseClientForTests(client: SupabaseClient | null) {
   _client = client;

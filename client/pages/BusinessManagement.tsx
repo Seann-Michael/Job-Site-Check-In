@@ -57,6 +57,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/api";
 
 interface Business {
   id: string;
@@ -233,25 +234,30 @@ export default function BusinessManagement() {
     }
   };
 
-  const impersonateUser = (businessId: string) => {
+  const impersonateUser = async (businessId: string) => {
     const targetBusiness = businesses.find((b) => b.id === businessId);
-    if (targetBusiness) {
-      toast.success(`Signing in as ${targetBusiness.admin}...`);
-      localStorage.setItem(
-        "superadmin_session",
-        JSON.stringify({ id: "superadmin", role: "superadmin" }),
+    try {
+      toast.info(`Signing in as ${targetBusiness?.admin ?? "owner"}…`);
+      // Server issues a real Supabase session for the business owner.
+      // Expected: POST /api/admin/impersonate { businessId } ->
+      //   { access_token: string, refresh_token: string }
+      const session = await apiFetch<{
+        access_token: string;
+        refresh_token: string;
+      }>("/api/admin/impersonate", {
+        method: "POST",
+        body: { businessId },
+      });
+      await supabaseClient.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      window.location.assign("/admin/jobs");
+    } catch (err) {
+      toast.error(
+        "Could not impersonate this business owner: " +
+          (err instanceof Error ? err.message : "Unknown error"),
       );
-
-      const impersonatedUser = {
-        id: businessId,
-        name: targetBusiness.admin,
-        email: targetBusiness.email,
-        role: "admin",
-        isImpersonated: true,
-      };
-
-      localStorage.setItem("auth_user", JSON.stringify(impersonatedUser));
-      navigate("/admin/jobs", { replace: true });
     }
   };
 

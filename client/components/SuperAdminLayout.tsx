@@ -44,9 +44,8 @@ import {
   Zap,
 } from "lucide-react";
 import { useState, ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { getCurrentUser, signOut } from "@/lib/auth";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface SuperAdminLayoutProps {
@@ -61,15 +60,13 @@ export function SuperAdminLayout({
   breadcrumbs,
 }: SuperAdminLayoutProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const currentUser = getCurrentUser();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const handleSignOut = () => {
-    signOut();
-    toast.success("Signed out successfully");
-    navigate("/login", { replace: true });
+    // signOut() clears the Supabase session and redirects to /login.
+    void signOut();
   };
 
   const sidebarItems = [
