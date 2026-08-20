@@ -152,10 +152,8 @@ export const useAddressSearch = () => {
   // This is more reliable and doesn't require user permission
 
   const searchAddress = useCallback(async (query: string) => {
-    console.log("🔍 Starting address search for:", query);
 
     if (!query || query.length < 3) {
-      console.log("�� Query too short, clearing suggestions");
       setSuggestions([]);
       return;
     }
@@ -165,26 +163,20 @@ export const useAddressSearch = () => {
 
     try {
       // Check if API key is available before attempting to load
-      console.log("🔑 Checking API key availability...");
       const { getGoogleMapsApiKey } = await import("@/lib/googleMaps");
       const apiKey = getGoogleMapsApiKey();
       if (!apiKey) {
-        console.error("❌ No API key available for address search");
+        console.error("No API key available for address search");
         setError("Google Maps API key not configured");
         setSuggestions([]);
         setIsLoading(false);
         return;
       }
 
-      console.log("✅ API key available, loading Google Maps API...");
 
       await loadGoogleMapsAPI();
-      console.log("✅ Google Maps API loaded successfully");
 
       const service = new google.maps.places.AutocompleteService();
-      console.log(
-        "🏢 AutocompleteService created, making prediction request...",
-      );
 
       // Build request options without location bias (rely on IP-based detection)
       const requestOptions: google.maps.places.AutocompletionRequest = {
@@ -197,7 +189,6 @@ export const useAddressSearch = () => {
       const cityStateMatch = query.match(/,\s*([A-Z]{2})\s*$/i);
       if (cityStateMatch) {
         const state = cityStateMatch[1].toUpperCase();
-        console.log("🏛️ Detected state in query:", state);
         // Enhance component restrictions for specific state
         requestOptions.componentRestrictions = {
           country: "us",
@@ -207,38 +198,27 @@ export const useAddressSearch = () => {
       service.getPlacePredictions(
         requestOptions,
         async (predictions, status) => {
-          console.log(
-            "📍 Prediction callback - Status:",
-            status,
-            "Predictions:",
-            predictions?.length,
-          );
 
           if (
             status === google.maps.places.PlacesServiceStatus.OK &&
             predictions
           ) {
-            console.log("✅ Predictions received, processing...");
 
             // Simple processing - use Google's default relevance
             const results: PlaceResult[] = [];
 
             for (const prediction of predictions.slice(0, 6)) {
-              console.log("🌍 Geocoding prediction:", prediction.description);
               const geocodeResult = await geocodeAddress(
                 prediction.description,
               );
 
               if (geocodeResult) {
                 results.push(geocodeResult);
-                console.log(`✅ Geocoded: ${prediction.description}`);
               }
             }
 
-            console.log("📍 Final results:", results.length, "suggestions");
             setSuggestions(results);
           } else {
-            console.log("❌ No predictions or bad status:", status);
             setSuggestions([]);
           }
           setIsLoading(false);
@@ -311,10 +291,8 @@ export const useBusinessPlacesSearch = () => {
   const [error, setError] = useState<string | null>(null);
 
   const searchBusinesses = useCallback(async (query: string) => {
-    console.log("🏢 Starting business search for:", query);
 
     if (!query || query.length < 3) {
-      console.log("❌ Query too short, clearing suggestions");
       setSuggestions([]);
       return;
     }
@@ -324,40 +302,29 @@ export const useBusinessPlacesSearch = () => {
 
     try {
       // Check if API key is available
-      console.log("🔑 Checking API key availability...");
       const { getGoogleMapsApiKey } = await import("@/lib/googleMaps");
       const apiKey = getGoogleMapsApiKey();
       if (!apiKey) {
-        console.error("❌ No API key available for business search");
+        console.error("No API key available for business search");
         setError("Google Maps API key not configured");
         setSuggestions([]);
         setIsLoading(false);
         return;
       }
 
-      console.log("✅ API key available, loading Google Maps API...");
       await loadGoogleMapsAPI();
-      console.log("✅ Google Maps API loaded successfully");
 
       const service = new google.maps.places.PlacesService(
         document.createElement("div"),
       );
-      console.log("🏢 PlacesService created, making text search request...");
 
       const request: google.maps.places.TextSearchRequest = {
         query: query,
       };
 
       service.textSearch(request, (results, status) => {
-        console.log(
-          "🏢 Business search callback - Status:",
-          status,
-          "Results:",
-          results?.length,
-        );
 
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          console.log("✅ Business results received, processing...");
 
           const businessResults = results
             .filter((place) => place.business_status === "OPERATIONAL")
@@ -383,14 +350,8 @@ export const useBusinessPlacesSearch = () => {
               url: place.url,
             }));
 
-          console.log(
-            "📍 Final business results:",
-            businessResults.length,
-            "businesses",
-          );
           setSuggestions(businessResults);
         } else {
-          console.log("❌ No business results or bad status:", status);
           setSuggestions([]);
         }
         setIsLoading(false);

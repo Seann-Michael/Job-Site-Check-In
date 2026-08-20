@@ -1,7 +1,7 @@
 {
   "name": "Local SEO Ranker - Advanced SEO Management Platform",
   "short_name": "Local SEO Ranker",
-  "description": "Professional SEO management system with advanced analytics, agency tools, real-time chat, offline support, and automated backup features.",
+  "description": "Google Business Profile optimization, review management and local rank tracking for service businesses.",
   "start_url": "/admin/jobs",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -67,49 +67,12 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshot-desktop-dashboard.png",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Dashboard with project analytics and performance metrics"
-    },
-    {
-      "src": "/screenshot-desktop-projects.png",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Project management interface with task tracking"
-    },
-    {
-      "src": "/screenshot-desktop-chat.png",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Real-time team chat and communication"
-    },
-    {
-      "src": "/screenshot-mobile-projects.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Mobile project list view"
-    },
-    {
-      "src": "/screenshot-mobile-dashboard.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Mobile dashboard and analytics"
-    }
-  ],
   "shortcuts": [
     {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "description": "View analytics dashboard",
-      "url": "/admin/dashboard",
+      "name": "Jobs",
+      "short_name": "Jobs",
+      "description": "View jobs",
+      "url": "/admin/jobs",
       "icons": [
         {
           "src": "/icon-192x192.png",
@@ -130,30 +93,6 @@
       ]
     },
     {
-      "name": "Chat",
-      "short_name": "Chat",
-      "description": "Team communication",
-      "url": "/chat",
-      "icons": [
-        {
-          "src": "/icon-192x192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Reports",
-      "short_name": "Reports",
-      "description": "View SEO reports and analytics",
-      "url": "/admin/reports",
-      "icons": [
-        {
-          "src": "/icon-192x192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
       "name": "Gallery",
       "short_name": "Gallery",
       "description": "Project media gallery",
@@ -166,50 +105,8 @@
       ]
     }
   ],
-  "file_handlers": [
-    {
-      "action": "/admin/import",
-      "accept": {
-        "text/csv": [".csv"],
-        "application/vnd.ms-excel": [".xls"],
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"]
-      }
-    },
-    {
-      "action": "/admin/gallery",
-      "accept": {
-        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
-        "video/*": [".mp4", ".webm", ".mov"]
-      }
-    }
-  ],
-  "protocol_handlers": [
-    {
-      "protocol": "web+localseoranker",
-      "url": "/handle?url=%s"
-    }
-  ],
-  "share_target": {
-    "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url",
-      "files": [
-        {
-          "name": "files",
-          "accept": ["image/*", "video/*", ".pdf", ".doc", ".docx"]
-        }
-      ]
-    }
-  },
   "launch_handler": {
     "client_mode": "navigate-existing"
-  },
-  "edge_side_panel": {
-    "preferred_width": 400
   },
   "display_override": [
     "window-controls-overlay",
@@ -217,19 +114,6 @@
     "minimal-ui",
     "browser"
   ],
-  "handle_links": "preferred",
   "related_applications": [],
-  "prefer_related_applications": false,
-  "iarc_rating_id": "",
-  "features": [
-    "offline-support",
-    "background-sync",
-    "push-notifications",
-    "file-handling",
-    "share-target",
-    "real-time-chat",
-    "analytics-dashboard",
-    "automated-backup"
-  ],
-  "gcm_sender_id": "103953800507"
+  "prefer_related_applications": false
 }

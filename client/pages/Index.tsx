@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,11 +17,10 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
-import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { ProjectGridSkeleton } from "@/components/SkeletonLoader";
 import { useAnalytics } from "@/lib/analytics";
 import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
-import { Project, User, Business } from "@/lib/dataService";
+import { Project, User, Business, supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
 
 export default function Index() {
@@ -37,10 +35,9 @@ export default function Index() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(false);
 
-  const { track, trackPageView, trackFeatureUsage } = useAnalytics();
+  const { track, trackPageView } = useAnalytics();
   const [projectSort, setProjectSort] = useState<
     "all" | "starred" | "my-projects" | "archived"
   >("all");
@@ -62,9 +59,12 @@ export default function Index() {
       return;
     }
 
-    // Analytics tracking removed to prevent re-render issues
-    // TODO: Move analytics to component mount or user interaction handlers
   }, [currentUser?.role, currentUser?.isImpersonated, navigate]);
+
+  useEffect(() => {
+    trackPageView("/admin/jobs");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Track which business is currently active so we can reload when it changes
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(
@@ -81,14 +81,33 @@ export default function Index() {
         const businessData = await dataService.getBusinesses();
         setBusinesses(businessData);
 
-        // Load users
-        const userData = await dataService.getUsers();
-        setUsers(userData);
-
         // Load projects — scoped to the currently selected business
         const allProjects = await dataService.getProjects();
         setProjects(allProjects);
         setFilteredProjects(allProjects);
+
+        // Users relevant to this business: the owner plus anyone assigned
+        // to one of its jobs. There is no global user list on this page.
+        const currentBiz = businessData.find((b) => b.id === activeBusinessId);
+        const userIds = Array.from(
+          new Set(
+            [
+              currentBiz?.owner_id,
+              ...allProjects.map((p) => p.assigned_to),
+            ].filter((id): id is string => !!id),
+          ),
+        );
+        if (userIds.length > 0) {
+          const { data: userRows, error: userError } = await supabase
+            .from("users")
+            .select("*")
+            .in("id", userIds)
+            .order("name", { ascending: true });
+          if (userError) throw userError;
+          setUsers((userRows || []) as User[]);
+        } else {
+          setUsers([]);
+        }
 
         // Fetch primary (featured) photos for all projects in one batch query
         if (allProjects.length > 0) {
@@ -165,14 +184,10 @@ export default function Index() {
     }
 
     setFilteredProjects(filtered);
-
-    // Analytics tracking removed to prevent infinite loops
-    // TODO: Move analytics tracking to user interaction handlers instead of useEffect
   }, [projects, searchQuery, filters, projectSort, currentUser?.id]); // Use specific property instead of whole object
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
-    // Analytics tracking removed to prevent potential re-render issues
   }, []);
 
   const handleFilterChange = useCallback((key: string, value: string) => {
@@ -208,11 +223,6 @@ export default function Index() {
       toast.error("Failed to delete job");
     }
   }, [track]);
-
-  const handleAdvancedSearch = (searchCriteria: any) => {
-    setShowAdvancedSearch(false);
-    trackFeatureUsage("advanced_search_used", searchCriteria);
-  };
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -317,13 +327,6 @@ export default function Index() {
                 Clear
               </Button>
             )}
-            
-            <Button
-              variant="outline"
-              onClick={() => setShowAdvancedSearch(true)}
-            >
-              Advanced Search
-            </Button>
             
             <Button asChild>
               <Link to="/add-job">
@@ -440,16 +443,6 @@ export default function Index() {
           </>
         )}
 
-        {/* Advanced Search Modal */}
-        {showAdvancedSearch && (
-          <AdvancedSearch
-            isOpen={showAdvancedSearch}
-            onClose={() => setShowAdvancedSearch(false)}
-            onSearch={handleAdvancedSearch}
-            businesses={businesses}
-            users={users}
-          />
-        )}
       </div>
     </AppLayout>
   );

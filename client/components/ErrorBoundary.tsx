@@ -12,6 +12,30 @@ interface State {
   error?: Error;
 }
 
+/**
+ * Forward a caught render error to Sentry when it has been initialised
+ * (see client/lib/errorHandling.ts, gated on VITE_SENTRY_DSN). Uses the global
+ * `window.Sentry` when present, otherwise attempts a dynamic import that is
+ * deliberately opaque to the bundler so the app still builds without the SDK.
+ */
+function reportToSentry(error: Error, info: React.ErrorInfo) {
+  if (!import.meta.env.VITE_SENTRY_DSN) return;
+  const extra = { componentStack: info.componentStack };
+  const globalSentry = (
+    window as unknown as {
+      Sentry?: { captureException?: (e: unknown, ctx?: unknown) => void };
+    }
+  ).Sentry;
+  if (globalSentry?.captureException) {
+    globalSentry.captureException(error, { extra });
+    return;
+  }
+  const specifier = "@sentry/react";
+  import(/* @vite-ignore */ specifier)
+    .then((Sentry) => Sentry?.captureException?.(error, { extra }))
+    .catch(() => undefined);
+}
+
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -23,7 +47,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[ErrorBoundary] Uncaught error:", error, info.componentStack);
+    console.error(
+      "[ErrorBoundary] Uncaught error:",
+      error,
+      info.componentStack,
+    );
+    reportToSentry(error, info);
   }
 
   render() {
@@ -36,7 +65,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <div>
             <h2 className="text-lg font-semibold">Something went wrong</h2>
             <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              {this.state.error?.message || "An unexpected error occurred. Please try refreshing the page."}
+              {this.state.error?.message ||
+                "An unexpected error occurred. Please try refreshing the page."}
             </p>
           </div>
           <Button
@@ -68,7 +98,9 @@ export function safeLocalStorageParse<T>(key: string, defaultValue: T): T {
     if (raw === null) return defaultValue;
     return JSON.parse(raw) as T;
   } catch {
-    console.warn(`[safeLocalStorageParse] Failed to parse localStorage key: "${key}". Returning default.`);
+    console.warn(
+      `[safeLocalStorageParse] Failed to parse localStorage key: "${key}". Returning default.`,
+    );
     return defaultValue;
   }
 }

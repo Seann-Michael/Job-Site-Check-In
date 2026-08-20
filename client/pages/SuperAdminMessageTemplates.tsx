@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -231,8 +230,8 @@ export default function SuperAdminMessageTemplates() {
     name: "",
     title: "",
     content: "",
-    type: "info" as const,
-    category: "system" as const,
+    type: "info" as MessageTemplate["type"],
+    category: "system" as MessageTemplate["category"],
     description: "",
     variables: [] as string[],
     newVariable: "",

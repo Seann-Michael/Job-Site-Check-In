@@ -1,9 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Card,
   CardContent,
@@ -18,1137 +16,274 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Shield,
   Users,
-  MoreVertical,
-  Mail,
-  Lock,
-  UserCheck,
-  UserX,
   Download,
-  Upload,
   Search,
-  Filter,
-  Key,
-  AlertTriangle,
-  Save,
-  Eye,
-  EyeOff,
   RefreshCw,
-  Settings,
+  Loader2,
+  AlertCircle,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect } from "react";
-import supabaseClient from "@/lib/supabaseClient";
-import { UserGroupsManager } from "./UserGroupsManager";
+import { workspaceService } from "@/lib/workspaceService";
+import {
+  TEAM_ROLES,
+  type TeamMember,
+  type TeamRole,
+  fetchBusinessTeam,
+  roleLabel,
+  updateTeamMemberRole,
+} from "@/lib/settingsTeamService";
+import { downloadCsv } from "@/lib/dataExport";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: "active" | "pending" | "disabled";
-  lastLogin: string;
-  createdAt: string;
-  avatar?: string;
-  phone?: string;
-  department?: string;
-  permissions?: string[];
-  hasCustomPermissions: boolean;
-  firstName?: string;
-  lastName?: string;
-}
-
-interface UserGroup {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  userCount: number;
-  permissions: string[];
-}
-
-const mockGroups: UserGroup[] = [
-  { id: "admin", name: "System Administrators", description: "Full system access", color: "bg-red-100 text-red-800 border-red-200", userCount: 0, permissions: ["all"] },
-  { id: "manager", name: "Project Managers", description: "Project and client management", color: "bg-blue-100 text-blue-800 border-blue-200", userCount: 0, permissions: ["projects", "clients", "media"] },
-  { id: "worker", name: "Field Workers", description: "Photo uploads and updates", color: "bg-green-100 text-green-800 border-green-200", userCount: 0, permissions: ["projects.view", "media.upload"] },
-  { id: "client", name: "Clients", description: "View-only access", color: "bg-gray-100 text-gray-800 border-gray-200", userCount: 0, permissions: ["projects.view"] },
-];
-
-const permissionCategories = {
-  projects: [
-    "view_projects",
-    "create_projects",
-    "edit_projects",
-    "delete_projects",
-    "manage_project_settings",
-  ],
-  clients: [
-    "view_clients",
-    "create_clients",
-    "edit_clients",
-    "delete_clients",
-    "manage_client_communications",
-  ],
-  media: [
-    "view_media",
-    "upload_media",
-    "edit_media",
-    "delete_media",
-    "manage_media_library",
-  ],
-  users: [
-    "view_users",
-    "create_users",
-    "edit_users",
-    "delete_users",
-    "manage_user_permissions",
-  ],
-  reports: [
-    "view_reports",
-    "create_reports",
-    "export_reports",
-    "manage_analytics",
-  ],
-  system: ["system_settings", "backup_restore", "api_access", "integrations"],
-};
-
+/**
+ * Team members for the current business: the owner plus everyone assigned to
+ * one of its jobs. Roles are the real `users.role` values. Inviting new
+ * members requires account creation and lives with the auth work.
+ */
 export function UserManagementSystem() {
-  const [activeTab, setActiveTab] = useState("users");
-  const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const { data } = await supabaseClient
-          .from("users")
-          .select("id, name, email, role, phone, last_login, created_at")
-          .order("created_at", { ascending: false });
-        const roleMap: Record<string, string> = { super_admin: "admin", agency_admin: "manager", business_owner: "admin", staff: "worker", viewer: "client" };
-        setUsers((data ?? []).map((u: any) => ({
-          id: u.id,
-          name: u.name ?? u.email,
-          email: u.email,
-          role: roleMap[u.role] ?? "worker",
-          status: "active" as const,
-          lastLogin: u.last_login ? new Date(u.last_login).toLocaleDateString() : "Never",
-          createdAt: u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : "",
-          phone: u.phone ?? "",
-          department: "",
-          hasCustomPermissions: false,
-        })));
-      } catch {
-        setUsers([]);
-      }
-    };
-    loadUsers();
-  }, []);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
-  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    department: "",
-    role: "worker",
-    permissionType: "group", // "group" or "custom"
-    customPermissions: [] as string[],
-    password: "",
-    confirmPassword: "",
-    sendInvite: true,
-    generatePassword: true,
-  });
-  const [passwordReset, setPasswordReset] = useState({
-    userId: "",
-    newPassword: "",
-    confirmPassword: "",
-    sendEmail: true,
-    requireChange: true,
-  });
+  const [savingId, setSavingId] = useState<string | null>(null);
 
-  const filteredUsers = users.filter((user) => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let ws = workspaceService.getState();
+      if (!ws.initialized) ws = await workspaceService.initialize();
+      if (!ws.currentBusinessId) {
+        throw new Error("No business is associated with this account.");
+      }
+      setMembers(await fetchBusinessTeam(ws.currentBusinessId));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load team";
+      setError(msg);
+      toast.error(`Couldn't load team members: ${msg}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = members.filter((m) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.department?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === "all" || user.role === filterRole;
-    const matchesStatus =
-      filterStatus === "all" || user.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
+      !q ||
+      (m.name ?? "").toLowerCase().includes(q) ||
+      m.email.toLowerCase().includes(q) ||
+      (m.phone ?? "").toLowerCase().includes(q);
+    const matchesRole = filterRole === "all" || m.role === filterRole;
+    return matchesSearch && matchesRole;
   });
 
-  const generatePassword = () => {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-  };
-
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    if (
-      !newUser.generatePassword &&
-      newUser.password !== newUser.confirmPassword
-    ) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
-    const password = newUser.generatePassword
-      ? generatePassword()
-      : newUser.password;
-
-    const user: User = {
-      id: Date.now().toString(),
-      name: newUser.name,
-      email: newUser.email,
-      phone: newUser.phone,
-      department: newUser.department,
-      role: newUser.role,
-      status: newUser.sendInvite ? "pending" : "active",
-      lastLogin: "Never",
-      createdAt: new Date().toISOString().split("T")[0],
-      hasCustomPermissions: newUser.permissionType === "custom",
-      permissions:
-        newUser.permissionType === "custom"
-          ? newUser.customPermissions
-          : undefined,
-    };
-
-    setUsers([...users, user]);
-    setNewUser({
-      name: "",
-      email: "",
-      phone: "",
-      department: "",
-      role: "worker",
-      permissionType: "group",
-      customPermissions: [],
-      password: "",
-      confirmPassword: "",
-      sendInvite: true,
-      generatePassword: true,
-    });
-    setIsAddUserOpen(false);
-
-    if (newUser.sendInvite) {
-      toast.success(
-        `Invitation sent to ${newUser.email} with temporary password: ${password}`,
+  const handleRoleChange = async (member: TeamMember, role: TeamRole) => {
+    if (member.role === role) return;
+    setSavingId(member.id);
+    const previous = member.role;
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, role } : m)),
+    );
+    try {
+      await updateTeamMemberRole(member.id, role);
+      toast.success(`${member.name || member.email} is now ${roleLabel(role)}`);
+    } catch (err) {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, role: previous } : m)),
       );
-    } else {
-      toast.success(`User added successfully with password: ${password}`);
+      toast.error(
+        `Couldn't update role: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
+    } finally {
+      setSavingId(null);
     }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    setUsers(users.filter((u) => u.id !== userId));
-    toast.success("User deleted successfully");
-  };
-
-  const handleToggleUserStatus = (userId: string) => {
-    setUsers(
-      users.map((user) => {
-        if (user.id === userId) {
-          const newStatus = user.status === "active" ? "disabled" : "active";
-          toast.success(
-            `User ${newStatus === "active" ? "activated" : "disabled"}`,
-          );
-          return { ...user, status: newStatus };
-        }
-        return user;
-      }),
+  const exportMembers = () => {
+    if (members.length === 0) {
+      toast.error("There are no team members to export.");
+      return;
+    }
+    downloadCsv(
+      "team",
+      members.map((m) => ({
+        name: m.name ?? "",
+        email: m.email,
+        role: roleLabel(m.role),
+        phone: m.phone ?? "",
+        last_login: m.last_login ?? "",
+        created_at: m.created_at ?? "",
+      })),
+      [
+        { key: "name", label: "Name" },
+        { key: "email", label: "Email" },
+        { key: "role", label: "Role" },
+        { key: "phone", label: "Phone" },
+        { key: "last_login", label: "Last Login" },
+        { key: "created_at", label: "Created" },
+      ],
     );
   };
 
-  const handlePasswordReset = () => {
-    if (
-      !passwordReset.newPassword ||
-      passwordReset.newPassword !== passwordReset.confirmPassword
-    ) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
-    if (passwordReset.sendEmail) {
-      toast.success("Password reset email sent successfully");
-    } else {
-      toast.success("Password updated successfully");
-    }
-
-    setPasswordReset({
-      userId: "",
-      newPassword: "",
-      confirmPassword: "",
-      sendEmail: true,
-      requireChange: true,
-    });
-    setIsPasswordResetOpen(false);
-  };
-
-  const getGroupInfo = (roleId: string) => {
-    return mockGroups.find((g) => g.id === roleId);
-  };
-
-  const exportUsers = () => {
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      "Name,Email,Role,Status,Phone,Department,Last Login,Created\n" +
-      users
-        .map(
-          (user) =>
-            `"${user.name}","${user.email}","${user.role}","${user.status}","${user.phone || ""}","${user.department || ""}","${user.lastLogin}","${user.createdAt}"`,
-        )
-        .join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "users.csv");
-    link.click();
-    toast.success("Users exported successfully");
-  };
+  const knownRole = (role: string): role is TeamRole =>
+    TEAM_ROLES.some((r) => r.value === role);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
+          <h2 className="text-2xl font-bold">Team</h2>
           <p className="text-muted-foreground mt-1">
-            Manage users, groups, and permissions across your organization
+            People with access to this business and their roles
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportUsers}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
+          <Button variant="outline" onClick={load} disabled={loading}>
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
+            Refresh
           </Button>
-          <Button onClick={() => setIsAddUserOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
+          <Button variant="outline" onClick={exportMembers}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
           </Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="groups">Groups</TabsTrigger>
-        </TabsList>
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
 
-        {/* Users Tab */}
-        <TabsContent value="users" className="space-y-6">
-          {/* Filters and Search */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search users..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={filterRole} onValueChange={setFilterRole}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    {mockGroups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email or phone…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                {TEAM_ROLES.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Users List */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>All Users ({filteredUsers.length})</CardTitle>
-                  <CardDescription>
-                    Manage user accounts and permissions
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Import
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    Bulk Actions
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {filteredUsers.map((user) => {
-                  const groupInfo = getGroupInfo(user.role);
-                  return (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {user.name
-                              .split(" ")
-                              .filter(n => n && n.length > 0)
-                              .map((n) => n[0])
-                              .join("")}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {user.email}
-                          </div>
-                          <div className="flex gap-2 mt-1 flex-wrap">
-                            <Badge
-                              className={
-                                groupInfo?.color || "bg-gray-100 text-gray-800"
-                              }
-                            >
-                              {groupInfo?.name || user.role}
-                            </Badge>
-                            <Badge
-                              variant={
-                                user.status === "active"
-                                  ? "default"
-                                  : user.status === "pending"
-                                    ? "secondary"
-                                    : "destructive"
-                              }
-                            >
-                              {user.status}
-                            </Badge>
-                            {user.hasCustomPermissions && (
-                              <Badge variant="outline">
-                                <Settings className="w-3 h-3 mr-1" />
-                                Custom Perms
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            <span>Last login: {user.lastLogin}</span>
-                            {user.phone && (
-                              <span className="ml-3">Phone: {user.phone}</span>
-                            )}
-                            {user.department && (
-                              <span className="ml-3">
-                                Dept: {user.department}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setIsEditUserOpen(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setPasswordReset({
-                                  ...passwordReset,
-                                  userId: user.id,
-                                });
-                                setIsPasswordResetOpen(true);
-                              }}
-                            >
-                              <Key className="mr-2 h-4 w-4" />
-                              Reset Password
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleToggleUserStatus(user.id)}
-                            >
-                              {user.status === "active" ? (
-                                <>
-                                  <UserX className="mr-2 h-4 w-4" />
-                                  Disable User
-                                </>
-                              ) : (
-                                <>
-                                  <UserCheck className="mr-2 h-4 w-4" />
-                                  Activate User
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            {user.status === "pending" && (
-                              <DropdownMenuItem>
-                                <Mail className="mr-2 h-4 w-4" />
-                                Resend Invitation
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Members ({filtered.length})</CardTitle>
+          <CardDescription>
+            The business owner and everyone assigned to one of its jobs
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading team…
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">
+                {members.length === 0
+                  ? "No team members found for this business."
+                  : "No members match your filters."}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {filtered.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
+                      {(m.name || m.email).slice(0, 2).toUpperCase()}
                     </div>
-                  );
-                })}
-
-                {filteredUsers.length === 0 && (
-                  <div className="text-center py-12">
-                    <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mb-2">
-                      No users found
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      {searchQuery
-                        ? "Try adjusting your search terms"
-                        : "Add your first user to get started"}
-                    </p>
-                    {!searchQuery && (
-                      <Button onClick={() => setIsAddUserOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add User
-                      </Button>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">
+                          {m.name || m.email}
+                        </p>
+                        {m.isOwner && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Crown className="h-3 w-3" /> Owner
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {m.email}
+                        {m.phone ? ` · ${m.phone}` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Last login:{" "}
+                        {m.last_login
+                          ? new Date(m.last_login).toLocaleDateString()
+                          : "Never"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {savingId === m.id && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    {knownRole(m.role) ? (
+                      <Select
+                        value={m.role}
+                        disabled={savingId === m.id || m.isOwner}
+                        onValueChange={(v) =>
+                          handleRoleChange(m, v as TeamRole)
+                        }
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEAM_ROLES.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge variant="outline" className="capitalize">
+                        {roleLabel(m.role)}
+                      </Badge>
                     )}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Groups Tab */}
-        <TabsContent value="groups">
-          <UserGroupsManager />
-        </TabsContent>
-      </Tabs>
-
-      {/* Add User Dialog */}
-      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Create a new user account and configure their access
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="userName">Full Name *</Label>
-                <Input
-                  id="userName"
-                  value={newUser.name}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, name: e.target.value })
-                  }
-                  placeholder="Enter full name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="userEmail">Email Address *</Label>
-                <Input
-                  id="userEmail"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, email: e.target.value })
-                  }
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="userPhone">Phone Number</Label>
-                <PhoneInput
-                  id="userPhone"
-                  value={newUser.phone}
-                  onChange={(value) => setNewUser({ ...newUser, phone: value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="userDepartment">Department</Label>
-                <Input
-                  id="userDepartment"
-                  value={newUser.department}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, department: e.target.value })
-                  }
-                  placeholder="Enter department"
-                />
-              </div>
-            </div>
-
-            {/* Permission Assignment */}
-            <div className="space-y-4">
-              <Label className="text-base font-medium">
-                Permission Assignment
-              </Label>
-              <RadioGroup
-                value={newUser.permissionType}
-                onValueChange={(value) =>
-                  setNewUser({ ...newUser, permissionType: value })
-                }
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="group" id="group" />
-                  <Label htmlFor="group">Assign to User Group</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="custom" id="custom" />
-                  <Label htmlFor="custom">Custom Permissions</Label>
-                </div>
-              </RadioGroup>
-
-              {newUser.permissionType === "group" && (
-                <div className="space-y-2">
-                  <Label htmlFor="userRole">Select User Group</Label>
-                  <Select
-                    value={newUser.role}
-                    onValueChange={(value) =>
-                      setNewUser({ ...newUser, role: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockGroups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-3 h-3 rounded-full ${group.color.split(" ")[0]}`}
-                            />
-                            {group.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {newUser.role && (
-                    <div className="text-sm text-muted-foreground">
-                      {
-                        mockGroups.find((g) => g.id === newUser.role)
-                          ?.description
-                      }
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {newUser.permissionType === "custom" && (
-                <div className="border rounded-lg p-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Custom permissions will be configured after user creation
-                  </p>
-                  <Badge variant="outline">
-                    Custom permissions available post-creation
-                  </Badge>
-                </div>
-              )}
+              ))}
             </div>
-
-            {/* Password Configuration */}
-            <div className="space-y-4">
-              <Label className="text-base font-medium">
-                Password Configuration
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="generatePassword"
-                  checked={newUser.generatePassword}
-                  onCheckedChange={(checked) =>
-                    setNewUser({ ...newUser, generatePassword: checked })
-                  }
-                />
-                <Label htmlFor="generatePassword">
-                  Generate secure password automatically
-                </Label>
-              </div>
-
-              {!newUser.generatePassword && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="userPassword">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="userPassword"
-                        type={showPassword ? "text" : "password"}
-                        value={newUser.password}
-                        onChange={(e) =>
-                          setNewUser({ ...newUser, password: e.target.value })
-                        }
-                        placeholder="Enter password"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type={showPassword ? "text" : "password"}
-                      value={newUser.confirmPassword}
-                      onChange={(e) =>
-                        setNewUser({
-                          ...newUser,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Confirm password"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notification Settings */}
-            <div className="space-y-4">
-              <Label className="text-base font-medium">
-                Notification Settings
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="sendInvite"
-                  checked={newUser.sendInvite}
-                  onCheckedChange={(checked) =>
-                    setNewUser({ ...newUser, sendInvite: checked })
-                  }
-                />
-                <Label htmlFor="sendInvite">
-                  Send invitation email with login credentials
-                </Label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddUser}>
-                <Save className="mr-2 h-4 w-4" />
-                Create User
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Password Reset Dialog */}
-      <Dialog open={isPasswordResetOpen} onOpenChange={setIsPasswordResetOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Reset password for the selected user
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showPassword ? "text" : "password"}
-                  value={passwordReset.newPassword}
-                  onChange={(e) =>
-                    setPasswordReset({
-                      ...passwordReset,
-                      newPassword: e.target.value,
-                    })
-                  }
-                  placeholder="Enter new password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
-              <Input
-                id="confirmNewPassword"
-                type={showPassword ? "text" : "password"}
-                value={passwordReset.confirmPassword}
-                onChange={(e) =>
-                  setPasswordReset({
-                    ...passwordReset,
-                    confirmPassword: e.target.value,
-                  })
-                }
-                placeholder="Confirm new password"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="sendResetEmail"
-                  checked={passwordReset.sendEmail}
-                  onCheckedChange={(checked) =>
-                    setPasswordReset({ ...passwordReset, sendEmail: checked })
-                  }
-                />
-                <Label htmlFor="sendResetEmail">
-                  Send password reset email to user
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="requireChange"
-                  checked={passwordReset.requireChange}
-                  onCheckedChange={(checked) =>
-                    setPasswordReset({
-                      ...passwordReset,
-                      requireChange: checked,
-                    })
-                  }
-                />
-                <Label htmlFor="requireChange">
-                  Require password change on next login
-                </Label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setIsPasswordResetOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  const password = generatePassword();
-                  setPasswordReset({
-                    ...passwordReset,
-                    newPassword: password,
-                    confirmPassword: password,
-                  });
-                }}
-                variant="outline"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Generate
-              </Button>
-              <Button onClick={handlePasswordReset}>
-                <Key className="mr-2 h-4 w-4" />
-                Reset Password
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user information and permissions
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {/* User Basic Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="editFirstName">First Name</Label>
-                <Input
-                  id="editFirstName"
-                  value={selectedUser?.firstName || ""}
-                  onChange={(e) =>
-                    setSelectedUser(
-                      selectedUser
-                        ? { ...selectedUser, firstName: e.target.value }
-                        : null,
-                    )
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="editLastName">Last Name</Label>
-                <Input
-                  id="editLastName"
-                  value={selectedUser?.lastName || ""}
-                  onChange={(e) =>
-                    setSelectedUser(
-                      selectedUser
-                        ? { ...selectedUser, lastName: e.target.value }
-                        : null,
-                    )
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editEmail">Email Address</Label>
-              <Input
-                id="editEmail"
-                type="email"
-                value={selectedUser?.email || ""}
-                onChange={(e) =>
-                  setSelectedUser(
-                    selectedUser
-                      ? { ...selectedUser, email: e.target.value }
-                      : null,
-                  )
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editPhone">Phone Number</Label>
-              <PhoneInput
-                value={selectedUser?.phone || ""}
-                onChange={(value) =>
-                  setSelectedUser(
-                    selectedUser ? { ...selectedUser, phone: value } : null,
-                  )
-                }
-              />
-            </div>
-
-            {/* User Role and Status */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="editRole">Role</Label>
-                <Select
-                  value={selectedUser?.role || ""}
-                  onValueChange={(value) =>
-                    setSelectedUser(
-                      selectedUser ? { ...selectedUser, role: value } : null,
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="worker">Worker</SelectItem>
-                    <SelectItem value="client">Client</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="editStatus">Status</Label>
-                <Select
-                  value={selectedUser?.status || ""}
-                  onValueChange={(value) =>
-                    setSelectedUser(
-                      selectedUser
-                        ? {
-                            ...selectedUser,
-                            status: value as "active" | "pending" | "disabled",
-                          }
-                        : null,
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* User Permissions */}
-            <div className="space-y-4">
-              <Label className="text-base font-medium">Permissions</Label>
-              <div className="grid grid-cols-2 gap-4">
-                {Object.entries(permissionCategories).map(
-                  ([category, perms]) => (
-                    <div key={category} className="space-y-2">
-                      <Label className="text-sm font-medium capitalize">
-                        {category.replace("_", " ")}
-                      </Label>
-                      <div className="space-y-1">
-                        {perms.map((permission) => (
-                          <div
-                            key={permission}
-                            className="flex items-center space-x-2"
-                          >
-                            <Switch
-                              id={`edit-${permission}`}
-                              checked={
-                                selectedUser?.permissions?.includes(
-                                  permission,
-                                ) || false
-                              }
-                              onCheckedChange={(checked) => {
-                                if (!selectedUser) return;
-                                const currentPermissions =
-                                  selectedUser.permissions || [];
-                                const updatedPermissions = checked
-                                  ? [...currentPermissions, permission]
-                                  : currentPermissions.filter(
-                                      (p) => p !== permission,
-                                    );
-                                setSelectedUser({
-                                  ...selectedUser,
-                                  permissions: updatedPermissions,
-                                });
-                              }}
-                            />
-                            <Label
-                              htmlFor={`edit-${permission}`}
-                              className="text-xs cursor-pointer"
-                            >
-                              {permission
-                                .replace(/_/g, " ")
-                                .replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEditUserOpen(false);
-                  setSelectedUser(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  if (selectedUser) {
-                    const updatedUsers = users.map((user) =>
-                      user.id === selectedUser.id ? selectedUser : user,
-                    );
-                    setUsers(updatedUsers);
-                    setIsEditUserOpen(false);
-                    setSelectedUser(null);
-                  }
-                }}
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Update User
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Production hardening (2026-08)
+
+#### Removed
+- Dead client code: mock/fallback/cached API services, debug/test components
+  and pages, unrouted pages (`AddProject`, `Tools`, `UserManagement`,
+  `SupportTicketDetail`, `ReportGenerator`, etc.), client-account onboarding
+  (`PublicOnboarding`, `components/OAuth/*`, `/onboard/*` routes),
+  `SocialMediaPosting`/`ComingSoon` placeholders, `public/security.js`.
+- Stale root docs and implementation notes, Netlify-era docs under `docs/`,
+  `scripts/populate-sample-data.ts`, `scripts/setup-supabase.js`,
+  `scripts/create-payments-tables.sql`, root test HTML/JS scratch files,
+  `.cursor/deploy-app.mdc`.
+- npm scripts that pointed at a removed `server_complete` package or sample
+  data (`populate-data`, `setup-db`, `server:*`, `full:dev`, `start:static`,
+  `prestart`, `postinstall`).
+
+#### Changed
+- `vite.config.ts`: Express API is imported lazily in dev only and only when
+  Supabase env is present, so `vite build` no longer needs credentials.
+  Removed the manual `.env.local` override; added vendor `manualChunks` and a
+  build-id plugin for the service worker.
+- `public/sw.js`: network-first navigations, cache-first hashed assets, no
+  precaching of authenticated routes, per-build cache names.
+- `index.html`: `noindex,nofollow`, CSP without `unsafe-eval`, removed
+  ineffective `X-Frame-Options`/`X-XSS-Protection` metas, fixed icon links and
+  og/twitter URLs.
+- `manifest.json`: real PNG icons generated from `icon-base.svg`, removed
+  non-existent screenshots, shortcuts and handlers.
+- `.do/app.yaml`: repo `Seann-Michael/Local-SEO-Ranker`, SPA catch-all,
+  `/health` check, env list trimmed to variables the code reads.
+- `.env.example`, `.gitignore`, `.dockerignore` rewritten; engines `node >=20.19 <23`.
+- ESLint config (`.eslintrc.cjs`) for TS + React hooks; `lint` no longer fails on warnings.
+- `tsconfig.json`: `noFallthroughCasesInSwitch` on.
+- `ErrorBoundary` forwards errors to Sentry when `VITE_SENTRY_DSN` is set.
+- README, SETUP, AGENTS, docs/DEPLOYMENT rewritten to match the actual scripts
+  and DigitalOcean deployment.
+
+#### Added
+- GitHub Actions CI: lint, typecheck, test, build on push/PR.
+- `npm run format` (Prettier).
+
+### Previous unreleased work
+
 ### Added
 - Geo Grid Ranking Results Data Table with bulk selection functionality
 - Bulk actions for Compare, Share, Download, and Archive operations
@@ -21,10 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Environment variable setup for external service integrations
 
 ### Changed
-- Separated admin and agency project creation workflows
+- Separated admin and client-account project creation workflows
 - Fixed lazy loading issues causing "Something went wrong" errors
-- Improved routing between admin and agency sections
-- Updated project types to be specific to home services vs agency services
+- Improved routing between admin and client-account sections
+- Updated project types to be specific to home services vs client-account services
 
 ### Fixed
 - Error boundaries showing on Settings, Gallery, and Reports pages
@@ -72,92 +115,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Previous Changes
 
 ### [2025-01-13] - Project Separation Fix
-- Fixed admin vs agency project creation routing
-- Separated home services projects from agency marketing projects
+- Fixed admin vs client-account project creation routing
+- Separated home services projects from client-account marketing projects
 - Added proper breadcrumbs and navigation context
 
 ### [2025-01-12] - Error Boundary Resolution  
 - Resolved lazy loading component issues
 - Fixed "Load failed" errors across multiple pages
 - Improved component import strategy
-
----
-
-## Development Notes
-
-### Environment Setup
-When setting up this project, ensure all environment variables are configured in your Netlify deployment settings:
-
-1. **Email Service (Mailgun)**:
-   - `MAILGUN_API_KEY` - Your Mailgun API key
-   - `MAILGUN_DOMAIN` - Your Mailgun domain (optional, defaults to mg.yourdomain.com)
-   - `FROM_EMAIL` - Default sender email address
-
-2. **SMS Service (Twilio)**:
-   - `TWILIO_ACCOUNT_SID` - Your Twilio Account SID
-   - `TWILIO_AUTH_TOKEN` - Your Twilio Auth Token
-   - `TWILIO_PHONE_NUMBER` - Your Twilio phone number for sending SMS
-
-3. **Ranking Data (DataForSEO)**:
-   - `DATAFORSEO_API_KEY` - DataForSEO credentials in login:password format
-   - Alternative: `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` as separate variables
-
-4. **Storage (Supabase)**:
-   - `SUPABASE_URL` - Your Supabase project URL
-   - `SUPABASE_SERVICE_ROLE_KEY` - Service role key for backend operations
-   - `SUPABASE_STORAGE_BUCKET` - Storage bucket name (defaults to 'media')
-
-### API Endpoints
-- `/.netlify/functions/send-email` - Email sending service
-- `/.netlify/functions/send-sms` - SMS sending service  
-- `/.netlify/functions/dataforseo-service` - Geo ranking data
-- `/.netlify/functions/media-storage` - File upload/management
-
-### Usage Examples
-
-#### Sending Emails
-```javascript
-await fetch('/.netlify/functions/send-email', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    to: 'client@example.com',
-    template: 'geo-grid-share',
-    templateData: {
-      userName: 'John Doe',
-      results: [...],
-      publicUrl: 'https://...'
-    }
-  })
-});
-```
-
-#### Sending SMS
-```javascript
-await fetch('/.netlify/functions/send-sms', {
-  method: 'POST', 
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    to: '+1234567890',
-    template: 'project-update',
-    templateData: {
-      projectName: 'Website Redesign',
-      status: 'Completed'
-    }
-  })
-});
-```
-
-#### Getting Ranking Data
-```javascript
-await fetch('/.netlify/functions/dataforseo-service', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    keyword: 'pizza restaurant near me',
-    location: 'Fairfield, CA',
-    business_name: "Joe's Pizza",
-    grid_size: 5
-  })
-});
-```

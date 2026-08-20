@@ -51,7 +51,7 @@ const deriveKeywords = (seoTargets: unknown, metadata: unknown): string[] => {
 const toPublicUrl = (path: unknown): string | null => {
   if (typeof path !== "string" || !path) return null;
   if (/^https?:\/\//i.test(path)) return path;
-  return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/media/${path}`;
+  return supabaseClient.storage.from("media").getPublicUrl(path).data.publicUrl;
 };
 
 export default function PublicProject() {

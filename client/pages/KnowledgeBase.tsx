@@ -220,12 +220,15 @@ export default function KnowledgeBase() {
   // ── Increment view count when article opened ──────────────────────────────
   const openArticle = async (article: HelpArticle) => {
     setSelectedArticle(article);
-    try {
-      await supabaseClient
-        .from("help_articles")
-        .update({ views: article.views + 1 })
-        .eq("id", article.id);
-    } catch {}
+    // Best-effort view counter: a failure here doesn't affect reading the
+    // article, so it is not surfaced to the reader.
+    const { error } = await supabaseClient
+      .from("help_articles")
+      .update({ views: article.views + 1 })
+      .eq("id", article.id);
+    if (error && import.meta.env.DEV) {
+      toast.error(`View count not updated: ${error.message}`);
+    }
   };
 
   // ── Super admin: save article ─────────────────────────────────────────────
@@ -897,26 +900,6 @@ export default function KnowledgeBase() {
           <div className="mt-8 pt-8 border-t">
             <h2 className="text-xl font-semibold mb-4">Additional Resources</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <ExternalLink className="h-4 w-4" />
-                    Video Tutorials
-                  </CardTitle>
-                  <CardDescription>Watch step-by-step video guides</CardDescription>
-                  <Button variant="outline" className="w-full mt-2">View Tutorials</Button>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Community Forum
-                  </CardTitle>
-                  <CardDescription>Connect with other users and share tips</CardDescription>
-                  <Button variant="outline" className="w-full mt-2">Join Community</Button>
-                </CardHeader>
-              </Card>
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">

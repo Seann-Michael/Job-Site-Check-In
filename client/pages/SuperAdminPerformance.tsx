@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,7 +87,7 @@ interface OptimizationJob {
   id: string;
   name: string;
   type: string;
-  status: "running" | "completed" | "failed" | "scheduled";
+  status: "queued" | "running" | "completed" | "failed" | "scheduled";
   progress: number;
   logs: string[] | null;
   started_at: string | null;
@@ -186,7 +185,10 @@ export default function SuperAdminPerformance() {
               status: error ? "error" : statusFromMs(ms),
               checkedAt: new Date().toISOString(),
             };
-          } catch {
+          } catch (err) {
+            toast.error(
+              `Health check failed for ${name}: ${err instanceof Error ? err.message : "unknown error"}`,
+            );
             return {
               name,
               table,
@@ -384,49 +386,31 @@ export default function SuperAdminPerformance() {
   };
 
   // ── Optimization Jobs ──────────────────────────────────────────────────────
+  /**
+   * Queue a maintenance job. This only records the request; a server-side
+   * worker picks up `queued` rows, runs them and writes progress/status back.
+   * Nothing here simulates progress.
+   */
   const handleRunJob = async (type: OptimizationJob["type"]) => {
     try {
-      const { data, error } = await supabaseClient
+      const { error } = await supabaseClient
         .from("optimization_jobs")
         .insert([
           {
             name: `Manual ${type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`,
             type,
-            status: "running",
+            status: "queued",
             progress: 0,
-            logs: [`Started ${type} job manually`],
-            started_at: new Date().toISOString(),
+            logs: [`Queued ${type} job from Super Admin`],
+            scheduled_at: new Date().toISOString(),
             created_by: "Super Admin",
           },
-        ])
-        .select()
-        .single();
+        ]);
       if (error) throw error;
-      toast.success("Optimization job started!");
+      toast.success("Job queued. It will run when the maintenance worker picks it up.");
       fetchOptimizationJobs();
-
-      // Simulate progress updates
-      let progress = 0;
-      const interval = setInterval(async () => {
-        progress = Math.min(100, progress + Math.random() * 20);
-        const isDone = progress >= 100;
-        await supabaseClient
-          .from("optimization_jobs")
-          .update({
-            progress: Math.round(progress),
-            status: isDone ? "completed" : "running",
-            ended_at: isDone ? new Date().toISOString() : null,
-            logs: isDone
-              ? [`Started ${type} job manually`, "Job completed successfully"]
-              : [`Started ${type} job manually`, `Progress: ${Math.round(progress)}%`],
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", data.id);
-        fetchOptimizationJobs();
-        if (isDone) clearInterval(interval);
-      }, 2000);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to start job");
+      toast.error(err?.message ?? "Failed to queue job");
     }
   };
 
@@ -718,11 +702,11 @@ export default function SuperAdminPerformance() {
                   <div className="space-y-3">
                     {jobsLoading ? (
                       <div className="h-20 bg-muted animate-pulse rounded" />
-                    ) : optimizationJobs.filter((j) => j.status === "running" || j.status === "scheduled").length === 0 ? (
+                    ) : optimizationJobs.filter((j) => j.status === "running" || j.status === "scheduled" || j.status === "queued").length === 0 ? (
                       <p className="text-center text-muted-foreground py-4">No active jobs</p>
                     ) : (
                       optimizationJobs
-                        .filter((j) => j.status === "running" || j.status === "scheduled")
+                        .filter((j) => j.status === "running" || j.status === "scheduled" || j.status === "queued")
                         .map((job) => (
                           <div key={job.id} className="p-3 border rounded-lg">
                             <div className="flex items-center justify-between mb-2">
@@ -933,7 +917,7 @@ export default function SuperAdminPerformance() {
           <TabsContent value="optimization" className="space-y-4">
             <div className="flex justify-between items-center">
               <p className="text-sm text-muted-foreground">
-                Run maintenance and optimization tasks against the database.
+                Queue maintenance jobs. A server-side worker processes queued jobs and reports progress here.
               </p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleRunJob("database_cleanup")}>

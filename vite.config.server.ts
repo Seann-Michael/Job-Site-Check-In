@@ -1,53 +1,44 @@
 import { defineConfig } from "vite";
 import path from "path";
+import { builtinModules } from "module";
+import { readFileSync } from "fs";
 
-// Server build configuration
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8"));
+
+// Server build: bundle server/node-build.ts into dist/server/node-build.mjs.
+// All node built-ins and every runtime dependency stay external (they are
+// installed in node_modules on the host); only our own code is bundled.
 export default defineConfig({
+  publicDir: false,
   build: {
     lib: {
       entry: path.resolve(__dirname, "server/node-build.ts"),
       name: "server",
-      fileName: "production",
+      fileName: "node-build",
       formats: ["es"],
     },
     outDir: "dist/server",
+    emptyOutDir: true,
     target: "node20",
     ssr: true,
     rollupOptions: {
       external: [
-        // Node.js built-ins
-        "fs",
-        "path",
-        "url",
-        "http",
-        "https",
-        "os",
-        "crypto",
-        "stream",
-        "util",
-        "events",
-        "buffer",
-        "querystring",
-        "child_process",
-        // External dependencies that should not be bundled
-        "express",
-        "cors",
+        ...builtinModules,
+        ...builtinModules.map((m) => `node:${m}`),
+        ...Object.keys(pkg.dependencies || {}),
       ],
       output: {
         format: "es",
         entryFileNames: "[name].mjs",
       },
     },
-    minify: false, // Keep readable for debugging
-    sourcemap: true,
+    minify: true,
+    sourcemap: false,
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),
-      "@shared": path.resolve(__dirname, "./shared"),
     },
   },
-  define: {
-    "process.env.NODE_ENV": '"production"',
-  },
+  // NODE_ENV is deliberately not defined here; the runtime environment decides.
 });

@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
+import { getCurrentUser } from "@/lib/auth";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Idea {
@@ -94,32 +95,7 @@ const CATEGORIES = [
   { id: "documentation", name: "Documentation",             description: "Improve guides, tutorials, and help content",  icon: FileText,   color: "bg-gray-500" },
 ];
 
-// localStorage key for tracking user votes (used as fallback)
-const VOTED_KEY = "ideas_voted";
-
-const getVotedLocal = (): Set<string> => {
-  try {
-    const raw = localStorage.getItem(VOTED_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
-};
-
-const saveVotedLocal = (voted: Set<string>) => {
-  try {
-    localStorage.setItem(VOTED_KEY, JSON.stringify([...voted]));
-  } catch {}
-};
-
-const getCurrentUserEmail = (): string => {
-  try {
-    const user = JSON.parse(localStorage.getItem("auth_user") || "{}");
-    return user.email || "";
-  } catch {
-    return "";
-  }
-};
+const getCurrentUserEmail = (): string => getCurrentUser()?.email || "";
 
 // Returns a stable device ID for anonymous users — persisted in localStorage
 const getOrCreateDeviceId = (): string => {
@@ -150,7 +126,7 @@ export default function Ideas() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("boards");
 
-  const [votedIds, setVotedIds] = useState<Set<string>>(getVotedLocal);
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
 
   // suggestion form
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
@@ -222,18 +198,15 @@ export default function Ideas() {
         ? { column: "user_email", value: userEmail }
         : { column: "device_id", value: deviceId };
 
-      const { data } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from("idea_votes")
         .select("idea_id")
         .eq(identifier.column, identifier.value);
-
-      if (data && data.length > 0) {
-        const dbVoted = new Set(data.map((r: any) => r.idea_id as string));
-        setVotedIds(dbVoted);
-        saveVotedLocal(dbVoted);
-      }
+      if (error) throw error;
+      setVotedIds(new Set((data ?? []).map((r: any) => r.idea_id as string)));
     } catch (err) {
-      console.warn("Could not load votes from DB, using localStorage", err);
+      console.error("Could not load votes:", err);
+      toast.error("Couldn't load your previous votes");
     }
   }, []);
 
@@ -255,7 +228,6 @@ export default function Ideas() {
     const newVoted = new Set(votedIds);
     if (alreadyVoted) newVoted.delete(idea.id); else newVoted.add(idea.id);
     setVotedIds(newVoted);
-    saveVotedLocal(newVoted);
 
     try {
       const { error } = await supabaseClient
@@ -268,27 +240,22 @@ export default function Ideas() {
       if (alreadyVoted) {
         // Remove vote: delete by email if available, else by device_id
         const deleteQuery = supabaseClient.from("idea_votes").delete().eq("idea_id", idea.id);
-        if (userEmail) {
-          await deleteQuery.eq("user_email", userEmail);
-        } else if (deviceId) {
-          await deleteQuery.eq("device_id", deviceId);
-        }
+        const { error: delError } = userEmail
+          ? await deleteQuery.eq("user_email", userEmail)
+          : await deleteQuery.eq("device_id", deviceId);
+        if (delError) throw delError;
       } else {
-        // Insert vote (ignore duplicate silently via try/catch)
-        try {
-          await supabaseClient.from("idea_votes").insert({
-            idea_id: idea.id,
-            user_email: userEmail || "",
-            device_id: deviceId || "",
-          });
-        } catch {
-          // Duplicate vote — already recorded, no-op
-        }
+        const { error: insError } = await supabaseClient.from("idea_votes").insert({
+          idea_id: idea.id,
+          user_email: userEmail || "",
+          device_id: deviceId || "",
+        });
+        // 23505 = unique violation: the vote was already recorded, which is fine.
+        if (insError && insError.code !== "23505") throw insError;
       }
     } catch (err: any) {
       setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: idea.upvotes } : i));
       setVotedIds(votedIds);
-      saveVotedLocal(votedIds);
       toast.error("Failed to record vote");
     }
   };

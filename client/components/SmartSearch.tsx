@@ -32,10 +32,13 @@ import {
   Phone,
   MapPin,
   Calendar,
+  User,
+  Zap,
 } from "lucide-react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import supabaseClient from "@/lib/supabaseClient";
+import { workspaceService } from "@/lib/workspaceService";
 
 interface SearchResult {
   id: string;
@@ -46,6 +49,76 @@ interface SearchResult {
   href?: string;
   action?: () => void;
   metadata?: Record<string, any>;
+}
+
+const APP_PAGES = [
+  { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
+  { label: "Clients", href: "/admin/clients", icon: User },
+  { label: "Gallery", href: "/admin/gallery", icon: Camera },
+  { label: "Reviews", href: "/admin/reviews", icon: Star },
+  { label: "Automations", href: "/admin/automations", icon: Zap },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
+];
+
+/** Escape a user string for use inside a PostgREST ilike pattern. */
+function escapeLike(value: string): string {
+  // Commas and parentheses are PostgREST filter syntax inside .or(); drop them.
+  return value.replace(/[,()]/g, " ").replace(/[%_\\]/g, (m) => `\\${m}`);
+}
+
+/**
+ * Search this business's jobs and clients by name. Returns up to 10 rows
+ * of each, already shaped as SearchResult entries.
+ */
+async function searchBusinessRecords(query: string): Promise<SearchResult[]> {
+  const ws = await workspaceService.whenReady();
+  const businessId = ws.currentBusinessId;
+  if (!businessId) return [];
+  const pattern = `%${escapeLike(query)}%`;
+
+  const [jobsRes, clientsRes] = await Promise.all([
+    supabaseClient
+      .from("jobs")
+      .select("id, name, status, type")
+      .eq("business_id", businessId)
+      .ilike("name", pattern)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    supabaseClient
+      .from("clients")
+      .select("id, name, business_name, email")
+      .eq("business_id", businessId)
+      .or(`name.ilike.${pattern},business_name.ilike.${pattern}`)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
+  if (jobsRes.error) throw jobsRes.error;
+  if (clientsRes.error) throw clientsRes.error;
+
+  const results: SearchResult[] = [];
+  (jobsRes.data ?? []).forEach((job: any) => {
+    results.push({
+      id: `job-${job.id}`,
+      title: job.name,
+      subtitle: [job.status, job.type].filter(Boolean).join(" • ") || "Job",
+      type: "project",
+      icon: FolderOpen,
+      href: `/job/${job.id}`,
+    });
+  });
+  (clientsRes.data ?? []).forEach((c: any) => {
+    results.push({
+      id: `client-${c.id}`,
+      title: c.name || c.business_name || c.email || "Client",
+      subtitle: [c.business_name && c.name ? c.business_name : null, c.email]
+        .filter(Boolean)
+        .join(" • ") || "Client",
+      type: "contact",
+      icon: User,
+      href: `/admin/clients/${c.id}`,
+    });
+  });
+  return results;
 }
 
 interface SearchProps {
@@ -67,33 +140,39 @@ export function SmartSearch({
 
   const quickActions = useMemo(() => [
     { label: "New Job", href: "/admin/add-job", icon: Plus },
-    { label: "Revenue Report", href: "/admin/project-value?tab=analytics", icon: DollarSign },
+    { label: "New Workflow", href: "/admin/workflow-builder", icon: Plus },
   ], []);
 
-  const pages = useMemo(() => [
-    { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
-    { label: "Project Value", href: "/admin/project-value", icon: DollarSign },
-    { label: "Gallery", href: "/admin/gallery", icon: Camera },
-    { label: "Reviews", href: "/admin/reviews", icon: Star },
-    { label: "Settings", href: "/admin/settings", icon: Settings },
-  ], []);
+  const pages = useMemo(() => APP_PAGES, []);
 
-  // Load real jobs from Supabase when search opens
+  // Load this business's recent jobs from Supabase when search opens
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     const loadJobs = async () => {
       try {
-        const { data } = await supabaseClient
+        const ws = await workspaceService.whenReady();
+        if (!ws.currentBusinessId) {
+          setLiveJobs([]);
+          return;
+        }
+        const { data, error } = await supabaseClient
           .from("jobs")
           .select("id, name, status, type, client_contact")
+          .eq("business_id", ws.currentBusinessId)
           .order("created_at", { ascending: false })
           .limit(50);
-        setLiveJobs(data ?? []);
-      } catch {
-        setLiveJobs([]);
+        if (error) throw error;
+        if (!cancelled) setLiveJobs(data ?? []);
+      } catch (err) {
+        console.error("Search: failed to load jobs", err);
+        if (!cancelled) setLiveJobs([]);
       }
     };
     loadJobs();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   useEffect(() => {
@@ -287,82 +366,53 @@ export function HeaderSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
   const navigate = useNavigate();
 
-  const searchData = useMemo(
-    () => ({
-      projects: [
-        {
-          id: "1",
-          name: "Kitchen Renovation - Smith Residence",
-          client: "John Smith",
-          status: "Active",
-          value: "$25,000",
-          type: "Residential",
-        },
-        {
-          id: "2",
-          name: "Bathroom Remodel - Johnson Home",
-          client: "Sarah Johnson",
-          status: "Completed",
-          value: "$15,000",
-          type: "Residential",
-        },
-      ],
-      pages: [
-        { label: "Jobs", href: "/admin/jobs", icon: FolderOpen },
-        { label: "Gallery", href: "/admin/gallery", icon: Camera },
-        { label: "Reviews", href: "/admin/reviews", icon: Star },
-        { label: "Settings", href: "/admin/settings", icon: Settings },
-      ],
-    }),
-    [],
-  );
-
   useEffect(() => {
-    if (!query.trim()) {
+    const trimmed = query.trim();
+    if (!trimmed) {
       setResults([]);
       setShowResults(false);
+      setError(null);
       return;
     }
 
-    const lowerQuery = query.toLowerCase();
-    const filtered: SearchResult[] = [];
-
-    // Search projects
-    searchData.projects.forEach((project) => {
-      if (
-        project.name.toLowerCase().includes(lowerQuery) ||
-        project.client.toLowerCase().includes(lowerQuery)
-      ) {
-        filtered.push({
-          id: project.id,
-          title: project.name,
-          subtitle: `${project.client} • ${project.status}`,
-          type: "project",
-          icon: FolderOpen,
-          href: `/job/${project.id}`,
-        });
-      }
-    });
-
-    // Search pages
-    searchData.pages.forEach((page) => {
-      if (page.label.toLowerCase().includes(lowerQuery)) {
-        filtered.push({
-          id: `page-${page.label}`,
-          title: page.label,
+    const requestId = ++requestIdRef.current;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setError(null);
+      try {
+        const lq = trimmed.toLowerCase();
+        const pageHits: SearchResult[] = APP_PAGES.filter((p) =>
+          p.label.toLowerCase().includes(lq),
+        ).map((p) => ({
+          id: `page-${p.label}`,
+          title: p.label,
           subtitle: "Page",
           type: "page",
-          icon: page.icon,
-          href: page.href,
-        });
+          icon: p.icon,
+          href: p.href,
+        }));
+        const records = await searchBusinessRecords(trimmed);
+        if (requestId !== requestIdRef.current) return;
+        setResults([...records, ...pageHits].slice(0, 10));
+        setShowResults(true);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        console.error("Header search failed:", err);
+        setError("Search failed");
+        setResults([]);
+        setShowResults(true);
+      } finally {
+        if (requestId === requestIdRef.current) setSearching(false);
       }
-    });
+    }, 250);
 
-    setResults(filtered.slice(0, 8)); // Limit to 8 results
-    setShowResults(true);
-  }, [query, searchData]);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const handleSelect = (result: SearchResult) => {
     if (result.href) {
@@ -377,7 +427,7 @@ export function HeaderSearch() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search..."
+          placeholder="Search jobs, clients..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query && setShowResults(true)}
@@ -387,8 +437,17 @@ export function HeaderSearch() {
       </div>
 
       {/* Results dropdown */}
-      {showResults && results.length > 0 && (
+      {showResults && (
         <div className="absolute top-full mt-1 left-0 right-0 bg-background border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+          {searching && results.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
+          )}
+          {error && (
+            <div className="px-3 py-2 text-xs text-destructive">{error}</div>
+          )}
+          {!searching && !error && results.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">No results</div>
+          )}
           {results.map((result) => (
             <div
               key={result.id}

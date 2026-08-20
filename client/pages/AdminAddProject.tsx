@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +29,7 @@ import {
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { aiApi, aiErrorMessage } from "@/lib/api";
 import type { ProjectInfo } from "@/lib/mediaMetadata";
 import { generateProjectId } from "@/lib/idGenerator";
 import { AddressAutocomplete } from "@/components/GoogleMaps";
@@ -148,18 +148,14 @@ export default function AdminAddProject() {
     const apiKey = getGoogleMapsApiKey();
     if (apiKey && address.geometry?.location) {
       try {
-        const streetViewAvailable = await checkStreetViewAvailability(
-          address.geometry.location.lat,
-          address.geometry.location.lng,
-          apiKey,
-        );
+        const location = {
+          lat: Number(address.geometry.location.lat),
+          lng: Number(address.geometry.location.lng),
+        };
+        const streetViewAvailable = await checkStreetViewAvailability(location);
 
         if (streetViewAvailable) {
-          const streetViewUrl = createStreetViewEmbedUrl(
-            address.geometry.location.lat,
-            address.geometry.location.lng,
-            apiKey,
-          );
+          const streetViewUrl = createStreetViewEmbedUrl(location);
 
           setFormData((prev) => ({
             ...prev,
@@ -192,16 +188,22 @@ export default function AdminAddProject() {
 
     setIsEnhancingDescription(true);
     try {
-      // Simulate AI enhancement - in a real app, this would call an AI service
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const serviceType = HOME_SERVICE_TYPES.find(t => t.value === formData.type)?.label || "Service";
-      const enhanced = `${serviceType} project for ${formData.name}. This project involves professional ${serviceType.toLowerCase()} services to improve the property's functionality, aesthetics, and value. Work will be completed by licensed professionals with quality materials and industry-standard practices.`;
-
-      setFormData((prev) => ({ ...prev, description: enhanced }));
-      toast.success("Description enhanced successfully!");
+      const serviceType =
+        HOME_SERVICE_TYPES.find((t) => t.value === formData.type)?.label || "Service";
+      const location = [formData.city, formData.state].filter(Boolean).join(", ");
+      const context = `Job name: ${formData.name}. Service type: ${serviceType}.${
+        location ? ` Location: ${location}.` : ""
+      }`;
+      const { text } = await aiApi.enhanceDescription(
+        formData.description || formData.name,
+        context,
+      );
+      if (text?.trim()) {
+        setFormData((prev) => ({ ...prev, description: text.trim() }));
+        toast.success("Description enhanced");
+      }
     } catch (error) {
-      toast.error("Failed to enhance description");
+      toast.error(aiErrorMessage(error));
     } finally {
       setIsEnhancingDescription(false);
     }

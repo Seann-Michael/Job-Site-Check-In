@@ -16,9 +16,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/lib/dataService";
 import { AppLayout } from "@/components/AppLayout";
 import { MediaViewer } from "@/components/MediaViewer";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
@@ -46,6 +49,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface PhotoWithMetadata {
+  /** job_media row id */
+  mediaId: string;
   url: string;
   /** 384px copy the mobile capture pipeline stores beside the original.
    *  Absent on web uploads and older rows — grids fall back to `url`. */
@@ -174,6 +179,11 @@ export default function Gallery() {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const PHOTOS_PER_PAGE = 20;
+  const MEDIA_FETCH_CHUNK = 500;
+  const [editingPhoto, setEditingPhoto] = useState<PhotoWithMetadata | null>(null);
+  const [editTags, setEditTags] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Available filter options
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
@@ -205,49 +215,71 @@ export default function Gallery() {
       const userSet = new Set<string>();
       const tagSet = new Set<string>();
 
+      const projectById = new Map<string, any>();
       for (const project of projectsData as any[]) {
         projectOptions.push({ id: project.id, name: project.name });
+        projectById.set(project.id, project);
+      }
 
-        // Load media from the job_media Supabase table
-        const mediaItems = await dataService.getProjectPhotos(project.id);
-
-        for (const media of mediaItems as any[]) {
-          const isVideo = media.media_type === "video";
-          const tags: string[] = media.metadata?.tags || [];
-          tags.forEach((tag: string) => tagSet.add(tag));
-
-          // Display names live in metadata: mobile writes uploaded_by_name,
-          // older web uploads wrote uploadedBy. The uploaded_by column is an
-          // auth user id, not something to print.
-          const uploadedBy =
-            media.metadata?.uploaded_by_name || media.metadata?.uploadedBy || "User";
-          userSet.add(uploadedBy);
-
-          allPhotos.push({
-            url: media.file_path,
-            thumbnailUrl: media.metadata?.thumbnail_path || undefined,
-            projectId: project.id,
-            projectName: project.name,
-            projectAddress: project.location || project.address || "",
-            // Prefer the real capture time (mobile records it even for photos
-            // synced days later); the captured_at column is a pending
-            // migration, so metadata is the working source today.
-            uploadedAt:
-              media.captured_at || media.metadata?.captured_at || media.created_at,
-            uploadedBy,
-            tags,
-            isPrimary: media.is_featured || false,
-            type: isVideo ? "video" : "photo",
-            size: "medium",
-            metadata: {
-              originalFileName: media.original_name || media.filename,
-              fileSize: media.file_size || 0,
-              fileType: media.mime_type || "",
-              category: media.category || "general",
-              altText: media.metadata?.altText || media.description || "",
-            },
-          });
+      // One batched query across all of this business's jobs, fetched in
+      // ranges so large galleries don't hit the PostgREST row cap.
+      const jobIds = Array.from(projectById.keys());
+      const mediaRows: any[] = [];
+      if (jobIds.length > 0) {
+        let from = 0;
+        for (;;) {
+          const { data, error } = await supabase
+            .from("job_media")
+            .select("*")
+            .in("job_id", jobIds)
+            .order("created_at", { ascending: false })
+            .range(from, from + MEDIA_FETCH_CHUNK - 1);
+          if (error) throw error;
+          mediaRows.push(...(data || []));
+          if (!data || data.length < MEDIA_FETCH_CHUNK) break;
+          from += MEDIA_FETCH_CHUNK;
         }
+      }
+
+      for (const media of mediaRows) {
+        const project = projectById.get(media.job_id);
+        if (!project) continue;
+        const isVideo = media.media_type === "video";
+        const tags: string[] = media.metadata?.tags || [];
+        tags.forEach((tag: string) => tagSet.add(tag));
+
+        // Display names live in metadata: mobile writes uploaded_by_name,
+        // older web uploads wrote uploadedBy. The uploaded_by column is an
+        // auth user id, not something to print.
+        const uploadedBy =
+          media.metadata?.uploaded_by_name || media.metadata?.uploadedBy || "User";
+        userSet.add(uploadedBy);
+
+        allPhotos.push({
+          mediaId: media.id,
+          url: media.file_path,
+          thumbnailUrl: media.metadata?.thumbnail_path || undefined,
+          projectId: project.id,
+          projectName: project.name,
+          projectAddress: project.location || project.address || "",
+          // Prefer the real capture time (mobile records it even for photos
+          // synced days later); the captured_at column is a pending
+          // migration, so metadata is the working source today.
+          uploadedAt:
+            media.captured_at || media.metadata?.captured_at || media.created_at,
+          uploadedBy,
+          tags,
+          isPrimary: media.is_featured || false,
+          type: isVideo ? "video" : "photo",
+          size: "medium",
+          metadata: {
+            originalFileName: media.original_name || media.filename,
+            fileSize: media.file_size || 0,
+            fileType: media.mime_type || "",
+            category: media.category || "general",
+            altText: media.metadata?.altText || media.description || "",
+          },
+        });
       }
 
       setProjects(projectOptions);
@@ -332,13 +364,9 @@ export default function Gallery() {
     setFilteredPhotos(filtered);
   }, [photos, filters]);
 
-  const loadMorePhotos = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setCurrentPage((prev) => prev + 1);
-      setLoading(false);
-    }, 500); // Small delay to show loading state
-  };
+  // All rows are already in memory (fetched in DB ranges above); paging
+  // here is purely how many are rendered at once.
+  const loadMorePhotos = () => setCurrentPage((prev) => prev + 1);
 
   const hasMorePhotos = displayedPhotos.length < filteredPhotos.length;
 
@@ -449,23 +477,65 @@ export default function Gallery() {
   };
 
   const handlePhotoEdit = (photo: PhotoWithMetadata) => {
-    toast.info("Edit functionality coming soon!");
+    setEditingPhoto(photo);
+    setEditTags(photo.tags.join(", "));
+    setEditDescription(photo.metadata?.altText || "");
+  };
+
+  const savePhotoEdit = async () => {
+    if (!editingPhoto) return;
+    const tags = editTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    setSavingEdit(true);
+    try {
+      const { data: row, error: readError } = await supabase
+        .from("job_media")
+        .select("metadata")
+        .eq("id", editingPhoto.mediaId)
+        .single();
+      if (readError) throw readError;
+      const metadata = { ...((row?.metadata as Record<string, any>) || {}), tags };
+      const { error } = await supabase
+        .from("job_media")
+        .update({
+          description: editDescription.trim() || null,
+          metadata,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingPhoto.mediaId);
+      if (error) throw error;
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.mediaId === editingPhoto.mediaId
+            ? {
+                ...p,
+                tags,
+                metadata: p.metadata
+                  ? { ...p.metadata, altText: editDescription.trim() }
+                  : p.metadata,
+              }
+            : p,
+        ),
+      );
+      setAllTags((prev) => Array.from(new Set([...prev, ...tags])));
+      setEditingPhoto(null);
+      toast.success("Photo updated");
+    } catch (error) {
+      console.error("Error updating photo:", error);
+      toast.error("Failed to update photo");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handlePhotoDelete = async (photo: PhotoWithMetadata) => {
     if (!confirm("Are you sure you want to delete this photo?")) return;
     try {
-      // Find the media record id from the url by reloading the project media
-      const mediaItems = await dataService.getProjectPhotos(photo.projectId) as any[];
-      const mediaRecord = mediaItems.find((m: any) => m.file_path === photo.url);
-      if (mediaRecord) {
-        await dataService.deleteProjectPhoto(mediaRecord.id);
-        toast.success("Photo deleted successfully");
-        // Remove from local state without a full reload
-        setPhotos((prev) => prev.filter((p) => p.url !== photo.url));
-      } else {
-        toast.error("Could not find media record to delete");
-      }
+      await dataService.deleteProjectPhoto(photo.mediaId);
+      toast.success("Photo deleted successfully");
+      setPhotos((prev) => prev.filter((p) => p.mediaId !== photo.mediaId));
     } catch (error) {
       console.error("Error deleting photo:", error);
       toast.error("Failed to delete photo");
@@ -1238,6 +1308,46 @@ export default function Gallery() {
           </div>
         </div>
       )}
+
+      {/* Edit photo dialog */}
+      <Dialog open={!!editingPhoto} onOpenChange={(open) => !open && setEditingPhoto(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Photo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {editingPhoto && editingPhoto.type === "photo" && (
+              <img
+                src={editingPhoto.thumbnailUrl || editingPhoto.url}
+                alt=""
+                className="w-full max-h-48 object-contain rounded bg-muted"
+              />
+            )}
+            <div className="space-y-1.5">
+              <Label>Tags (comma separated)</Label>
+              <Input
+                value={editTags}
+                onChange={(e) => setEditTags(e.target.value)}
+                placeholder="before, kitchen, demo"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description / alt text</Label>
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingPhoto(null)}>Cancel</Button>
+            <Button onClick={savePhotoEdit} disabled={savingEdit}>
+              {savingEdit ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Upload Modal */}
       <Dialog open={showUploader} onOpenChange={setShowUploader}>

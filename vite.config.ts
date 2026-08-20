@@ -1,47 +1,23 @@
-import { defineConfig, Plugin } from "vite";
+import { defineConfig, loadEnv, Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import fs from "fs";
-import { createServer } from "./server";
 
-/**
- * Reads a .env-style file and returns key/value pairs.
- * This is used to let .env.local values OVERRIDE process.env,
- * which is necessary when the platform injects incorrect env vars.
- */
-function parseEnvFile(filePath: string): Record<string, string> {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const result: Record<string, string> = {};
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIndex = trimmed.indexOf("=");
-      if (eqIndex > 0) {
-        const key = trimmed.slice(0, eqIndex).trim();
-        const value = trimmed.slice(eqIndex + 1).trim();
-        result[key] = value;
-      }
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
+// A build id that changes on every build so the service worker cache is
+// invalidated on deploy. Prefer the platform-provided commit SHA when present.
+const BUILD_ID =
+  process.env.BUILD_ID ||
+  process.env.SOURCE_VERSION ||
+  process.env.GITHUB_SHA ||
+  Date.now().toString(36);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Read .env.local directly so its VITE_ values take precedence over
-  // any incorrect values the platform may have set in process.env.
-  const envLocalPath = path.resolve(__dirname, ".env.local");
-  const envLocal = parseEnvFile(envLocalPath);
-
-  // Build `define` overrides so import.meta.env.VITE_* uses the .env.local values
-  const envDefines: Record<string, string> = {};
-  for (const [key, value] of Object.entries(envLocal)) {
-    if (key.startsWith("VITE_")) {
-      envDefines[`import.meta.env.${key}`] = JSON.stringify(value);
-    }
+  // Make .env / .env.local values visible to the dev-only Express server,
+  // which reads process.env (server/lib/env.ts).
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const [k, v] of Object.entries(env)) {
+    if (process.env[k] === undefined) process.env[k] = v;
   }
 
   return {
@@ -52,11 +28,35 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "dist",
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (!id.includes("node_modules")) return undefined;
+            if (
+              /[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler|react-is)[\\/]/.test(
+                id,
+              )
+            ) {
+              return "vendor-react";
+            }
+            if (id.includes("/node_modules/@radix-ui/")) return "vendor-radix";
+            if (id.includes("/node_modules/@supabase/"))
+              return "vendor-supabase";
+            if (id.includes("/node_modules/lucide-react/"))
+              return "vendor-icons";
+            if (
+              /[\\/]node_modules[\\/](recharts|d3-[^/]+|date-fns|victory-vendor|@tanstack)[\\/]/.test(
+                id,
+              )
+            ) {
+              return "vendor-misc";
+            }
+            return undefined;
+          },
+        },
+      },
     },
-    // These compile-time replacements override the process.env values that
-    // Vite would otherwise inject, fixing any misconfigured platform env vars.
-    define: envDefines,
-    plugins: [react(), expressPlugin()],
+    plugins: [react(), buildIdPlugin(), expressPlugin()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./client"),
@@ -68,11 +68,10 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       entries: ["index.html"],
-      exclude: ["test-google-maps.html", "public/offline.html"],
+      exclude: ["public/offline.html"],
       // Explicitly include React packages to ensure Vite pre-bundles them as a
       // single unified chunk, preventing the "Invalid hook call" error that
-      // occurs when multiple React instances exist (e.g. from a stale cache or
-      // a nested react-is version shipped by prop-types).
+      // occurs when multiple React instances exist.
       include: [
         "react",
         "react-dom",
@@ -80,9 +79,6 @@ export default defineConfig(({ mode }) => {
         "react-is",
         "react-router-dom",
         "recharts",
-        // Radix UI primitives — pre-bundle so Vite doesn't trigger a
-        // "new dependencies optimized: reloading" cycle mid-import which
-        // causes "Importing a module script failed" in lazy-loaded pages.
         "@radix-ui/react-slider",
         "@radix-ui/react-separator",
         "@radix-ui/react-tooltip",
@@ -95,25 +91,80 @@ export default defineConfig(({ mode }) => {
   };
 });
 
+/**
+ * Replaces the `__BUILD_ID__` placeholder in public/sw.js (and index.html)
+ * with a per-build id so each deploy gets a fresh service worker cache.
+ */
+function buildIdPlugin(): Plugin {
+  return {
+    name: "build-id",
+    transformIndexHtml(html) {
+      return html.replace(/__BUILD_ID__/g, BUILD_ID);
+    },
+    closeBundle() {
+      // Vite copies public/ into dist after the bundle is written, so patch
+      // the copied file in place.
+      const out = path.resolve(__dirname, "dist/sw.js");
+      if (!fs.existsSync(out)) return;
+      const sw = fs.readFileSync(out, "utf-8");
+      fs.writeFileSync(out, sw.replace(/__BUILD_ID__/g, BUILD_ID));
+    },
+    configureServer(server) {
+      // In dev, serve sw.js with the placeholder replaced too.
+      server.middlewares.use((req, res, next) => {
+        if (req.url === "/sw.js") {
+          const swPath = path.resolve(__dirname, "public/sw.js");
+          try {
+            const sw = fs.readFileSync(swPath, "utf-8");
+            res.setHeader("Content-Type", "application/javascript");
+            res.end(sw.replace(/__BUILD_ID__/g, "dev"));
+            return;
+          } catch {
+            // fall through to static handling
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
+/**
+ * Dev-only: mounts the Express API on the Vite dev server so `/api/*` works
+ * without a separate process. The server module is imported lazily because it
+ * creates a Supabase client at load time; without credentials we skip it
+ * rather than crash `vite build`.
+ */
 function expressPlugin(): Plugin {
   return {
     name: "express-plugin",
-    apply: "serve", // Only apply during development (serve mode)
-    configureServer(server) {
-      const app = createServer();
+    apply: "serve",
+    async configureServer(server) {
+      const hasSupabase =
+        process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+      if (!hasSupabase) {
+        console.warn(
+          "[vite] SUPABASE_URL not set - API proxying is disabled for this dev session.",
+        );
+        return;
+      }
+      const { createServer } = await import("./server");
+      // Dev only: the production entry (server/node-build.ts) validates env strictly.
+      if (!process.env.APP_URL) process.env.APP_URL = "http://localhost:8080";
+      let app: any;
+      try {
+        app = createServer();
+      } catch (err) {
+        console.warn("[vite] API server not started:", (err as Error).message);
+        return;
+      }
 
-      // Route API and public routes to the local express app
-      server.middlewares.use(async (req: any, res: any, next: any) => {
-        try {
-          const url = req.url || "";
-          if (url.startsWith("/api/") || url.startsWith("/public/")) {
-            return app(req, res, next);
-          }
-          return next();
-        } catch (err) {
-          console.error("Vite dev middleware error:", err);
-          return next();
+      server.middlewares.use((req, res, next) => {
+        const url = req.url || "";
+        if (url.startsWith("/api/") || url.startsWith("/public/")) {
+          return app(req as any, res as any, next);
         }
+        return next();
       });
     },
   };

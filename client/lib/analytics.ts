@@ -1,3 +1,6 @@
+import { captureMessage } from "./errorHandling";
+import { getCurrentUser } from "./auth";
+
 interface PerformanceMetric {
   name: string;
   value: number;
@@ -77,8 +80,8 @@ class AnalyticsService {
   private getUserId(): string | undefined {
     try {
       if (typeof window === "undefined") return undefined;
-      const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-      return profile.id || profile.email;
+      const user = getCurrentUser();
+      return user ? String(user.id) : undefined;
     } catch {
       return undefined;
     }
@@ -245,18 +248,12 @@ class AnalyticsService {
     try {
       if (!this.isEnabled) return;
 
-      // In a real implementation, send data to analytics service
-      // For now, just log to console in development
-      if (process.env.NODE_ENV === "development") {
-        if (this.eventQueue.length > 0) {
-          console.log("Analytics Events:", this.eventQueue);
-        }
-        if (this.performanceQueue.length > 0) {
-          console.log("Performance Metrics:", this.performanceQueue);
-        }
-        if (this.errorQueue.length > 0) {
-          console.log("Error Events:", this.errorQueue);
-        }
+      // No analytics backend is wired up. Errors are forwarded to Sentry
+      // when VITE_SENTRY_DSN is configured; events/metrics are dropped.
+      if (import.meta.env.PROD) {
+        this.errorQueue.forEach((e) =>
+          captureMessage(e.message, "error", { stack: e.stack, url: e.url, userId: e.userId }),
+        );
       }
 
       // Clear queues

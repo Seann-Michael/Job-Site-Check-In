@@ -53,7 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
@@ -104,8 +104,7 @@ export default function BusinessManagement() {
     lastActivity: true,
   });
 
-  useEffect(() => {
-    const fetchBusinesses = async () => {
+  const fetchBusinesses = useCallback(async () => {
       setLoading(true);
       try {
         const { data, error } = await supabaseClient
@@ -135,9 +134,11 @@ export default function BusinessManagement() {
       } finally {
         setLoading(false);
       }
-    };
-    fetchBusinesses();
   }, []);
+
+  useEffect(() => {
+    fetchBusinesses();
+  }, [fetchBusinesses]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -290,8 +291,14 @@ export default function BusinessManagement() {
                   <SelectItem value="canceled">Canceled</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="gap-2">
-                <RefreshCw className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={fetchBusinesses}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
             </div>

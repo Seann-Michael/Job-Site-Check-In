@@ -2,10 +2,10 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import supabaseClient from "@/lib/supabaseClient";
+import { workspaceService } from "@/lib/workspaceService";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,52 +35,27 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Play,
   Pause,
-  Square,
   MoreHorizontal,
   Plus,
   Edit,
   Trash2,
   Copy,
-  Download,
-  Upload,
-  Settings,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
   Zap,
-  Mail,
-  Calendar,
-  Save,
   TrendingUp,
   BarChart3,
   Activity,
-  Users,
   RefreshCw,
-  Filter,
   Search,
-  AlertTriangle,
-  Volume2,
-  VolumeX,
-  MessageSquare,
-  Smartphone,
-  Monitor,
-  Star,
-  Bell,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -138,7 +112,7 @@ interface ExecutionHistory {
   id: string;
   workflowId: string;
   workflowName: string;
-  status: "success" | "failed" | "running";
+  status: "completed" | "failed" | "pending";
   startTime: Date;
   endTime?: Date;
   duration?: number;
@@ -154,15 +128,27 @@ export default function Automation() {
   const [activeTab, setActiveTab] = useState("executions");
   const [executionHistory, setExecutionHistory] = useState<ExecutionHistory[]>([]);
   const [loadingWorkflows, setLoadingWorkflows] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loadData = async () => {
       setLoadingWorkflows(true);
+      setLoadError(null);
       try {
-        const { data: wfData } = await supabaseClient
+        const ws = await workspaceService.whenReady();
+        const businessId = ws.currentBusinessId;
+        if (!businessId) {
+          setWorkflows([]);
+          setExecutionHistory([]);
+          return;
+        }
+        const { data: wfData, error: wfError } = await supabaseClient
           .from("workflows")
           .select("*")
+          .eq("business_id", businessId)
           .order("created_at", { ascending: false });
+        if (wfError) throw wfError;
         const mapped: Workflow[] = (wfData ?? []).map((w: any) => ({
           id: w.id,
           name: w.name,
@@ -177,16 +163,21 @@ export default function Automation() {
         }));
         setWorkflows(mapped);
 
-        const { data: exData } = await supabaseClient
-          .from("workflow_executions")
-          .select("*, workflow:workflow_id(name)")
-          .order("started_at", { ascending: false })
-          .limit(50);
+        const workflowIds = mapped.map((w) => w.id);
+        const { data: exData, error: exError } = workflowIds.length
+          ? await supabaseClient
+              .from("workflow_executions")
+              .select("*, workflow:workflow_id(name)")
+              .in("workflow_id", workflowIds)
+              .order("started_at", { ascending: false })
+              .limit(50)
+          : { data: [], error: null };
+        if (exError) throw exError;
         const exMapped: ExecutionHistory[] = (exData ?? []).map((e: any) => ({
           id: e.id,
           workflowId: e.workflow_id,
           workflowName: e.workflow?.name ?? "Unknown",
-          status: e.status ?? "success",
+          status: (e.status === "completed" || e.status === "failed" ? e.status : "pending") as ExecutionHistory["status"],
           startTime: new Date(e.started_at),
           endTime: e.completed_at ? new Date(e.completed_at) : undefined,
           duration: e.completed_at && e.started_at
@@ -197,20 +188,16 @@ export default function Automation() {
           progress: e.status === "completed" ? 100 : e.status === "failed" ? 0 : 50,
         }));
         setExecutionHistory(exMapped);
-      } catch {
-        // leave arrays empty on error
+      } catch (err) {
+        console.error("Failed to load automations:", err);
+        setLoadError(err instanceof Error ? err.message : "Failed to load automations");
+        toast.error("Failed to load automations");
       } finally {
         setLoadingWorkflows(false);
       }
     };
     loadData();
   }, []);
-  const [isNewWorkflowOpen, setIsNewWorkflowOpen] = useState(false);
-  const [newWorkflow, setNewWorkflow] = useState({
-    name: "",
-    description: "",
-    type: "email",
-  });
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -232,9 +219,17 @@ export default function Automation() {
   };
 
   const sortedWorkflows = useMemo(() => {
-    if (!sortConfig) return workflows;
+    const q = searchQuery.trim().toLowerCase();
+    const visible = q
+      ? workflows.filter(
+          (w) =>
+            w.name.toLowerCase().includes(q) ||
+            (w.description || "").toLowerCase().includes(q),
+        )
+      : workflows;
+    if (!sortConfig) return visible;
 
-    return [...workflows].sort((a, b) => {
+    return [...visible].sort((a, b) => {
       const aVal = a[sortConfig.key as keyof Workflow];
       const bVal = b[sortConfig.key as keyof Workflow];
 
@@ -249,7 +244,7 @@ export default function Automation() {
       }
       return 0;
     });
-  }, [workflows, sortConfig]);
+  }, [workflows, sortConfig, searchQuery]);
 
   // Pagination logic
   const totalPages = Math.ceil(sortedWorkflows.length / rowsPerPage);
@@ -270,35 +265,104 @@ export default function Automation() {
     );
   };
 
-  const handleWorkflowAction = (
+  const handleWorkflowAction = async (
     workflowId: string,
-    action: "play" | "pause" | "stop" | "edit" | "delete" | "copy",
+    action: "play" | "pause" | "edit" | "delete" | "copy",
   ) => {
-    setWorkflows((prev) =>
-      prev
-        .map((workflow) => {
-          if (workflow.id === workflowId) {
-            switch (action) {
-              case "play":
-                return { ...workflow, status: "active" as const };
-              case "pause":
-                return { ...workflow, status: "paused" as const };
-              case "stop":
-                return { ...workflow, status: "draft" as const };
-              case "delete":
-                return workflow; // Handle deletion in filter
-              default:
-                return workflow;
-            }
-          }
-          return workflow;
-        })
-        .filter(
-          (workflow) => !(action === "delete" && workflow.id === workflowId),
-        ),
-    );
-
+    if (action === "edit") {
+      navigate(`/admin/workflow-builder/${workflowId}`);
+      return;
+    }
+    try {
+      if (action === "play" || action === "pause") {
+        const isActive = action === "play";
+        const { error } = await supabaseClient
+          .from("workflows")
+          .update({ is_active: isActive, updated_at: new Date().toISOString() })
+          .eq("id", workflowId);
+        if (error) throw error;
+        setWorkflows((prev) =>
+          prev.map((w) =>
+            w.id === workflowId ? { ...w, status: isActive ? "active" : "paused", updatedAt: new Date() } : w,
+          ),
+        );
+        toast.success(isActive ? "Workflow resumed" : "Workflow paused");
+      } else if (action === "delete") {
+        const { error } = await supabaseClient.from("workflows").delete().eq("id", workflowId);
+        if (error) throw error;
+        setWorkflows((prev) => prev.filter((w) => w.id !== workflowId));
+        toast.success("Workflow deleted");
+      } else if (action === "copy") {
+        const { data: src, error: fetchError } = await supabaseClient
+          .from("workflows")
+          .select("*")
+          .eq("id", workflowId)
+          .single();
+        if (fetchError || !src) throw fetchError ?? new Error("Workflow not found");
+        const { data: created, error: insertError } = await supabaseClient
+          .from("workflows")
+          .insert({
+            business_id: src.business_id,
+            name: `${src.name} (copy)`,
+            description: src.description,
+            steps: src.steps,
+            is_active: false,
+            is_published: false,
+          })
+          .select()
+          .single();
+        if (insertError || !created) throw insertError ?? new Error("Failed to duplicate");
+        setWorkflows((prev) => [
+          {
+            id: created.id,
+            name: created.name,
+            description: created.description ?? "",
+            status: "draft",
+            nodes: [],
+            connections: [],
+            triggers: [],
+            createdAt: new Date(created.created_at),
+            updatedAt: new Date(created.updated_at),
+            runCount: 0,
+          },
+          ...prev,
+        ]);
+        toast.success("Workflow duplicated");
+      }
+    } catch (err) {
+      console.error("Workflow action failed:", err);
+      toast.error(err instanceof Error ? err.message : "Workflow action failed");
+    }
   };
+
+  const analytics = useMemo(() => {
+    const finishedRuns = executionHistory.filter((e) => e.status === "completed" || e.status === "failed");
+    const failedRuns = executionHistory.filter((e) => e.status === "failed");
+    const timed = executionHistory.filter((e) => e.duration != null);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const tally = (values: string[]) => {
+      const counts = new Map<string, number>();
+      for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+      const total = values.length || 1;
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([name, count]) => ({ name, count, percentage: Math.round((count / total) * 100) }));
+    };
+    return {
+      finished: finishedRuns.length,
+      failed: failedRuns.length,
+      successRate: finishedRuns.length ? ((finishedRuns.length - failedRuns.length) / finishedRuns.length) * 100 : 0,
+      errorRate: finishedRuns.length ? (failedRuns.length / finishedRuns.length) * 100 : 0,
+      avgDuration: timed.length
+        ? Math.round(timed.reduce((sum, e) => sum + (e.duration ?? 0), 0) / timed.length)
+        : null,
+      today: executionHistory.filter((e) => e.startTime >= startOfDay).length,
+      triggers: tally(executionHistory.map((e) => e.trigger || "manual")),
+      errors: tally(failedRuns.map((e) => e.errorMessage?.trim() || "Unknown error")),
+    };
+  }, [executionHistory]);
 
   const getStatusBadge = (status: Workflow["status"]) => {
     switch (status) {
@@ -330,11 +394,11 @@ export default function Automation() {
 
   const getExecutionStatusBadge = (status: ExecutionHistory["status"]) => {
     switch (status) {
-      case "success":
+      case "completed":
         return (
           <Badge variant="default" className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Success
+            Completed
           </Badge>
         );
       case "failed":
@@ -344,11 +408,11 @@ export default function Automation() {
             Failed
           </Badge>
         );
-      case "running":
+      case "pending":
         return (
           <Badge variant="secondary" className="bg-blue-100 text-blue-800">
             <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-            Running
+            Pending
           </Badge>
         );
       default:
@@ -375,10 +439,6 @@ export default function Automation() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-            <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-[44px]">
-              <Upload className="h-4 w-4 mr-2" />
-              Import
-            </Button>
             <Button
               size="sm"
               onClick={() => navigate("/admin/workflow-builder")}
@@ -431,9 +491,7 @@ export default function Automation() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {executionHistory.length > 0
-                  ? Math.round((executionHistory.filter((e) => e.status === "success").length / executionHistory.length) * 100)
-                  : 0}%
+                {analytics.finished > 0 ? `${Math.round(analytics.successRate)}%` : "—"}
               </div>
               <p className="text-xs text-muted-foreground">
                 {executionHistory.filter((e) => e.status === "failed").length} failures
@@ -464,17 +522,32 @@ export default function Automation() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Workflows</CardTitle>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Search className="h-4 w-4" />
-                </Button>
+              <div className="relative w-full max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search workflows…"
+                  className="pl-8 h-9"
+                />
               </div>
             </div>
           </CardHeader>
           <CardContent>
+            {loadError && (
+              <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {loadError}
+              </div>
+            )}
+            {loadingWorkflows && (
+              <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                Loading workflows…
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -600,15 +673,6 @@ export default function Automation() {
                               <Copy className="mr-2 h-4 w-4" />
                               Duplicate
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              Export
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <BarChart3 className="mr-2 h-4 w-4" />
-                              View Analytics
-                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
@@ -706,7 +770,6 @@ export default function Automation() {
           <TabsList>
             <TabsTrigger value="executions">Execution History</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="executions" className="space-y-6">
@@ -727,7 +790,6 @@ export default function Automation() {
                       <TableHead>Duration</TableHead>
                       <TableHead>Trigger</TableHead>
                       <TableHead>Progress</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -757,37 +819,6 @@ export default function Automation() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Activity className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              {execution.status === "running" && (
-                                <DropdownMenuItem>
-                                  <Square className="mr-2 h-4 w-4" />
-                                  Stop Execution
-                                </DropdownMenuItem>
-                              )}
-                              {execution.status === "failed" && (
-                                <DropdownMenuItem>
-                                  <RefreshCw className="mr-2 h-4 w-4" />
-                                  Retry
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem>
-                                <Download className="mr-2 h-4 w-4" />
-                                Export Logs
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -797,65 +828,57 @@ export default function Automation() {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
-            {/* Performance Overview */}
+            {/* Performance Overview (derived from loaded execution history) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Success Rate
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">97.1%</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.finished > 0 ? `${analytics.successRate.toFixed(1)}%` : "—"}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    +2.3% from last month
+                    {analytics.finished} finished run{analytics.finished === 1 ? "" : "s"}
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Avg Response Time
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Avg Duration</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">1.2s</div>
-                  <p className="text-xs text-muted-foreground">
-                    -0.3s from last month
-                  </p>
+                  <div className="text-2xl font-bold">
+                    {analytics.avgDuration != null ? formatDuration(analytics.avgDuration) : "—"}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Across runs with a recorded duration</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Daily Executions
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Executions Today</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">156</div>
-                  <p className="text-xs text-muted-foreground">
-                    +12% from yesterday
-                  </p>
+                  <div className="text-2xl font-bold">{analytics.today}</div>
+                  <p className="text-xs text-muted-foreground">Started since midnight</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Error Rate
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">2.9%</div>
-                  <p className="text-xs text-muted-foreground">
-                    -1.1% from last month
-                  </p>
+                  <div className="text-2xl font-bold">
+                    {analytics.finished > 0 ? `${analytics.errorRate.toFixed(1)}%` : "—"}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{analytics.failed} failed</p>
                 </CardContent>
               </Card>
             </div>
@@ -864,44 +887,56 @@ export default function Automation() {
             <Card>
               <CardHeader>
                 <CardTitle>Workflow Performance</CardTitle>
-                <CardDescription>
-                  Individual workflow metrics and trends
-                </CardDescription>
+                <CardDescription>Per-workflow metrics from recent executions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {workflows.map((workflow) => (
-                    <div
-                      key={workflow.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <div className="font-medium">{workflow.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {workflow.runCount} executions
+                {workflows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No workflows yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {workflows.map((workflow) => {
+                      const runs = executionHistory.filter((e) => e.workflowId === workflow.id);
+                      const finished = runs.filter((e) => e.status === "completed" || e.status === "failed");
+                      const completed = finished.filter((e) => e.status === "completed").length;
+                      const timed = runs.filter((e) => e.duration != null);
+                      const avg = timed.length
+                        ? Math.round(timed.reduce((sum, e) => sum + (e.duration ?? 0), 0) / timed.length)
+                        : null;
+                      const lastRun = runs[0]?.startTime;
+                      return (
+                        <div
+                          key={workflow.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div>
+                            <div className="font-medium">{workflow.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {runs.length} execution{runs.length === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6 text-sm">
+                            <div className="text-center">
+                              <div className="font-medium">
+                                {finished.length ? `${Math.round((completed / finished.length) * 100)}%` : "—"}
+                              </div>
+                              <div className="text-muted-foreground">Success</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-medium">{avg != null ? formatDuration(avg) : "—"}</div>
+                              <div className="text-muted-foreground">Avg Time</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-medium">
+                                {lastRun ? lastRun.toLocaleDateString() : "Never"}
+                              </div>
+                              <div className="text-muted-foreground">Last Run</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="text-center">
-                          <div className="font-medium">95%</div>
-                          <div className="text-muted-foreground">Success</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-medium">2.1s</div>
-                          <div className="text-muted-foreground">Avg Time</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-medium">
-                            {workflow.lastRun ? "Today" : "Never"}
-                          </div>
-                          <div className="text-muted-foreground">Last Run</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -909,451 +944,64 @@ export default function Automation() {
             <Card>
               <CardHeader>
                 <CardTitle>Usage Trends</CardTitle>
-                <CardDescription>
-                  Execution patterns over the last 30 days
-                </CardDescription>
+                <CardDescription>Trigger mix and failure reasons from recent executions</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h4 className="font-medium mb-3">Most Active Triggers</h4>
-                    <div className="space-y-2">
-                      {[
-                        {
-                          name: "Project Completed",
-                          count: 45,
-                          percentage: 38,
-                        },
-                        { name: "New Lead Added", count: 32, percentage: 27 },
-                        { name: "Schedule", count: 28, percentage: 24 },
-                        { name: "Manual Trigger", count: 13, percentage: 11 },
-                      ].map((trigger) => (
-                        <div
-                          key={trigger.name}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
+                    {analytics.triggers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No executions yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {analytics.triggers.map((trigger) => (
+                          <div key={trigger.name} className="flex items-center justify-between">
                             <div className="text-sm">{trigger.name}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium">
-                              {trigger.count}
-                            </div>
-                            <div className="w-16 bg-muted rounded-full h-2">
-                              <div
-                                className="bg-primary h-2 rounded-full"
-                                style={{ width: `${trigger.percentage}%` }}
-                              />
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm font-medium">{trigger.count}</div>
+                              <div className="w-16 bg-muted rounded-full h-2">
+                                <div
+                                  className="bg-primary h-2 rounded-full"
+                                  style={{ width: `${trigger.percentage}%` }}
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>
-                    <h4 className="font-medium mb-3">Error Categories</h4>
-                    <div className="space-y-2">
-                      {[
-                        { name: "Email Delivery", count: 5, percentage: 42 },
-                        { name: "API Timeout", count: 3, percentage: 25 },
-                        { name: "Invalid Data", count: 2, percentage: 17 },
-                        { name: "Network Error", count: 2, percentage: 17 },
-                      ].map((error) => (
-                        <div
-                          key={error.name}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm">{error.name}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium">
-                              {error.count}
-                            </div>
-                            <div className="w-16 bg-muted rounded-full h-2">
-                              <div
-                                className="bg-destructive h-2 rounded-full"
-                                style={{ width: `${error.percentage}%` }}
-                              />
+                    <h4 className="font-medium mb-3">Failure Reasons</h4>
+                    {analytics.errors.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No failures recorded.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {analytics.errors.map((error) => (
+                          <div key={error.name} className="flex items-center justify-between gap-4">
+                            <div className="text-sm truncate" title={error.name}>{error.name}</div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="text-sm font-medium">{error.count}</div>
+                              <div className="w-16 bg-muted rounded-full h-2">
+                                <div
+                                  className="bg-destructive h-2 rounded-full"
+                                  style={{ width: `${error.percentage}%` }}
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Execution Settings</CardTitle>
-                <CardDescription>
-                  Configure how workflows are executed
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Max Concurrent Executions</Label>
-                      <Select defaultValue="5">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1</SelectItem>
-                          <SelectItem value="3">3</SelectItem>
-                          <SelectItem value="5">5</SelectItem>
-                          <SelectItem value="10">10</SelectItem>
-                          <SelectItem value="unlimited">Unlimited</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Default Timeout (seconds)</Label>
-                      <Input type="number" defaultValue="300" />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Retry Attempts</Label>
-                      <Select defaultValue="3">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">No retries</SelectItem>
-                          <SelectItem value="1">1 retry</SelectItem>
-                          <SelectItem value="3">3 retries</SelectItem>
-                          <SelectItem value="5">5 retries</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Retry Delay (seconds)</Label>
-                      <Input type="number" defaultValue="60" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Enable Logging</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Log all workflow executions
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Email Notifications</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Send email alerts for failures
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Auto-pause on Errors</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Pause workflows after consecutive failures
-                        </p>
-                      </div>
-                      <Switch />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Performance Monitoring</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Track detailed execution metrics
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notification Settings */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">
-                    Notification Preferences
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Email Recipients</Label>
-                        <Textarea
-                          placeholder="Enter email addresses (one per line)"
-                          defaultValue="admin@example.com&#10;manager@example.com"
-                          rows={3}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label>Daily Summary Reports</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Receive daily execution summaries
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Notification Threshold</Label>
-                        <Select defaultValue="any">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="any">Any failure</SelectItem>
-                            <SelectItem value="consecutive-3">
-                              3 consecutive failures
-                            </SelectItem>
-                            <SelectItem value="consecutive-5">
-                              5 consecutive failures
-                            </SelectItem>
-                            <SelectItem value="rate-10">
-                              10% failure rate
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label>Weekly Performance Reports</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Receive weekly analytics reports
-                          </p>
-                        </div>
-                        <Switch />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Settings
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
-        {/* New Workflow Dialog */}
-        <Dialog open={isNewWorkflowOpen} onOpenChange={setIsNewWorkflowOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Workflow</DialogTitle>
-              <DialogDescription>
-                Choose a workflow template to get started with automation
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              {/* Workflow Templates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => {
-                    setNewWorkflow({ ...newWorkflow, type: "email" });
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                        <Mail className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <h3 className="font-medium">Email Automation</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Send automated emails based on triggers like project
-                      completion, new leads, or scheduled times
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => {
-                    setNewWorkflow({ ...newWorkflow, type: "review" });
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100">
-                        <Star className="h-5 w-5 text-yellow-600" />
-                      </div>
-                      <h3 className="font-medium">Review Requests</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically request reviews from clients after project
-                      completion with customizable timing
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => {
-                    setNewWorkflow({ ...newWorkflow, type: "notification" });
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                        <Bell className="h-5 w-5 text-green-600" />
-                      </div>
-                      <h3 className="font-medium">Notifications</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Send SMS or push notifications to team members or clients
-                      based on project updates
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => {
-                    setNewWorkflow({ ...newWorkflow, type: "custom" });
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                        <Settings className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <h3 className="font-medium">Custom Workflow</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Build a custom workflow from scratch with multiple
-                      triggers, conditions, and actions
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Quick Start Options */}
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Quick Start Templates</h4>
-                <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      const newId = `workflow-${Date.now()}`;
-                      const newWorkflowData: Workflow = {
-                        id: newId,
-                        name: "Lead Nurturing Sequence",
-                        description: "7-day email sequence for new leads",
-                        status: "draft",
-                        nodes: [],
-                        connections: [],
-                        triggers: [],
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                        runCount: 0,
-                      };
-                      setWorkflows([...workflows, newWorkflowData]);
-                      setIsNewWorkflowOpen(false);
-                    }}
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    Lead Nurturing Sequence
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      const newId = `workflow-${Date.now()}`;
-                      const newWorkflowData: Workflow = {
-                        id: newId,
-                        name: "Project Completion Follow-up",
-                        description: "Send review requests and project surveys",
-                        status: "draft",
-                        nodes: [],
-                        connections: [],
-                        triggers: [],
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                        runCount: 0,
-                      };
-                      setWorkflows([...workflows, newWorkflowData]);
-                      setIsNewWorkflowOpen(false);
-                    }}
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Project Completion Follow-up
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      const newId = `workflow-${Date.now()}`;
-                      const newWorkflowData: Workflow = {
-                        id: newId,
-                        name: "Client Onboarding",
-                        description:
-                          "Welcome new clients with automated sequence",
-                        status: "draft",
-                        nodes: [],
-                        connections: [],
-                        triggers: [],
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                        runCount: 0,
-                      };
-                      setWorkflows([...workflows, newWorkflowData]);
-                      setIsNewWorkflowOpen(false);
-                    }}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    Client Onboarding
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsNewWorkflowOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsNewWorkflowOpen(false);
-                    // Here you would navigate to a workflow builder page
-                    // For now, we'll just show a message
-                    alert(
-                      "Workflow Builder would open here. This would navigate to a visual workflow editor.",
-                    );
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Open Workflow Builder
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );

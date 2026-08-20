@@ -5,43 +5,69 @@ import {
   UserRole,
   UserPermission,
   Role,
-  PermissionScope,
   PermissionResource,
   PermissionAction,
   PERMISSIONS,
   ROLE_PERMISSIONS,
-  PermissionCondition,
 } from "@/types/permissions";
 
-interface UserData {
+/**
+ * Client-side permission checks.
+ *
+ * Decisions are made purely from the user's role (users.role) plus any
+ * explicit per-user permissions passed in. There is no permissions backend;
+ * nothing here makes a network call. Server-side enforcement is still the
+ * source of truth (RLS / route guards) — this only drives UI gating.
+ */
+
+export interface UserData {
   id: string;
-  role: UserRole;
-  agency_id?: string;
+  /** Either a canonical UserRole or one of the legacy role strings. */
+  role: UserRole | string;
   business_id?: string;
   permissions?: UserPermission[];
   custom_permissions?: string[];
 }
 
-interface CachedPermissions {
-  permissions: Set<string>;
-  timestamp: number;
-  expires_at: number;
+/**
+ * Role strings seen in the codebase / database, mapped onto the canonical
+ * UserRole set that ROLE_PERMISSIONS is keyed by.
+ *  - client/lib/auth.ts:   admin | editor | viewer | superadmin | agency
+ *  - public.users.role:    super_admin | agency_admin | business_owner | staff | viewer
+ */
+const ROLE_ALIASES: Record<string, UserRole> = {
+  superadmin: "super_admin",
+  super_admin: "super_admin",
+  admin: "admin",
+  agency: "agency_admin",
+  agency_admin: "agency_admin",
+  agency_user: "agency_user",
+  business_owner: "business_owner",
+  business_admin: "business_admin",
+  business_user: "business_user",
+  editor: "business_user",
+  staff: "business_user",
+  client: "client",
+  viewer: "viewer",
+  guest: "guest",
+};
+
+export function normalizeRole(role: string | undefined | null): UserRole {
+  if (!role) return "guest";
+  return ROLE_ALIASES[role] ?? "guest";
 }
 
 class PermissionService {
-  private cache = new Map<string, CachedPermissions>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private permissions: Map<string, Permission> = new Map();
   private roles: Map<string, Role> = new Map();
 
   constructor() {
     this.initializeDefaultPermissions();
-    this.loadPermissionsFromServer();
+    this.initializeRoles();
   }
 
   private initializeDefaultPermissions() {
-    // Initialize with basic permission structure
-    Object.entries(PERMISSIONS).forEach(([key, value]) => {
+    Object.values(PERMISSIONS).forEach((value) => {
       const [resource, action] = value.split(":") as [
         PermissionResource,
         PermissionAction,
@@ -50,9 +76,25 @@ class PermissionService {
         id: value,
         resource,
         action,
-        scope: "business", // Default scope
+        scope: "business",
         description: `${action} ${resource}`,
         category: this.getCategoryForResource(resource),
+      });
+    });
+  }
+
+  private initializeRoles() {
+    const now = new Date(0).toISOString();
+    (Object.keys(ROLE_PERMISSIONS) as UserRole[]).forEach((roleId, index) => {
+      this.roles.set(roleId, {
+        id: roleId,
+        name: roleId.replace(/_/g, " "),
+        description: `Built-in ${roleId.replace(/_/g, " ")} role`,
+        level: index,
+        permissions: ROLE_PERMISSIONS[roleId],
+        is_system_role: true,
+        created_at: now,
+        updated_at: now,
       });
     });
   }
@@ -84,539 +126,117 @@ class PermissionService {
     return categoryMap[resource] || "General";
   }
 
-  private async loadPermissionsFromServer() {
-    try {
-      // Load custom permissions and roles from server
-      const [permissionsResponse, rolesResponse] = await Promise.all([
-        this.fetchWithAuth("/api/permissions"),
-        this.fetchWithAuth("/api/roles"),
-      ]);
-
-      if (permissionsResponse.ok) {
-        const serverPermissions = await permissionsResponse.json();
-        serverPermissions.forEach((perm: Permission) => {
-          this.permissions.set(perm.id, perm);
-        });
-      }
-
-      if (rolesResponse.ok) {
-        const serverRoles = await rolesResponse.json();
-        serverRoles.forEach((role: Role) => {
-          this.roles.set(role.id, role);
-        });
-      }
-    } catch (error) {
-      console.warn("Failed to load permissions from server:", error);
-    }
-  }
-
-  private async fetchWithAuth(url: string, options: RequestInit = {}) {
-    const token = this.getAuthToken();
-    return fetch(url, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
-  }
-
-  private getAuthToken(): string {
-    return localStorage.getItem("auth_token") || "";
-  }
-
   /**
-   * Check if user has a specific permission
+   * Check whether a user holds a permission. Synchronous internally; the
+   * async signature is kept so existing callers (PermissionGuard) keep working.
    */
   async hasPermission(
     user: UserData,
     permission: string,
     context?: Partial<PermissionContext>,
   ): Promise<PermissionResult> {
-    // Check cache first
-    const cacheKey = `${user.id}:${permission}:${JSON.stringify(context)}`;
-    const cached = this.cache.get(cacheKey);
-
-    if (cached && cached.expires_at > Date.now()) {
-      return { granted: cached.permissions.has(permission) };
-    }
-
-    // Perform permission check
-    const result = await this.checkPermission(user, permission, context);
-
-    // Cache result
-    this.cachePermissionResult(cacheKey, permission, result.granted);
-
-    return result;
+    return this.checkPermission(user, permission, context);
   }
 
-  private async checkPermission(
+  checkPermission(
     user: UserData,
     permission: string,
     context?: Partial<PermissionContext>,
-  ): Promise<PermissionResult> {
-    // Super admin has all permissions
-    if (user.role === "super_admin") {
+  ): PermissionResult {
+    const role = normalizeRole(user.role);
+
+    if (role === "super_admin") {
       return { granted: true, reason: "Super admin access" };
     }
 
-    // Check role-based permissions
-    const rolePermissions = ROLE_PERMISSIONS[user.role] || [];
-    if (rolePermissions.includes(permission)) {
-      // Check scope and conditions
-      const scopeCheck = await this.checkScope(user, permission, context);
-      if (!scopeCheck.granted) {
-        return scopeCheck;
-      }
+    const rolePermissions = ROLE_PERMISSIONS[role] || [];
+    const granted =
+      rolePermissions.includes(permission) ||
+      !!user.custom_permissions?.includes(permission) ||
+      !!user.permissions?.some((p) => p.permission_id === permission && !this.isExpired(p));
 
-      const conditionCheck = await this.checkConditions(
-        user,
-        permission,
-        context,
-      );
-      return conditionCheck;
+    if (!granted) {
+      return { granted: false, reason: "Permission not granted to this role" };
     }
 
-    // Check custom user permissions
-    if (user.custom_permissions?.includes(permission)) {
-      return this.checkUserSpecificPermission(user, permission, context);
-    }
-
-    // Check explicit user permissions
-    if (user.permissions) {
-      const userPerm = user.permissions.find(
-        (p) => p.permission_id === permission,
-      );
-      if (userPerm) {
-        return this.evaluateUserPermission(userPerm, context);
-      }
-    }
-
-    return {
-      granted: false,
-      reason: "Permission not found in user role or custom permissions",
-    };
-  }
-
-  private async checkScope(
-    user: UserData,
-    permission: string,
-    context?: Partial<PermissionContext>,
-  ): Promise<PermissionResult> {
-    const permissionDef = this.permissions.get(permission);
-    if (!permissionDef) {
-      return { granted: true }; // If permission not defined, allow role-based access
-    }
-
-    switch (permissionDef.scope) {
-      case "global":
-        return {
-          granted: user.role === "super_admin" || user.role === "admin",
-        };
-
-      case "agency":
-        if (!user.agency_id && context?.scope_id) {
-          return {
-            granted: false,
-            reason: "User not associated with any agency",
-          };
-        }
-        if (context?.scope_id && context.scope_id !== user.agency_id) {
-          return { granted: false, reason: "Access denied: different agency" };
-        }
-        return { granted: true };
-
-      case "business":
-        if (!user.business_id && context?.scope_id) {
-          return {
-            granted: false,
-            reason: "User not associated with any business",
-          };
-        }
-        if (context?.scope_id && context.scope_id !== user.business_id) {
-          return {
-            granted: false,
-            reason: "Access denied: different business",
-          };
-        }
-        return { granted: true };
-
-      case "project":
-        return this.checkProjectAccess(user, context);
-
-      case "self":
-        if (
-          context?.resource_data?.user_id &&
-          context.resource_data.user_id !== user.id
-        ) {
-          return { granted: false, reason: "Can only access own data" };
-        }
-        return { granted: true };
-
-      default:
-        return { granted: true };
-    }
-  }
-
-  private async checkProjectAccess(
-    user: UserData,
-    context?: Partial<PermissionContext>,
-  ): Promise<PermissionResult> {
-    if (!context?.scope_id) {
-      return { granted: true }; // No specific project check needed
-    }
-
-    try {
-      const response = await this.fetchWithAuth(
-        `/api/projects/${context.scope_id}/access-check`,
-      );
-      if (response.ok) {
-        const accessData = await response.json();
-        return { granted: accessData.has_access };
-      }
-    } catch (error) {
-      console.error("Project access check failed:", error);
-    }
-
-    return { granted: false, reason: "Project access verification failed" };
-  }
-
-  private async checkConditions(
-    user: UserData,
-    permission: string,
-    context?: Partial<PermissionContext>,
-  ): Promise<PermissionResult> {
-    const permissionDef = this.permissions.get(permission);
-    if (!permissionDef?.conditions || permissionDef.conditions.length === 0) {
-      return { granted: true };
-    }
-
-    for (const condition of permissionDef.conditions) {
-      const conditionMet = this.evaluateCondition(condition, user, context);
-      if (!conditionMet) {
-        return {
-          granted: false,
-          reason: `Condition not met: ${condition.description}`,
-          conditions_met: false,
-        };
-      }
-    }
-
-    return { granted: true, conditions_met: true };
-  }
-
-  private evaluateCondition(
-    condition: PermissionCondition,
-    user: UserData,
-    context?: Partial<PermissionContext>,
-  ): boolean {
-    const fieldValue = this.getFieldValue(condition.field, user, context);
-
-    switch (condition.operator) {
-      case "equals":
-        return fieldValue === condition.value;
-      case "not_equals":
-        return fieldValue !== condition.value;
-      case "in":
-        return (
-          Array.isArray(condition.value) && condition.value.includes(fieldValue)
-        );
-      case "not_in":
-        return (
-          Array.isArray(condition.value) &&
-          !condition.value.includes(fieldValue)
-        );
-      case "greater_than":
-        return Number(fieldValue) > Number(condition.value);
-      case "less_than":
-        return Number(fieldValue) < Number(condition.value);
-      case "contains":
-        return String(fieldValue)
-          .toLowerCase()
-          .includes(String(condition.value).toLowerCase());
-      default:
-        return false;
-    }
-  }
-
-  private getFieldValue(
-    field: string,
-    user: UserData,
-    context?: Partial<PermissionContext>,
-  ): any {
-    // Support nested field access like "user.role" or "context.resource_data.status"
-    const parts = field.split(".");
-    let value: any;
-
-    if (parts[0] === "user") {
-      value = user;
-      for (let i = 1; i < parts.length; i++) {
-        value = value?.[parts[i]];
-      }
-    } else if (parts[0] === "context") {
-      value = context;
-      for (let i = 1; i < parts.length; i++) {
-        value = value?.[parts[i]];
-      }
-    } else {
-      value = user[field as keyof UserData];
-    }
-
-    return value;
-  }
-
-  private async checkUserSpecificPermission(
-    user: UserData,
-    permission: string,
-    context?: Partial<PermissionContext>,
-  ): Promise<PermissionResult> {
-    // Implementation for custom user permissions
-    return { granted: true, reason: "Custom user permission" };
-  }
-
-  private evaluateUserPermission(
-    userPermission: UserPermission,
-    context?: Partial<PermissionContext>,
-  ): PermissionResult {
-    // Check if permission has expired
+    // Business scoping: a business-scoped check against a different business
+    // than the user's is denied. Unknown scope ids are allowed (role decides).
     if (
-      userPermission.expires_at &&
-      new Date(userPermission.expires_at) < new Date()
+      context?.scope_type === "business" &&
+      context.scope_id &&
+      user.business_id &&
+      context.scope_id !== user.business_id
     ) {
-      return { granted: false, reason: "Permission expired" };
+      return { granted: false, reason: "Access denied: different business" };
     }
 
-    // Check scope
+    // Self scoping: only the owner of a record may act on it.
     if (
-      userPermission.scope_id &&
-      context?.scope_id !== userPermission.scope_id
+      context?.scope_type === "self" &&
+      context.resource_data?.user_id &&
+      context.resource_data.user_id !== user.id
     ) {
-      return { granted: false, reason: "Scope mismatch" };
-    }
-
-    // Check custom conditions
-    if (userPermission.conditions) {
-      for (const [key, value] of Object.entries(userPermission.conditions)) {
-        if (context?.additional_context?.[key] !== value) {
-          return { granted: false, reason: `Condition not met: ${key}` };
-        }
-      }
+      return { granted: false, reason: "Can only access own data" };
     }
 
     return { granted: true };
   }
 
-  private cachePermissionResult(
-    cacheKey: string,
-    permission: string,
-    granted: boolean,
-  ) {
-    const existing = this.cache.get(cacheKey);
-    const permissions = existing?.permissions || new Set<string>();
-
-    if (granted) {
-      permissions.add(permission);
-    }
-
-    this.cache.set(cacheKey, {
-      permissions,
-      timestamp: Date.now(),
-      expires_at: Date.now() + this.CACHE_TTL,
-    });
+  private isExpired(p: UserPermission): boolean {
+    const expires = (p as { expires_at?: string }).expires_at;
+    return !!expires && new Date(expires).getTime() < Date.now();
   }
 
-  /**
-   * Check multiple permissions at once
-   */
   async hasAnyPermission(
     user: UserData,
     permissions: string[],
     context?: Partial<PermissionContext>,
   ): Promise<boolean> {
-    const results = await Promise.all(
-      permissions.map((perm) => this.hasPermission(user, perm, context)),
-    );
-    return results.some((result) => result.granted);
+    return permissions.some((p) => this.checkPermission(user, p, context).granted);
   }
 
-  /**
-   * Check if user has all permissions
-   */
   async hasAllPermissions(
     user: UserData,
     permissions: string[],
     context?: Partial<PermissionContext>,
   ): Promise<boolean> {
-    const results = await Promise.all(
-      permissions.map((perm) => this.hasPermission(user, perm, context)),
-    );
-    return results.every((result) => result.granted);
+    return permissions.every((p) => this.checkPermission(user, p, context).granted);
   }
 
-  /**
-   * Get all permissions for a user
-   */
   async getUserPermissions(user: UserData): Promise<string[]> {
-    const rolePermissions = ROLE_PERMISSIONS[user.role] || [];
-    const customPermissions = user.custom_permissions || [];
-    const explicitPermissions =
-      user.permissions?.map((p) => p.permission_id) || [];
-
-    return [
-      ...new Set([
-        ...rolePermissions,
-        ...customPermissions,
-        ...explicitPermissions,
-      ]),
-    ];
+    const role = normalizeRole(user.role);
+    const set = new Set<string>(ROLE_PERMISSIONS[role] || []);
+    user.custom_permissions?.forEach((p) => set.add(p));
+    user.permissions?.forEach((p) => {
+      if (!this.isExpired(p)) set.add(p.permission_id);
+    });
+    return Array.from(set);
   }
 
-  /**
-   * Grant permission to user
-   */
-  async grantPermission(
-    userId: string,
-    permission: string,
-    scope: PermissionScope,
-    scopeId?: string,
-    expiresAt?: Date,
-  ): Promise<boolean> {
-    try {
-      const response = await this.fetchWithAuth("/api/permissions/grant", {
-        method: "POST",
-        body: JSON.stringify({
-          user_id: userId,
-          permission_id: permission,
-          scope_type: scope,
-          scope_id: scopeId,
-          expires_at: expiresAt?.toISOString(),
-        }),
-      });
+  /** Kept for API compatibility; there is no cache any more. */
+  clearUserCache(_userId: string) {}
+  clearCache() {}
 
-      if (response.ok) {
-        this.clearUserCache(userId);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Failed to grant permission:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Revoke permission from user
-   */
-  async revokePermission(
-    userId: string,
-    permission: string,
-    scopeId?: string,
-  ): Promise<boolean> {
-    try {
-      const response = await this.fetchWithAuth("/api/permissions/revoke", {
-        method: "POST",
-        body: JSON.stringify({
-          user_id: userId,
-          permission_id: permission,
-          scope_id: scopeId,
-        }),
-      });
-
-      if (response.ok) {
-        this.clearUserCache(userId);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Failed to revoke permission:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Create custom role
-   */
-  async createRole(
-    role: Omit<Role, "id" | "created_at" | "updated_at">,
-  ): Promise<Role | null> {
-    try {
-      const response = await this.fetchWithAuth("/api/roles", {
-        method: "POST",
-        body: JSON.stringify(role),
-      });
-
-      if (response.ok) {
-        const newRole = await response.json();
-        this.roles.set(newRole.id, newRole);
-        return newRole;
-      }
-      return null;
-    } catch (error) {
-      console.error("Failed to create role:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Clear cache for specific user
-   */
-  clearUserCache(userId: string) {
-    for (const [key] of this.cache) {
-      if (key.startsWith(`${userId}:`)) {
-        this.cache.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Clear all cache
-   */
-  clearCache() {
-    this.cache.clear();
-  }
-
-  /**
-   * Get permission definition
-   */
   getPermission(permissionId: string): Permission | undefined {
     return this.permissions.get(permissionId);
   }
 
-  /**
-   * Get role definition
-   */
   getRole(roleId: string): Role | undefined {
-    return this.roles.get(roleId);
+    return this.roles.get(normalizeRole(roleId));
   }
 
-  /**
-   * Get all available permissions
-   */
   getAllPermissions(): Permission[] {
     return Array.from(this.permissions.values());
   }
 
-  /**
-   * Get permissions by category
-   */
   getPermissionsByCategory(category: string): Permission[] {
-    return Array.from(this.permissions.values()).filter(
-      (p) => p.category === category,
-    );
+    return this.getAllPermissions().filter((p) => p.category === category);
   }
 
-  /**
-   * Check if user can access admin features
-   */
   async canAccessAdmin(user: UserData): Promise<boolean> {
-    const result = await this.hasPermission(user, PERMISSIONS.ADMIN_ACCESS);
-    return result.granted;
+    return this.checkPermission(user, PERMISSIONS.ADMIN_ACCESS).granted;
   }
 
-  /**
-   * Check if user can manage a specific resource
-   */
   async canManage(
     user: UserData,
     resource: PermissionResource,
@@ -624,15 +244,12 @@ class PermissionService {
   ): Promise<boolean> {
     const permission = `${resource}:manage`;
     const context = resourceId ? { scope_id: resourceId } : undefined;
-    const result = await this.hasPermission(user, permission, context);
-    return result.granted;
+    return this.checkPermission(user, permission, context).granted;
   }
 }
 
-// Export singleton instance
 export const permissionService = new PermissionService();
 
-// Helper functions for common permission checks
 export const PermissionHelpers = {
   canCreateProject: (user: UserData) =>
     permissionService.hasPermission(user, PERMISSIONS.PROJECTS_CREATE),

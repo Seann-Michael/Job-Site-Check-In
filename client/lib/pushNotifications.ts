@@ -1,3 +1,5 @@
+import { supabaseClient } from "./supabaseClient";
+
 interface NotificationPermissionResult {
   permission: NotificationPermission;
   subscription?: PushSubscription;
@@ -17,188 +19,66 @@ interface NotificationOptions {
   // vibrate?: number[]; // Not supported in standard NotificationOptions
 }
 
-interface PushSubscriptionData {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-  userId?: string;
-  deviceType: string;
-  userAgent: string;
+export interface NotificationPreferences {
+  projectUpdates: boolean;
+  deadlineReminders: boolean;
+  teamNotifications: boolean;
+  marketingUpdates: boolean;
+  emailBackup: boolean;
 }
 
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  projectUpdates: true,
+  deadlineReminders: true,
+  teamNotifications: true,
+  marketingUpdates: false,
+  emailBackup: false,
+};
+
+/**
+ * Browser notification service.
+ *
+ * Local (in-page) notifications work whenever the browser supports the
+ * Notification API and the user has granted permission.
+ *
+ * Web Push (server-sent) is DISABLED: there is no push backend in this app.
+ * `isPushSupported` only becomes true when a VITE_VAPID_PUBLIC_KEY is set AND
+ * a subscription endpoint exists — today neither does, so no subscription is
+ * ever created and nothing is POSTed anywhere.
+ *
+ * Notification preferences persist to users.metadata.notification_preferences.
+ */
 class PushNotificationService {
-  private vapidPublicKey: string;
-  private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
-  private subscription: PushSubscription | null = null;
+  private readonly vapidPublicKey: string | null;
 
   constructor() {
-    // VAPID public key - this should be stored in environment variables
-    this.vapidPublicKey =
-      import.meta.env.VITE_VAPID_PUBLIC_KEY || "BNxEcAeqCLnHqXmJ8lQn..."; // Placeholder
-    this.initialize();
+    const key = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+    this.vapidPublicKey = key && key.trim() ? key.trim() : null;
   }
 
-  private async initialize() {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.warn("Push notifications not supported");
-      return;
-    }
-
-    try {
-      this.serviceWorkerRegistration = await navigator.serviceWorker.ready;
-      await this.checkExistingSubscription();
-    } catch (error) {
-      console.error("Failed to initialize push notifications:", error);
-    }
-  }
-
-  private async checkExistingSubscription() {
-    if (!this.serviceWorkerRegistration) return;
-
-    try {
-      this.subscription =
-        await this.serviceWorkerRegistration.pushManager.getSubscription();
-
-      if (this.subscription) {
-        console.log("Existing push subscription found");
-        await this.syncSubscriptionWithServer();
-      }
-    } catch (error) {
-      console.error("Error checking existing subscription:", error);
-    }
-  }
-
+  /** Ask for browser notification permission. Never creates a push subscription. */
   async requestPermission(): Promise<NotificationPermissionResult> {
     if (!("Notification" in window)) {
-      return {
-        permission: "denied",
-        error: "Notifications not supported",
-      };
+      return { permission: "denied", error: "Notifications not supported" };
     }
-
-    // Check current permission
     let permission = Notification.permission;
-
-    // Request permission if not already granted
     if (permission === "default") {
       permission = await Notification.requestPermission();
     }
-
-    if (permission === "granted") {
-      try {
-        const subscription = await this.subscribe();
-        return {
-          permission,
-          subscription,
-        };
-      } catch (error) {
-        return {
-          permission,
-          error: error instanceof Error ? error.message : "Failed to subscribe",
-        };
-      }
-    }
-
     return { permission };
   }
 
-  async subscribe(): Promise<PushSubscription> {
-    if (!this.serviceWorkerRegistration) {
-      throw new Error("Service worker not ready");
-    }
-
-    if (Notification.permission !== "granted") {
-      throw new Error("Notification permission not granted");
-    }
-
-    try {
-      const subscription =
-        await this.serviceWorkerRegistration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey),
-        });
-
-      this.subscription = subscription;
-      await this.syncSubscriptionWithServer();
-
-      console.log("Push subscription successful");
-      return subscription;
-    } catch (error) {
-      console.error("Failed to subscribe to push notifications:", error);
-      throw error;
-    }
+  /** Web Push is not available (no backend). */
+  async subscribe(): Promise<PushSubscription | null> {
+    return null;
   }
 
   async unsubscribe(): Promise<boolean> {
-    if (!this.subscription) {
-      return true;
-    }
-
-    try {
-      const success = await this.subscription.unsubscribe();
-
-      if (success) {
-        await this.removeSubscriptionFromServer();
-        this.subscription = null;
-        console.log("Successfully unsubscribed from push notifications");
-      }
-
-      return success;
-    } catch (error) {
-      console.error("Failed to unsubscribe from push notifications:", error);
-      return false;
-    }
-  }
-
-  private async syncSubscriptionWithServer(): Promise<void> {
-    if (!this.subscription) return;
-
-    try {
-      const subscriptionData: PushSubscriptionData = {
-        endpoint: this.subscription.endpoint,
-        keys: {
-          p256dh: this.arrayBufferToBase64(this.subscription.getKey("p256dh")),
-          auth: this.arrayBufferToBase64(this.subscription.getKey("auth")),
-        },
-        deviceType: this.getDeviceType(),
-        userAgent: navigator.userAgent,
-      };
-
-      await fetch("/api/notifications/subscribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.getAuthToken()}`,
-        },
-        body: JSON.stringify(subscriptionData),
-      });
-
-      console.log("Subscription synced with server");
-    } catch (error) {
-      console.error("Failed to sync subscription with server:", error);
-    }
-  }
-
-  private async removeSubscriptionFromServer(): Promise<void> {
-    try {
-      await fetch("/api/notifications/unsubscribe", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.getAuthToken()}`,
-        },
-      });
-
-      console.log("Subscription removed from server");
-    } catch (error) {
-      console.error("Failed to remove subscription from server:", error);
-    }
+    return true;
   }
 
   async showLocalNotification(options: NotificationOptions): Promise<void> {
-    if (Notification.permission !== "granted") {
-      console.warn("Cannot show notification: permission not granted");
+    if (!("Notification" in window) || Notification.permission !== "granted") {
       return;
     }
 
@@ -212,134 +92,103 @@ class PushNotificationService {
       silent: options.silent,
     });
 
-    // Handle notification click
     notification.onclick = (event) => {
       event.preventDefault();
       notification.close();
-
-      // Focus or open app window
       if (options.data?.url) {
         window.open(options.data.url, "_blank");
       }
     };
 
-    // Auto-close after 5 seconds if not requireInteraction
     if (!options.requireInteraction) {
-      setTimeout(() => {
-        notification.close();
-      }, 5000);
+      setTimeout(() => notification.close(), 5000);
     }
   }
 
   async testNotification(): Promise<void> {
     await this.showLocalNotification({
       title: "Local SEO Ranker",
-      body: "Push notifications are working! 🎉",
+      body: "Browser notifications are working.",
       tag: "test-notification",
       data: { url: "/admin/jobs" },
     });
   }
 
-  // Notification management methods
-  async getNotificationPreferences() {
+  private async currentUserId(): Promise<string | null> {
+    const { data } = await supabaseClient.auth.getUser();
+    return data.user?.id ?? null;
+  }
+
+  async getNotificationPreferences(): Promise<NotificationPreferences | null> {
     try {
-      const response = await fetch("/api/notifications/preferences", {
-        headers: {
-          Authorization: `Bearer ${this.getAuthToken()}`,
-        },
-      });
-      return await response.json();
+      const uid = await this.currentUserId();
+      if (!uid) return null;
+      const { data, error } = await supabaseClient
+        .from("users")
+        .select("metadata")
+        .eq("id", uid)
+        .maybeSingle();
+      if (error) throw error;
+      const prefs = (data?.metadata as Record<string, any> | null)?.notification_preferences;
+      return prefs && typeof prefs === "object"
+        ? { ...DEFAULT_PREFERENCES, ...(prefs as Partial<NotificationPreferences>) }
+        : null;
     } catch (error) {
       console.error("Failed to get notification preferences:", error);
       return null;
     }
   }
 
-  async updateNotificationPreferences(preferences: {
-    projectUpdates?: boolean;
-    deadlineReminders?: boolean;
-    teamNotifications?: boolean;
-    marketingUpdates?: boolean;
-    emailBackup?: boolean;
-  }) {
-    try {
-      await fetch("/api/notifications/preferences", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.getAuthToken()}`,
-        },
-        body: JSON.stringify(preferences),
-      });
-      console.log("Notification preferences updated");
-    } catch (error) {
-      console.error("Failed to update notification preferences:", error);
-    }
-  }
-
-  // Utility methods
-  private urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, "+")
-      .replace(/_/g, "/");
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  }
-
-  private arrayBufferToBase64(buffer: ArrayBuffer | null): string {
-    if (!buffer) return "";
-
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
-  }
-
-  private getDeviceType(): string {
-    const userAgent = navigator.userAgent.toLowerCase();
-
-    if (/android/.test(userAgent)) return "android";
-    if (/iphone|ipad|ipod/.test(userAgent)) return "ios";
-    if (/windows/.test(userAgent)) return "windows";
-    if (/macintosh|mac os/.test(userAgent)) return "macos";
-    if (/linux/.test(userAgent)) return "linux";
-
-    return "desktop";
-  }
-
-  private getAuthToken(): string {
-    // Get auth token from your auth system
-    return localStorage.getItem("auth_token") || "";
+  async updateNotificationPreferences(preferences: Partial<NotificationPreferences>): Promise<void> {
+    const uid = await this.currentUserId();
+    if (!uid) throw new Error("Not signed in");
+    const { data, error: readError } = await supabaseClient
+      .from("users")
+      .select("metadata")
+      .eq("id", uid)
+      .maybeSingle();
+    if (readError) throw readError;
+    const existing = (data?.metadata as Record<string, any>) || {};
+    const metadata = {
+      ...existing,
+      notification_preferences: {
+        ...DEFAULT_PREFERENCES,
+        ...(existing.notification_preferences || {}),
+        ...preferences,
+      },
+    };
+    const { error } = await supabaseClient
+      .from("users")
+      .update({ metadata, updated_at: new Date().toISOString() })
+      .eq("id", uid);
+    if (error) throw error;
   }
 
   // Getters
+  /** Local browser notifications are available. */
   get isSupported(): boolean {
-    return (
-      "serviceWorker" in navigator &&
-      "PushManager" in window &&
-      "Notification" in window
-    );
+    return typeof window !== "undefined" && "Notification" in window;
+  }
+
+  /** Server-sent Web Push. Always false until a push backend exists. */
+  get isPushSupported(): boolean {
+    return false;
+  }
+
+  get hasVapidKey(): boolean {
+    return this.vapidPublicKey !== null;
   }
 
   get permission(): NotificationPermission {
-    return Notification.permission;
+    return "Notification" in window ? Notification.permission : "denied";
   }
 
   get isSubscribed(): boolean {
-    return this.subscription !== null;
+    return false;
   }
 
   get subscriptionInfo(): PushSubscription | null {
-    return this.subscription;
+    return null;
   }
 }
 

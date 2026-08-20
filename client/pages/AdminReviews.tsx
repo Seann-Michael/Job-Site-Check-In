@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AppLayout } from "@/components/AppLayout";
@@ -32,7 +31,6 @@ import {
 import {
   Star,
   TrendingUp,
-  TrendingDown,
   Users,
   MessageSquare,
   MoreVertical,
@@ -82,7 +80,7 @@ interface ReviewStats {
   completionRate: number;
   averageRating: number;
   googleRedirects: number;
-  monthlyTrend: number;
+  sentThisMonth: number;
 }
 
 // ── ReviewDataTable ───────────────────────────────────────────────────────────
@@ -111,7 +109,7 @@ function ReviewDataTable({
 
   function GoogleIcon() {
     return (
-      <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="Google">
+      <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Google" role="img">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -502,7 +500,7 @@ export default function AdminReviews() {
     completionRate: 0,
     averageRating: 0,
     googleRedirects: 0,
-    monthlyTrend: 0,
+    sentThisMonth: 0,
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -587,6 +585,9 @@ export default function AdminReviews() {
     setReviewRequests(allRequests);
 
     // Calculate stats from real data
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
     const completed = allRequests.filter((r) => r.status === "completed");
     const withRatings = completed.filter((r) => r.rating);
     const avgRating =
@@ -600,7 +601,10 @@ export default function AdminReviews() {
       completionRate: allRequests.length > 0 ? (completed.length / allRequests.length) * 100 : 0,
       averageRating: avgRating,
       googleRedirects,
-      monthlyTrend: 0,
+      sentThisMonth: allRequests.filter((r) => {
+        const d = r.sentAt ? new Date(r.sentAt) : null;
+        return d != null && !Number.isNaN(d.getTime()) && d >= monthStart;
+      }).length,
     });
   };
 
@@ -837,7 +841,7 @@ export default function AdminReviews() {
                   <Settings className="h-4 w-4" />
                   Edit Review Gate
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/review-demo")} className="gap-2">
+                <DropdownMenuItem onClick={() => navigate("/review/preview")} className="gap-2">
                   <ExternalLink className="h-4 w-4" />
                   Preview Review Gate
                 </DropdownMenuItem>
@@ -845,72 +849,6 @@ export default function AdminReviews() {
             </DropdownMenu>
           </div>
         </div>
-
-        {/* Google My Business Overview */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-yellow-500" />
-              Google My Business Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-              <div className="text-center">
-                <p className="text-2xl lg:text-3xl font-bold text-blue-600">
-                  127
-                </p>
-                <p className="text-xs lg:text-sm text-muted-foreground">
-                  Total Google Reviews
-                </p>
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <TrendingUp className="h-3 w-3 text-green-500" />
-                  <span className="text-xs text-green-500">+8 this month</span>
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 lg:gap-2 mb-1">
-                  <p className="text-2xl lg:text-3xl font-bold text-yellow-600">
-                    4.7
-                  </p>
-                  <StarRating
-                    rating={5}
-                    onRatingChange={() => {}}
-                    readonly
-                    size="sm"
-                  />
-                </div>
-                <p className="text-xs lg:text-sm text-muted-foreground">
-                  Average Google Rating
-                </p>
-                <span className="text-xs text-green-500">+0.2 this month</span>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl lg:text-3xl font-bold text-green-600">
-                  23
-                </p>
-                <p className="text-xs lg:text-sm text-muted-foreground">
-                  Added by Platform
-                </p>
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <TrendingUp className="h-3 w-3 text-green-500" />
-                  <span className="text-xs text-green-500">
-                    +18% conversion
-                  </span>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl lg:text-3xl font-bold text-purple-600">
-                  89%
-                </p>
-                <p className="text-xs lg:text-sm text-muted-foreground">
-                  5-Star Rate
-                </p>
-                <span className="text-xs text-green-500">Above average</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Review Analytics heading */}
         <div className="flex items-center justify-between mb-4">
@@ -957,9 +895,7 @@ export default function AdminReviews() {
                 <Users className="h-8 w-8 text-primary" />
               </div>
               <div className="flex items-center mt-2 text-sm">
-                <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
-                <span className="text-green-500">+{stats.monthlyTrend}%</span>
-                <span className="text-muted-foreground ml-1">this month</span>
+                <span className="text-muted-foreground">{stats.sentThisMonth} sent this month</span>
               </div>
             </CardContent>
           </Card>
@@ -974,11 +910,6 @@ export default function AdminReviews() {
                   </p>
                 </div>
                 <MessageSquare className="h-8 w-8 text-blue-500" />
-              </div>
-              <div className="flex items-center mt-2 text-sm">
-                <span className="text-muted-foreground">
-                  Industry avg: 15-25%
-                </span>
               </div>
             </CardContent>
           </Card>
@@ -1020,9 +951,9 @@ export default function AdminReviews() {
               </div>
               <div className="flex items-center mt-2 text-sm">
                 <span className="text-muted-foreground">
-                  {Math.round(
-                    (stats.googleRedirects / stats.totalRequests) * 100,
-                  )}
+                  {stats.totalRequests > 0
+                    ? Math.round((stats.googleRedirects / stats.totalRequests) * 100)
+                    : 0}
                   % of total
                 </span>
               </div>

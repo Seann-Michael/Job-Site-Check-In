@@ -15,17 +15,8 @@ export function getImageUrlWithFallback(photo: ImageWithFallbacks | string): str
 
 export function getImageFallbacks(photo: ImageWithFallbacks | string): string[] {
   if (typeof photo === 'string') {
-    // Generate fallback URLs for plain string URLs
-    const hash = photo.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    const id = Math.abs(hash) % 1000;
-    
-    return [
-      `https://via.placeholder.com/800x600/666666/ffffff?text=Photo+${id}`,
-      `https://dummyimage.com/800x600/cccccc/666666&text=Photo+${id}`
-    ];
+    // Plain string URLs carry no alternate sources.
+    return [];
   }
   
   return photo.metadata?.fallbackUrls || [];

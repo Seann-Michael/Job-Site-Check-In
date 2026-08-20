@@ -1,50 +1,5 @@
-// @ts-nocheck - Temporary suppression of type errors during build
-import { createClient } from "@supabase/supabase-js";
+import { supabaseClient as supabase } from "./supabaseClient";
 import { workspaceService } from "./workspaceService";
-
-// Initialize Supabase client with fallback handling
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Debug logging
-console.log("🔧 Supabase Config Debug:", {
-  hasUrl: !!supabaseUrl,
-  hasKey: !!supabaseAnonKey,
-  urlSnippet: supabaseUrl ? supabaseUrl.substring(0, 20) + "..." : "undefined",
-  keySnippet: supabaseAnonKey
-    ? supabaseAnonKey.substring(0, 20) + "..."
-    : "undefined",
-});
-
-// Create a placeholder client if environment variables are missing or are placeholder values
-let supabase: ReturnType<typeof createClient>;
-
-const isPlaceholderValue = (value: string | undefined): boolean => {
-  if (!value) return true;
-  const placeholderPatterns = [
-    'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
-    'YOUR_ACTUAL_SUPABASE_ANON_KEY',
-    'placeholder',
-    'demo',
-    'example',
-    'change-me'
-  ];
-  return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
-};
-
-if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-  console.warn(
-    "⚠️ Supabase environment variables are not set or contain placeholder values. Using fallback mode.",
-  );
-  console.warn(
-    "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file with real values.",
-  );
-
-  // Create a dummy client that will throw meaningful errors for operations
-  supabase = createClient("https://placeholder.supabase.co", "placeholder-key");
-} else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-}
 
 export { supabase };
 
@@ -257,38 +212,6 @@ export class DataService {
     return DataService.instance;
   }
 
-  private checkSupabaseConfig(): void {
-    const isPlaceholderValue = (value: string | undefined): boolean => {
-      if (!value) return true;
-      const placeholderPatterns = [
-        'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
-        'YOUR_ACTUAL_SUPABASE_ANON_KEY',
-        'placeholder',
-        'demo',
-        'example',
-        'change-me'
-      ];
-      return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
-    };
-
-    // In development, allow graceful fallback to mock data
-    if (import.meta.env.DEV) {
-      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn(
-          "⚠️ Supabase not configured in development mode, using mock data fallback",
-        );
-        return;
-      }
-    } else {
-      // In production, require proper configuration
-      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        throw new Error(
-          "Supabase is not properly configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables with real values.",
-        );
-      }
-    }
-  }
-
   private getCurrentLocalUser(): any {
     try {
       const userStr = localStorage.getItem("auth_user");
@@ -324,7 +247,6 @@ export class DataService {
   // Auth methods
   async getCurrentUser(): Promise<User | null> {
     try {
-      this.checkSupabaseConfig();
 
       if (this.currentUser) return this.currentUser;
 
@@ -372,7 +294,6 @@ export class DataService {
   }
 
   async signIn(email: string, password: string) {
-    this.checkSupabaseConfig();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -401,7 +322,6 @@ export class DataService {
     name: string,
     role: string = "business_owner",
   ) {
-    this.checkSupabaseConfig();
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -437,7 +357,6 @@ export class DataService {
   }
 
   async signOut() {
-    this.checkSupabaseConfig();
 
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -446,26 +365,6 @@ export class DataService {
 
   async getUsers(filters: any = {}): Promise<{ data: User[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
-      // Check if Supabase is configured
-      const isPlaceholderValue = (value: string | undefined): boolean => {
-        if (!value) return true;
-        const placeholderPatterns = [
-          'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
-          'YOUR_ACTUAL_SUPABASE_ANON_KEY',
-          'placeholder',
-          'demo',
-          'example',
-          'change-me'
-        ];
-        return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
-      };
-
-      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn("Supabase not configured, returning empty users");
-        return { data: [] };
-      }
-
-      this.checkSupabaseConfig();
 
       const page = parseInt(filters.page || '1');
       const limit = parseInt(filters.limit || '20');
@@ -484,10 +383,7 @@ export class DataService {
 
       const { data, error, count } = await query;
 
-      if (error) {
-        console.warn("Error fetching users:", error);
-        return { data: [] };
-      }
+      if (error) throw error;
 
       const result: { data: User[]; pagination?: any } = {
         data: (data as unknown as User[]) || []
@@ -506,33 +402,13 @@ export class DataService {
       return result;
     } catch (error) {
       console.error("Error fetching users:", error);
-      return { data: [] };
+      throw error instanceof Error ? error : new Error("Failed to fetch users");
     }
   }
 
   // Business methods
   async getBusinesses(ownerId?: string, filters: any = {}): Promise<{ data: Business[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
-      // Check if Supabase is configured
-      const isPlaceholderValue = (value: string | undefined): boolean => {
-        if (!value) return true;
-        const placeholderPatterns = [
-          'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
-          'YOUR_ACTUAL_SUPABASE_ANON_KEY',
-          'placeholder',
-          'demo',
-          'example',
-          'change-me'
-        ];
-        return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
-      };
-
-      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn("Supabase not configured, returning empty businesses");
-        return { data: [] };
-      }
-
-      this.checkSupabaseConfig();
 
       const user = await this.getCurrentUser();
       if (!user) {
@@ -561,10 +437,7 @@ export class DataService {
 
       const { data, error, count } = await query;
 
-      if (error) {
-        console.warn("Error fetching businesses:", error);
-        return { data: [] };
-      }
+      if (error) throw error;
 
       const result: { data: Business[]; pagination?: any } = {
         data: (data as unknown as Business[]) || []
@@ -583,13 +456,12 @@ export class DataService {
       return result;
     } catch (error) {
       console.error("Error fetching businesses:", error);
-      return { data: [] };
+      throw error instanceof Error ? error : new Error("Failed to fetch businesses");
     }
   }
 
   async getBusiness(id: string): Promise<Business | null> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("businesses")
@@ -609,7 +481,6 @@ export class DataService {
   }
 
   async createBusiness(business: Partial<Business>): Promise<Business> {
-    this.checkSupabaseConfig();
 
     const user = await this.getCurrentUser();
     if (!user) throw new Error("User not authenticated");
@@ -632,7 +503,6 @@ export class DataService {
     id: string,
     updates: Partial<Business>,
   ): Promise<Business> {
-    this.checkSupabaseConfig();
 
     const { data, error } = await supabase
       .from("businesses")
@@ -646,7 +516,6 @@ export class DataService {
   }
 
   async deleteBusiness(id: string): Promise<void> {
-    this.checkSupabaseConfig();
 
     const { error } = await supabase.from("businesses").delete().eq("id", id);
 
@@ -659,26 +528,6 @@ export class DataService {
     filters: any = {},
   ): Promise<{ data: Project[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
     try {
-      // Check if Supabase is configured
-      const isPlaceholderValue = (value: string | undefined): boolean => {
-        if (!value) return true;
-        const placeholderPatterns = [
-          'YOUR_ACTUAL_SUPABASE_PROJECT_URL',
-          'YOUR_ACTUAL_SUPABASE_ANON_KEY',
-          'placeholder',
-          'demo',
-          'example',
-          'change-me'
-        ];
-        return placeholderPatterns.some(pattern => value.toLowerCase().includes(pattern.toLowerCase()));
-      };
-
-      if (!supabaseUrl || !supabaseAnonKey || isPlaceholderValue(supabaseUrl) || isPlaceholderValue(supabaseAnonKey)) {
-        console.warn("Supabase not configured, returning empty projects");
-        return { data: [] };
-      }
-
-      this.checkSupabaseConfig();
 
       const page = parseInt(filters.page || '1');
       const limit = parseInt(filters.limit || '20');
@@ -702,16 +551,20 @@ export class DataService {
           } else {
             // Workspace not initialized yet — scope via sub-select
             const userId = workspaceService.getUserId();
+            let ids: string[] = [];
             if (userId) {
-              const { data: bizRows } = await supabase
+              const { data: bizRows, error: bizError } = await supabase
                 .from("businesses")
                 .select("id")
                 .eq("owner_id", userId);
-              const ids = (bizRows ?? []).map((b: { id: string }) => b.id);
-              if (ids.length > 0) {
-                query = query.in("business_id", ids);
-              }
+              if (bizError) throw bizError;
+              ids = (bizRows ?? []).map((b: { id: string }) => b.id);
             }
+            // Never run an unscoped jobs query: no businesses means no jobs.
+            if (ids.length === 0) {
+              return { data: [] };
+            }
+            query = query.in("business_id", ids);
           }
         }
       }
@@ -732,10 +585,7 @@ export class DataService {
 
       const { data, error, count } = await query;
 
-      if (error) {
-        console.warn("Error fetching projects:", error);
-        return { data: [] };
-      }
+      if (error) throw error;
 
       const result: { data: Project[]; pagination?: any } = {
         data: (data as unknown as Project[]) || []
@@ -754,13 +604,12 @@ export class DataService {
       return result;
     } catch (error) {
       console.error("Error fetching projects:", error);
-      return { data: [] };
+      throw error instanceof Error ? error : new Error("Failed to fetch projects");
     }
   }
 
   async getProject(id: string): Promise<Project | null> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("jobs")
@@ -780,7 +629,6 @@ export class DataService {
   }
 
   async createProject(project: Partial<Project>): Promise<Project> {
-    this.checkSupabaseConfig();
 
     const VALID_PROJECT_COLUMNS = new Set([
       'business_id', 'client_id', 'name', 'description', 'type', 'status', 'priority',
@@ -813,11 +661,6 @@ export class DataService {
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     try {
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error("Supabase not configured");
-      }
-
-      this.checkSupabaseConfig();
 
       // Only send columns that actually exist in the projects table.
       // Strip out any frontend-only or camelCase fields that Supabase would reject.
@@ -862,7 +705,6 @@ export class DataService {
 
   async deleteProject(id: string): Promise<void> {
     try {
-      this.checkSupabaseConfig();
 
       const { error } = await supabase.from("jobs").delete().eq("id", id);
 
@@ -879,7 +721,6 @@ export class DataService {
   // Project Task methods
   async getProjectTasks(projectId: string): Promise<ProjectTask[]> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("job_tasks")
@@ -896,7 +737,6 @@ export class DataService {
   }
 
   async createProjectTask(task: Partial<ProjectTask>): Promise<ProjectTask> {
-    this.checkSupabaseConfig();
 
     const { data, error } = await supabase
       .from("job_tasks")
@@ -916,7 +756,6 @@ export class DataService {
     id: string,
     updates: Partial<ProjectTask>,
   ): Promise<ProjectTask> {
-    this.checkSupabaseConfig();
 
     const { data, error } = await supabase
       .from("job_tasks")
@@ -930,7 +769,6 @@ export class DataService {
   }
 
   async deleteProjectTask(id: string): Promise<void> {
-    this.checkSupabaseConfig();
 
     const { error } = await supabase
       .from("job_tasks")
@@ -943,7 +781,6 @@ export class DataService {
   // Project Media methods (photos, videos, documents)
   async getProjectMedia(projectId: string): Promise<ProjectMedia[]> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("job_media")
@@ -969,7 +806,6 @@ export class DataService {
     file: File,
     metadata: any = {},
   ): Promise<ProjectMedia> {
-    this.checkSupabaseConfig();
 
     // Ensure file is a File object
     if (!file || !file.name || typeof file.type !== "string") {
@@ -989,11 +825,9 @@ export class DataService {
     } else if (videoExtensions.includes(fileExtension)) {
       // Fallback: check file extension for video
       mediaType = "video";
-      console.log(`Video detected by extension: ${fileExtension}`);
     } else if (imageExtensions.includes(fileExtension)) {
       // Fallback: check file extension for image
       mediaType = "image";
-      console.log(`Image detected by extension: ${fileExtension}`);
     }
 
     // Upload file to Supabase storage
@@ -1085,7 +919,6 @@ export class DataService {
     file: File,
     metadata: any = {},
   ): Promise<ProjectMedia> {
-    this.checkSupabaseConfig();
 
     if (!file || !file.name || typeof file.type !== "string") {
       throw new Error("Invalid file object provided for upload");
@@ -1146,7 +979,6 @@ export class DataService {
 
   async getClientMedia(clientId: string): Promise<ProjectMedia[]> {
     try {
-      this.checkSupabaseConfig();
       const { data, error } = await supabase
         .from("job_media")
         .select("*")
@@ -1199,7 +1031,6 @@ export class DataService {
   }
 
   async deleteProjectMedia(id: string): Promise<void> {
-    this.checkSupabaseConfig();
 
     // Read the row first: it is the only record of which objects in the
     // public 'media' bucket belong to it. Deleting only the row left the
@@ -1235,7 +1066,6 @@ export class DataService {
   }
 
   async updateProjectMedia(id: string, updates: Partial<ProjectMedia>): Promise<void> {
-    this.checkSupabaseConfig();
     const { error } = await supabase
       .from("job_media")
       .update(updates)
@@ -1245,7 +1075,6 @@ export class DataService {
 
   /** Set one media record as the primary/featured photo and clear is_featured on all others in the project */
   async setFeaturedMedia(projectId: string, mediaId: string): Promise<void> {
-    this.checkSupabaseConfig();
     // Clear all featured flags for this project first
     const { error: clearError } = await supabase
       .from("job_media")
@@ -1262,7 +1091,6 @@ export class DataService {
 
   /** Clear the featured flag for a specific media record */
   async clearFeaturedMedia(mediaId: string): Promise<void> {
-    this.checkSupabaseConfig();
     const { error } = await supabase
       .from("job_media")
       .update({ is_featured: false })
@@ -1274,7 +1102,6 @@ export class DataService {
   async getFeaturedMediaForProjects(projectIds: string[]): Promise<Record<string, string>> {
     if (!projectIds.length) return {};
     try {
-      this.checkSupabaseConfig();
       const { data, error } = await supabase
         .from("job_media")
         .select("job_id, file_path")
@@ -1300,7 +1127,6 @@ export class DataService {
   // Project Document methods
   async getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("job_documents")
@@ -1321,7 +1147,6 @@ export class DataService {
     file: File,
     metadata: any = {},
   ): Promise<ProjectDocument> {
-    this.checkSupabaseConfig();
 
     // Upload file to Supabase storage
     const fileExt = file.name.split(".").pop();
@@ -1369,7 +1194,6 @@ export class DataService {
     file: File,
     metadata: any = {},
   ): Promise<ProjectDocument> {
-    this.checkSupabaseConfig();
 
     const fileExt = file.name.split(".").pop();
     const uid = Math.random().toString(36).substr(2, 8);
@@ -1412,7 +1236,6 @@ export class DataService {
 
   async getClientDocuments(clientId: string): Promise<ProjectDocument[]> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("job_documents")
@@ -1430,7 +1253,6 @@ export class DataService {
   }
 
   async deleteProjectDocument(id: string): Promise<void> {
-    this.checkSupabaseConfig();
 
     const { error } = await supabase
       .from("job_documents")
@@ -1443,7 +1265,6 @@ export class DataService {
   // Review methods
   async getReviews(businessId: string): Promise<Review[]> {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("reviews")
@@ -1460,7 +1281,6 @@ export class DataService {
   }
 
   async createReview(review: Partial<Review>): Promise<Review> {
-    this.checkSupabaseConfig();
 
     const { data, error } = await supabase
       .from("reviews")
@@ -1482,7 +1302,6 @@ export class DataService {
     dateRange?: { start: string; end: string },
   ) {
     try {
-      this.checkSupabaseConfig();
 
       let query = supabase
         .from("analytics")
@@ -1506,7 +1325,6 @@ export class DataService {
   // Dashboard summary methods
   async getDashboardSummary(userId?: string) {
     try {
-      this.checkSupabaseConfig();
 
       const user = await this.getCurrentUser();
       if (!user && !userId) throw new Error("User not authenticated");
@@ -1529,7 +1347,6 @@ export class DataService {
 
   async getBusinessPerformanceSummary(businessId: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("business_performance_summary")
@@ -1547,7 +1364,6 @@ export class DataService {
 
   async getProjectActivitySummary(projectId: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("project_activity_summary")
@@ -1566,7 +1382,6 @@ export class DataService {
   // Workflow methods
   async createWorkflow(businessId: string, name: string, steps: any[], description?: string, presetId?: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("workflows")
@@ -1592,7 +1407,6 @@ export class DataService {
 
   async updateWorkflow(workflowId: string, updates: Record<string, any>) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("workflows")
@@ -1618,7 +1432,6 @@ export class DataService {
 
   async getWorkflows(businessId: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("workflows")
@@ -1636,7 +1449,6 @@ export class DataService {
 
   async getWorkflow(workflowId: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("workflows")
@@ -1654,7 +1466,6 @@ export class DataService {
 
   async deleteWorkflow(workflowId: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { error } = await supabase
         .from("workflows")
@@ -1695,7 +1506,6 @@ export class DataService {
   // Get workflow executions
   async getWorkflowExecutions(workflowId: string) {
     try {
-      this.checkSupabaseConfig();
 
       const { data, error } = await supabase
         .from("workflow_executions")

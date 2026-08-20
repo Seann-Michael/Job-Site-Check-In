@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Download, X, RefreshCw, Info } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
+import { toast } from "sonner";
 
 interface UpdateNotificationProps {
   onClose?: () => void;
@@ -64,8 +65,10 @@ export function UpdateNotification({ onClose }: UpdateNotificationProps) {
         window.location.reload();
       });
     } catch (error) {
-      console.error("Update failed:", error);
-      track("app_update_failed", { error: error.message });
+      track("app_update_failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast.error("The update couldn't be applied. Please reload the page.");
       setIsUpdating(false);
     }
   };
@@ -109,7 +112,7 @@ export function UpdateNotification({ onClose }: UpdateNotificationProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            A new version of GMB Booster is available with improvements and bug
+            A new version of Local SEO Ranker is available with improvements and bug
             fixes.
           </div>
 
@@ -227,7 +230,7 @@ export function InstallPrompt() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <Download className="h-4 w-4 text-green-600" />
-              Install GMB Booster
+              Install Local SEO Ranker
             </CardTitle>
             <Button
               variant="ghost"
@@ -241,7 +244,7 @@ export function InstallPrompt() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            Install GMB Booster on your device for faster access and offline
+            Install Local SEO Ranker on your device for faster access and offline
             capabilities.
           </div>
 

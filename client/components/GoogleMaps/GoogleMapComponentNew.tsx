@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Maximize, Settings } from "lucide-react";
+import { MapPin, Navigation, Maximize } from "lucide-react";
 import { getGoogleMapsApiKey } from "@/lib/googleMaps";
 import {
   type Waypoint as WaypointType,
@@ -171,10 +171,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   }, [centerPinFunction]);
 
   const apiKey = getGoogleMapsApiKey();
-  console.log(
-    "GoogleMapComponent: Using API key:",
-    apiKey ? `${apiKey.substring(0, 10)}...` : "MISSING",
-  );
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
@@ -182,10 +178,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     libraries: ["places"],
   });
 
-  console.log("GoogleMapComponent: Load state:", {
-    isLoaded,
-    loadError: loadError?.message,
-  });
 
   const mapContainerStyle = useMemo(
     () => ({
@@ -280,7 +272,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
-      console.log("GoogleMapComponent: Map loaded successfully", map);
       setMap(map);
 
       // Create info window (but keep it closed)
@@ -709,15 +700,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                           <div className="text-white text-xs font-bold leading-tight truncate">{businessName}</div>
                         </div>
                         <div className="flex items-center gap-1">
-                          {!isOverlayCollapsed && (
-                            <button
-                              onClick={() => {/* TODO: Add settings modal */}}
-                              className="text-white/70 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
-                              title="Waypoint Color Settings"
-                            >
-                              <Settings className="w-3 h-3" />
-                            </button>
-                          )}
                           <button
                             onClick={onToggleOverlay}
                             className="text-white/80 hover:text-white p-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"

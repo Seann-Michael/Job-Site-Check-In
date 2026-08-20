@@ -1,26 +1,22 @@
 import { Request, Response } from "express";
+import { getEnv } from "../lib/env";
+import { logger } from "../lib/logger";
+import { assertSafeUrl, GOOGLE_MAPS_HOSTS, resolveFinalUrl, SafeFetchError } from "../lib/safeFetch";
 
-const GOOGLE_API_KEY =
-  process.env.VITE_GOOGLE_MAPS_API_KEY ||
-  process.env.GOOGLE_MAPS_API_KEY ||
-  "";
+const log = logger.child({ module: "googlePlaceLookup" });
 
-/** Follow redirects to expand a short URL */
+function apiKey(): string {
+  return getEnv("GOOGLE_MAPS_API_KEY") || "";
+}
+
+/** Follow redirects to expand a short Google Maps URL (allowlisted hosts only). */
 async function resolveUrl(url: string): Promise<string> {
-  let current = url;
-  for (let i = 0; i < 6; i++) {
-    const resp = await fetch(current, {
-      method: "HEAD",
-      redirect: "manual",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; PlaceLookup/1.0)" },
-    });
-    const location = resp.headers.get("location");
-    if (!location) break;
-    current = location.startsWith("http")
-      ? location
-      : new URL(location, current).href;
-  }
-  return current;
+  return resolveFinalUrl(url, {
+    allowedHosts: GOOGLE_MAPS_HOSTS,
+    maxRedirects: 5,
+    timeoutMs: 8000,
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; PlaceLookup/1.0)" },
+  });
 }
 
 /** Extract the CID (decimal string) from a full Google Maps URL */
@@ -58,7 +54,7 @@ function extractMapsInfo(url: string): {
 
 /** Geocoding API: CID → standard place_id */
 async function placeIdFromCid(cid: string): Promise<string | null> {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?place_id=cid:${cid}&key=${GOOGLE_API_KEY}`;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?place_id=cid:${cid}&key=${apiKey()}`;
   const resp = await fetch(url);
   const data: any = await resp.json();
   return data?.results?.[0]?.place_id ?? null;
@@ -77,7 +73,7 @@ async function findPlaceId(
   const url =
     `https://maps.googleapis.com/maps/api/place/findplacefromtext/json` +
     `?input=${encodeURIComponent(name)}&inputtype=textquery` +
-    `&fields=place_id${locationBias}&key=${GOOGLE_API_KEY}`;
+    `&fields=place_id${locationBias}&key=${apiKey()}`;
   const resp = await fetch(url);
   const data: any = await resp.json();
   return data?.candidates?.[0]?.place_id ?? null;
@@ -103,7 +99,7 @@ async function getPlaceDetails(placeId: string): Promise<any | null> {
 
   const url =
     `https://maps.googleapis.com/maps/api/place/details/json` +
-    `?place_id=${placeId}&fields=${fields}&key=${GOOGLE_API_KEY}`;
+    `?place_id=${placeId}&fields=${fields}&key=${apiKey()}`;
   const resp = await fetch(url);
   const data: any = await resp.json();
   if (data.status !== "OK" || !data.result) return null;
@@ -116,24 +112,31 @@ async function getPlaceDetails(placeId: string): Promise<any | null> {
  * Accepts any Google Maps URL format and returns the business profile.
  */
 export async function handleGooglePlaceLookup(req: Request, res: Response) {
-  if (!GOOGLE_API_KEY) {
-    return res.status(503).json({ error: "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY or VITE_GOOGLE_MAPS_API_KEY environment variable." });
+  if (!apiKey()) {
+    return res.status(503).json({ error: "Google Maps lookup is not configured" });
   }
 
   const { url } = req.body as { url?: string };
 
-  if (!url) {
-    return res.status(400).json({ error: "Missing url in request body" });
+  if (!url || typeof url !== "string" || url.length > 2048) {
+    return res.status(400).json({ error: "Missing or invalid url in request body" });
   }
 
   try {
-    // 1. Expand short URLs
-    const isShort =
-      url.includes("maps.app.goo.gl") ||
-      url.includes("share.google") ||
-      url.includes("goo.gl/maps");
-
-    const fullUrl = isShort ? await resolveUrl(url) : url;
+    // 1. Validate host and expand short URLs. Every hop must stay on a
+    //    Google Maps host and resolve to a public address.
+    let fullUrl: string;
+    try {
+      const parsed = await assertSafeUrl(url, { allowedHosts: GOOGLE_MAPS_HOSTS });
+      const host = parsed.hostname.toLowerCase();
+      const isShort = host === "maps.app.goo.gl" || host === "goo.gl" || host === "share.google" || host === "g.page";
+      fullUrl = isShort ? await resolveUrl(parsed.href) : parsed.href;
+    } catch (e) {
+      if (e instanceof SafeFetchError) {
+        return res.status(400).json({ error: "Please paste a valid Google Maps link" });
+      }
+      throw e;
+    }
 
     // 2. Try CID path (most precise — CID uniquely identifies the business)
     const cid = extractCid(fullUrl);
@@ -192,8 +195,8 @@ export async function handleGooglePlaceLookup(req: Request, res: Response) {
       cid: cidExtracted,
       priceLevel: place.price_level ?? null,
     });
-  } catch (err: any) {
-    console.error("Google Place lookup error:", err);
-    return res.status(500).json({ error: "Lookup failed: " + err.message });
+  } catch (err) {
+    log.error({ err }, "Google Place lookup error");
+    return res.status(502).json({ error: "Lookup failed" });
   }
 }

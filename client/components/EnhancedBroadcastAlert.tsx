@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { formatReadableDate } from "@/lib/dateUtils";
-import { Link } from "react-router-dom";
 
 interface BroadcastMessage {
   id: string;
@@ -416,12 +415,6 @@ export function EnhancedBroadcastAlert() {
             <Button variant="ghost" size="sm" onClick={dismissAllMessages}>
               Dismiss All
             </Button>
-            <Link to="/notification-preferences">
-              <Button variant="ghost" size="sm" className="gap-1">
-                <Settings className="h-3 w-3" />
-                Settings
-              </Button>
-            </Link>
           </div>
         </div>
       )}
@@ -505,21 +498,6 @@ export function EnhancedBroadcastAlert() {
         </Alert>
       ))}
 
-      {/* No notifications message */}
-      {!preferences?.enableNotifications && (
-        <Alert className="border-dashed">
-          <Settings className="h-4 w-4" />
-          <AlertTitle>Notifications Disabled</AlertTitle>
-          <AlertDescription className="flex items-center justify-between">
-            <span>You have disabled notifications in your preferences.</span>
-            <Link to="/notification-preferences">
-              <Button variant="outline" size="sm">
-                Enable Notifications
-              </Button>
-            </Link>
-          </AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }

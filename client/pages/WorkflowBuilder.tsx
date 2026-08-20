@@ -209,11 +209,6 @@ const availableApps = [
     color: "bg-green-500",
     actions: [
       {
-        id: "send_review_email",
-        name: "Send Review Email",
-        description: "Send review request via email",
-      },
-      {
         id: "send_review_sms",
         name: "Send Review SMS",
         description: "Send review request via SMS",
@@ -252,21 +247,6 @@ const availableApps = [
         id: "send_webhook",
         name: "Send Webhook",
         description: "Send data to external service",
-      },
-    ],
-  },
-  // Actions - Social Media
-  {
-    type: "action",
-    app: "gmb",
-    name: "Google My Business",
-    icon: Database,
-    color: "bg-red-500",
-    actions: [
-      {
-        id: "post_to_gmb",
-        name: "Post to Google My Business",
-        description: "Create a post on Google My Business",
       },
     ],
   },
@@ -1166,7 +1146,8 @@ function WebhookPayloadMapper({
     toast({ title: "Copied", description: `{{${alias}}} copied to clipboard` });
   };
 
-  const SAMPLE_PAYLOAD = JSON.stringify(
+  // Example payload (not real data) so users can see the field-mapping UI.
+  const EXAMPLE_PAYLOAD = JSON.stringify(
     {
       id: "evt_123",
       event: "job.created",
@@ -1219,12 +1200,12 @@ function WebhookPayloadMapper({
       {tab === "payload" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Sample Payload (JSON)</Label>
+            <Label>Example Payload (JSON)</Label>
             <Button
               variant="ghost"
               size="sm"
               className="text-xs h-7"
-              onClick={() => setRawPayload(SAMPLE_PAYLOAD)}
+              onClick={() => setRawPayload(EXAMPLE_PAYLOAD)}
             >
               <Eye className="h-3 w-3 mr-1" />
               Load Example
@@ -1428,21 +1409,6 @@ function StepConfigForm({
 
   const renderConfigFields = () => {
     switch (`${step.app}_${step.action}`) {
-      case "reviews_send_review_email":
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email_template">Email Template</Label>
-              <Input
-                id="email_template"
-                value={config.email_template || ""}
-                onChange={(e) => updateConfig("email_template", e.target.value)}
-                placeholder="Select email template"
-              />
-            </div>
-          </div>
-        );
-
       case "reviews_send_review_sms":
         return (
           <div className="space-y-4">
@@ -1733,32 +1699,6 @@ function StepConfigForm({
                 value={config.tag_name || ""}
                 onChange={(e) => updateConfig("tag_name", e.target.value)}
                 placeholder="Enter tag name"
-              />
-            </div>
-          </div>
-        );
-
-      case "gmb_post_to_gmb":
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="post_content">Post Content</Label>
-              <Input
-                id="post_content"
-                value={config.post_content || ""}
-                onChange={(e) => updateConfig("post_content", e.target.value)}
-                placeholder="What's the update?"
-              />
-            </div>
-            <div>
-              <Label htmlFor="include_image">Include Image</Label>
-              <Input
-                id="include_image"
-                type="checkbox"
-                checked={config.include_image || false}
-                onChange={(e) =>
-                  updateConfig("include_image", e.target.checked)
-                }
               />
             </div>
           </div>

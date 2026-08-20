@@ -1,5 +1,66 @@
-// @ts-nocheck - Temporary suppression of type errors
+import { getCurrentUser } from "./auth";
 // Comprehensive error handling and validation system
+
+// ---------------------------------------------------------------------------
+// Sentry hook. Enabled only when VITE_SENTRY_DSN is set; otherwise every
+// function here is a no-op and @sentry/react is never loaded.
+// ---------------------------------------------------------------------------
+type SentryModule = typeof import("@sentry/react");
+let sentryPromise: Promise<SentryModule | null> | null = null;
+
+export function isSentryEnabled(): boolean {
+  return !!(import.meta.env.VITE_SENTRY_DSN as string | undefined);
+}
+
+/** Lazily initialise Sentry. Resolves to null when no DSN is configured. */
+export function initSentry(): Promise<SentryModule | null> {
+  if (sentryPromise) return sentryPromise;
+  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+  if (!dsn) {
+    sentryPromise = Promise.resolve(null);
+    return sentryPromise;
+  }
+  sentryPromise = import("@sentry/react")
+    .then((Sentry) => {
+      Sentry.init({
+        dsn,
+        environment: import.meta.env.MODE,
+        tracesSampleRate: 0,
+      });
+      return Sentry;
+    })
+    .catch((err) => {
+      console.error("Failed to initialise Sentry:", err);
+      return null;
+    });
+  return sentryPromise;
+}
+
+/** Report an error to Sentry if configured. Safe to call unconditionally. */
+export function captureException(
+  error: unknown,
+  extra?: Record<string, unknown>,
+): void {
+  if (!isSentryEnabled()) return;
+  void initSentry().then((Sentry) => {
+    if (!Sentry) return;
+    const err = error instanceof Error ? error : new Error(String(error));
+    Sentry.captureException(err, extra ? { extra } : undefined);
+  });
+}
+
+/** Report a plain message to Sentry if configured. */
+export function captureMessage(
+  message: string,
+  level: "error" | "warning" | "info" | "debug" = "error",
+  extra?: Record<string, unknown>,
+): void {
+  if (!isSentryEnabled()) return;
+  void initSentry().then((Sentry) => {
+    if (!Sentry) return;
+    Sentry.captureMessage(message, { level, extra });
+  });
+}
 
 export interface ErrorContext {
   userId?: string;
@@ -118,23 +179,19 @@ export class ErrorLogger {
 
   private getCurrentUserId(): string | undefined {
     try {
-      const user = JSON.parse(localStorage.getItem("auth_user") || "{}");
-      return user.id;
+      const user = getCurrentUser();
+      return user ? String(user.id) : undefined;
     } catch {
       return undefined;
     }
   }
 
   private sendToExternalService(errorLog: ErrorLog): void {
-    // In production, send to error tracking service like Sentry, LogRocket, etc.
-    if (process.env.NODE_ENV === "production") {
-      // Example: Send to external error tracking
-      // fetch('/api/errors', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(errorLog)
-      // });
-    }
+    if (!import.meta.env.PROD || errorLog.level !== "error") return;
+    captureMessage(errorLog.message, "error", {
+      stack: errorLog.stack,
+      context: errorLog.context,
+    });
   }
 
   private logToConsole(errorLog: ErrorLog): void {
@@ -386,8 +443,7 @@ export class ErrorBoundaryLogger {
   static logError(error: Error, errorInfo: any, componentStack?: string): void {
     globalErrorLogger.error(`React Error Boundary: ${error.message}`, error, {
       component: "ErrorBoundary",
-      componentStack,
-      additionalData: errorInfo,
+      additionalData: { ...errorInfo, componentStack },
     });
   }
 }

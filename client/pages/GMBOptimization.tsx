@@ -40,6 +40,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { aiApi, aiErrorMessage } from "@/lib/api";
 import { supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
 import { loadGoogleMapsAPI } from "@/lib/googleMaps";
@@ -450,7 +451,8 @@ export default function GMBOptimization() {
   };
 
   const handleDeleteQA = async (id: string) => {
-    await supabase.from("gmb_qas").delete().eq("id", id);
+    const { error } = await supabase.from("gmb_qas").delete().eq("id", id);
+    if (error) { toast.error("Failed to remove Q&A."); return; }
     setQAs((prev) => prev.filter((q) => q.id !== id));
     toast.success("Q&A removed.");
   };
@@ -462,9 +464,17 @@ export default function GMBOptimization() {
     try {
       let desc = newService.description;
       if (withAI) {
-        toast.info("Generating AI description…");
-        await new Promise((r) => setTimeout(r, 1500));
-        desc = `Premium ${newService.name.toLowerCase()} crafted with care and expertise. A top choice for our customers.`;
+        try {
+          const { text } = await aiApi.serviceDescription(
+            newService.name.trim(),
+            profile?.business_name || undefined,
+            profile?.address || undefined,
+          );
+          if (text?.trim()) desc = text.trim();
+        } catch (err) {
+          // Keep the user's own description; tell them why AI didn't run.
+          toast.error(aiErrorMessage(err));
+        }
       }
       const { data, error } = await supabase.from("gmb_services")
         .insert({ business_id: businessId, ...newService, description: desc })
@@ -473,7 +483,8 @@ export default function GMBOptimization() {
       setServices((prev) => [...prev, data as unknown as GMBService]);
       setNewService({ name: "", description: "", price: "", category: "", image_url: "" });
       toast.success("Service added!");
-    } catch {
+    } catch (err) {
+      console.error("Failed to add service:", err);
       toast.error("Failed to add service.");
     } finally {
       setAddingService(false);
@@ -481,7 +492,8 @@ export default function GMBOptimization() {
   };
 
   const handleDeleteService = async (id: string) => {
-    await supabase.from("gmb_services").delete().eq("id", id);
+    const { error } = await supabase.from("gmb_services").delete().eq("id", id);
+    if (error) { toast.error("Failed to remove service."); return; }
     setServices((prev) => prev.filter((s) => s.id !== id));
     toast.success("Service removed.");
   };

@@ -90,12 +90,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   useEffect(() => {
     try {
       const apiKey = getGoogleMapsApiKey();
-      console.log(
-        "GoogleMapComponent: API key check result:",
-        apiKey ? "Found" : "Not found",
-      );
       if (!apiKey || apiKey.length < 20) {
-        console.log("GoogleMapComponent: Invalid or missing API key, switching to iframe fallback");
         setUseIframeFallback(true);
       }
     } catch (error) {
@@ -422,15 +417,6 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
 
   // Debug logging — must stay here (before any early returns) to satisfy Rules of Hooks
   useEffect(() => {
-    console.log("GoogleMapComponent state:", {
-      isLoaded,
-      useIframeFallback,
-      error,
-      mapExists: !!map,
-      centerProp: center,
-      markerCount: markers?.length || 0,
-      waypointCount: waypoints?.length || 0,
-    });
   }, [isLoaded, useIframeFallback, error, map, center, markers, waypoints]);
 
   // Iframe fallback when no API key is available

@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { AIError, chatCompletion } from "../lib/openai";
+import { logger } from "../lib/logger";
 
 interface AIReviewRequest {
   reviewText?: string;
@@ -10,90 +12,46 @@ interface AIReviewRequest {
   keywords?: string[];
 }
 
+const str = (v: unknown, max: number, fallback = ""): string =>
+  typeof v === "string" ? v.trim().slice(0, max) : fallback;
+
 /**
- * POST /api/ai-review-response
- * Generates an SEO-optimised review response using OpenAI if configured,
- * or falls back to a well-crafted template response.
+ * POST /api/ai-review-response  (auth)
+ * Generates an SEO-optimised owner response to a customer review.
+ * 503 when OPENAI_API_KEY is missing, 502 when the provider fails.
  */
 export async function handleAIReviewResponse(req: Request, res: Response) {
-  const {
-    reviewText = "",
-    rating = 5,
-    customerName = "valued customer",
-    projectName = "",
-    businessName = "our business",
-    existingResponse = "",
-    keywords = [],
-  } = req.body as AIReviewRequest;
+  const body = (req.body ?? {}) as AIReviewRequest;
+  const reviewText = str(body.reviewText, 4000);
+  const rating = Math.min(5, Math.max(1, Number(body.rating) || 5));
+  const customerName = str(body.customerName, 120, "valued customer");
+  const projectName = str(body.projectName, 200);
+  const businessName = str(body.businessName, 200, "our business");
+  const existingResponse = str(body.existingResponse, 2000);
+  const keywords = Array.isArray(body.keywords)
+    ? body.keywords.filter((k): k is string => typeof k === "string").map((k) => k.slice(0, 60)).slice(0, 10)
+    : [];
 
-  const openAiKey = process.env.OPENAI_API_KEY;
-
-  if (openAiKey) {
-    try {
-      const prompt = buildPrompt({
-        reviewText,
-        rating,
-        customerName,
-        projectName,
-        businessName,
-        existingResponse,
-        keywords,
-      });
-
-      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openAiKey}`,
+  try {
+    const prompt = buildPrompt({ reviewText, rating, customerName, projectName, businessName, existingResponse, keywords });
+    const response = await chatCompletion(
+      [
+        {
+          role: "system",
+          content:
+            "You are an expert at writing professional, SEO-optimized responses to customer reviews for local service businesses. Keep responses genuine, grateful, and concise (2-4 sentences). Include relevant keywords naturally. Return only the response text.",
         },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an expert at writing professional, SEO-optimized responses to customer reviews for local service businesses. Keep responses genuine, grateful, and concise (2-4 sentences). Include relevant keywords naturally.",
-            },
-            { role: "user", content: prompt },
-          ],
-          max_tokens: 300,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!openaiRes.ok) {
-        const errText = await openaiRes.text();
-        throw new Error(`OpenAI API error: ${openaiRes.status} ${errText}`);
-      }
-
-      const data = (await openaiRes.json()) as any;
-      const aiResponse: string = data.choices?.[0]?.message?.content?.trim() ?? "";
-
-      if (!aiResponse) throw new Error("Empty response from OpenAI");
-
-      const seoTips = buildSeoTips(keywords);
-      return res.json({ response: aiResponse, seoTips });
-    } catch (err: any) {
-      console.error("[aiReview] OpenAI call failed, falling back to template:", err.message);
-      // Fall through to template response
-    }
+        { role: "user", content: prompt },
+      ],
+      { maxTokens: 300, temperature: 0.7 },
+    );
+    return res.json({ response, seoTips: buildSeoTips(keywords) });
+  } catch (err) {
+    if (err instanceof AIError) return res.status(err.status).json({ error: err.message });
+    logger.error({ err }, "aiReview failed");
+    return res.status(502).json({ error: "AI provider error" });
   }
-
-  // ── Template fallback (no OpenAI key or call failed) ─────────────────────
-  const templateResponse = buildTemplateResponse({
-    reviewText,
-    rating,
-    customerName,
-    projectName,
-    businessName,
-    keywords,
-  });
-
-  const seoTips = buildSeoTips(keywords);
-  return res.json({ response: templateResponse, seoTips });
 }
-
-// ── helpers ──────────────────────────────────────────────────────────────────
 
 function buildPrompt(opts: {
   reviewText: string;
@@ -104,12 +62,9 @@ function buildPrompt(opts: {
   existingResponse: string;
   keywords: string[];
 }): string {
-  const keywordStr =
-    opts.keywords.length > 0 ? `Naturally include some of these keywords: ${opts.keywords.join(", ")}.` : "";
+  const keywordStr = opts.keywords.length > 0 ? `Naturally include some of these keywords: ${opts.keywords.join(", ")}.` : "";
   const projectStr = opts.projectName ? ` for their ${opts.projectName}` : "";
-  const existingStr = opts.existingResponse
-    ? `\n\nExisting draft response to improve: "${opts.existingResponse}"`
-    : "";
+  const existingStr = opts.existingResponse ? `\n\nExisting draft response to improve: "${opts.existingResponse}"` : "";
 
   return `Write a professional owner response to this ${opts.rating}-star customer review${projectStr} for ${opts.businessName}.
 
@@ -119,29 +74,6 @@ ${existingStr}
 
 ${keywordStr}
 Keep the response warm, professional, and 2-4 sentences long.`;
-}
-
-function buildTemplateResponse(opts: {
-  reviewText: string;
-  rating: number;
-  customerName: string;
-  projectName: string;
-  businessName: string;
-  keywords: string[];
-}): string {
-  const { customerName, projectName, businessName, rating, keywords } = opts;
-  const name = customerName || "valued customer";
-  const project = projectName ? ` on your ${projectName}` : "";
-  const keywordPhrase =
-    keywords.length > 0 ? ` Our team takes pride in delivering top-quality ${keywords[0]}.` : "";
-
-  if (rating >= 4) {
-    return `Thank you so much, ${name}, for your wonderful review! We truly enjoyed working with you${project} and are thrilled to hear you had such a positive experience with ${businessName}.${keywordPhrase} We look forward to serving you again in the future!`;
-  } else if (rating === 3) {
-    return `Thank you for taking the time to share your feedback, ${name}. We're glad parts of your experience with ${businessName}${project} met your expectations, and we genuinely appreciate knowing where we can improve.${keywordPhrase} Please reach out to us directly so we can make things right.`;
-  } else {
-    return `Thank you for your feedback, ${name}. We're sorry to hear that your experience with ${businessName}${project} did not meet your expectations. This is not the standard we hold ourselves to, and we'd very much like the opportunity to address your concerns — please contact us directly so we can make it right.`;
-  }
 }
 
 function buildSeoTips(keywords: string[]): string[] {

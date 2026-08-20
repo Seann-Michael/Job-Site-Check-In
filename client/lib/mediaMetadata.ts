@@ -195,25 +195,6 @@ export class MediaMetadataEnhancer {
   }
 
   /**
-   * Extract EXIF data from image files (if available)
-   */
-  static async extractExifData(file: File): Promise<any> {
-    // In a real implementation, you would use a library like 'exif-js' or 'piexifjs'
-    // For now, we'll return a placeholder structure
-    return new Promise((resolve) => {
-      // Simulate EXIF extraction
-      setTimeout(() => {
-        resolve({
-          DateTimeOriginal: new Date().toISOString(),
-          GPS: null, // Would contain GPS coordinates if available
-          Camera: "Unknown",
-          Software: "Unknown",
-        });
-      }, 100);
-    });
-  }
-
-  /**
    * Create metadata summary for display
    */
   static createMetadataSummary(metadata: MediaMetadata): string {

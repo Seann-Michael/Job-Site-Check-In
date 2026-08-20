@@ -1,163 +1,193 @@
 import { Request, Response } from "express";
+import { getAppUrl } from "../lib/env";
+import { logger } from "../lib/logger";
+import { createOAuthState, consumeOAuthState } from "../lib/oauthState";
+import { getSupabaseClient } from "../supabaseClient";
 
-const CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
-const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
+const log = logger.child({ module: "googleOAuth" });
 
 // Scopes needed for Google Business Profile access
-const SCOPES = [
-  "openid",
-  "email",
-  "profile",
-  "https://www.googleapis.com/auth/business.manage",
-].join(" ");
+const SCOPES = ["openid", "email", "profile", "https://www.googleapis.com/auth/business.manage"].join(" ");
 
-function getRedirectUri(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:5173";
-  return `${proto}://${host}/api/oauth/google_my_business/callback`;
+function clientId(): string {
+  return process.env.GOOGLE_OAUTH_CLIENT_ID || "";
+}
+function clientSecret(): string {
+  return process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
 }
 
-/**
- * GET /api/auth/google/authorize
- * Also accessible at /api/oauth/google_my_business/authorize
- * Redirects the popup to Google's OAuth consent screen.
- * Query params:
- *   workspace_id - the workspace/account to attach the token to
- */
-export function handleGoogleAuthorize(req: Request, res: Response) {
-  if (!CLIENT_ID) {
-    return res.status(500).send(`
-      <html><body style="font-family:sans-serif;text-align:center;padding:40px">
-        <h2 style="color:#c00">Google OAuth Not Configured</h2>
-        <p>GOOGLE_OAUTH_CLIENT_ID is not set. Please add your Google OAuth credentials in Settings.</p>
-        <script>
-          window.opener && window.opener.postMessage(
-            { type: 'oauth_error', platform: 'google', error: 'Google OAuth credentials not configured.' },
-            window.location.origin
-          );
-          setTimeout(() => window.close(), 4000);
-        </script>
-      </body></html>
-    `);
+/** Redirect URI is derived from APP_URL, never from Host headers. */
+function getRedirectUri(): string {
+  return `${getAppUrl()}/api/oauth/google_my_business/callback`;
+}
+
+function escapeHtml(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** JSON safe to embed inside a <script> block. */
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function popupPage(res: Response, status: number, message: unknown, payload: Record<string, unknown>, closeDelayMs = 0) {
+  res
+    .status(status)
+    .type("html")
+    .send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Google connection</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:40px">
+  <p>${escapeHtml(message)}</p>
+  <script>
+    (function () {
+      var msg = ${scriptJson(payload)};
+      if (window.opener) { window.opener.postMessage(msg, window.location.origin); }
+      setTimeout(function () { window.close(); }, ${Number(closeDelayMs) || 0});
+    })();
+  </script>
+</body></html>`);
+}
+
+const errorPage = (res: Response, status: number, msg: string, delay = 0) =>
+  popupPage(res, status, msg, { type: "oauth_error", platform: "google", error: msg }, delay);
+
+function buildAuthorizeUrl(req: Request): { url?: string; error?: { status: number; message: string } } {
+  if (!clientId() || !clientSecret()) {
+    return { error: { status: 503, message: "Google OAuth is not configured on the server." } };
+  }
+  let redirectUri: string;
+  try {
+    redirectUri = getRedirectUri();
+  } catch (err) {
+    log.error({ err }, "APP_URL missing for OAuth redirect");
+    return { error: { status: 500, message: "Server is misconfigured." } };
   }
 
-  const state = Buffer.from(
-    JSON.stringify({ workspace_id: req.query.workspace_id || "" })
-  ).toString("base64url");
+  const rawWorkspace = (req.body?.workspace_id ?? req.query.workspace_id) as unknown;
+  const workspaceId = typeof rawWorkspace === "string" ? rawWorkspace.slice(0, 128) : "";
+  const state = createOAuthState({ workspace_id: workspaceId, user_id: req.user?.id || "" });
 
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: getRedirectUri(req),
+    client_id: clientId(),
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: SCOPES,
     access_type: "offline",
     prompt: "consent",
     state,
   });
-
-  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` };
 }
 
 /**
- * GET /api/auth/google/callback
- * Exchanges the authorization code for tokens, then closes the popup
- * and messages the opener with the result.
+ * POST /api/oauth/google_my_business/start  (auth)  { workspace_id? }
+ * Returns { authorizeUrl } for the client to open in a popup. This is the
+ * recommended flow: a popup cannot carry an Authorization header, so the
+ * authenticated request happens here and the popup only visits Google.
+ */
+export function handleGoogleStart(req: Request, res: Response) {
+  const { url, error } = buildAuthorizeUrl(req);
+  if (error) return res.status(error.status).json({ error: error.message });
+  res.json({ authorizeUrl: url });
+}
+
+/**
+ * GET /api/oauth/google_my_business/authorize?workspace_id=  (auth)
+ * Redirects straight to Google's consent screen. Only usable by callers that
+ * can send a Bearer header on a navigation (API clients); browsers should use
+ * the POST /start endpoint above.
+ */
+export function handleGoogleAuthorize(req: Request, res: Response) {
+  const { url, error } = buildAuthorizeUrl(req);
+  if (error) return errorPage(res, error.status, error.message, 4000);
+  res.redirect(url!);
+}
+
+/**
+ * GET /api/oauth/google_my_business/callback  (public; protected by state nonce)
+ * Exchanges the code for tokens, stores them server-side in
+ * google_oauth_tokens, then posts a summary (no refresh token) to the opener.
  */
 export async function handleGoogleCallback(req: Request, res: Response) {
-  const { code, error, state } = req.query as Record<string, string>;
+  const { code, error, state } = req.query as Record<string, string | undefined>;
 
-  const closeWithError = (msg: string) => {
-    res.send(`
-      <html><body>
-        <script>
-          window.opener && window.opener.postMessage(
-            { type: 'oauth_error', platform: 'google', error: ${JSON.stringify(msg)} },
-            window.location.origin
-          );
-          window.close();
-        </script>
-        <p>${msg}</p>
-      </body></html>
-    `);
-  };
+  const stateData = consumeOAuthState(state);
+  if (!stateData) {
+    return errorPage(res, 400, "This sign-in link has expired or is invalid. Please try again.");
+  }
+  if (error) {
+    log.warn({ error }, "Google OAuth denied");
+    return errorPage(res, 400, "Google denied access.");
+  }
+  if (!code) return errorPage(res, 400, "No authorization code received.");
 
-  if (error) return closeWithError(`Google denied access: ${error}`);
-  if (!code) return closeWithError("No authorization code received.");
-
-  let workspaceId = "";
-  try {
-    const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
-    workspaceId = decoded.workspace_id || "";
-  } catch {}
+  const workspaceId = stateData.workspace_id;
 
   try {
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uri: getRedirectUri(req),
+        client_id: clientId(),
+        client_secret: clientSecret(),
+        redirect_uri: getRedirectUri(),
         grant_type: "authorization_code",
       }),
     });
 
-    const tokens = await tokenRes.json() as any;
-    if (tokens.error) return closeWithError(`Token error: ${tokens.error_description || tokens.error}`);
+    const tokens = (await tokenRes.json()) as any;
+    if (!tokenRes.ok || tokens.error) {
+      log.error({ status: tokenRes.status, error: tokens.error, description: tokens.error_description }, "Google token exchange failed");
+      return errorPage(res, 502, "Could not complete Google sign-in. Please try again.");
+    }
 
-    // Fetch the user's Google profile info
-    const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    });
-    const profile = await profileRes.json() as any;
-
-    // Fetch Google Business Profile accounts, then locations under each account
     const authHeader = { Authorization: `Bearer ${tokens.access_token}` };
-    let gmbLocations: any[] = [];
-    let debugErrors: string[] = [];
 
-    // Step 1: Get all accounts the user manages
+    const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: authHeader });
+    const profile = (await profileRes.json()) as any;
+
+    // Google Business Profile accounts, then locations under each account.
+    const gmbLocations: any[] = [];
+    const debugErrors: string[] = [];
     let gmbAccounts: any[] = [];
     try {
-      const accountsRes = await fetch(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-        { headers: authHeader }
-      );
-      const accountsData = await accountsRes.json() as any;
+      const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", { headers: authHeader });
+      const accountsData = (await accountsRes.json()) as any;
       if (accountsData.error) {
-        debugErrors.push(`Accounts API error: ${accountsData.error.message || JSON.stringify(accountsData.error)}`);
+        debugErrors.push(`Accounts API error: ${accountsData.error.message || "unknown"}`);
       } else {
         gmbAccounts = accountsData.accounts || [];
       }
     } catch (e: any) {
-      debugErrors.push(`Accounts fetch exception: ${e.message}`);
+      debugErrors.push("Accounts fetch failed");
+      log.warn({ err: e }, "GBP accounts fetch failed");
     }
 
-    // Step 2: For each account, fetch its locations (business listings)
     for (const account of gmbAccounts) {
-      // Try the v1 Business Information API first
       try {
         const locRes = await fetch(
-          `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations` +
-            `?readMask=name,title,storefrontAddress,phoneNumbers`,
-          { headers: authHeader }
+          `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title,storefrontAddress,phoneNumbers`,
+          { headers: authHeader },
         );
-        const locData = await locRes.json() as any;
+        const locData = (await locRes.json()) as any;
         if (locData.error) {
-          debugErrors.push(`Locations v1 API error for ${account.name}: ${locData.error.message}`);
+          debugErrors.push(`Locations API error for ${account.name}: ${locData.error.message || "unknown"}`);
         } else if (locData.locations?.length) {
           for (const loc of locData.locations) {
             gmbLocations.push({
               name: loc.name,
               title: loc.title || "",
               address: loc.storefrontAddress
-                ? [
-                    loc.storefrontAddress.addressLines?.[0],
-                    loc.storefrontAddress.locality,
-                    loc.storefrontAddress.administrativeArea,
-                  ]
+                ? [loc.storefrontAddress.addressLines?.[0], loc.storefrontAddress.locality, loc.storefrontAddress.administrativeArea]
                     .filter(Boolean)
                     .join(", ")
                 : "",
@@ -165,74 +195,112 @@ export async function handleGoogleCallback(req: Request, res: Response) {
               accountName: account.name,
             });
           }
-          continue; // v1 worked, skip legacy fallback
+          continue;
         }
       } catch (e: any) {
-        debugErrors.push(`Locations v1 exception for ${account.name}: ${e.message}`);
+        debugErrors.push(`Locations fetch failed for ${account.name}`);
+        log.warn({ err: e, account: account.name }, "GBP locations v1 fetch failed");
       }
 
-      // Fallback: try the legacy v4 API
+      // Legacy v4 fallback
       try {
-        const legacyRes = await fetch(
-          `https://mybusiness.googleapis.com/v4/${account.name}/locations`,
-          { headers: authHeader }
-        );
-        const legacyData = await legacyRes.json() as any;
+        const legacyRes = await fetch(`https://mybusiness.googleapis.com/v4/${account.name}/locations`, { headers: authHeader });
+        const legacyData = (await legacyRes.json()) as any;
         if (legacyData.locations?.length) {
           for (const loc of legacyData.locations) {
             gmbLocations.push({
               name: loc.name,
               title: loc.locationName || loc.name,
               address: loc.address
-                ? [loc.address.addressLines?.[0], loc.address.locality, loc.address.administrativeArea]
-                    .filter(Boolean)
-                    .join(", ")
+                ? [loc.address.addressLines?.[0], loc.address.locality, loc.address.administrativeArea].filter(Boolean).join(", ")
                 : "",
               phone: loc.primaryPhone || "",
               accountName: account.name,
             });
           }
         } else if (legacyData.error) {
-          debugErrors.push(`Legacy v4 error for ${account.name}: ${legacyData.error.message}`);
+          debugErrors.push(`Legacy API error for ${account.name}: ${legacyData.error.message || "unknown"}`);
         }
       } catch (e: any) {
-        debugErrors.push(`Legacy v4 exception for ${account.name}: ${e.message}`);
+        debugErrors.push(`Legacy locations fetch failed for ${account.name}`);
+        log.warn({ err: e, account: account.name }, "GBP locations v4 fetch failed");
       }
     }
 
+    const expiresAtMs = tokens.expires_in ? Date.now() + Number(tokens.expires_in) * 1000 : null;
+
+    // Persist tokens server-side (service role only table).
+    await storeTokens({
+      workspaceId,
+      userId: stateData.user_id,
+      googleAccountId: profile.sub,
+      email: profile.email,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: expiresAtMs ? new Date(expiresAtMs).toISOString() : null,
+      scopes: typeof tokens.scope === "string" ? tokens.scope.split(" ") : SCOPES.split(" "),
+      locations: gmbLocations,
+    });
+
+    // The refresh token is intentionally NOT sent to the browser; it lives in
+    // google_oauth_tokens and is used by server-side GBP calls.
     const accountInfo = {
       email: profile.email,
       name: profile.name,
       picture: profile.picture,
       googleId: profile.sub,
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresAt: tokens.expires_in
-        ? Date.now() + tokens.expires_in * 1000
-        : null,
-      gmbAccounts: gmbLocations.length > 0 ? gmbLocations : [],
-      gmbAccountsRaw: gmbAccounts,   // raw accounts for debugging
-      gmbDebugErrors: debugErrors,   // surface errors to the client
+      expiresAt: expiresAtMs,
+      gmbAccounts: gmbLocations,
+      gmbAccountsRaw: gmbAccounts,
+      gmbDebugErrors: debugErrors,
       workspaceId,
     };
 
-    res.send(`
-      <html><body>
-        <script>
-          window.opener && window.opener.postMessage(
-            {
-              type: 'oauth_success',
-              platform: 'google',
-              data: ${JSON.stringify(accountInfo)}
-            },
-            window.location.origin
-          );
-          window.close();
-        </script>
-        <p>Connected! You can close this window.</p>
-      </body></html>
-    `);
-  } catch (err: any) {
-    closeWithError(`Connection failed: ${err.message}`);
+    return popupPage(res, 200, "Connected. You can close this window.", {
+      type: "oauth_success",
+      platform: "google",
+      data: accountInfo,
+    });
+  } catch (err) {
+    log.error({ err }, "Google OAuth callback failed");
+    return errorPage(res, 502, "Connection failed. Please try again.");
+  }
+}
+
+async function storeTokens(t: {
+  workspaceId: string;
+  userId: string;
+  googleAccountId: string;
+  email: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: string | null;
+  scopes: string[];
+  locations: any[];
+}) {
+  if (!t.googleAccountId) return;
+  try {
+    const db = getSupabaseClient();
+    const row: Record<string, any> = {
+      workspace_id: t.workspaceId || null,
+      user_id: t.userId || null,
+      google_account_id: t.googleAccountId,
+      email: t.email ?? null,
+      access_token: t.accessToken,
+      expires_at: t.expiresAt,
+      scopes: t.scopes,
+      locations: t.locations,
+      updated_at: new Date().toISOString(),
+    };
+    // Only overwrite the refresh token when Google issued a new one.
+    if (t.refreshToken) row.refresh_token = t.refreshToken;
+
+    const { error } = await db
+      .from("google_oauth_tokens")
+      .upsert(row, { onConflict: "workspace_id,google_account_id" });
+    if (error) log.error({ err: error }, "Failed to store Google OAuth tokens");
+  } catch (err) {
+    log.error({ err }, "Failed to store Google OAuth tokens");
   }
 }

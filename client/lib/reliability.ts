@@ -1,3 +1,5 @@
+import { captureException } from "./errorHandling";
+
 // Type-safe utilities for improved reliability
 
 // Safe array access
@@ -373,15 +375,9 @@ class ErrorTracker {
       this.errors = this.errors.slice(-100);
     }
 
-    // In production, send to error tracking service
-    if (process.env.NODE_ENV === "production") {
-      this.reportToService(error, context);
+    if (import.meta.env.PROD) {
+      captureException(error, context);
     }
-  }
-
-  private reportToService(error: Error, context?: Record<string, any>) {
-    // Implementation for external error tracking service
-    // e.g., Sentry, LogRocket, etc.
   }
 
   getErrors() {

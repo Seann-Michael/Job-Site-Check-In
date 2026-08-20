@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect, useCallback } from "react";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,7 +57,6 @@ import {
   BarChart3,
   Search,
   RefreshCw,
-  TestTube,
   Star,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +72,6 @@ interface EmailProvider {
     fromEmail: string;
     fromName: string;
     replyTo?: string;
-    apiKey?: string;
     host?: string;
     port?: number;
     username?: string;
@@ -144,9 +141,9 @@ const EMAIL_PROVIDERS_LIST = [
 
 const EMPTY_PROVIDER_FORM = {
   name: "",
-  type: "api" as const,
+  type: "api" as EmailProvider["type"],
   provider_key: "",
-  config: { fromEmail: "", fromName: "", replyTo: "", apiKey: "", host: "", port: 587, username: "" },
+  config: { fromEmail: "", fromName: "", replyTo: "", host: "", port: 587, username: "" },
   is_active: true,
   is_default: false,
 };
@@ -157,7 +154,7 @@ const EMPTY_TEMPLATE_FORM = {
   html_content: "",
   text_content: "",
   preview_text: "",
-  category: "broadcast" as const,
+  category: "broadcast" as EmailTemplate["category"],
   is_active: true,
 };
 
@@ -168,7 +165,6 @@ const EMPTY_CAMPAIGN_FORM = {
   content: "",
   target_segment: "all",
   scheduled_at: "",
-  is_immediate: true,
 };
 
 function extractVariables(text: string): string[] {
@@ -278,15 +274,25 @@ export default function SuperAdminEmailIntegration() {
         name: providerForm.name.trim(),
         type: providerForm.type,
         provider_key: providerForm.provider_key || null,
-        config: providerForm.config,
+        // Credentials never pass through the browser; drop any legacy keys.
+        config: (({ apiKey, password, ...rest }) => rest)(providerForm.config as Record<string, any>),
         is_active: providerForm.is_active,
         is_default: providerForm.is_default,
         updated_at: new Date().toISOString(),
       };
 
-      // If setting as default, unset others first
+      // If setting as default, unset the current defaults first (by id)
       if (providerForm.is_default) {
-        await supabaseClient.from("email_providers").update({ is_default: false }).neq("id", editingProvider?.id ?? "00000000-0000-0000-0000-000000000000");
+        const otherDefaults = providers
+          .filter((p) => p.is_default && p.id !== editingProvider?.id)
+          .map((p) => p.id);
+        if (otherDefaults.length > 0) {
+          const { error: unsetError } = await supabaseClient
+            .from("email_providers")
+            .update({ is_default: false, updated_at: new Date().toISOString() })
+            .in("id", otherDefaults);
+          if (unsetError) throw unsetError;
+        }
       }
 
       if (editingProvider) {
@@ -326,7 +332,14 @@ export default function SuperAdminEmailIntegration() {
 
   const handleSetDefaultProvider = async (id: string) => {
     try {
-      await supabaseClient.from("email_providers").update({ is_default: false, updated_at: new Date().toISOString() }).neq("id", id);
+      const otherDefaults = providers.filter((p) => p.is_default && p.id !== id).map((p) => p.id);
+      if (otherDefaults.length > 0) {
+        const { error: unsetError } = await supabaseClient
+          .from("email_providers")
+          .update({ is_default: false, updated_at: new Date().toISOString() })
+          .in("id", otherDefaults);
+        if (unsetError) throw unsetError;
+      }
       const { error } = await supabaseClient.from("email_providers").update({ is_default: true, updated_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
       toast.success("Default provider updated!");
@@ -346,13 +359,6 @@ export default function SuperAdminEmailIntegration() {
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to delete provider");
     }
-  };
-
-  const handleTestProvider = async (providerId: string) => {
-    const provider = providers.find((p) => p.id === providerId);
-    toast.info(`Testing ${provider?.name ?? "provider"}...`);
-    await new Promise((r) => setTimeout(r, 1500));
-    toast.success("Test email sent successfully!");
   };
 
   // ─── Template CRUD ───────────────────────────────────────────────────────────
@@ -460,7 +466,6 @@ export default function SuperAdminEmailIntegration() {
     }
     setIsSaving(true);
     try {
-      const now = new Date().toISOString();
       const payload = {
         name: campaignForm.name.trim(),
         subject: campaignForm.subject.trim(),
@@ -468,15 +473,15 @@ export default function SuperAdminEmailIntegration() {
         content: campaignForm.content || null,
         target_segment: campaignForm.target_segment,
         recipient_count: 0,
-        status: campaignForm.is_immediate ? "sending" : "scheduled",
-        scheduled_at: campaignForm.is_immediate ? null : campaignForm.scheduled_at || null,
-        sent_at: campaignForm.is_immediate ? now : null,
+        status: campaignForm.scheduled_at ? "scheduled" : "draft",
+        scheduled_at: campaignForm.scheduled_at || null,
+        sent_at: null,
         created_by: "Super Admin",
         stats: { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, unsubscribed: 0 },
       };
       const { error } = await supabaseClient.from("email_campaigns").insert([payload]);
       if (error) throw error;
-      toast.success(campaignForm.is_immediate ? "Campaign launched!" : "Campaign scheduled!");
+      toast.success(campaignForm.scheduled_at ? "Campaign scheduled" : "Campaign saved as draft");
       setShowCampaignDialog(false);
       setCampaignForm(EMPTY_CAMPAIGN_FORM);
       fetchAll();
@@ -660,17 +665,10 @@ export default function SuperAdminEmailIntegration() {
                   placeholder="support@example.com"
                 />
               </div>
-              {providerForm.type === "api" ? (
-                <div className="grid gap-2">
-                  <Label>API Key *</Label>
-                  <Input
-                    type="password"
-                    value={providerForm.config.apiKey}
-                    onChange={(e) => setProviderForm((p) => ({ ...p, config: { ...p.config, apiKey: e.target.value } }))}
-                    placeholder="Your API key..."
-                  />
-                </div>
-              ) : (
+              <p className="text-xs text-muted-foreground rounded border bg-muted/40 p-2">
+                API keys and SMTP passwords are configured in the server environment and are never stored in the database or entered here.
+              </p>
+              {providerForm.type === "api" ? null : (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label>SMTP Host *</Label>
@@ -694,15 +692,6 @@ export default function SuperAdminEmailIntegration() {
                       value={providerForm.config.username}
                       onChange={(e) => setProviderForm((p) => ({ ...p, config: { ...p.config, username: e.target.value } }))}
                       placeholder="SMTP username"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Password</Label>
-                    <Input
-                      type="password"
-                      value={providerForm.config.password || ""}
-                      onChange={(e) => setProviderForm((p) => ({ ...p, config: { ...p.config, password: e.target.value } }))}
-                      placeholder="SMTP password"
                     />
                   </div>
                 </div>
@@ -856,21 +845,16 @@ export default function SuperAdminEmailIntegration() {
                   />
                 </div>
               )}
-              <div className="flex items-center space-x-2">
-                <Switch checked={campaignForm.is_immediate} onCheckedChange={(v) => setCampaignForm((p) => ({ ...p, is_immediate: v }))} />
-                <Label>Send immediately</Label>
+              <div className="grid gap-2">
+                <Label>Schedule For (optional)</Label>
+                <Input type="datetime-local" value={campaignForm.scheduled_at} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduled_at: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Leave empty to keep the campaign as a draft.</p>
               </div>
-              {!campaignForm.is_immediate && (
-                <div className="grid gap-2">
-                  <Label>Schedule For</Label>
-                  <Input type="datetime-local" value={campaignForm.scheduled_at} onChange={(e) => setCampaignForm((p) => ({ ...p, scheduled_at: e.target.value }))} />
-                </div>
-              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCampaignDialog(false)}>Cancel</Button>
               <Button onClick={handleSaveCampaign} disabled={isSaving}>
-                {isSaving ? "Saving..." : campaignForm.is_immediate ? "Launch Campaign" : "Schedule Campaign"}
+                {isSaving ? "Saving..." : campaignForm.scheduled_at ? "Schedule Campaign" : "Save Draft"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -996,9 +980,6 @@ export default function SuperAdminEmailIntegration() {
                                   <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleTestProvider(provider.id)}>
-                                    <TestTube className="h-4 w-4 mr-2" />Test
-                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => openEditProvider(provider)}>
                                     <Edit className="h-4 w-4 mr-2" />Edit
                                   </DropdownMenuItem>

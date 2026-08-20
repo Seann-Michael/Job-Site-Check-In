@@ -1,44 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseClient } from '@/lib/supabaseClient';
 import { getCurrentUser } from '@/lib/auth';
-
-// Initialize Supabase client with strict validation
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-let supabaseClient: any = null;
-let supabaseConfigured = false;
-
-// Strict validation of environment variables
-function isValidSupabaseUrl(url: string): boolean {
-  return url && url.length > 0 && url.includes('supabase') && url.startsWith('https://');
-}
-
-function isValidSupabaseKey(key: string): boolean {
-  return key && key.length > 20; // Supabase keys are much longer than 20 chars
-}
-
-// Only create client if we have valid configuration
-if (isValidSupabaseUrl(supabaseUrl) && isValidSupabaseKey(supabaseAnonKey)) {
-  try {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-    supabaseConfigured = true;
-    console.log('✅ Supabase client initialized successfully');
-  } catch (error) {
-    console.error('❌ Failed to initialize Supabase client:', error);
-    supabaseClient = null;
-    supabaseConfigured = false;
-  }
-} else {
-  console.warn('⚠️ Supabase not configured - chat running in offline mode');
-  if (!supabaseUrl || !isValidSupabaseUrl(supabaseUrl)) {
-    console.warn('- VITE_SUPABASE_URL is missing or invalid');
-  }
-  if (!supabaseAnonKey || !isValidSupabaseKey(supabaseAnonKey)) {
-    console.warn('- VITE_SUPABASE_ANON_KEY is missing or invalid');
-  }
-  console.warn('💡 To enable real-time features, configure Supabase environment variables');
-}
 
 interface Message {
   id: string;
@@ -72,14 +34,14 @@ export function useChatRealtime({
 
   useEffect(() => {
     // Strict early return if Supabase is not properly configured
-    if (!supabaseConfigured || !supabaseClient || !channelId || !currentUser) {
+    if (!supabaseClient || !channelId || !currentUser) {
       // Don't log repeatedly, just exit silently when not configured
       return;
     }
 
     // Double-check that we have a valid client before proceeding
-    if (typeof supabaseClient.channel !== 'function') {
-      console.error('❌ Invalid Supabase client - real-time features disabled');
+    if (typeof (supabaseClient as any).channel !== 'function') {
+      console.error('Invalid Supabase client - real-time features disabled');
       return;
     }
 
@@ -90,7 +52,6 @@ export function useChatRealtime({
 
     // Create new subscription for messages in this channel with comprehensive error handling
     try {
-      console.log(`🔄 Setting up real-time subscription for channel: ${channelId}`);
 
       const subscription = supabaseClient
         .channel(`messages:${channelId}`)
@@ -180,20 +141,18 @@ export function useChatRealtime({
         )
         .subscribe((status: string, err?: any) => {
           if (status === 'SUBSCRIBED') {
-            console.log(`✅ Subscribed to messages in channel: ${channelId}`);
           } else if (status === 'CHANNEL_ERROR') {
-            console.error(`❌ Failed to subscribe to channel: ${channelId}`, err);
+            console.error(`Failed to subscribe to channel: ${channelId}`, err);
             // Don't attempt to retry, just fail silently
           } else if (status === 'TIMED_OUT') {
             console.warn(`⏰ Subscription timed out for channel: ${channelId}`);
           } else if (status === 'CLOSED') {
-            console.log(`🔌 Subscription closed for channel: ${channelId}`);
           }
         });
 
       subscriptionRef.current = subscription;
     } catch (error) {
-      console.error('❌ Error creating Supabase subscription:', error);
+      console.error('Error creating Supabase subscription:', error);
       return;
     }
 
@@ -211,7 +170,7 @@ export function useChatRealtime({
 
   // Update user presence
   const updateUserPresence = async (status: 'online' | 'away' | 'busy' | 'offline') => {
-    if (!supabaseConfigured || !supabaseClient || !currentUser) {
+    if (!supabaseClient || !currentUser) {
       return;
     }
 
@@ -266,7 +225,7 @@ export function useTypingIndicator(channelId: string) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startTyping = () => {
-    if (!supabaseConfigured || !supabaseClient || !currentUser || !channelId) return;
+    if (!supabaseClient || !currentUser || !channelId) return;
 
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -292,7 +251,7 @@ export function useTypingIndicator(channelId: string) {
   };
 
   const stopTyping = () => {
-    if (!supabaseConfigured || !supabaseClient || !currentUser || !channelId) return;
+    if (!supabaseClient || !currentUser || !channelId) return;
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);

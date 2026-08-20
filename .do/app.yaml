@@ -1,16 +1,19 @@
 name: local-seo-ranker
 region: nyc
 
-# Static Site (Frontend)
+# Frontend: static Vite build served by DigitalOcean's CDN.
 static_sites:
   - name: web
     github:
-      repo: your-username/your-repo
-      branch: main
+      repo: Seann-Michael/Local-SEO-Ranker
+      branch: Main
       deploy_on_push: true
-    build_command: npm run build:client
+    build_command: npm ci && npm run build:client
     output_dir: dist
+    catchall_document: index.html
     environment_slug: node-js
+    routes:
+      - path: /
     envs:
       - key: VITE_SUPABASE_URL
         scope: BUILD_TIME
@@ -21,56 +24,91 @@ static_sites:
       - key: VITE_GOOGLE_MAPS_API_KEY
         scope: BUILD_TIME
         type: SECRET
-      - key: VITE_DATAFORSEO_USERNAME
-        scope: BUILD_TIME
-        type: SECRET
-      - key: VITE_DATAFORSEO_PASSWORD
-        scope: BUILD_TIME
-        type: SECRET
       - key: VITE_VAPID_PUBLIC_KEY
+        scope: BUILD_TIME
+        type: SECRET
+      - key: VITE_SENTRY_DSN
         scope: BUILD_TIME
         type: SECRET
       - key: VITE_API_URL
         scope: BUILD_TIME
         value: /api
-      - key: VITE_APP_URL
-        scope: BUILD_TIME
-        type: SECRET
-    routes:
-      - path: /
 
-# API Functions
+# Backend: Express API (server/) bundled by `npm run build:server`.
 services:
   - name: api
     github:
-      repo: your-username/your-repo
-      branch: main
+      repo: Seann-Michael/Local-SEO-Ranker
+      branch: Main
       deploy_on_push: true
-    build_command: npm install && npm run build:server
-    run_command: node dist/server/node-build.mjs
     source_dir: /
+    build_command: npm ci && npm run build:server
+    run_command: node dist/server/node-build.mjs
     environment_slug: node-js
     instance_count: 1
     instance_size_slug: basic-xxs
     http_port: 8080
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 10
+      period_seconds: 30
     routes:
       - path: /api
     envs:
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: production
+      - key: PORT
+        scope: RUN_TIME
+        value: "8080"
+
       # Supabase
       - key: SUPABASE_URL
-        scope: RUN_TIME
-        type: SECRET
-      - key: VITE_SUPABASE_URL
         scope: RUN_TIME
         type: SECRET
       - key: SUPABASE_SERVICE_ROLE_KEY
         scope: RUN_TIME
         type: SECRET
-      - key: SUPABASE_STORAGE_BUCKET
+
+      # App
+      - key: APP_URL
         scope: RUN_TIME
-        value: media
-      
-      # Payment Processors
+        value: ${APP_URL}
+      - key: CORS_ORIGINS
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: SENTRY_DSN
+        scope: RUN_TIME
+        type: SECRET
+
+      # Google
+      - key: GOOGLE_MAPS_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+
+      # OpenAI
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: OPENAI_MODEL
+        scope: RUN_TIME
+        value: gpt-4o-mini
+
+      # DataForSEO
+      - key: DATAFORSEO_USERNAME
+        scope: RUN_TIME
+        type: SECRET
+      - key: DATAFORSEO_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+
+      # Payments
       - key: STRIPE_SECRET_KEY
         scope: RUN_TIME
         type: SECRET
@@ -83,20 +121,8 @@ services:
       - key: PAYPAL_CLIENT_SECRET
         scope: RUN_TIME
         type: SECRET
-      - key: PAYPAL_PLAN_ID
-        scope: RUN_TIME
-        type: SECRET
-      - key: PAYPAL_WEBHOOK_ID
-        scope: RUN_TIME
-        type: SECRET
-      - key: COINBASE_COMMERCE_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: COINBASE_COMMERCE_SHARED_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      
-      # Communications
+
+      # Twilio
       - key: TWILIO_ACCOUNT_SID
         scope: RUN_TIME
         type: SECRET
@@ -109,63 +135,3 @@ services:
       - key: TWILIO_WEBHOOK_URL
         scope: RUN_TIME
         type: SECRET
-      - key: MAILGUN_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: MAILGUN_DOMAIN
-        scope: RUN_TIME
-        value: mg.localcontractorleads.com
-      - key: FROM_EMAIL
-        scope: RUN_TIME
-        value: noreply@localcontractorleads.com
-      
-      # OAuth & Social
-      - key: GOOGLE_OAUTH_CLIENT_ID
-        scope: RUN_TIME
-        type: SECRET
-      - key: GOOGLE_OAUTH_CLIENT_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: GOOGLE_ADS_DEVELOPER_TOKEN
-        scope: RUN_TIME
-        type: SECRET
-      - key: META_APP_ID
-        scope: RUN_TIME
-        type: SECRET
-      - key: META_APP_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      
-      # Third-Party Services
-      - key: DATAFORSEO_API_LOGIN
-        scope: RUN_TIME
-        type: SECRET
-      - key: DATAFORSEO_API_PASSWORD
-        scope: RUN_TIME
-        type: SECRET
-      - key: DATAFORSEO_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: DATAFORSEO_USERNAME
-        scope: RUN_TIME
-        type: SECRET
-      - key: DATAFORSEO_PASSWORD
-        scope: RUN_TIME
-        type: SECRET
-      - key: OPENAI_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: GOOGLE_MAPS_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      
-      # General
-      - key: SITE_NAME
-        scope: RUN_TIME
-        value: Local SEO Ranker
-      - key: NODE_ENV
-        scope: RUN_TIME
-        value: production
-      - key: PORT
-        scope: RUN_TIME
-        value: "8080"

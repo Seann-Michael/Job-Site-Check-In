@@ -1,417 +1,293 @@
-import { RequestHandler } from "express";
-import path from "path";
-import fs from "fs";
+import { Router, Request, Response, RequestHandler } from "express";
+import multer from "multer";
 import crypto from "crypto";
+import path from "path";
 import { getSupabaseClient } from "../supabaseClient";
+import { logger } from "../lib/logger";
+import { requireAuth } from "../middleware/requireAuth";
 
 /**
- * Interface for media file metadata stored on server
+ * Media: real multipart uploads into the Supabase Storage bucket `media`
+ * under `<account_id>/<uuid>.<ext>`, metadata in `server_media_metadata`.
+ *
+ * Account scoping comes from the authenticated profile
+ * (users.sub_account_id, falling back to the user id), never from headers.
+ *
+ * Thumbnail endpoints were removed: nothing generated thumbnails, so they
+ * always 404'd. Use the returned URL directly (Supabase image transforms can
+ * be layered on later if needed).
  */
-interface ServerMediaFile {
+
+const BUCKET = "media";
+const MAX_BYTES = 25 * 1024 * 1024;
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+const ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+]);
+
+const EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
+
+const log = logger.child({ module: "media" });
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
+    cb(new Error("UNSUPPORTED_MEDIA_TYPE"));
+  },
+});
+
+interface MediaRow {
   id: string;
-  originalName: string;
-  storedPath: string;
-  mimeType: string;
+  original_name: string;
+  stored_path: string;
+  mime_type: string;
   size: number;
-  accountId: string;
-  projectId?: string;
-  mediaType: string;
-  isPublic: boolean;
-  uploadedAt: Date;
-  uploadedBy: string;
-  thumbnails?: {
-    small: string;
-    medium: string;
-    large: string;
-  };
+  account_id: string;
+  job_id: string | null;
+  media_type: string;
+  is_public: boolean;
+  public_url_id: string | null;
+  uploaded_at: string;
+  uploaded_by: string;
 }
 
-// ── Supabase helpers ─────────────────────────────────────────────────────────
-async function dbGetMedia(mediaId: string): Promise<ServerMediaFile | null> {
+function accountIdOf(req: Request): string {
+  return req.profile?.accountId || req.profile?.id || "";
+}
+
+function canAccess(req: Request, row: MediaRow): boolean {
+  if (row.account_id === accountIdOf(req)) return true;
+  return (req.profile?.role || "").toLowerCase().replace(/[^a-z]/g, "") === "superadmin";
+}
+
+function sanitizeFilename(name: string): string {
+  const base = path.basename(name || "upload").replace(/[^\w.\- ]+/g, "_").slice(0, 180);
+  return base || "upload";
+}
+
+async function getRow(mediaId: string): Promise<MediaRow | null> {
   const db = getSupabaseClient();
-  if (!db) return null;
-  const { data } = await db
-    .from("server_media_metadata")
-    .select("*")
-    .eq("id", mediaId)
-    .single();
-  if (!data) return null;
-  const row = data as any;
+  const { data } = await db.from("server_media_metadata").select("*").eq("id", mediaId).maybeSingle();
+  return (data as MediaRow | null) ?? null;
+}
+
+function publicUrlFor(storedPath: string): string {
+  return getSupabaseClient().storage.from(BUCKET).getPublicUrl(storedPath).data.publicUrl;
+}
+
+async function signedUrlFor(storedPath: string): Promise<string | null> {
+  const { data, error } = await getSupabaseClient()
+    .storage.from(BUCKET)
+    .createSignedUrl(storedPath, SIGNED_URL_TTL_SECONDS);
+  if (error) {
+    log.error({ err: error }, "createSignedUrl failed");
+    return null;
+  }
+  return data.signedUrl;
+}
+
+function serialize(row: MediaRow) {
+  const encodedName = encodeURIComponent(row.original_name);
   return {
-    id: row.id as string,
-    originalName: row.original_name as string,
-    storedPath: row.stored_path as string,
-    mimeType: row.mime_type as string,
-    size: row.size as number,
-    accountId: row.account_id as string,
-    projectId: (row.job_id ?? undefined) as string | undefined,
-    mediaType: row.media_type as string,
-    isPublic: row.is_public as boolean,
-    uploadedAt: new Date(row.uploaded_at as string),
-    uploadedBy: row.uploaded_by as string,
-    thumbnails: row.thumbnail_small
-      ? { small: row.thumbnail_small as string, medium: row.thumbnail_medium as string, large: row.thumbnail_large as string }
-      : undefined,
+    id: row.id,
+    originalName: row.original_name,
+    mimeType: row.mime_type,
+    size: row.size,
+    mediaType: row.media_type,
+    isPublic: row.is_public,
+    jobId: row.job_id,
+    projectId: row.job_id,
+    storagePath: row.stored_path,
+    uploadedAt: row.uploaded_at,
+    uploadedBy: row.uploaded_by,
+    secureUrl: `/api/media/${row.id}/${encodedName}`,
+    publicUrl: row.is_public && row.public_url_id ? `/public/media/${row.public_url_id}/${encodedName}` : "",
+    url: row.is_public ? publicUrlFor(row.stored_path) : "",
   };
 }
 
-async function dbGetMediaByPublicUrl(publicUrlKey: string): Promise<ServerMediaFile | null> {
-  const db = getSupabaseClient();
-  if (!db) return null;
-  const { data } = await db
-    .from("server_media_metadata")
-    .select("*")
-    .eq("public_url_id", publicUrlKey)
-    .single();
-  if (!data) return null;
-  return dbGetMedia((data as any).id as string);
-}
-
-async function dbSaveMedia(mediaFile: ServerMediaFile, publicUrlId?: string): Promise<void> {
-  const db = getSupabaseClient();
-  if (!db) return;
-  await db.from("server_media_metadata").upsert({
-    id: mediaFile.id,
-    original_name: mediaFile.originalName,
-    stored_path: mediaFile.storedPath,
-    mime_type: mediaFile.mimeType,
-    size: mediaFile.size,
-    account_id: mediaFile.accountId,
-    job_id: mediaFile.projectId ?? null,
-    media_type: mediaFile.mediaType,
-    is_public: mediaFile.isPublic,
-    public_url_id: publicUrlId ?? null,
-    uploaded_at: mediaFile.uploadedAt.toISOString(),
-    uploaded_by: mediaFile.uploadedBy,
-    thumbnail_small: mediaFile.thumbnails?.small ?? null,
-    thumbnail_medium: mediaFile.thumbnails?.medium ?? null,
-    thumbnail_large: mediaFile.thumbnails?.large ?? null,
-  });
-}
+// ── Handlers ─────────────────────────────────────────────────────────────────
 
 /**
- * Serve secure media files (authenticated access)
- */
-export const handleSecureMedia: RequestHandler = async (req, res) => {
-  try {
-    const { mediaId, filename } = req.params;
-    
-    if (!mediaId || !filename) {
-      return res.status(400).json({ error: "Missing media ID or filename" });
-    }
-
-    // Get media file record
-    const mediaFile = await dbGetMedia(mediaId);
-    if (!mediaFile) {
-      return res.status(404).json({ error: "Media file not found" });
-    }
-
-    // Validate access permissions
-    const userAccountId = req.headers['x-account-id'] as string || 'default';
-    if (mediaFile.accountId !== userAccountId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    // Check if file exists on disk
-    const filePath = path.join(process.cwd(), 'uploads', mediaFile.storedPath);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "Physical file not found" });
-    }
-
-    // Set appropriate headers
-    res.setHeader('Content-Type', mediaFile.mimeType);
-    res.setHeader('Content-Length', mediaFile.size);
-    
-    // Handle download requests
-    if (req.query.download === 'true') {
-      const downloadFilename = req.query.filename as string || mediaFile.originalName;
-      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
-    } else {
-      res.setHeader('Content-Disposition', 'inline');
-    }
-
-    // Cache headers for performance
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.setHeader('ETag', `"${mediaFile.id}"`);
-
-    // Stream file
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-
-  } catch (error) {
-    console.error('Error serving secure media:', error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-/**
- * Serve public media files (no authentication required)
- */
-export const handlePublicMedia: RequestHandler = async (req, res) => {
-  try {
-    const { publicId, filename } = req.params;
-    
-    if (!publicId || !filename) {
-      return res.status(400).json({ error: "Missing public ID or filename" });
-    }
-
-    // Get media by public URL
-    const mediaFile = await dbGetMediaByPublicUrl(`${publicId}/${filename}`);
-    if (!mediaFile || !mediaFile.isPublic) {
-      return res.status(404).json({ error: "Media file not found or not public" });
-    }
-
-    // Validate expiration if present
-    const expiration = req.query.exp as string;
-    if (expiration) {
-      const expirationTime = parseInt(expiration);
-      if (Date.now() > expirationTime) {
-        return res.status(410).json({ error: "URL has expired" });
-      }
-    }
-
-    // Check if file exists on disk
-    const filePath = path.join(process.cwd(), 'uploads', mediaFile.storedPath);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "Physical file not found" });
-    }
-
-    // Set appropriate headers for public access
-    res.setHeader('Content-Type', mediaFile.mimeType);
-    res.setHeader('Content-Length', mediaFile.size);
-    res.setHeader('Content-Disposition', 'inline');
-    
-    // More aggressive caching for public files
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.setHeader('ETag', `"${mediaFile.id}"`);
-
-    // CORS headers for RSS/API access
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
-
-    // Stream file
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-
-  } catch (error) {
-    console.error('Error serving public media:', error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-/**
- * Serve thumbnail images
- */
-export const handleThumbnails: RequestHandler = async (req, res) => {
-  try {
-    const { size, mediaId, filename } = req.params;
-    const isPublic = req.path.includes('/public/');
-    
-    if (!size || !mediaId || !filename) {
-      return res.status(400).json({ error: "Missing parameters" });
-    }
-
-    // Validate size parameter
-    const validSizes = ['150x150', '300x300', '600x600'];
-    if (!validSizes.includes(size)) {
-      return res.status(400).json({ error: "Invalid thumbnail size" });
-    }
-
-    let mediaFile: ServerMediaFile | undefined;
-
-    if (isPublic) {
-      mediaFile = await dbGetMediaByPublicUrl(`${mediaId}/${filename}`) ?? undefined;
-    } else {
-      mediaFile = await dbGetMedia(mediaId) ?? undefined;
-    }
-
-    if (!mediaFile) {
-      return res.status(404).json({ error: "Media file not found" });
-    }
-
-    // Check permissions for secure thumbnails
-    if (!isPublic) {
-      const userAccountId = req.headers['x-account-id'] as string || 'default';
-      if (mediaFile.accountId !== userAccountId) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-    }
-
-    // Get thumbnail path
-    const sizeKey = size.replace('x', '_') as keyof typeof mediaFile.thumbnails;
-    const thumbnailPath = mediaFile.thumbnails?.[sizeKey as any];
-    
-    if (!thumbnailPath) {
-      // Generate thumbnail on-demand (simplified for demo)
-      return res.status(404).json({ error: "Thumbnail not available" });
-    }
-
-    const fullThumbnailPath = path.join(process.cwd(), 'uploads', 'thumbnails', thumbnailPath);
-    
-    if (!fs.existsSync(fullThumbnailPath)) {
-      return res.status(404).json({ error: "Thumbnail file not found" });
-    }
-
-    // Set headers
-    res.setHeader('Content-Type', 'image/jpeg'); // Thumbnails are typically JPEG
-    res.setHeader('Cache-Control', isPublic ? 'public, max-age=86400' : 'private, max-age=3600');
-    
-    if (isPublic) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-
-    // Stream thumbnail
-    const thumbnailStream = fs.createReadStream(fullThumbnailPath);
-    thumbnailStream.pipe(res);
-
-  } catch (error) {
-    console.error('Error serving thumbnail:', error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-/**
- * Handle media file upload
+ * POST /api/media/upload  (auth, multipart/form-data)
+ * field `file` (required); text fields: mediaType?, jobId?|projectId?, isPublic?
  */
 export const handleMediaUpload: RequestHandler = async (req, res) => {
-  try {
-    // This would typically use multer or similar for file upload handling
-    // For now, just return a mock response showing the expected behavior
-    
-    const { accountId, projectId, mediaType, isPublic } = req.body;
-    
-    if (!accountId || !mediaType) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: "No file uploaded (expected multipart field 'file')" });
 
-    // Generate unique media ID
-    const timestamp = Date.now();
-    const randomToken = crypto.randomBytes(16).toString('hex');
-    const projectPart = projectId ? `_p${projectId}` : '';
-    const mediaId = `acc${accountId}${projectPart}_${mediaType}_${timestamp}_${randomToken}`;
+  const accountId = accountIdOf(req);
+  if (!accountId) return res.status(403).json({ error: "No account associated with this user" });
 
-    // Mock file data (in real implementation, this comes from multer)
-    const mockFile = {
-      originalname: 'example.jpg',
-      mimetype: 'image/jpeg',
-      size: 1024000,
-      buffer: Buffer.from('mock file content')
-    };
+  const mediaType = typeof req.body?.mediaType === "string" && req.body.mediaType
+    ? req.body.mediaType.slice(0, 40)
+    : file.mimetype.startsWith("video/") ? "video" : "image";
+  const jobId = typeof req.body?.jobId === "string" && req.body.jobId
+    ? req.body.jobId
+    : typeof req.body?.projectId === "string" && req.body.projectId ? req.body.projectId : null;
+  const isPublic = req.body?.isPublic === "true" || req.body?.isPublic === true || req.body?.isPublic === "1";
 
-    // Create storage paths
-    const fileExtension = path.extname(mockFile.originalname);
-    const storedFilename = `${mediaId}${fileExtension}`;
-    const storedPath = path.join('media', storedFilename);
-    
-    // Generate public URL identifier if needed
-    let publicUrlId = '';
-    if (isPublic) {
-      const accountHash = hashString(accountId);
-      const projectHash = projectId ? hashString(projectId) : '';
-      const randomId = crypto.randomBytes(12).toString('hex');
-      const timestampBase36 = timestamp.toString(36);
-      
-      publicUrlId = `${accountHash}_${projectHash}_${timestampBase36}_${randomId}`.replace(/__/g, '_');
-      
-      // public_url_id is saved with the mediaFile record below
-    }
+  const id = crypto.randomUUID();
+  const ext = EXT_BY_MIME[file.mimetype] || path.extname(file.originalname).replace(".", "").toLowerCase() || "bin";
+  const storedPath = `${accountId}/${id}.${ext}`;
+  const originalName = sanitizeFilename(file.originalname);
 
-    // Create media file record
-    const mediaFile: ServerMediaFile = {
-      id: mediaId,
-      originalName: mockFile.originalname,
-      storedPath,
-      mimeType: mockFile.mimetype,
-      size: mockFile.size,
-      accountId,
-      projectId,
-      mediaType,
-      isPublic: Boolean(isPublic),
-      uploadedAt: new Date(),
-      uploadedBy: req.headers['x-user-name'] as string || 'Unknown',
-      thumbnails: {
-        small: `${mediaId}_150x150.jpg`,
-        medium: `${mediaId}_300x300.jpg`,
-        large: `${mediaId}_600x600.jpg`
-      }
-    };
-
-    // Persist metadata to Supabase
-    await dbSaveMedia(mediaFile, publicUrlId || undefined);
-
-    // Generate URLs
-    const secureUrl = `/api/media/${mediaId}/${encodeURIComponent(mockFile.originalname)}`;
-    const publicUrl = isPublic ? `/public/media/${publicUrlId}/${mockFile.originalname}` : '';
-    const thumbnailUrl = `/api/media/thumbs/300x300/${mediaId}/${encodeURIComponent(mockFile.originalname)}`;
-
-    res.json({
-      success: true,
-      mediaFile: {
-        id: mediaId,
-        originalName: mockFile.originalname,
-        mimeType: mockFile.mimetype,
-        size: mockFile.size,
-        secureUrl,
-        publicUrl,
-        thumbnailUrl,
-        uploadedAt: mediaFile.uploadedAt,
-        uploadedBy: mediaFile.uploadedBy
-      }
-    });
-
-  } catch (error) {
-    console.error('Error uploading media:', error);
-    res.status(500).json({ error: "Upload failed" });
+  const db = getSupabaseClient();
+  const { error: uploadError } = await db.storage.from(BUCKET).upload(storedPath, file.buffer, {
+    contentType: file.mimetype,
+    cacheControl: "31536000",
+    upsert: false,
+  });
+  if (uploadError) {
+    log.error({ err: uploadError }, "Storage upload failed");
+    return res.status(502).json({ error: "Upload to storage failed" });
   }
+
+  const row: MediaRow = {
+    id,
+    original_name: originalName,
+    stored_path: storedPath,
+    mime_type: file.mimetype,
+    size: file.size,
+    account_id: accountId,
+    job_id: jobId,
+    media_type: mediaType,
+    is_public: isPublic,
+    public_url_id: isPublic ? crypto.randomBytes(12).toString("hex") : null,
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: req.profile?.email || req.user?.email || req.user?.id || "unknown",
+  };
+
+  const { error: dbError } = await db.from("server_media_metadata").insert(row);
+  if (dbError) {
+    log.error({ err: dbError }, "server_media_metadata insert failed");
+    await db.storage.from(BUCKET).remove([storedPath]).catch(() => undefined);
+    return res.status(500).json({ error: "Failed to record upload" });
+  }
+
+  const out = serialize(row);
+  if (!isPublic) out.url = (await signedUrlFor(storedPath)) || "";
+  res.status(201).json({ success: true, mediaFile: out });
 };
 
-/**
- * Get media file metadata
- */
+/** GET /api/media/metadata/:mediaId  (auth) */
 export const handleMediaMetadata: RequestHandler = async (req, res) => {
-  try {
-    const { mediaId } = req.params;
-    
-    const mediaFile = await dbGetMedia(mediaId);
-    if (!mediaFile) {
-      return res.status(404).json({ error: "Media file not found" });
-    }
-
-    // Check permissions
-    const userAccountId = req.headers['x-account-id'] as string || 'default';
-    if (mediaFile.accountId !== userAccountId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    res.json({
-      id: mediaFile.id,
-      originalName: mediaFile.originalName,
-      mimeType: mediaFile.mimeType,
-      size: mediaFile.size,
-      mediaType: mediaFile.mediaType,
-      isPublic: mediaFile.isPublic,
-      uploadedAt: mediaFile.uploadedAt,
-      uploadedBy: mediaFile.uploadedBy,
-      projectId: mediaFile.projectId
-    });
-
-  } catch (error) {
-    console.error('Error getting media metadata:', error);
-    res.status(500).json({ error: "Internal server error" });
-  }
+  const row = await getRow(req.params.mediaId);
+  if (!row || !canAccess(req, row)) return res.status(404).json({ error: "Media file not found" });
+  const out = serialize(row);
+  if (!row.is_public) out.url = (await signedUrlFor(row.stored_path)) || "";
+  res.json(out);
 };
 
-/**
- * Helper function to hash strings
- */
-function hashString(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
-}
+/** GET /api/media/:mediaId/:filename  (auth) -> 302 to a short-lived signed URL */
+export const handleSecureMedia: RequestHandler = async (req, res) => {
+  const row = await getRow(req.params.mediaId);
+  if (!row || !canAccess(req, row)) return res.status(404).json({ error: "Media file not found" });
+  const url = await signedUrlFor(row.stored_path);
+  if (!url) return res.status(502).json({ error: "Could not generate media URL" });
+  res.setHeader("Cache-Control", "private, no-store");
+  res.redirect(302, url);
+};
 
-// Functions are already exported individually above
+/** GET /public/media/:publicId/:filename  (public) -> 302 to the public object URL */
+export const handlePublicMedia: RequestHandler = async (req, res) => {
+  const db = getSupabaseClient();
+  const { data } = await db
+    .from("server_media_metadata")
+    .select("*")
+    .eq("public_url_id", req.params.publicId)
+    .eq("is_public", true)
+    .maybeSingle();
+  const row = data as MediaRow | null;
+  if (!row) return res.status(404).json({ error: "Media file not found" });
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.redirect(302, publicUrlFor(row.stored_path));
+};
+
+/** DELETE /api/media/:mediaId  (auth) */
+export const handleMediaDelete: RequestHandler = async (req, res) => {
+  const row = await getRow(req.params.mediaId);
+  if (!row || !canAccess(req, row)) return res.status(404).json({ error: "Media file not found" });
+  const db = getSupabaseClient();
+  const { error: rmError } = await db.storage.from(BUCKET).remove([row.stored_path]);
+  if (rmError) log.warn({ err: rmError }, "Storage remove failed (continuing)");
+  const { error } = await db.from("server_media_metadata").delete().eq("id", row.id);
+  if (error) {
+    log.error({ err: error }, "server_media_metadata delete failed");
+    return res.status(500).json({ error: "Failed to delete media" });
+  }
+  res.json({ success: true });
+};
+
+/** GET /api/media  (auth) ?jobId=  -> list the caller's media */
+export const handleMediaList: RequestHandler = async (req, res) => {
+  const db = getSupabaseClient();
+  let q = db
+    .from("server_media_metadata")
+    .select("*")
+    .eq("account_id", accountIdOf(req))
+    .order("uploaded_at", { ascending: false })
+    .limit(200);
+  if (typeof req.query.jobId === "string" && req.query.jobId) q = q.eq("job_id", req.query.jobId);
+  const { data, error } = await q;
+  if (error) {
+    log.error({ err: error }, "media list failed");
+    return res.status(500).json({ error: "Failed to list media" });
+  }
+  res.json({ media: ((data as MediaRow[]) || []).map(serialize) });
+};
+
+// ── Router ───────────────────────────────────────────────────────────────────
+
+/** Authenticated media API, mount at /api/media */
+export const mediaRouter = Router();
+mediaRouter.use(requireAuth);
+mediaRouter.get("/", handleMediaList);
+mediaRouter.post(
+  "/upload",
+  (req, res, next) =>
+    upload.single("file")(req, res, (err: any) => {
+      if (!err) return next();
+      if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({ error: "File too large (max 25MB)" });
+      }
+      if (err?.message === "UNSUPPORTED_MEDIA_TYPE") {
+        return res.status(415).json({ error: "Unsupported file type (images and videos only)" });
+      }
+      log.warn({ err }, "multer rejected upload");
+      return res.status(400).json({ error: "Invalid upload" });
+    }),
+  wrap(handleMediaUpload),
+);
+mediaRouter.get("/metadata/:mediaId", wrap(handleMediaMetadata));
+mediaRouter.delete("/:mediaId", wrap(handleMediaDelete));
+mediaRouter.get("/:mediaId/:filename", wrap(handleSecureMedia));
+
+/** Public media redirects, mount at /public/media */
+export const publicMediaRouter = Router();
+publicMediaRouter.get("/:publicId/:filename", wrap(handlePublicMedia));
+
+function wrap(h: RequestHandler): RequestHandler {
+  return (req, res, next) => Promise.resolve(h(req, res, next)).catch(next);
+}

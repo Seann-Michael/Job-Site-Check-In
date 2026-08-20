@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,7 +74,7 @@ interface BroadcastMessage {
   created_at: string;
   updated_at: string;
   created_by: string;
-  status: "draft" | "scheduled" | "sent" | "cancelled";
+  status: "draft" | "scheduled" | "sending" | "sent" | "cancelled";
   sent_at?: string;
   view_count: number;
   dismiss_count: number;
@@ -127,8 +126,8 @@ export default function SuperAdminBroadcast() {
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    type: "info" as const,
-    targetAudience: "all" as const,
+    type: "info" as BroadcastMessage["type"],
+    targetAudience: "all" as string,
     scheduledFor: "",
     expiresAt: "",
     isImmediate: true,
@@ -173,8 +172,8 @@ export default function SuperAdminBroadcast() {
         .eq("status", "active")
         .order("name");
       setTemplates(data || []);
-    } catch {
-      // silently fail – templates are optional
+    } catch (err: any) {
+      toast.error(`Couldn't load message templates: ${err?.message ?? "unknown error"}`);
     }
   }, []);
 
@@ -205,7 +204,7 @@ export default function SuperAdminBroadcast() {
       .from("message_templates")
       .update({ usage_count: (template.usage_count || 0) + 1, last_used: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", templateId);
-    if (usageError) console.error("[Broadcast] Failed to update template usage count:", usageError.message);
+    if (usageError) toast.error(`Template usage count not updated: ${usageError.message}`);
 
     toast.success(`Template "${template.name}" applied!`);
     fetchTemplates();
@@ -252,6 +251,45 @@ export default function SuperAdminBroadcast() {
     setShowPreview(true);
   };
 
+  /**
+   * Deliver a broadcast as in-app notifications: one `notifications` row per
+   * user in the target audience. This is what makes "Send" real — the
+   * notification bell reads that table. Returns the recipient count.
+   */
+  const deliverBroadcast = async (
+    message: { title: string; content: string; type: string },
+    targetAudience: string,
+  ): Promise<number> => {
+    const roleFilter: Record<string, string[]> = {
+      "business-owners": ["business_owner"],
+      "agency-admins": ["agency_admin"],
+      staff: ["staff"],
+    };
+    let query = supabaseClient.from("users").select("id");
+    const roles = roleFilter[targetAudience];
+    if (roles) query = query.in("role", roles);
+    const { data: recipients, error: usersError } = await query;
+    if (usersError) throw usersError;
+    if (!recipients || recipients.length === 0) return 0;
+
+    const rows = recipients.map((u: any) => ({
+      user_id: u.id,
+      type: ["info", "warning", "success", "error"].includes(message.type) ? message.type : "info",
+      title: message.title,
+      message: message.content,
+      read: false,
+      source: "system",
+      priority: message.type === "error" ? "high" : "normal",
+      category: "system",
+    }));
+    // Insert in chunks to stay well under request limits.
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await supabaseClient.from("notifications").insert(rows.slice(i, i + 500));
+      if (error) throw error;
+    }
+    return rows.length;
+  };
+
   const handleCreateMessage = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error("Please fill in all required fields");
@@ -269,21 +307,40 @@ export default function SuperAdminBroadcast() {
         scheduled_for: formData.isImmediate ? null : formData.scheduledFor || null,
         expires_at: formData.expiresAt || null,
         created_by: "Super Admin",
-        status: formData.isImmediate ? "sent" : "scheduled",
-        sent_at: formData.isImmediate ? now : null,
+        status: formData.isImmediate ? "sending" : "scheduled",
+        sent_at: null,
         view_count: 0,
         dismiss_count: 0,
         is_active: formData.isImmediate,
       };
 
-      const { error } = await supabaseClient.from("broadcast_messages").insert([payload]);
+      const { data: inserted, error } = await supabaseClient
+        .from("broadcast_messages")
+        .insert([payload])
+        .select("id")
+        .single();
       if (error) throw error;
 
-      toast.success(
-        formData.isImmediate
-          ? "Broadcast message sent successfully!"
-          : "Broadcast message scheduled successfully!"
-      );
+      if (formData.isImmediate) {
+        let recipientCount = 0;
+        try {
+          recipientCount = await deliverBroadcast(payload, formData.targetAudience);
+        } catch (deliveryErr: any) {
+          await supabaseClient
+            .from("broadcast_messages")
+            .update({ status: "draft", is_active: false, updated_at: new Date().toISOString() })
+            .eq("id", inserted.id);
+          throw new Error(`Saved as draft — delivery failed: ${deliveryErr?.message ?? "unknown error"}`);
+        }
+        const { error: markError } = await supabaseClient
+          .from("broadcast_messages")
+          .update({ status: "sent", sent_at: now, updated_at: now })
+          .eq("id", inserted.id);
+        if (markError) throw markError;
+        toast.success(`Broadcast delivered to ${recipientCount} user${recipientCount === 1 ? "" : "s"}`);
+      } else {
+        toast.success("Broadcast scheduled");
+      }
       setShowCreateDialog(false);
       resetForm();
       fetchMessages();
@@ -316,6 +373,8 @@ export default function SuperAdminBroadcast() {
     setIsSaving(true);
     try {
       const now = new Date().toISOString();
+      const alreadySent = !!editingMessage.sent_at;
+      const sendNow = formData.isImmediate && !alreadySent;
       const payload = {
         title: formData.title.trim(),
         content: formData.content.trim(),
@@ -323,9 +382,8 @@ export default function SuperAdminBroadcast() {
         target_audience: formData.targetAudience,
         scheduled_for: formData.isImmediate ? null : formData.scheduledFor || null,
         expires_at: formData.expiresAt || null,
-        status: formData.isImmediate ? "sent" : "scheduled",
-        sent_at:
-          formData.isImmediate && !editingMessage.sent_at ? now : editingMessage.sent_at,
+        status: alreadySent ? editingMessage.status : formData.isImmediate ? "sending" : "scheduled",
+        sent_at: editingMessage.sent_at,
         is_active: formData.isImmediate,
         updated_at: now,
       };
@@ -334,10 +392,28 @@ export default function SuperAdminBroadcast() {
         .from("broadcast_messages")
         .update(payload)
         .eq("id", editingMessage.id);
-
       if (error) throw error;
 
-      toast.success("Broadcast message updated successfully!");
+      if (sendNow) {
+        let recipientCount = 0;
+        try {
+          recipientCount = await deliverBroadcast(payload, formData.targetAudience);
+        } catch (deliveryErr: any) {
+          await supabaseClient
+            .from("broadcast_messages")
+            .update({ status: "draft", is_active: false, updated_at: new Date().toISOString() })
+            .eq("id", editingMessage.id);
+          throw new Error(`Kept as draft — delivery failed: ${deliveryErr?.message ?? "unknown error"}`);
+        }
+        const { error: markError } = await supabaseClient
+          .from("broadcast_messages")
+          .update({ status: "sent", sent_at: now, updated_at: now })
+          .eq("id", editingMessage.id);
+        if (markError) throw markError;
+        toast.success(`Broadcast delivered to ${recipientCount} user${recipientCount === 1 ? "" : "s"}`);
+      } else {
+        toast.success("Broadcast message updated");
+      }
       setShowCreateDialog(false);
       resetForm();
       fetchMessages();
@@ -413,7 +489,6 @@ export default function SuperAdminBroadcast() {
       case "business-owners": return "Business Owners";
       case "agency-admins": return "Agency Admins";
       case "staff": return "Staff Members";
-      case "custom": return "Custom Selection";
       default: return targetAudience;
     }
   };
@@ -592,7 +667,6 @@ export default function SuperAdminBroadcast() {
                         <SelectItem value="business-owners">Business Owners</SelectItem>
                         <SelectItem value="agency-admins">Agency Admins</SelectItem>
                         <SelectItem value="staff">Staff Members</SelectItem>
-                        <SelectItem value="custom">Custom Selection</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

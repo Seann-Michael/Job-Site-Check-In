@@ -1,7 +1,8 @@
-// @ts-nocheck
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/dataService";
+import { workspaceService } from "@/lib/workspaceService";
+import { apiFetch, aiErrorMessage } from "@/lib/api";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,12 +98,27 @@ function KeywordChip({ label, onRemove }: { label: string; onRemove: () => void 
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+interface ReviewRequestView {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  projectName: string;
+  status: string;
+  rating: number | null;
+  reviewText: string | null;
+  sentAt: string;
+  viewedAt: string | null;
+  submittedAt: string | null;
+  linkClicked: boolean;
+  redirectedToGoogle: boolean;
+}
+
 export default function ReviewDetail() {
-  const { id } = useParams();
+  const { id = "" } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const request = location.state?.request ?? {
+  const request: ReviewRequestView = location.state?.request ?? {
     id,
     customerName: "Customer",
     customerPhone: "—",
@@ -121,6 +137,29 @@ export default function ReviewDetail() {
   const [response, setResponse] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [businessName, setBusinessName] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ws = await workspaceService.whenReady();
+        if (!ws.currentBusinessId) return;
+        const { data, error } = await supabase
+          .from("businesses")
+          .select("name")
+          .eq("id", ws.currentBusinessId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!cancelled && data?.name) setBusinessName(data.name);
+      } catch (err) {
+        console.error("Failed to load business name:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // AI state
   const [showAI, setShowAI] = useState(false);
@@ -151,37 +190,37 @@ export default function ReviewDetail() {
   const handleAIRewrite = async () => {
     setIsGenerating(true);
     try {
-      const res = await fetch("/api/ai-review-response", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reviewText: request.reviewText,
-          rating: request.rating,
-          customerName: request.customerName,
-          projectName: request.projectName,
-          businessName: "Our Business",
-          existingResponse: response,
-          keywords,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const data = await apiFetch<{ response: string; seoTips?: string[] }>(
+        "/api/ai-review-response",
+        {
+          method: "POST",
+          body: {
+            reviewText: request.reviewText,
+            rating: request.rating,
+            customerName: request.customerName,
+            projectName: request.projectName,
+            businessName,
+            existingResponse: response,
+            keywords,
+          },
+        },
+      );
       setResponse(data.response);
       if (data.seoTips?.length) {
         setSeoTips(data.seoTips);
         setShowSeoTips(true);
       }
       toast.success("AI response generated with SEO in mind.");
-    } catch (err: any) {
-      toast.error("Failed to generate response. Please try again.");
+    } catch (err) {
+      toast.error(aiErrorMessage(err));
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handlePostToGoogle = async () => {
+  const handleSaveResponse = async () => {
     if (!response.trim()) {
-      toast.error("Please write a response before posting.");
+      toast.error("Please write a response before saving.");
       return;
     }
     setIsPosting(true);
@@ -192,7 +231,7 @@ export default function ReviewDetail() {
         respondedBy: "Owner",
       };
 
-      // Try to save the response on the reviews row (id is a UUID from Supabase)
+      // Save the response on the reviews row (id is a UUID from Supabase)
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (uuidPattern.test(id)) {
         const { error: reviewError } = await supabase
@@ -202,33 +241,27 @@ export default function ReviewDetail() {
         if (reviewError) throw reviewError;
       }
 
-      // Also try updating the review_request status if this was a pending request
-      if (request.status !== "completed") {
-        try {
-          await supabase
-            .from("review_requests")
-            .update({ status: "viewed" })
-            .eq("id", id);
-        } catch {
-          // Non-critical — ignore if record doesn't exist in review_requests
-        }
+      if (!uuidPattern.test(id)) {
+        throw new Error("This review has no saved record to attach a response to.");
       }
 
       setPosted(true);
-      toast.success("Response saved successfully.");
+      toast.success("Response saved. Copy it and paste it as your reply on Google.");
     } catch (err) {
       console.error("Failed to save response:", err);
-      // Still mark as posted locally so the user knows it was accepted
-      setPosted(true);
-      toast.success("Response recorded. Post it to Google My Business manually.");
+      toast.error(err instanceof Error ? err.message : "Failed to save response");
     } finally {
       setIsPosting(false);
     }
   };
 
-  const handleCopyResponse = () => {
-    navigator.clipboard.writeText(response);
-    toast.success("Response copied to clipboard.");
+  const handleCopyResponse = async () => {
+    try {
+      await navigator.clipboard.writeText(response);
+      toast.success("Response copied to clipboard.");
+    } catch {
+      toast.error("Couldn't copy to clipboard.");
+    }
   };
 
   // ── Activity timeline ────────────────────────────────────────────────────────
@@ -238,7 +271,7 @@ export default function ReviewDetail() {
     request.linkClicked && !request.viewedAt && { key: "clicked", icon: Eye, iconClass: "bg-purple-100 text-purple-600", label: "Review link clicked", date: request.sentAt, note: "Exact time unavailable" },
     request.redirectedToGoogle && { key: "redirected", icon: ExternalLink, iconClass: "bg-orange-100 text-orange-600", label: "Redirected to Google", date: request.submittedAt ?? request.sentAt },
     request.submittedAt && { key: "submitted", icon: CheckCircle2, iconClass: "bg-green-100 text-green-600", label: request.rating ? "Review submitted on Google" : "Request completed", date: request.submittedAt },
-    posted && { key: "response", icon: MessageSquare, iconClass: "bg-blue-100 text-blue-600", label: "Owner response posted", date: new Date().toISOString() },
+    posted && { key: "response", icon: MessageSquare, iconClass: "bg-blue-100 text-blue-600", label: "Owner response saved", date: new Date().toISOString() },
   ].filter(Boolean);
 
   const statusColors: Record<string, string> = {
@@ -343,13 +376,20 @@ export default function ReviewDetail() {
                 {posted ? (
                   <div className="flex flex-col items-center gap-3 py-6 text-center">
                     <CheckCircle2 className="h-10 w-10 text-green-500" />
-                    <p className="font-semibold text-green-700">Response Posted</p>
+                    <p className="font-semibold text-green-700">Response Saved</p>
                     <p className="text-xs text-muted-foreground">
-                      Your response has been sent to Google My Business and will appear publicly.
+                      This app can't post replies to Google for you. Copy the response and paste it
+                      as your reply in your Google Business Profile.
                     </p>
-                    <Button variant="outline" size="sm" onClick={() => setPosted(false)}>
-                      Edit Response
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="gap-2" onClick={handleCopyResponse}>
+                        <Copy className="h-4 w-4" />
+                        Copy Response
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setPosted(false)}>
+                        Edit Response
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -456,11 +496,11 @@ export default function ReviewDetail() {
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         className="flex-1 gap-2"
-                        onClick={handlePostToGoogle}
+                        onClick={handleSaveResponse}
                         disabled={isPosting || !response.trim()}
                       >
-                        {isPosting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <GoogleIcon size={16} />}
-                        {isPosting ? "Posting…" : "Post to Google My Business"}
+                        {isPosting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {isPosting ? "Saving…" : "Save Response"}
                       </Button>
                       <Button
                         variant="outline"

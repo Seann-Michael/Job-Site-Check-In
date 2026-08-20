@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { aiApi, aiErrorMessage, isApiError } from "@/lib/api";
 import {
   SecureMediaUrlGenerator,
   type SecureMediaFile,
@@ -113,6 +114,25 @@ interface SmartMediaUploaderProps {
   };
 }
 
+/** Downscale an image data URL so it can be sent to the AI alt-text endpoint. */
+function downscaleDataUrl(dataUrl: string, maxDim: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas unavailable"));
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => reject(new Error("Could not decode image"));
+    img.src = dataUrl;
+  });
+}
+
 export function SmartMediaUploader({
   onFilesReady,
   acceptedTypes = ["image/*", "video/*"],
@@ -143,6 +163,9 @@ export function SmartMediaUploader({
   const dragCounterRef = useRef(0);
 
   // Generate preview for files
+  // Set once per file batch so a misconfigured AI backend reports a single toast.
+  const aiErrorReportedRef = useRef(false);
+
   const generatePreview = useCallback((file: File): Promise<string | null> => {
     return new Promise((resolve) => {
       // Priority: Extension > MIME type (macOS fix - ignore file.type)
@@ -202,8 +225,6 @@ export function SmartMediaUploader({
             return;
           }
 
-          // Simple EXIF extraction - in production, use a library like 'exifr' or 'piexifjs'
-          const dataView = new DataView(arrayBuffer);
           const exifData: any = {
             fileSize: file.size,
             fileName: file.name,
@@ -213,14 +234,12 @@ export function SmartMediaUploader({
 
           // Basic image dimensions extraction
           if (file.type === "image/jpeg") {
-            // JPEG EXIF parsing would go here
             exifData.format = "JPEG";
           } else if (file.type === "image/png") {
             exifData.format = "PNG";
           }
 
-          // Placeholder for actual EXIF data - in production, implement proper parsing
-          exifData.camera = "Unknown";
+          // No EXIF parser is bundled; fall back to the file's own modification time.
           exifData.dateTaken = new Date(file.lastModified).toISOString();
 
           resolve(exifData);
@@ -266,11 +285,6 @@ export function SmartMediaUploader({
       const isVideo = videoExtensions.includes(fileExtension);
       const isImage = !isVideo && imageExtensions.includes(fileExtension);
 
-      console.log(
-        `[generateMetadata] ${file.name} - Extension: ${fileExtension} - Reported MIME: ${file.type} - Detected As: ${
-          isVideo ? "VIDEO" : isImage ? "IMAGE" : "DOCUMENT"
-        }`
-      );
 
       // Add file type suggestions
       if (isVideo) {
@@ -351,9 +365,6 @@ export function SmartMediaUploader({
         };
       }
 
-      console.log(
-        `[validateFile] ACCEPTED: ${file.name} - Extension: ${fileExtension} - Reported MIME: ${file.type}`
-      );
 
       const fileSizeMB = file.size / (1024 * 1024);
       const sizeLimit = isVideo ? maxVideoSize : maxFileSize;
@@ -374,6 +385,7 @@ export function SmartMediaUploader({
     async (fileList: FileList | File[]) => {
       const newFiles: FileWithMetadata[] = [];
       const filesArray = Array.from(fileList);
+      aiErrorReportedRef.current = false;
 
       if (files.length + filesArray.length > maxFiles) {
         toast.error(`Maximum ${maxFiles} files allowed`);
@@ -381,11 +393,6 @@ export function SmartMediaUploader({
       }
 
       for (const file of filesArray) {
-        // Debug: Log raw file information
-        const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-        console.log(
-          `[processFiles] File: ${file.name}, Extension: ${fileExtension}, Reported Type: ${file.type}`
-        );
 
         const validation = validateFile(file);
         const id = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -420,16 +427,27 @@ export function SmartMediaUploader({
         // Generate preview, extract EXIF, secure URLs, and AI metadata asynchronously
         Promise.all([generatePreview(file), extractExifData(file)]).then(
           async ([preview, exifData]) => {
-            let aiMetadata = {};
+            let aiMetadata: Record<string, unknown> = { extractedExif: exifData };
 
-            // Simulate AI processing if enabled
-            if (enableAIFeatures && file.type.startsWith("image/")) {
-              // Simulate AI alt text generation
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              aiMetadata = {
-                aiDescription: `AI-generated description for ${metadata.title}`,
-                extractedExif: exifData,
-              };
+            // Real AI alt text via the server (OpenAI). Uses a downscaled
+            // data URL so nothing is uploaded before the user confirms.
+            if (enableAIFeatures && file.type.startsWith("image/") && preview) {
+              try {
+                const small = await downscaleDataUrl(preview, 1024);
+                const { altText } = await aiApi.altText(small);
+                if (altText?.trim()) {
+                  aiMetadata = { ...aiMetadata, aiDescription: altText.trim() };
+                }
+              } catch (err) {
+                // Only report once per batch so a 503 doesn't spam toasts.
+                if (!aiErrorReportedRef.current) {
+                  aiErrorReportedRef.current = true;
+                  toast.error(aiErrorMessage(err));
+                }
+                if (!(isApiError(err) && err.isUnavailable)) {
+                  console.error("AI alt text failed:", err);
+                }
+              }
             }
 
             // Generate secure URLs

@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -61,6 +60,15 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
+import { getCurrentUser as getAuthUser } from "@/lib/auth";
+import { aiApi, aiErrorMessage } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 import { supabase } from "@/lib/dataService";
 import { ReviewRequest } from "@/components/ReviewRequest";
@@ -88,6 +96,7 @@ interface ProjectDocument {
   type: string;
   uploadedAt: string;
   uploadedBy: string;
+  size?: number;
 }
 
 interface Task {
@@ -174,6 +183,11 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [editingPhoto, setEditingPhoto] = useState<TaggedPhoto | null>(null);
+  const [editPhotoTags, setEditPhotoTags] = useState("");
+  const [editPhotoDescription, setEditPhotoDescription] = useState("");
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [activityPage, setActivityPage] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -242,7 +256,7 @@ export default function ProjectDetail() {
       setIsLoadingProject(true);
       try {
         const projects = await dataService.getProjects();
-        const foundProject = projects.find((p: any) => p.id === id);
+        const foundProject = projects.find((p: any) => p.id === id) as any;
         if (foundProject) {
           // Load media and documents from database
           const [dbMedia, dbDocuments] = await Promise.all([
@@ -309,8 +323,8 @@ export default function ProjectDetail() {
                 ]
               : [];
           // Ensure all required arrays exist
-          const projectWithDefaults = {
-            ...foundProject,
+          const projectWithDefaults: Project = {
+            ...(foundProject as any),
             address: foundProject.address || clientContact.address || formattedMetaAddress || "",
             notes: normalizedNotes,
             activityLog: foundProject.activityLog || [],
@@ -342,13 +356,14 @@ export default function ProjectDetail() {
     loadProject();
   }, [id]);
 
-  const getCurrentUser = () => ({
-    id: "current-user",
-    name: "Current User",
-    platform: navigator.userAgent.includes("Mobile")
-      ? "mobile"
-      : ("web" as const),
-  });
+  const getCurrentUser = (): { id: string; name: string; platform: "mobile" | "web" } => {
+    const authUser = getAuthUser();
+    return {
+      id: authUser ? String(authUser.id) : "unknown",
+      name: authUser?.name || authUser?.email || "Unknown",
+      platform: navigator.userAgent.includes("Mobile") ? "mobile" : "web",
+    };
+  };
 
   const addActivityLogEntry = (
     type: string,
@@ -527,21 +542,23 @@ export default function ProjectDetail() {
         return;
       }
 
-      const updatedProject = {
+      const updatedProject: Project = {
         ...project,
-        photos: [...(project.photos || []), ...newPhotos],
+        photos: [...((project.photos || []) as TaggedPhoto[]), ...newPhotos],
       };
 
-      const entry = {
+      const currentUser = getCurrentUser();
+      const entry: ActivityLogEntry = {
         id: Date.now().toString(),
-        action: "photos_added",
+        type: "photos_added",
         description: `Added ${uploadedCount} photo(s)`,
         timestamp: new Date().toISOString(),
-        user: getCurrentUser()?.name || "Unknown",
-        platform: "web" as const,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        platform: currentUser.platform,
       };
 
-      const projectWithActivity = {
+      const projectWithActivity: Project = {
         ...updatedProject,
         activityLog: [entry, ...(updatedProject.activityLog || [])],
       };
@@ -640,9 +657,9 @@ export default function ProjectDetail() {
         return;
       }
 
-      const updatedProject = {
+      const updatedProject: Project = {
         ...project,
-        photos: [...(project.photos || []), ...newPhotos],
+        photos: [...((project.photos || []) as TaggedPhoto[]), ...newPhotos],
       };
 
       updateProject(updatedProject);
@@ -670,8 +687,8 @@ export default function ProjectDetail() {
           await dataService.deleteProjectPhoto(dbId);
         }
 
-        const updatedPhotos = project.photos.filter((_, i) => i !== index);
-        const updatedProject = {
+        const updatedPhotos = (project.photos as TaggedPhoto[]).filter((_, i) => i !== index);
+        const updatedProject: Project = {
           ...project,
           photos: updatedPhotos,
         };
@@ -1071,7 +1088,8 @@ export default function ProjectDetail() {
     setRenamingDocId(null);
     setRenameDocValue("");
     try {
-      await supabase.from('project_documents').update({ original_name: newName }).eq('id', docId);
+      const { error } = await supabase.from('job_documents').update({ original_name: newName }).eq('id', docId);
+      if (error) throw error;
       toast.success("Document renamed");
     } catch (error) {
       console.error("Error renaming document:", error);
@@ -1257,18 +1275,74 @@ export default function ProjectDetail() {
   };
 
   const handlePhotoEdit = (photo: any) => {
-    toast.info("Edit functionality coming soon!");
+    const photoUrl = typeof photo === "string" ? photo : photo.url;
+    const photoObj = (project?.photos || []).find(
+      (p: any) => (typeof p === "string" ? p : p.url) === photoUrl,
+    ) as TaggedPhoto | string | undefined;
+    if (!photoObj || typeof photoObj === "string" || !photoObj._dbId) {
+      toast.error("This photo has no database record and can't be edited");
+      return;
+    }
+    setEditingPhoto(photoObj);
+    setEditPhotoTags((photoObj.tags || []).join(", "));
+    setEditPhotoDescription((photoObj as any).description || "");
+  };
+
+  const savePhotoEdit = async () => {
+    if (!project || !editingPhoto?._dbId) return;
+    const tags = editPhotoTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    setIsSavingPhoto(true);
+    try {
+      const { data: row, error: readError } = await supabase
+        .from("job_media")
+        .select("metadata")
+        .eq("id", editingPhoto._dbId)
+        .single();
+      if (readError) throw readError;
+      const metadata = { ...((row?.metadata as Record<string, any>) || {}), tags };
+      const { error } = await supabase
+        .from("job_media")
+        .update({
+          description: editPhotoDescription.trim() || null,
+          metadata,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingPhoto._dbId);
+      if (error) throw error;
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              photos: (prev.photos as any[]).map((p: any) =>
+                typeof p === "object" && p._dbId === editingPhoto._dbId
+                  ? { ...p, tags, description: editPhotoDescription.trim() }
+                  : p,
+              ),
+            }
+          : prev,
+      );
+      setEditingPhoto(null);
+      toast.success("Photo updated");
+    } catch (error) {
+      console.error("Error updating photo:", error);
+      toast.error("Failed to update photo");
+    } finally {
+      setIsSavingPhoto(false);
+    }
   };
 
   const handlePhotoDelete = (photo: any) => {
     if (!project || confirm("Are you sure you want to delete this photo?")) {
       try {
         const photoUrl = typeof photo === "string" ? photo : photo.url;
-        const updatedPhotos = project.photos.filter(
+        const updatedPhotos = (project.photos as TaggedPhoto[]).filter(
           (p: any) => (typeof p === "string" ? p : p.url) !== photoUrl,
         );
 
-        const updatedProject = {
+        const updatedProject: Project = {
           ...project,
           photos: updatedPhotos,
         };
@@ -1552,14 +1626,6 @@ export default function ProjectDetail() {
                       <Edit className="h-4 w-4 mr-2" />
                       Rename Project
                     </DropdownMenuItem>
-                    <DropdownMenuItem key="upload-website">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Upload to Website
-                    </DropdownMenuItem>
-                    <DropdownMenuItem key="post-google">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Post to Google My Business
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                       key="delete-project"
                       onClick={handleDelete}
@@ -1806,16 +1872,22 @@ export default function ProjectDetail() {
                                 onClick={async () => {
                                   setIsRewritingDescription(true);
                                   try {
-                                    await new Promise((r) => setTimeout(r, 1500));
-                                    const name = project.name || "this project";
+                                    const source = editDescriptionValue.trim() || project.name || "";
+                                    if (!source) {
+                                      toast.error("Write a description first");
+                                      return;
+                                    }
                                     const keywords = (project.keywords || []).join(", ");
-                                    const keywordLine = keywords ? ` Relevant keywords: ${keywords}.` : "";
-                                    setEditDescriptionValue(
-                                      `Professional ${name} services delivered with quality craftsmanship and attention to detail. Our team ensures every aspect of the job meets the highest standards, from initial assessment through to final completion.${keywordLine} Customer satisfaction is our top priority.`
+                                    const { text } = await aiApi.rewrite(
+                                      keywords ? `${source}\n\nKeywords to include: ${keywords}` : source,
+                                      "professional",
                                     );
-                                    toast.success("Description rewritten!");
-                                  } catch {
-                                    toast.error("Failed to rewrite description");
+                                    if (text?.trim()) {
+                                      setEditDescriptionValue(text.trim());
+                                      toast.success("Description rewritten");
+                                    }
+                                  } catch (error) {
+                                    toast.error(aiErrorMessage(error));
                                   } finally {
                                     setIsRewritingDescription(false);
                                   }
@@ -1974,8 +2046,7 @@ export default function ProjectDetail() {
                                       <video
                                         src={photoUrl}
                                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
+                                        onClick={() => {
                                           setSelectedPhoto(photoUrl);
                                         }}
                                       />
@@ -2000,8 +2071,7 @@ export default function ProjectDetail() {
                                         }
                                         alt={`Photo ${index + 1}`}
                                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
+                                        onClick={() => {
                                           setSelectedPhoto(photoUrl);
                                         }}
                                       />
@@ -2186,8 +2256,8 @@ export default function ProjectDetail() {
                           )}
                           <SafeGoogleMapComponent
                             address={project.address}
-                            lat={project.gpsLat}
-                            lng={project.gpsLng}
+                            lat={project.gpsLat ? Number(project.gpsLat) : undefined}
+                            lng={project.gpsLng ? Number(project.gpsLng) : undefined}
                             height="256px"
                             zoom={15}
                             showControls={true}
@@ -2928,11 +2998,7 @@ export default function ProjectDetail() {
                           <Button
                             variant="outline"
                             className="mt-4 gap-2"
-                            onClick={() =>
-                              toast.success(
-                                "Upload document functionality coming soon",
-                              )
-                            }
+                            onClick={() => documentInputRef.current?.click()}
                           >
                             <Plus className="h-4 w-4" />
                             Upload First Document
@@ -2989,7 +3055,7 @@ export default function ProjectDetail() {
                               </thead>
                               <tbody>
                                 {project.activityLog
-                                  .slice(0, 10)
+                                  .slice(activityPage * 10, activityPage * 10 + 10)
                                   .map((entry, entryIdx) => (
                                     <tr
                                       key={entry.id || `entry-${entryIdx}`}
@@ -3037,8 +3103,9 @@ export default function ProjectDetail() {
                             <div className="flex items-center justify-between text-sm text-muted-foreground">
                               <span>
                                 <span key="pagination-text">
-                                  Showing 1-10 of {project.activityLog.length}{" "}
-                                  entries
+                                  Showing {activityPage * 10 + 1}-
+                                  {Math.min((activityPage + 1) * 10, project.activityLog.length)} of{" "}
+                                  {project.activityLog.length} entries
                                 </span>
                               </span>
                               <div className="flex gap-2">
@@ -3046,6 +3113,8 @@ export default function ProjectDetail() {
                                   key="pagination-prev"
                                   variant="outline"
                                   size="sm"
+                                  disabled={activityPage === 0}
+                                  onClick={() => setActivityPage((p) => Math.max(0, p - 1))}
                                 >
                                   Previous
                                 </Button>
@@ -3053,6 +3122,8 @@ export default function ProjectDetail() {
                                   key="pagination-next"
                                   variant="outline"
                                   size="sm"
+                                  disabled={(activityPage + 1) * 10 >= project.activityLog.length}
+                                  onClick={() => setActivityPage((p) => p + 1)}
                                 >
                                   Next
                                 </Button>
@@ -3339,6 +3410,45 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
+
+        <Dialog open={!!editingPhoto} onOpenChange={(open) => !open && setEditingPhoto(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Photo</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {editingPhoto && (
+                <img
+                  src={editingPhoto.thumbnailUrl || editingPhoto.url}
+                  alt=""
+                  className="w-full max-h-48 object-contain rounded bg-muted"
+                />
+              )}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tags (comma separated)</label>
+                <Input
+                  value={editPhotoTags}
+                  onChange={(e) => setEditPhotoTags(e.target.value)}
+                  placeholder="before, kitchen, demo"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  value={editPhotoDescription}
+                  onChange={(e) => setEditPhotoDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setEditingPhoto(null)}>Cancel</Button>
+              <Button onClick={savePhotoEdit} disabled={isSavingPhoto}>
+                {isSavingPhoto ? "Saving…" : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Review Request Dialog */}
         <ReviewRequest

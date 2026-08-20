@@ -32,6 +32,7 @@ import {
   RefreshCw,
   Briefcase,
   MessageSquare,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -443,18 +444,18 @@ export default function SuperAdmin() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Link to="/super-admin/users">
-                  <Button variant="outline" className="w-full gap-2">
+                <Button asChild variant="outline" className="w-full gap-2">
+                  <Link to="/super-admin/users">
                     <Eye className="h-4 w-4" />
                     View All Users
-                  </Button>
-                </Link>
-                <Link to="/super-admin/users/add">
-                  <Button className="w-full gap-2">
+                  </Link>
+                </Button>
+                <Button asChild className="w-full gap-2">
+                  <Link to="/super-admin/users">
                     <UserPlus className="h-4 w-4" />
                     Add New User
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -469,18 +470,12 @@ export default function SuperAdmin() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Link to="/super-admin/businesses">
-                  <Button variant="outline" className="w-full gap-2">
+                <Button asChild variant="outline" className="w-full gap-2">
+                  <Link to="/super-admin/businesses">
                     <Eye className="h-4 w-4" />
                     View All Businesses
-                  </Button>
-                </Link>
-                <Link to="/super-admin/businesses/add">
-                  <Button className="w-full gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Add New Business
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -495,12 +490,12 @@ export default function SuperAdmin() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Link to="/super-admin/settings">
-                  <Button variant="outline" className="w-full gap-2">
-                    <Users className="h-4 w-4" />
+                <Button asChild variant="outline" className="w-full gap-2">
+                  <Link to="/super-admin/settings">
+                    <SettingsIcon className="h-4 w-4" />
                     System Settings
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>

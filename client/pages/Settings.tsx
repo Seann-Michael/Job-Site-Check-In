@@ -1,8 +1,7 @@
-// @ts-nocheck - Temporary suppression of type errors
 import React, { useState, useEffect, useRef } from "react";
 import { workspaceService } from "@/lib/workspaceService";
 import { supabase } from "@/lib/dataService";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,7 +91,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createCheckoutSession } from "@/lib/paymentService";
+import {
+  fetchPlans,
+  fetchBillingRecords,
+  fetchCurrentPlanName,
+  formatMoney,
+  planPriceNumber,
+  type PlanRow,
+  type BillingRecordRow,
+} from "@/lib/billingService";
+import { fetchBusinessTeam } from "@/lib/settingsTeamService";
 
 // Comprehensive Types
 interface SettingsData {
@@ -224,19 +232,25 @@ interface SettingsData {
   autoOptimization: boolean;
   compressionLevel: number;
   allowedFileTypes: string[];
-  totalSpaceSaved: number;
 
-  // Users
-  users: UserItem[];
-
-  // Billing
-  billingContact: string;
-  billingEmail: string;
-  autoRenewal: boolean;
-  currentPlan: string;
-  planFeatures: string[];
-  creditCard: CreditCardInfo;
-  invoices: InvoiceItem[];
+  // Media SEO / schema (stored in businesses.settings)
+  mediaSchemaTemplate?: string;
+  customSchemaVariables?: {
+    name: string;
+    value?: string;
+    description?: string;
+    type?: string;
+  }[];
+  enableAIAltText?: boolean;
+  enableSmartKeywords?: boolean;
+  enableProjectTags?: boolean;
+  enableAutoSlug?: boolean;
+  enableAutoSchemaTypes?: boolean;
+  enableSocialOptimization?: boolean;
+  aiVisionProvider?: string;
+  autoApplySchema?: boolean;
+  allowSchemaEdits?: boolean;
+  includeExifData?: boolean;
 }
 
 interface GmbAccount {
@@ -271,31 +285,6 @@ interface KeywordItem {
   notes?: string;
 }
 
-interface UserItem {
-  id: string;
-  name: string;
-  email: string;
-  role: "owner" | "admin" | "editor" | "viewer";
-  status: "active" | "pending" | "suspended";
-  lastLogin: string;
-  permissions: string[];
-}
-
-interface CreditCardInfo {
-  last4: string;
-  brand: string;
-  expMonth: number;
-  expYear: number;
-}
-
-interface InvoiceItem {
-  id: string;
-  date: string;
-  amount: number;
-  status: "paid" | "pending" | "failed";
-  downloadUrl: string;
-}
-
 const KEYWORD_CATEGORIES: { value: KeywordItem["category"]; label: string; color: string }[] = [
   { value: "primary",   label: "Primary",  color: "bg-blue-100 text-blue-800" },
   { value: "secondary", label: "Secondary", color: "bg-purple-100 text-purple-800" },
@@ -320,44 +309,37 @@ const navigationTabs = [
   { id: "billing", label: "Billing", icon: DollarSign },
 ];
 
-// Safe Default Settings
-function generateAccountId(): string {
-  const digits = Math.floor(100000000 + Math.random() * 900000000).toString();
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}`;
-}
-
 const createDefaultSettings = (): SettingsData => ({
-  // Business Info
-  businessName: "Joe's Pizza",
-  businessTypes: ["restaurant"], // Changed to array
-  subAccountId: generateAccountId(), // Auto-generated unique Business Account ID
+  // Business Info — real values come from the businesses row on load
+  businessName: "",
+  businessTypes: [],
+  subAccountId: "",
   businessLogo: "",
-  firstName: "Joe", // Split contact name
-  lastName: "Smith",
-  email: "joe@joespizza.com",
-  phone: "(555) 123-4567",
-  website: "https://joespizza.com",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  website: "",
   addressSearch: "",
-  address: "123 Main Street",
-  city: "New York",
-  state: "NY",
-  zipCode: "10001",
+  address: "",
+  city: "",
+  state: "",
+  zipCode: "",
   country: "United States",
-  timezone: "America/New_York",
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York",
   currency: "USD",
   dateFormat: "MM/DD/YYYY",
-  timeFormat: "12h", // Added time format
+  timeFormat: "12h",
 
   // Project Settings
-  autoPostGoogleMyBusiness: true,
+  autoPostGoogleMyBusiness: false,
   autoPostRssFeed: false,
-  aiPromptForDescriptions: true,
-  aiProjectRewritePrompt:
-    "Rewrite this project description to be more engaging and professional. Highlight the key benefits and quality of work while maintaining the original facts and details.",
+  aiPromptForDescriptions: false,
+  aiProjectRewritePrompt: "",
   autoArchiveDays: 30,
 
   // Integrations
-  googleMyBusinessConnected: true,
+  googleMyBusinessConnected: false,
   googleOAuthEmail: "",
   googleOAuthName: "",
   googleAccessToken: "",
@@ -371,31 +353,15 @@ const createDefaultSettings = (): SettingsData => ({
   rssIncludeImages: true,
 
   // AI Assistant
-  aiPromptTemplate:
-    "Create a professional description for a {PROJECT_TYPE} project at {ADDRESS}. Include details about {SERVICES} and highlight the quality of work.",
-  aiInstructions:
-    "Write engaging, professional descriptions that highlight the benefits and quality of the work. Use a friendly but professional tone.",
-  aiVariables: [
-    "PROJECT_TYPE",
-    "ADDRESS",
-    "SERVICES",
-    "CUSTOMER_NAME",
-    "COMPLETION_DATE",
-  ],
+  aiPromptTemplate: "",
+  aiInstructions: "",
+  aiVariables: [],
 
   // Tags
-  businessTags: [
-    { id: "1", name: "Pizza", color: "#ef4444" },
-    { id: "2", name: "Italian", color: "#3b82f6" },
-    { id: "3", name: "Delivery", color: "#10b981" },
-  ],
+  businessTags: [],
 
   // Keywords
-  seoKeywords: [
-    { id: "kw1", keyword: "local pizza delivery", category: "primary", volume: "1.2K" },
-    { id: "kw2", keyword: "Italian restaurant near me", category: "location", volume: "880" },
-    { id: "kw3", keyword: "best pizza Springfield", category: "location", volume: "320" },
-  ],
+  seoKeywords: [],
 
   // Media Settings
   allowedImageTypes: [".jpg", ".jpeg", ".png", ".gif", ".webp"],
@@ -403,14 +369,12 @@ const createDefaultSettings = (): SettingsData => ({
   maxFileSize: 10,
 
   // Review Settings
-  reviewReminderEnabled: true,
+  reviewReminderEnabled: false,
   reviewReminderDays: 7,
-  autoRequestReviews: true,
-  reviewEmailTemplate:
-    "Hi {CUSTOMER_NAME}, we'd love to hear about your experience with our {PROJECT_TYPE} project!",
-  reviewSmsTemplate:
-    "Hi {CUSTOMER_NAME}! How was your experience with {BUSINESS_NAME}? Leave a review: {REVIEW_LINK}",
-  minimumProjectValue: 500,
+  autoRequestReviews: false,
+  reviewEmailTemplate: "",
+  reviewSmsTemplate: "",
+  minimumProjectValue: 0,
   reviewAiPrompt: "",
   reviewGateLogoUrl: "",
   reviewGateHeading: "",
@@ -426,10 +390,10 @@ const createDefaultSettings = (): SettingsData => ({
   // Notifications
   enableNotifications: true,
   enableSounds: true,
-  desktopNotifications: true,
+  desktopNotifications: false,
   messageTypes: { info: true, warning: true, success: true, error: true },
   categories: { system: true, marketing: true, support: true, emergency: true },
-  deliveryMethods: { inApp: true, email: true, sms: false, push: true },
+  deliveryMethods: { inApp: true, email: true, sms: false, push: false },
   notificationFrequency: "immediate",
   digestTime: "09:00",
   doNotDisturb: {
@@ -446,41 +410,6 @@ const createDefaultSettings = (): SettingsData => ({
   autoOptimization: true,
   compressionLevel: 80,
   allowedFileTypes: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov"],
-  totalSpaceSaved: 2.4,
-
-  // Users
-  users: [
-    {
-      id: "1",
-      name: "Joe Smith",
-      email: "joe@joespizza.com",
-      role: "owner",
-      status: "active",
-      lastLogin: "2024-01-15",
-      permissions: ["all"],
-    },
-  ],
-
-  // Billing
-  billingContact: "Joe Smith",
-  billingEmail: "billing@joespizza.com",
-  autoRenewal: true,
-  currentPlan: "pro",
-  planFeatures: [
-    "Unlimited Projects",
-    "Advanced Analytics",
-    "Priority Support",
-  ],
-  creditCard: { last4: "4242", brand: "Visa", expMonth: 12, expYear: 2025 },
-  invoices: [
-    {
-      id: "inv_001",
-      date: "2024-01-01",
-      amount: 49.0,
-      status: "paid",
-      downloadUrl: "/api/invoices/inv_001/download",
-    },
-  ],
 });
 
 export default function Settings() {
@@ -501,24 +430,27 @@ export default function Settings() {
 
   // Keyword state
   const [showKeywordForm, setShowKeywordForm] = useState(false);
-  const [newKeyword, setNewKeyword] = useState({ keyword: "", category: "general" as KeywordItem["category"], notes: "" });
+  const [newKeyword, setNewKeyword] = useState({ keyword: "", category: "primary" as KeywordItem["category"], notes: "" });
   const [keywordSearch, setKeywordSearch] = useState("");
   const [keywordCategoryFilter, setKeywordCategoryFilter] = useState<string>("all");
 
-  // Upgrade dialog state
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<{
-    name: string;
-    price: number;
-    description: string;
-  } | null>(null);
-  const [isUpgrading, setIsUpgrading] = useState(false);
+  // Billing (read-only here; plan changes happen on /admin/payments)
+  const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [billingRecords, setBillingRecords] = useState<BillingRecordRow[]>([]);
+  const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
+  const [teamMemberCount, setTeamMemberCount] = useState<number | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
 
   // Logo upload state (logo lives in Supabase storage; settings.businessLogo
   // holds its public URL — the same key the mobile app reads and writes)
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * The direct businesses-row values as they were LOADED from Supabase — the
@@ -603,97 +535,110 @@ export default function Settings() {
     }, 800);
   };
 
-  const handleUpgradeClick = (name: string, price: number, description: string) => {
-    setSelectedUpgradePlan({ name, price, description });
-    setUpgradeDialogOpen(true);
-  };
-
-  const handleUpgradeConfirm = async () => {
-    if (!selectedUpgradePlan) return;
-    setIsUpgrading(true);
+  const loadBilling = async () => {
+    const businessId = workspaceService.getState().currentBusinessId;
+    setBillingLoading(true);
+    setBillingError(null);
     try {
-      const result = await createCheckoutSession({
-        provider: "stripe",
-        mode: "subscription",
-        amount: selectedUpgradePlan.price,
-        planName: selectedUpgradePlan.name,
-        // Ties the checkout to this business so the payment confirmation can
-        // record the plan in businesses.metadata (read by web admin + mobile).
-        businessId: workspaceService.getState().currentBusinessId || undefined,
-      });
-      if (result?.url) {
-        window.location.href = result.url;
-      } else {
-        toast.error(result?.message || "Checkout failed. Please check your Stripe configuration.");
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Something went wrong. Please try again.");
+      const [planRows, records, planName, memberCount] = await Promise.all([
+        fetchPlans(),
+        businessId ? fetchBillingRecords(businessId) : Promise.resolve([]),
+        businessId ? fetchCurrentPlanName(businessId) : Promise.resolve(null),
+        businessId
+          ? fetchBusinessTeam(businessId).then((team) => team.length)
+          : Promise.resolve(null),
+      ]);
+      setPlans(planRows);
+      setBillingRecords(records);
+      setCurrentPlanName(planName);
+      setTeamMemberCount(memberCount);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load billing";
+      setBillingError(msg);
+      toast.error(`Couldn't load billing: ${msg}`);
     } finally {
-      setIsUpgrading(false);
-      setUpgradeDialogOpen(false);
+      setBillingLoading(false);
     }
   };
 
-  // Safe data loading — reads from Supabase businesses table + localStorage fallback
+  useEffect(() => {
+    if (activeTab === "billing") loadBilling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const currentPlan =
+    currentPlanName
+      ? plans.find(
+          (p) => p.name.toLowerCase() === currentPlanName.toLowerCase(),
+        ) ?? null
+      : null;
+  const lastCharge =
+    billingRecords.find(
+      (r) =>
+        r.type === "charge" &&
+        (r.status === "succeeded" || r.status === "paid"),
+    ) ?? null;
+
+  // Load settings: the businesses row is the only source of truth. localStorage
+  // is written as a read cache AFTER a successful load (other screens read it);
+  // it is never used to populate this form.
   useEffect(() => {
     const loadSettings = async () => {
+      setIsLoadingSettings(true);
+      setLoadError(null);
       try {
-        // 1. Get workspace / business context
         let wsState = workspaceService.getState();
         if (!wsState.initialized) {
           wsState = await workspaceService.initialize();
         }
 
-        // 2. Start from defaults merged with localStorage as a fallback
-        const saved = localStorage.getItem("business_settings");
-        const loadedSettings = saved
-          ? { ...createDefaultSettings(), ...JSON.parse(saved) }
-          : createDefaultSettings();
+        const loadedSettings = createDefaultSettings();
 
-        // 3. Load from Supabase if we have a business ID
-        if (wsState.currentBusinessId) {
-          const { data: biz } = await supabase
-            .from("businesses")
-            .select("name, phone, email, website, address, settings")
-            .eq("id", wsState.currentBusinessId)
-            .single();
-
-          if (biz) {
-            // Merge the extra settings blob first, so the direct columns below
-            // stay authoritative even if an old blob carried copies of them.
-            if (biz.settings && typeof biz.settings === "object") {
-              Object.assign(loadedSettings, biz.settings);
-            }
-            // Direct columns: the DB row is the ONLY baseline. Empty values
-            // stay empty rather than resurrecting stale localStorage/default
-            // copies — a field cleared on another device must show as cleared.
-            const addr =
-              biz.address && typeof biz.address === "object" ? biz.address : {};
-            loadedSettings.businessName = biz.name || "";
-            loadedSettings.phone = biz.phone || "";
-            loadedSettings.email = biz.email || "";
-            loadedSettings.website = biz.website || "";
-            loadedSettings.address = addr.street || "";
-            loadedSettings.city = addr.city || "";
-            loadedSettings.state = addr.state || "";
-            loadedSettings.zipCode = addr.zip || "";
-            loadedSettings.country = addr.country || "United States";
-            dbBaselineRef.current = {
-              businessName: loadedSettings.businessName,
-              phone: loadedSettings.phone,
-              email: loadedSettings.email,
-              website: loadedSettings.website,
-              address: loadedSettings.address,
-              city: loadedSettings.city,
-              state: loadedSettings.state,
-              zipCode: loadedSettings.zipCode,
-              country: loadedSettings.country,
-              businessLogo: loadedSettings.businessLogo || "",
-            };
-          }
+        if (!wsState.currentBusinessId) {
+          throw new Error("No business is associated with this account.");
         }
 
-        // 4. Always prefer the authoritative sub_account_id
+        const { data: biz, error } = await supabase
+          .from("businesses")
+          .select("name, phone, email, website, address, settings, google_place_id")
+          .eq("id", wsState.currentBusinessId)
+          .single();
+        if (error) throw error;
+        if (!biz) throw new Error("Business record not found.");
+
+        // Merge the extra settings blob first, so the direct columns below
+        // stay authoritative even if an old blob carried copies of them.
+        if (biz.settings && typeof biz.settings === "object") {
+          Object.assign(loadedSettings, biz.settings);
+        }
+        const addr =
+          biz.address && typeof biz.address === "object" ? biz.address : {};
+        loadedSettings.businessName = biz.name || "";
+        loadedSettings.phone = biz.phone || "";
+        loadedSettings.email = biz.email || "";
+        loadedSettings.website = biz.website || "";
+        loadedSettings.address = addr.street || "";
+        loadedSettings.city = addr.city || "";
+        loadedSettings.state = addr.state || "";
+        loadedSettings.zipCode = addr.zip || "";
+        loadedSettings.country = addr.country || "United States";
+        if (biz.google_place_id && !loadedSettings.googlePlaceId) {
+          loadedSettings.googlePlaceId = biz.google_place_id;
+        }
+        dbBaselineRef.current = {
+          businessName: loadedSettings.businessName,
+          phone: loadedSettings.phone,
+          email: loadedSettings.email,
+          website: loadedSettings.website,
+          address: loadedSettings.address,
+          city: loadedSettings.city,
+          state: loadedSettings.state,
+          zipCode: loadedSettings.zipCode,
+          country: loadedSettings.country,
+          businessLogo: loadedSettings.businessLogo || "",
+        };
+
+        // Always prefer the authoritative sub_account_id
         if (wsState.user?.subAccountId) {
           loadedSettings.subAccountId = wsState.user.subAccountId;
         } else if (loadedSettings.subAccountId && !loadedSettings.subAccountId.includes("-")) {
@@ -702,14 +647,16 @@ export default function Settings() {
         }
 
         setSettings(loadedSettings);
+        // Read cache for other screens (ReviewGate, workspaceService) — only
+        // ever written from a successful server load or save.
         localStorage.setItem("business_settings", JSON.stringify(loadedSettings));
         localStorage.setItem("business_name", loadedSettings.businessName || "");
       } catch (error) {
-        console.error(
-          "Failed to load settings:",
-          error instanceof Error ? error.message : String(error),
-        );
-        toast.error("Failed to load settings, using defaults");
+        const msg = error instanceof Error ? error.message : String(error);
+        setLoadError(msg);
+        toast.error(`Failed to load settings: ${msg}`);
+      } finally {
+        setIsLoadingSettings(false);
       }
     };
     loadSettings();
@@ -729,10 +676,6 @@ export default function Settings() {
         );
       }
     } catch (error) {
-      console.error(
-        "Failed to update setting:",
-        error instanceof Error ? error.message : String(error),
-      );
       toast.error("Failed to update setting");
     }
   };
@@ -741,23 +684,22 @@ export default function Settings() {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // Always keep localStorage in sync (fast local read)
-      localStorage.setItem("business_settings", JSON.stringify(settings));
-      localStorage.setItem("business_name", settings.businessName || "");
-
-      // Persist to Supabase
       const wsState = workspaceService.getState();
       const baseline = dbBaselineRef.current;
-      if (wsState.currentBusinessId && !baseline) {
+      if (!wsState.currentBusinessId) {
+        toast.error("No business is associated with this account; nothing was saved.");
+        return;
+      }
+      if (!baseline) {
         // The businesses row never loaded into this tab, so there is nothing to
-        // diff against — writing the form now would push localStorage/default
-        // fallbacks over the real record. Keep the local copy and say so.
-        toast.warning(
-          "Saved on this device only — your business record couldn't be loaded, so nothing was overwritten on the server. Reload the page and save again to sync.",
+        // diff against — writing the form now would push defaults over the
+        // real record.
+        toast.error(
+          "Your business record couldn't be loaded, so nothing was saved. Reload the page and try again.",
         );
         return;
       }
-      if (wsState.currentBusinessId && baseline) {
+      {
         // Only the direct columns changed in THIS tab are written. Writing the
         // whole form would silently revert edits made elsewhere (the mobile
         // app, another tab) since this page loaded — mobile sends a diff for
@@ -845,6 +787,22 @@ export default function Settings() {
           notificationFrequency: settings.notificationFrequency,
           businessTypes: settings.businessTypes,
           rssIncludeImages: settings.rssIncludeImages,
+          webhooks: settings.webhooks,
+          autoOptimization: settings.autoOptimization,
+          compressionLevel: settings.compressionLevel,
+          allowedFileTypes: settings.allowedFileTypes,
+          mediaSchemaTemplate: settings.mediaSchemaTemplate,
+          customSchemaVariables: settings.customSchemaVariables,
+          enableAIAltText: settings.enableAIAltText,
+          enableSmartKeywords: settings.enableSmartKeywords,
+          enableProjectTags: settings.enableProjectTags,
+          enableAutoSlug: settings.enableAutoSlug,
+          enableAutoSchemaTypes: settings.enableAutoSchemaTypes,
+          enableSocialOptimization: settings.enableSocialOptimization,
+          aiVisionProvider: settings.aiVisionProvider,
+          autoApplySchema: settings.autoApplySchema,
+          allowSchemaEdits: settings.allowSchemaEdits,
+          includeExifData: settings.includeExifData,
         };
         // businessLogo: the mobile app writes this same key when a logo is
         // picked on the phone, so a stale copy from this tab must not clobber
@@ -861,9 +819,7 @@ export default function Settings() {
           .eq("id", wsState.currentBusinessId)
           .maybeSingle();
         if (freshError) {
-          toast.error(
-            `Couldn't reach the server — settings were saved on this device only. (${freshError.message})`,
-          );
+          toast.error(`Couldn't reach the server — nothing was saved. (${freshError.message})`);
           return;
         }
         const freshSettings =
@@ -879,9 +835,7 @@ export default function Settings() {
           })
           .eq("id", wsState.currentBusinessId);
         if (saveError) {
-          toast.error(
-            `Couldn't save to the server — settings were saved on this device only. (${saveError.message})`,
-          );
+          toast.error(`Couldn't save to the server — nothing was saved. (${saveError.message})`);
           return;
         }
 
@@ -901,13 +855,14 @@ export default function Settings() {
         };
       }
 
+      // Server holds the values now; refresh the read cache.
+      localStorage.setItem("business_settings", JSON.stringify(settings));
+      localStorage.setItem("business_name", settings.businessName || "");
       toast.success("Settings saved successfully!");
     } catch (error) {
-      console.error(
-        "Failed to save settings:",
-        error instanceof Error ? error.message : String(error),
+      toast.error(
+        `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`,
       );
-      toast.error("Failed to save settings");
     } finally {
       setIsLoading(false);
     }
@@ -963,6 +918,46 @@ export default function Settings() {
       );
     } finally {
       setIsUploadingLogo(false);
+    }
+  };
+
+  /** Upload a review-gate video to the 'media' bucket and keep its public URL. */
+  const handleVideoFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Video must be 50MB or smaller.");
+      return;
+    }
+    const businessId = workspaceService.getState().currentBusinessId;
+    if (!businessId) {
+      toast.error(
+        "Your business hasn't loaded yet, so the video can't be stored. Try again in a moment.",
+      );
+      return;
+    }
+    setIsUploadingVideo(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `review-gate-videos/${businessId}.${ext}`;
+      const { error } = await supabase.storage
+        .from("media")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (error) throw error;
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("media").getPublicUrl(path);
+      updateSetting("reviewGateVideoUrl", `${publicUrl}?v=${Date.now()}`);
+      toast.success("Video uploaded — click Save Changes to keep it.");
+    } catch (error) {
+      toast.error(
+        `Couldn't upload the video: ${error instanceof Error ? error.message : "upload failed"}`,
+      );
+    } finally {
+      setIsUploadingVideo(false);
     }
   };
 
@@ -1050,7 +1045,7 @@ export default function Settings() {
       notes: newKeyword.notes.trim() || undefined,
     };
     updateSetting("seoKeywords", [...(settings.seoKeywords || []), item]);
-    setNewKeyword({ keyword: "", category: "general", notes: "" });
+    setNewKeyword({ keyword: "", category: "primary", notes: "" });
     setShowKeywordForm(false);
     toast.success("Keyword added");
   };
@@ -1106,13 +1101,29 @@ export default function Settings() {
           </div>
           <Button
             onClick={handleSave}
-            disabled={isLoading}
+            disabled={isLoading || isLoadingSettings || !!loadError}
             className="gap-2 w-full sm:w-auto min-h-[44px]"
           >
             <Save className="h-4 w-4" />
             {isLoading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
+
+        {isLoadingSettings && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading your settings…
+          </div>
+        )}
+        {loadError && !isLoadingSettings && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" /> Couldn't load settings: {loadError}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Mobile horizontal scroll navigation */}
@@ -1307,11 +1318,6 @@ export default function Settings() {
                     <div className="sm:col-span-2">
                       <GoogleBusinessProfileFinder
                         onProfileFound={(profile) => {
-                          console.log(
-                            "Google Business Profile found:",
-                            profile,
-                          );
-
                           // Auto-populate all business information
                           updateSetting("businessName", profile.name);
 
@@ -1945,7 +1951,16 @@ export default function Settings() {
                             <CheckCircle className="h-3 w-3" />
                             Active
                           </Badge>
-                          <Button variant="outline">
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              window.open(
+                                `${window.location.origin}/api/rss/${settings.subAccountId}`,
+                                "_blank",
+                                "noopener,noreferrer",
+                              )
+                            }
+                          >
                             <ExternalLink className="h-4 w-4 mr-2" />
                             View Feed
                           </Button>
@@ -2388,9 +2403,9 @@ export default function Settings() {
                         </div>
                         <div>
                           <p className="text-2xl font-bold">
-                            {(settings.seoKeywords || []).filter((k) => k.category === "general").length}
+                            {(settings.seoKeywords || []).filter((k) => k.category === "primary").length}
                           </p>
-                          <p className="text-sm text-muted-foreground">General Keywords</p>
+                          <p className="text-sm text-muted-foreground">Primary Keywords</p>
                         </div>
                       </div>
                     </CardContent>
@@ -2468,7 +2483,7 @@ export default function Settings() {
                         </div>
                         <div className="flex gap-2 pt-1">
                           <Button size="sm" onClick={addKeyword}>Save Keyword</Button>
-                          <Button size="sm" variant="outline" onClick={() => { setShowKeywordForm(false); setNewKeyword({ keyword: "", category: "general", notes: "" }); }}>
+                          <Button size="sm" variant="outline" onClick={() => { setShowKeywordForm(false); setNewKeyword({ keyword: "", category: "primary", notes: "" }); }}>
                             Cancel
                           </Button>
                         </div>
@@ -2943,20 +2958,6 @@ export default function Settings() {
                         </p>
                       </div>
 
-                      <div className="p-4 border rounded-lg bg-green-50">
-                        <div className="flex items-center gap-2 mb-2">
-                          <HardDrive className="h-5 w-5 text-green-600" />
-                          <span className="font-semibold text-green-900">
-                            Storage Saved
-                          </span>
-                        </div>
-                        <div className="text-2xl font-bold text-green-700">
-                          {settings.totalSpaceSaved || 0} GB
-                        </div>
-                        <p className="text-sm text-green-600 mt-1">
-                          Through file optimization
-                        </p>
-                      </div>
                     </div>
 
                     <div>
@@ -3669,17 +3670,10 @@ export default function Settings() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div>
-                              <Label htmlFor="aiApiKey">API Key</Label>
-                              <Input
-                                id="aiApiKey"
-                                type="password"
-                                placeholder="Enter your AI service API key"
-                                value={settings.aiApiKey || ""}
-                                onChange={(e) =>
-                                  updateSetting("aiApiKey", e.target.value)
-                                }
-                              />
+                            <div className="text-xs text-muted-foreground self-end">
+                              API credentials for AI providers are configured
+                              on the server, not stored in your business
+                              settings.
                             </div>
                           </div>
                         </Card>
@@ -3743,19 +3737,6 @@ export default function Settings() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3 pt-4 border-t">
-                      <Button
-                        onClick={() => {
-                          // Preview functionality
-                          alert(
-                            "Schema preview functionality would show a sample generated metadata object here",
-                          );
-                        }}
-                        variant="outline"
-                        className="gap-2"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Preview Schema
-                      </Button>
                       <Button
                         onClick={() => {
                           // Reset to default
@@ -4142,8 +4123,24 @@ export default function Settings() {
                           <p className="text-sm text-gray-600 mb-2">
                             Or upload your own video file
                           </p>
-                          <Button variant="outline" size="sm">
-                            <Upload className="h-4 w-4 mr-2" />
+                          <input
+                            ref={videoInputRef}
+                            type="file"
+                            accept="video/mp4,video/quicktime,video/x-msvideo"
+                            className="hidden"
+                            onChange={handleVideoFileChange}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUploadingVideo}
+                            onClick={() => videoInputRef.current?.click()}
+                          >
+                            {isUploadingVideo ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
                             Choose Video File
                           </Button>
                           <p className="text-xs text-gray-500 mt-2">
@@ -4785,29 +4782,43 @@ export default function Settings() {
             {/* Billing */}
             {activeTab === "billing" && (
               <div className="space-y-6">
-                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-2xl font-bold">
                       Billing & Subscription
                     </h2>
                     <p className="text-muted-foreground">
-                      Manage your plan and billing information
+                      Your current plan and payment history
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" className="gap-2">
-                      <Download className="h-4 w-4" />
-                      Download Invoice
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={loadBilling}
+                      disabled={billingLoading}
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 ${billingLoading ? "animate-spin" : ""}`}
+                      />
+                      Refresh
                     </Button>
-                    <Button className="gap-2">
-                      <Edit className="h-4 w-4" />
-                      Update Payment Method
+                    <Button asChild className="gap-2">
+                      <Link to="/admin/payments">
+                        <CreditCard className="h-4 w-4" />
+                        Manage plan
+                      </Link>
                     </Button>
                   </div>
                 </div>
 
-                {/* Current Plan Overview */}
+                {billingError && (
+                  <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    {billingError}
+                  </div>
+                )}
+
                 <div className="grid gap-4 md:grid-cols-3">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -4817,611 +4828,265 @@ export default function Settings() {
                       <Shield className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
-                        {settings.currentPlan || "Professional"}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        3/10 users
-                      </p>
+                      {billingLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <div className="text-2xl font-bold">
+                            {currentPlan?.name || currentPlanName || "No plan"}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {planPriceNumber(currentPlan?.price) != null
+                              ? `${formatMoney(planPriceNumber(currentPlan?.price))} / month`
+                              : currentPlanName
+                                ? "Price not on file"
+                                : "Choose a plan to get started"}
+                          </p>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">
-                        Monthly Total
+                        Last Payment
                       </CardTitle>
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">$147</div>
-                      <p className="text-xs text-muted-foreground">
-                        Next bill: April 15, 2024
-                      </p>
+                      {billingLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : lastCharge ? (
+                        <>
+                          <div className="text-2xl font-bold">
+                            {formatMoney(lastCharge.amount, lastCharge.currency || "usd")}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(lastCharge.created_at).toLocaleDateString()}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-2xl font-bold">—</div>
+                          <p className="text-xs text-muted-foreground">
+                            No payments yet
+                          </p>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">
-                        Available Slots
+                        Team Members
                       </CardTitle>
                       <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">7</div>
-                      <p className="text-xs text-muted-foreground">
-                        Add more users anytime
-                      </p>
+                      {billingLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <div className="text-2xl font-bold">
+                            {teamMemberCount ?? "—"}
+                            {currentPlan?.max_users != null && (
+                              <span className="text-base font-normal text-muted-foreground">
+                                {" "}
+                                / {currentPlan.max_users}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {currentPlan?.max_users != null
+                              ? "Included in your plan"
+                              : "Users on this account"}
+                          </p>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Pricing Breakdown */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pricing Breakdown</CardTitle>
-                    <CardDescription>
-                      Understand how your monthly bill is calculated
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                        <div>
-                          <h4 className="font-medium">Base Users (1-5)</h4>
-                          <p className="text-sm text-muted-foreground">
-                            3 users × $49/month
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">$147</div>
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4">
-                        <div className="flex justify-between items-center text-lg font-semibold">
-                          <span>Monthly Total</span>
-                          <span>$147</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Billed monthly �� Next bill date: April 15, 2024
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Available Plans */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Available Plans</CardTitle>
                     <CardDescription>
-                      Upgrade or downgrade your plan based on your needs
+                      Plans and prices are managed by the platform. Use Manage
+                      plan to change yours.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="p-6 border rounded-lg relative">
-                        <div className="space-y-4">
-                          <div>
-                            <h3 className="text-xl font-bold">Starter</h3>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-3xl font-bold">$39</span>
-                              <span className="text-sm text-muted-foreground">
-                                /user/month
-                              </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              Up to 5 users
-                            </p>
-                          </div>
-
-                          <ul className="space-y-2">
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Up to 5 admin users
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Basic client management
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Standard support
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Monthly reporting
-                            </li>
-                          </ul>
-
-                          <Button
-                            className="w-full"
-                            variant="default"
-                            onClick={() => handleUpgradeClick("Starter", 39, "Up to 5 users · Basic client management · Standard support")}
-                          >
-                            Upgrade to Starter
-                          </Button>
-                        </div>
+                    {billingLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading plans…
                       </div>
-
-                      <div className="p-6 border border-blue-500 bg-blue-50 rounded-lg relative">
-                        <Badge className="absolute -top-2 left-4 bg-blue-500">
-                          Recommended
-                        </Badge>
-                        <Badge className="absolute -top-2 right-4 bg-green-500">
-                          Current Plan
-                        </Badge>
-
-                        <div className="space-y-4">
-                          <div>
-                            <h3 className="text-xl font-bold">Professional</h3>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-3xl font-bold">$49</span>
-                              <span className="text-sm text-muted-foreground">
-                                /user/month
-                              </span>
+                    ) : plans.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No plans have been published yet.
+                      </p>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-3">
+                        {plans.map((plan) => {
+                          const isCurrent =
+                            !!currentPlanName &&
+                            plan.name.toLowerCase() ===
+                              currentPlanName.toLowerCase();
+                          return (
+                            <div
+                              key={plan.id}
+                              className={`p-6 border rounded-lg relative ${isCurrent ? "border-primary" : ""}`}
+                            >
+                              {isCurrent && (
+                                <Badge className="absolute -top-2 left-4">
+                                  Current plan
+                                </Badge>
+                              )}
+                              <h3 className="text-lg font-semibold">
+                                {plan.name}
+                              </h3>
+                              <div className="mt-2 mb-4">
+                                <span className="text-3xl font-bold">
+                                  {planPriceNumber(plan.price) != null
+                                    ? formatMoney(planPriceNumber(plan.price))
+                                    : "—"}
+                                </span>
+                                {planPriceNumber(plan.price) != null && (
+                                  <span className="text-muted-foreground">
+                                    /month
+                                  </span>
+                                )}
+                              </div>
+                              {Array.isArray(plan.features) &&
+                                plan.features.length > 0 && (
+                                  <ul className="space-y-2 text-sm mb-4">
+                                    {plan.features.map((f, i) => (
+                                      <li
+                                        key={i}
+                                        className="flex items-start gap-2"
+                                      >
+                                        <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                                        <span>{f}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              <Button
+                                asChild
+                                variant={isCurrent ? "outline" : "default"}
+                                className="w-full"
+                              >
+                                <Link to="/admin/payments">
+                                  {isCurrent ? "Manage plan" : "Select plan"}
+                                </Link>
+                              </Button>
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              Up to 15 users
-                            </p>
-                          </div>
-
-                          <ul className="space-y-2">
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Up to 15 admin users
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Advanced client management
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Priority support
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Real-time analytics
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Custom branding
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Tiered discounts after 5 users
-                            </li>
-                          </ul>
-
-                          <Button
-                            className="w-full"
-                            variant="secondary"
-                            disabled
-                          >
-                            Current Plan
-                          </Button>
-                        </div>
+                          );
+                        })}
                       </div>
-
-                      <div className="p-6 border rounded-lg relative">
-                        <div className="space-y-4">
-                          <div>
-                            <h3 className="text-xl font-bold">Enterprise</h3>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-3xl font-bold">$39</span>
-                              <span className="text-sm text-muted-foreground">
-                                /user/month
-                              </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              Up to 50 users
-                            </p>
-                          </div>
-
-                          <ul className="space-y-2">
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Up to 50 admin users
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Full feature access
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              24/7 priority support
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              White-label solution
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Advanced integrations
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Volume discounts
-                            </li>
-                            <li className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Dedicated account manager
-                            </li>
-                          </ul>
-
-                          <Button
-                            className="w-full"
-                            variant="default"
-                            onClick={() => handleUpgradeClick("Enterprise", 69, "Up to 50 users · White-label · 24/7 support · Dedicated account manager")}
-                          >
-                            Upgrade to Enterprise
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
 
-                {/* Upgrade Confirmation Dialog */}
-                <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Upgrade to {selectedUpgradePlan?.name}</DialogTitle>
-                      <DialogDescription>
-                        {selectedUpgradePlan?.description}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4 space-y-3">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold">${selectedUpgradePlan?.price}</span>
-                        <span className="text-muted-foreground">/user/month</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        You'll be taken to a secure Stripe checkout to complete your upgrade. You can cancel anytime from this billing page.
-                      </p>
-                    </div>
-                    <DialogFooter className="gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setUpgradeDialogOpen(false)}
-                        disabled={isUpgrading}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleUpgradeConfirm}
-                        disabled={isUpgrading}
-                        className="gap-2"
-                      >
-                        {isUpgrading ? "Redirecting..." : "Proceed to Checkout"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Billing History */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Billing History</CardTitle>
                     <CardDescription>
-                      View your past invoices and payments
+                      Payments, refunds and credits recorded for this business
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="rounded-md border">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left p-3 font-medium">Date</th>
-                            <th className="text-left p-3 font-medium">
-                              Description
-                            </th>
-                            <th className="text-left p-3 font-medium">
-                              Amount
-                            </th>
-                            <th className="text-left p-3 font-medium">
-                              Status
-                            </th>
-                            <th className="text-left p-3 font-medium">
-                              Invoice
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="p-3">March 15, 2024</td>
-                            <td className="p-3">Professional Plan - 3 Users</td>
-                            <td className="p-3 font-medium">$147.00</td>
-                            <td className="p-3">
-                              <Badge variant="default" className="gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Paid
-                              </Badge>
-                            </td>
-                            <td className="p-3">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download
-                              </Button>
-                            </td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="p-3">February 15, 2024</td>
-                            <td className="p-3">Professional Plan - 3 Users</td>
-                            <td className="p-3 font-medium">$147.00</td>
-                            <td className="p-3">
-                              <Badge variant="default" className="gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Paid
-                              </Badge>
-                            </td>
-                            <td className="p-3">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download
-                              </Button>
-                            </td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="p-3">January 15, 2024</td>
-                            <td className="p-3">Professional Plan - 2 Users</td>
-                            <td className="p-3 font-medium">$98.00</td>
-                            <td className="p-3">
-                              <Badge variant="default" className="gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Paid
-                              </Badge>
-                            </td>
-                            <td className="p-3">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download
-                              </Button>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                    {billingLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                      </div>
+                    ) : billingRecords.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No billing records yet.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b text-left text-sm text-muted-foreground">
+                              <th className="p-3">Date</th>
+                              <th className="p-3">Description</th>
+                              <th className="p-3">Type</th>
+                              <th className="p-3">Status</th>
+                              <th className="p-3 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {billingRecords.map((rec) => {
+                              const isCredit = ["refund", "credit"].includes(
+                                rec.type || "",
+                              );
+                              return (
+                                <tr key={rec.id} className="border-b text-sm">
+                                  <td className="p-3 whitespace-nowrap">
+                                    {new Date(rec.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="p-3">
+                                    {rec.description ||
+                                      rec.plan_name ||
+                                      rec.type?.replace(/_/g, " ") ||
+                                      "—"}
+                                    {rec.invoice_id && (
+                                      <span className="block text-xs text-muted-foreground font-mono">
+                                        #{rec.invoice_id}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 capitalize">
+                                    {rec.type?.replace(/_/g, " ") || "—"}
+                                  </td>
+                                  <td className="p-3">
+                                    <Badge
+                                      variant={
+                                        rec.status === "succeeded" ||
+                                        rec.status === "paid"
+                                          ? "default"
+                                          : rec.status === "failed"
+                                            ? "destructive"
+                                            : "outline"
+                                      }
+                                      className="capitalize"
+                                    >
+                                      {rec.status || "—"}
+                                    </Badge>
+                                  </td>
+                                  <td
+                                    className={`p-3 text-right font-medium whitespace-nowrap ${isCredit ? "text-green-600" : ""}`}
+                                  >
+                                    {isCredit ? "+" : ""}
+                                    {formatMoney(
+                                      rec.amount != null
+                                        ? Math.abs(Number(rec.amount))
+                                        : null,
+                                      rec.currency || "usd",
+                                    )}
+                                    {rec.provider_receipt_url && (
+                                      <a
+                                        href={rec.provider_receipt_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="ml-2 text-xs text-primary hover:underline"
+                                      >
+                                        Receipt
+                                      </a>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-
-                {/* Payment Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Payment Information</CardTitle>
-                    <CardDescription>
-                      Manage your payment methods and billing details
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-medium mb-2">Payment Method</h4>
-                          <div className="flex items-center gap-3 p-3 border rounded-lg">
-                            <CreditCard className="h-5 w-5" />
-                            <div>
-                              <p className="font-medium">•••• •••• •••• 4242</p>
-                              <p className="text-sm text-muted-foreground">
-                                Expires 12/25
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="ml-auto"
-                            >
-                              Update
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">Billing Address</h4>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>Smith Construction LLC</p>
-                            <p>123 Business St</p>
-                            <p>San Francisco, CA 94105</p>
-                            <p>United States</p>
-                          </div>
-                          <Button variant="ghost" size="sm" className="mt-2">
-                            Update Address
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-medium mb-2">Next Payment</h4>
-                          <div className="p-3 bg-muted rounded-lg">
-                            <div className="flex justify-between items-center">
-                              <span>Amount Due:</span>
-                              <span className="font-medium">$147</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span>Due Date:</span>
-                              <span className="font-medium">
-                                April 15, 2024
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">Auto-renewal</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Your subscription will automatically renew on April
-                            15, 2024. You can cancel anytime.
-                          </p>
-                          <Button variant="outline" size="sm" className="mt-2">
-                            Manage Auto-renewal
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Separate Payments Table */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Payment History</span>
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export Payments
-                      </Button>
-                    </CardTitle>
-                    <CardDescription>
-                      Track all payments and transactions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left p-3 font-medium">
-                              Transaction ID
-                            </th>
-                            <th className="text-left p-3 font-medium">Date</th>
-                            <th className="text-left p-3 font-medium">
-                              Amount
-                            </th>
-                            <th className="text-left p-3 font-medium">
-                              Method
-                            </th>
-                            <th className="text-left p-3 font-medium">
-                              Status
-                            </th>
-                            <th className="text-left p-3 font-medium">
-                              Receipt
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-mono text-sm">
-                              txn_1234567890
-                            </td>
-                            <td className="p-3">2024-01-15</td>
-                            <td className="p-3 font-medium">$49.00</td>
-                            <td className="p-3">Visa •••• 4242</td>
-                            <td className="p-3">
-                              <Badge variant="default">Completed</Badge>
-                            </td>
-                            <td className="p-3">
-                              <Button variant="outline" size="sm">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                          <tr className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-mono text-sm">
-                              txn_0987654321
-                            </td>
-                            <td className="p-3">2024-01-01</td>
-                            <td className="p-3 font-medium">$49.00</td>
-                            <td className="p-3">Visa •••• 4242</td>
-                            <td className="p-3">
-                              <Badge variant="default">Completed</Badge>
-                            </td>
-                            <td className="p-3">
-                              <Button variant="outline" size="sm">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                          <tr className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-mono text-sm">
-                              txn_1122334455
-                            </td>
-                            <td className="p-3">2023-12-15</td>
-                            <td className="p-3 font-medium">$49.00</td>
-                            <td className="p-3">Visa •••• 4242</td>
-                            <td className="p-3">
-                              <Badge variant="secondary">Refunded</Badge>
-                            </td>
-                            <td className="p-3">
-                              <Button variant="outline" size="sm">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Service Management */}
-                <Card className="border-red-200">
-                  <CardHeader>
-                    <CardTitle className="text-red-900">
-                      Service Management
-                    </CardTitle>
-                    <CardDescription>
-                      Manage your subscription and service settings
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                      <h4 className="font-medium text-red-900 mb-2">
-                        Cancel Service
-                      </h4>
-                      <p className="text-sm text-red-700 mb-3">
-                        Canceling will disable your account at the end of the
-                        current billing period. Your data will be retained for
-                        30 days.
-                      </p>
-                      <div className="flex gap-2">
-                        <Button variant="destructive" size="sm">
-                          <AlertTriangle className="h-4 w-4 mr-2" />
-                          Cancel Subscription
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="p-3 border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <RefreshCw className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium">Auto-Renewal</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Automatically renew subscription
-                        </p>
-                        <Switch defaultChecked />
-                      </div>
-
-                      <div className="p-3 border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Mail className="h-4 w-4 text-green-600" />
-                          <span className="font-medium">Billing Alerts</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Email notifications for payments
-                        </p>
-                        <Switch defaultChecked />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
               </div>
             )}
           </div>

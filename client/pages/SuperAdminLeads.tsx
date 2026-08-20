@@ -19,14 +19,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -40,11 +36,8 @@ import {
 import {
   Search,
   Filter,
-  Upload,
   Download,
   MoreHorizontal,
-  Eye,
-  Edit,
   Trash,
   Star,
   Phone,
@@ -243,9 +236,44 @@ export default function SuperAdminLeads() {
     }
   };
 
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      const { error } = await supabaseClient.from("gmb_profiles").delete().eq("id", leadId);
+      if (error) throw error;
+      setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+      setSelectedLeads((prev) => {
+        const next = new Set(prev);
+        next.delete(leadId);
+        return next;
+      });
+      toast.success("Lead deleted");
+    } catch (error) {
+      toast.error("Failed to delete lead");
+    }
+  };
+
+  const handleSetLeadQuality = async (leadId: string, quality: string) => {
+    const scoreByQuality: Record<string, number> = { hot: 85, warm: 70, cold: 40, unscored: 0 };
+    const newScore = scoreByQuality[quality] ?? 0;
+    try {
+      const { error } = await supabaseClient
+        .from("gmb_profiles")
+        .update({ overall_score: newScore })
+        .eq("id", leadId);
+      if (error) throw error;
+      setLeads((prev) =>
+        prev.map((lead) =>
+          lead.id === leadId ? { ...lead, lead_quality: quality as any, lead_score: newScore } : lead,
+        ),
+      );
+      toast.success(`Lead marked as ${quality}`);
+    } catch (error) {
+      toast.error("Failed to update lead quality");
+    }
+  };
+
   const handleExportLeads = async () => {
     try {
-      // In real implementation, generate CSV/Excel export
       const csvContent = "data:text/csv;charset=utf-8," 
         + "Business Name,Phone,Email,Website,City,State,Rating,Reviews,Category\n"
         + leads.map(lead => 
@@ -302,32 +330,6 @@ export default function SuperAdminLeads() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import Leads
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Import Leads</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Upload CSV File</Label>
-                    <Input type="file" accept=".csv,.xlsx" />
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Expected format: Business Name, Phone, Email, Website, Address, City, State, ZIP
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline">Cancel</Button>
-                    <Button>Import</Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
 
@@ -663,19 +665,23 @@ export default function SuperAdminLeads() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Lead
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Target className="h-4 w-4 mr-2" />
-                              Set Quality
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <Target className="h-4 w-4 mr-2" />
+                                Set Quality
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                {(["hot", "warm", "cold", "unscored"] as const).map((q) => (
+                                  <DropdownMenuItem key={q} onClick={() => handleSetLeadQuality(lead.id, q)}>
+                                    {q.charAt(0).toUpperCase() + q.slice(1)}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleDeleteLead(lead.id)}
+                            >
                               <Trash className="h-4 w-4 mr-2" />
                               Delete
                             </DropdownMenuItem>

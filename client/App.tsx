@@ -4,15 +4,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy } from "react";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { analytics } from "@/lib/analytics";
 import { queryClient } from "@/lib/queryClient";
-import TestPage from "./pages/TestPage";
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
-const AddProject = lazy(() => import("./pages/AddProject"));
 const AdminAddProject = lazy(() => import("./pages/AdminAddProject"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Gallery = lazy(() => import("./pages/Gallery"));
@@ -24,13 +21,9 @@ const AppPages = lazy(() => import("./pages/AppPages"));
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
 const BusinessManagement = lazy(() => import("./pages/BusinessManagement"));
-const UserManagement = lazy(() => import("./pages/UserManagement"));
 const CrashLogs = lazy(() => import("./pages/CrashLogs"));
-const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
-const Tools = lazy(() => import("./pages/Tools"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
-const SocialMediaPosting = lazy(() => import("./pages/SocialMediaPosting"));
 const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
@@ -44,7 +37,6 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Login = lazy(() => import("./pages/Login"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Support = lazy(() => import("./pages/Support"));
-const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const ReviewGate = lazy(() => import("./pages/ReviewGate"));
 const ReviewGateEditor = lazy(() => import("./pages/ReviewGateEditor"));
@@ -72,11 +64,12 @@ const SuperAdminHelp = lazy(() => import("./pages/SuperAdminHelp"));
 const SuperAdminSupport = lazy(() => import("./pages/SuperAdminSupport"));
 const SuperAdminUsers = lazy(() => import("./pages/SuperAdminUsers"));
 const SuperAdminWorkspaces = lazy(() => import("./pages/SuperAdminWorkspaces"));
-const SuperAdminWorkspaceDetail = lazy(() => import("./pages/SuperAdminWorkspaceDetail"));
+const SuperAdminWorkspaceDetail = lazy(
+  () => import("./pages/SuperAdminWorkspaceDetail"),
+);
 const SuperAdminCommunications = lazy(
   () => import("./pages/SuperAdminCommunications"),
 );
-const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
 // Lead Management
 const SuperAdminLeads = lazy(() => import("./pages/SuperAdminLeads"));
@@ -131,107 +124,28 @@ const App = () => (
             >
               <Routes>
                 {/* Public routes */}
-                <Route path="/signin" element={<Navigate to="/login" replace />} />
+                <Route
+                  path="/signin"
+                  element={<Navigate to="/login" replace />}
+                />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
+                <Route
+                  path="/sign-up"
+                  element={<Navigate to="/signup" replace />}
+                />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/help" element={<KnowledgeBase />} />
                 <Route path="/knowledge-base" element={<KnowledgeBase />} />
                 <Route path="/public/job/:id" element={<PublicProject />} />
                 <Route path="/g/:token" element={<PublicGallery />} />
                 <Route path="/review/:id" element={<ReviewGate />} />
-                <Route path="/review-demo" element={<ReviewGate />} />
                 <Route
                   path="/admin/review-gate-editor"
                   element={
                     <ProtectedRoute>
                       <ReviewGateEditor />
                     </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/onboard/agency/:agencyToken"
-                  element={<PublicOnboarding />}
-                />
-                <Route
-                  path="/PublicOnboarding"
-                  element={
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Invalid Onboarding Link
-                        </h1>
-                        <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please
-                          use the complete link provided by your agency.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like:{" "}
-                          <code>/onboard/agency/your-agency-token</code>
-                        </p>
-                      </div>
-                    </div>
-                  }
-                />
-                <Route
-                  path="/Public/Onboarding"
-                  element={
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Invalid Onboarding Link
-                        </h1>
-                        <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please
-                          use the complete link provided by your agency.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like:{" "}
-                          <code>/onboard/agency/your-agency-token</code>
-                        </p>
-                      </div>
-                    </div>
-                  }
-                />
-                <Route
-                  path="/public/onboarding"
-                  element={
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Invalid Onboarding Link
-                        </h1>
-                        <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please
-                          use the complete link provided by your agency.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like:{" "}
-                          <code>/onboard/agency/your-agency-token</code>
-                        </p>
-                      </div>
-                    </div>
-                  }
-                />
-                <Route
-                  path="/onboarding"
-                  element={
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Invalid Onboarding Link
-                        </h1>
-                        <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please
-                          use the complete link provided by your agency.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Onboarding links should look like:{" "}
-                          <code>/onboard/agency/your-agency-token</code>
-                        </p>
-                      </div>
-                    </div>
                   }
                 />
                 <Route
@@ -242,46 +156,6 @@ const App = () => (
                   path="/GMBOptimization"
                   element={<Navigate to="/admin/gmb-optimization" replace />}
                 />
-                <Route
-                  path="/onboard/:token"
-                  element={
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Onboarding Link Format Changed
-                        </h1>
-                        <p className="text-muted-foreground">
-                          This appears to be an old onboarding link format.
-                          Please request a new onboarding link from your agency.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          The new onboarding system uses static, reusable links
-                          that can be shared with multiple clients.
-                        </p>
-                      </div>
-                    </div>
-                  }
-                />
-                <Route
-                  path="/onboard/*"
-                  element={
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="text-center space-y-4 max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Invalid Onboarding Link
-                        </h1>
-                        <p className="text-muted-foreground">
-                          This onboarding link is invalid or incomplete. Please
-                          check the link provided by your agency.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Valid onboarding links should include an agency token.
-                        </p>
-                      </div>
-                    </div>
-                  }
-                />
-
                 {/* Protected routes */}
                 <Route
                   path="/admin/jobs"
@@ -409,16 +283,6 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/admin/social-posting"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<div>Loading...</div>}>
-                        <SocialMediaPosting />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/admin/workflow-builder"
                   element={
                     <ProtectedRoute>
@@ -434,15 +298,6 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/coming-soon"
-                  element={
-                    <ProtectedRoute>
-                      <ComingSoon />
-                    </ProtectedRoute>
-                  }
-                />
-
                 <Route
                   path="/super-admin"
                   element={
@@ -765,16 +620,8 @@ const App = () => (
                   element={<Navigate to="/admin/profile" replace />}
                 />
                 <Route
-                  path="/Ideas"
-                  element={<Navigate to="/admin/ideas" replace />}
-                />
-                <Route
                   path="/IdeaDetail"
                   element={<Navigate to="/admin/ideas" replace />}
-                />
-                <Route
-                  path="/ComingSoon"
-                  element={<Navigate to="/coming-soon" replace />}
                 />
                 <Route
                   path="/Support"

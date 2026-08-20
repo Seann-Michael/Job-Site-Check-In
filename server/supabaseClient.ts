@@ -1,25 +1,33 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { getEnv } from "./lib/env";
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  "";
+let _client: SupabaseClient | null = null;
 
 /**
- * Server-side Supabase client using the service role key for full DB access.
- * Lazy-initialised — returns null if env vars are missing (prevents startup crash).
+ * Server-side Supabase client using the SERVICE ROLE key. Lazily created on
+ * first use so importing server modules never requires env at load time
+ * (the Vite client build imports the server for its dev middleware).
+ *
+ * Throws if SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not configured. There
+ * is deliberately no fallback to the anon key: the server must never run
+ * with reduced privileges silently.
  */
-let _client: ReturnType<typeof createClient> | null = null;
-
-export function getSupabaseClient() {
+export function getSupabaseClient(): SupabaseClient {
   if (_client) return _client;
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn(
-      "[supabaseClient] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — DB features disabled on server.",
+  const url = getEnv("SUPABASE_URL");
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase is not configured: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required",
     );
-    return null;
   }
-  _client = createClient(supabaseUrl, supabaseKey);
+  _client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   return _client;
+}
+
+/** Test hook: replace the singleton (used by vitest). */
+export function __setSupabaseClientForTests(client: SupabaseClient | null) {
+  _client = client;
 }

@@ -8,7 +8,7 @@
  * restricted to the current workspace's owner_id / business_ids.
  */
 
-import { supabase } from "./dataService";
+import { supabaseClient as supabase } from "./supabaseClient";
 import { getCurrentUser as getLocalUser } from "./auth";
 
 // ---------------------------------------------------------------------------
@@ -22,7 +22,7 @@ export interface WorkspaceUser {
   name: string;
   role: string;
   /** Display-friendly unique ID, format XXX-XXX-XXX */
-  subAccountId: string;
+  subAccountId: string | null;
 }
 
 export interface WorkspaceState {
@@ -138,11 +138,10 @@ class WorkspaceService {
         return this.state;
       }
 
-      // Fetch business IDs — for real UUID users scope to owner_id,
-      // for local dev users (non-UUID id like "1") return all active businesses
+      // Fetch business IDs scoped to owner_id. Non-UUID ids own nothing.
       const businessIds = isValidUUID(workspaceUser.id)
         ? await this.fetchBusinessIds(workspaceUser.id)
-        : await this.fetchAllBusinessIds();
+        : this.noBusinessesForNonUuidUser(workspaceUser.id);
 
       const stored = localStorage.getItem("workspace_business_id");
       const currentBusinessId =
@@ -201,8 +200,15 @@ class WorkspaceService {
       );
     }
 
-    // Non-UUID local ID (e.g. "1") — skip Supabase, use localStorage only
-    return this.buildFallbackUser(localUser.id, localUser.email ?? "", localUser.name);
+    // Non-UUID local ID — no Supabase row can exist for this user.
+    console.warn(`[workspace] local user id "${localUser.id}" is not a UUID.`);
+    return {
+      id: localUser.id,
+      email: localUser.email ?? "",
+      name: localUser.name ?? localUser.email ?? "",
+      role: localUser.role ?? "viewer",
+      subAccountId: null,
+    };
   }
 
   /**
@@ -222,12 +228,11 @@ class WorkspaceService {
         .maybeSingle();
 
       if (fetchErr) {
-        console.warn(
+        console.error(
           "[workspace] could not fetch user from Supabase:",
           serializeError(fetchErr),
-          "— using local fallback",
         );
-        return this.buildFallbackUser(userId, email, name);
+        return null;
       }
 
       if (existing) {
@@ -266,12 +271,11 @@ class WorkspaceService {
         .single();
 
       if (insertErr) {
-        console.warn(
+        console.error(
           "[workspace] could not insert user into Supabase:",
           serializeError(insertErr),
-          "— using local fallback",
         );
-        return this.buildFallbackUser(userId, email, name, subAccountId);
+        return null;
       }
 
       return {
@@ -282,39 +286,9 @@ class WorkspaceService {
         subAccountId: ensureFormattedId(inserted.sub_account_id as string) ?? subAccountId,
       };
     } catch (err) {
-      console.warn(
-        "[workspace] syncUserRecord failed:",
-        serializeError(err),
-        "— using local fallback",
-      );
-      return this.buildFallbackUser(userId, email, name);
+      console.error("[workspace] syncUserRecord failed:", serializeError(err));
+      return null;
     }
-  }
-
-  /** Build a workspace user entirely from localStorage — used when Supabase is unavailable */
-  private buildFallbackUser(
-    userId: string,
-    email: string,
-    name?: string,
-    subAccountId?: string,
-  ): WorkspaceUser {
-    let id = subAccountId;
-    if (!id) {
-      try {
-        const settings = JSON.parse(
-          localStorage.getItem("business_settings") ?? "{}",
-        );
-        id = settings.subAccountId;
-      } catch {}
-    }
-    id = ensureFormattedId(id ?? null);
-    return {
-      id: userId,
-      email,
-      name: name ?? email,
-      role: "business_owner",
-      subAccountId: id,
-    };
   }
 
   // -------------------------------------------------------------------------
@@ -342,22 +316,12 @@ class WorkspaceService {
     }
   }
 
-  /** Dev/demo fallback — returns all active businesses when user has no UUID */
-  private async fetchAllBusinessIds(): Promise<string[]> {
-    try {
-      const { data, error } = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("status", "active");
-
-      if (error) {
-        console.warn("[workspace] fetchAllBusinessIds error:", serializeError(error));
-        return [];
-      }
-      return (data ?? []).map((b: { id: string }) => b.id);
-    } catch {
-      return [];
-    }
+  /** Users without a real Supabase UUID cannot own businesses. */
+  private noBusinessesForNonUuidUser(userId: string): string[] {
+    console.warn(
+      `[workspace] user id "${userId}" is not a UUID; no businesses will be loaded.`,
+    );
+    return [];
   }
 
   // -------------------------------------------------------------------------
@@ -419,7 +383,7 @@ class WorkspaceService {
     if (!userId) return;
     const businessIds = isValidUUID(userId)
       ? await this.fetchBusinessIds(userId)
-      : await this.fetchAllBusinessIds();
+      : this.noBusinessesForNonUuidUser(userId);
     const currentBusinessId =
       this.state.currentBusinessId &&
       businessIds.includes(this.state.currentBusinessId)

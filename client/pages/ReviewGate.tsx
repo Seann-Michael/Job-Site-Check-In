@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { StarRating } from "@/components/StarRating";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Copy, CheckCircle, Star, MapPin, ArrowLeft, Eye } from "lucide-react";
+import { ExternalLink, Copy, CheckCircle, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
+import { workspaceService } from "@/lib/workspaceService";
 
 // ── Video helpers ─────────────────────────────────────────────────────────────
 function extractIframeSrc(input: string): string | null {
@@ -76,7 +77,6 @@ interface ReviewRequest {
   projectDescription: string;
   threshold: number;
   googleReviewUrl: string;
-  seoKeywords: string[];
   businessCity: string;
   businessState: string;
   serviceCategory: string;
@@ -86,20 +86,21 @@ interface ReviewRequest {
 
 export default function ReviewGate() {
   const { id } = useParams<{ id: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
-  const isAdminPreview = location.pathname === "/review-demo";
+  // `/review/preview` (or no id) is the authenticated admin previewing their
+  // own business's gate. Real customers always arrive with a request UUID.
+  const isAdminPreview = !id || id === "preview";
   const [reviewRequest, setReviewRequest] = useState<ReviewRequest | null>(
     null,
   );
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   // Set only when the id resolved to a real review_requests row, so
   // submissions can be attributed to the right business and request.
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [remoteRequestId, setRemoteRequestId] = useState<string | null>(null);
-  const [seoReviewText, setSeoReviewText] = useState("");
-  const [showSeoVersion, setShowSeoVersion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [redirectToGoogle, setRedirectToGoogle] = useState(false);
@@ -114,25 +115,29 @@ export default function ReviewGate() {
   });
 
   useEffect(() => {
-    const buildFromSettings = (saved: Record<string, any>, requestId: string, customerName?: string, projectName?: string) => {
-      const keywords = saved.reviewGateSeoKeywords
-        ? saved.reviewGateSeoKeywords.split(",").map((k: string) => k.trim()).filter(Boolean)
-        : [];
-
+    const buildFromSettings = (
+      saved: Record<string, any>,
+      requestId: string,
+      customerName?: string,
+      projectName?: string,
+    ) => {
       const request: ReviewRequest = {
         id: requestId,
         businessName: saved.businessName || "",
         businessLogo: saved.reviewGateLogoUrl || saved.businessLogo || undefined,
-        businessAddress: [saved.address, saved.city, saved.state].filter(Boolean).join(", ") || "",
+        businessAddress:
+          [saved.address, saved.city, saved.state].filter(Boolean).join(", ") ||
+          "",
         customerName: customerName || "Valued Customer",
         projectName: projectName || saved.projectName || "",
         projectDescription: saved.projectDescription || "",
         threshold: saved.reviewGateThreshold ?? 4,
-        googleReviewUrl: saved.reviewGateGoogleUrl || saved.googleBusinessUrl || "",
-        seoKeywords: keywords,
+        googleReviewUrl:
+          saved.reviewGateGoogleUrl || saved.googleBusinessUrl || "",
         businessCity: saved.city || "",
         businessState: saved.state || "",
-        serviceCategory: saved.businessTypes?.[0] || saved.serviceCategory || "",
+        serviceCategory:
+          saved.businessTypes?.[0] || saved.serviceCategory || "",
         businessOwnerVideo: saved.reviewGateVideoUrl || undefined,
         iframeCode: saved.reviewGateIframeCode || undefined,
       };
@@ -146,120 +151,101 @@ export default function ReviewGate() {
       setReviewRequest(request);
     };
 
+    const loadBusiness = async (bizId: string) => {
+      const { data: biz, error } = await supabaseClient
+        .from("businesses")
+        .select("name, settings, address")
+        .eq("id", bizId)
+        .maybeSingle();
+      if (error || !biz) return null;
+      const addr = (biz.address || {}) as Record<string, any>;
+      return {
+        ...(biz.settings || {}),
+        businessName: biz.name,
+        address: (biz.settings as any)?.address ?? addr.street ?? addr.address,
+        city: (biz.settings as any)?.city ?? addr.city,
+        state: (biz.settings as any)?.state ?? addr.state,
+      } as Record<string, any>;
+    };
+
     const load = async () => {
-      const requestId = id || "demo";
-
-      // 1. Try loading from Supabase review_requests + businesses
-      if (requestId !== "demo") {
-        try {
-          const { data: reviewReq } = await supabaseClient
-            .from("review_requests")
-            .select("id, business_id, customer_name, project_name")
-            .eq("id", requestId)
-            .single();
-
-          if (reviewReq?.id) {
-            // Record the open so both dashboards show a Viewed date.
-            // Fire-and-forget: a failed write must never block the customer.
-            supabaseClient
-              .from("review_requests")
-              .update({ status: "viewed", viewed_at: new Date().toISOString() })
-              .eq("id", requestId)
-              .in("status", ["sent", "scheduled"])
-              .then(
-                () => undefined,
-                () => undefined,
-              );
-            setRemoteRequestId(requestId);
-          }
-
-          if (reviewReq?.business_id) {
-            const { data: biz } = await supabaseClient
-              .from("businesses")
-              .select("name, settings")
-              .eq("id", reviewReq.business_id)
-              .single();
-
-            if (biz) {
-              setBusinessId(reviewReq.business_id);
-              const s = { ...(biz.settings || {}), businessName: biz.name } as Record<string, any>;
-              buildFromSettings(s, requestId, reviewReq.customer_name, reviewReq.project_name);
-              return;
-            }
-          }
-        } catch {
-          // fall through to localStorage cache
-        }
-      }
-
-      // 2. localStorage cache fallback (set by Settings/ReviewGateEditor page)
-      let saved: Record<string, any> = {};
+      setLoading(true);
+      setNotFound(false);
       try {
-        const raw = localStorage.getItem("business_settings");
-        if (raw) saved = JSON.parse(raw);
-      } catch {
-        // ignore
+        if (isAdminPreview) {
+          // Admin preview: current workspace business
+          await workspaceService.whenReady();
+          const bizId = workspaceService.getCurrentBusinessId();
+          const settings = bizId ? await loadBusiness(bizId) : null;
+          if (!settings) {
+            setNotFound(true);
+            return;
+          }
+          setBusinessId(bizId);
+          buildFromSettings(settings, "preview");
+          return;
+        }
+
+        const { data: reviewReq, error } = await supabaseClient
+          .from("review_requests")
+          .select("id, business_id, customer_name, project_name")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (error || !reviewReq?.business_id) {
+          setNotFound(true);
+          return;
+        }
+
+        // Record the open so both dashboards show a Viewed date.
+        // Fire-and-forget: a failed write must never block the customer.
+        supabaseClient
+          .from("review_requests")
+          .update({ status: "viewed", viewed_at: new Date().toISOString() })
+          .eq("id", reviewReq.id)
+          .in("status", ["sent", "scheduled"])
+          .then(
+            () => undefined,
+            () => undefined,
+          );
+        setRemoteRequestId(reviewReq.id);
+
+        const settings = await loadBusiness(reviewReq.business_id);
+        if (!settings) {
+          setNotFound(true);
+          return;
+        }
+        setBusinessId(reviewReq.business_id);
+        buildFromSettings(
+          settings,
+          reviewReq.id,
+          reviewReq.customer_name,
+          reviewReq.project_name,
+        );
+      } catch (err) {
+        console.error("Failed to load review request:", err);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
       }
-      buildFromSettings(saved, requestId);
     };
 
     load();
-  }, [id]);
-
-  const generateSeoReview = (originalText: string, request: ReviewRequest) => {
-    // Simulate AI enhancement using the configured prompt
-    // In real implementation, this would call an AI service with the custom prompt
-
-    const aiPrompt = `You are helping enhance customer reviews to be more discoverable and helpful. Take the customer's original review and enhance it by: 1) Adding location-specific keywords (${request.businessCity}, ${request.businessState}), 2) Including relevant service categories (${request.serviceCategory}), 3) Making it more descriptive while keeping the customer's authentic voice, 4) Adding helpful details that would assist other potential customers. Keep the enhancement natural and genuine.`;
-
-    if (!originalText) {
-      // Generate a template review when no original text exists
-      const templates = [
-        `Outstanding ${request.serviceCategory.toLowerCase()} experience with ${request.businessName} in ${request.businessCity}, ${request.businessState}! Their professional team exceeded our expectations with exceptional ${request.seoKeywords[0]} work. The attention to detail and quality craftsmanship made this project seamless from start to finish. Highly recommend their ${request.seoKeywords.slice(0, 2).join(" and ")} services to anyone in the ${request.businessCity} area looking for reliable contractors!`,
-
-        `Excellent service from ${request.businessName}! Their ${request.serviceCategory.toLowerCase()} expertise in ${request.businessCity} is top-notch. The team's professionalism and ${request.seoKeywords[0]} skills made our project a complete success. Quality work, fair pricing, and great communication throughout. Perfect choice for ${request.seoKeywords.slice(0, 2).join(" or ")} in ${request.businessState}!`,
-      ];
-      return templates[Math.floor(Math.random() * templates.length)];
-    } else {
-      // Enhance the customer's original text with SEO elements
-      const enhancedVersions = [
-        `${originalText.replace(/[.!]$/, "")} - ${request.businessName} in ${request.businessCity}, ${request.businessState} truly excels at ${request.serviceCategory.toLowerCase()}. Their ${request.seoKeywords[0]} expertise and professional approach made this entire experience exceptional. I highly recommend their ${request.seoKeywords.slice(0, 2).join(" and ")} services to anyone in the ${request.businessCity} area!`,
-
-        `Outstanding ${request.serviceCategory.toLowerCase()} service in ${request.businessCity}! ${originalText} ${request.businessName}'s team demonstrated excellent ${request.seoKeywords[0]} skills and attention to detail. Their professionalism and quality work make them the perfect choice for ${request.seoKeywords.slice(0, 2).join(" or ")} throughout ${request.businessState}.`,
-
-        `${originalText.replace(/[.!]$/, "")} ${request.businessName} provides exceptional ${request.serviceCategory.toLowerCase()} services in ${request.businessCity}, ${request.businessState}. Their expertise in ${request.seoKeywords[0]} and commitment to quality made our project a complete success. Highly recommend to neighbors in the ${request.businessCity} area!`,
-      ];
-      return enhancedVersions[
-        Math.floor(Math.random() * enhancedVersions.length)
-      ];
-    }
-  };
+  }, [id, isAdminPreview]);
 
   const handleRatingChange = (newRating: number) => {
     setRating(newRating);
-    if (newRating >= (reviewRequest?.threshold || 4)) {
-      setRedirectToGoogle(true);
-    } else {
-      setRedirectToGoogle(false);
-      setShowSeoVersion(false);
-      setSeoReviewText("");
-    }
+    setRedirectToGoogle(newRating >= (reviewRequest?.threshold || 4));
   };
 
-  const handleReviewTextChange = (text: string) => {
-    setReviewText(text);
-    if (redirectToGoogle && text.trim() && reviewRequest) {
-      const seoVersion = generateSeoReview(text, reviewRequest);
-      setSeoReviewText(seoVersion);
-      setShowSeoVersion(true);
-    } else {
-      setShowSeoVersion(false);
+  const copyToClipboard = async (text: string) => {
+    if (!text.trim()) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Review copied to clipboard - paste it on Google!");
+    } catch {
+      toast.error("Couldn't copy to clipboard");
     }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Review copied to clipboard!");
   };
 
   /**
@@ -307,7 +293,7 @@ export default function ReviewGate() {
   };
 
   const handleGoogleRedirect = (text: string) => {
-    copyToClipboard(text);
+    void copyToClipboard(text);
     // Best-effort completion record — never blocks the customer's redirect
     void recordSubmission(text, true);
     setTimeout(() => {
@@ -316,12 +302,29 @@ export default function ReviewGate() {
     }, 500);
   };
 
-  if (!reviewRequest) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl p-6 shadow-md border border-blue-100 w-full max-w-md text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-blue-900">Loading review form...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !reviewRequest) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl p-6 shadow-md border border-blue-100 w-full max-w-md text-center">
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">
+            Review link not found
+          </h2>
+          <p className="text-blue-700">
+            {isAdminPreview
+              ? "No business is selected for this workspace, so there is nothing to preview."
+              : "This review link is invalid or has expired. Please contact the business for a new link."}
+          </p>
         </div>
       </div>
     );
@@ -489,78 +492,33 @@ export default function ReviewGate() {
                 </label>
                 <Textarea
                   value={reviewText}
-                  onChange={(e) => handleReviewTextChange(e.target.value)}
+                  onChange={(e) => setReviewText(e.target.value)}
                   placeholder="Share details about your experience..."
                   className="min-h-[100px] border-blue-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
                 />
               </div>
             )}
 
-            {/* Feedback submit — below-threshold ratings, and above-threshold
-                ones when no Google URL is configured (the Google buttons in
-                the enhanced block below cover the remaining case) */}
             {rating > 0 &&
-              (!redirectToGoogle || !reviewRequest.googleReviewUrl) &&
-              !(showSeoVersion && seoReviewText) && (
-              <Button
-                onClick={handleSubmitFeedback}
-                disabled={isSubmitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-              >
-                {isSubmitting ? "Submitting..." : gateSettings.buttonText}
-              </Button>
-            )}
-
-            {/* Enhanced Review */}
-            {showSeoVersion && seoReviewText && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
-                <div className="mb-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">
-                    ✨ Enhanced Version of Your Review
-                  </h4>
-                  <p className="text-sm text-blue-700">
-                    We've enhanced your review with location details and service
-                    keywords that help other customers in{" "}
-                    {reviewRequest.businessCity} find{" "}
-                    {reviewRequest.businessName}.
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-blue-200 text-sm mb-4 shadow-sm">
-                  {seoReviewText}
-                </div>
-                {reviewRequest.googleReviewUrl ? (
-                  <div className="space-y-3">
-                    <Button
-                      onClick={() => handleGoogleRedirect(seoReviewText)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Enhanced & Continue to Google
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleGoogleRedirect(reviewText)}
-                      className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
-                    >
-                      Use Original & Continue to Google
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
-                ) : (
-                  // No Google review URL is configured for this business, so a
-                  // "Continue to Google" button would open a blank tab. Fall
-                  // back to recording the review here instead.
-                  <Button
-                    onClick={handleSubmitFeedback}
-                    disabled={isSubmitting}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                  >
-                    {isSubmitting ? "Submitting..." : gateSettings.buttonText}
-                  </Button>
-                )}
-              </div>
-            )}
+              (redirectToGoogle && reviewRequest.googleReviewUrl ? (
+                <Button
+                  onClick={() => handleGoogleRedirect(reviewText)}
+                  disabled={isSubmitting}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy My Review & Continue to Google
+                  <ExternalLink className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmitFeedback}
+                  disabled={isSubmitting}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                >
+                  {isSubmitting ? "Submitting..." : gateSettings.buttonText}
+                </Button>
+              ))}
           </div>
         </div>
       </div>

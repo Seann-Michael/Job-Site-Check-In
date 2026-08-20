@@ -249,19 +249,18 @@ interface ReviewGateSettings {
 }
 
 const DEFAULTS: ReviewGateSettings = {
-  businessName: "Smith Construction LLC",
+  businessName: "",
   businessLogo: "",
-  city: "Springfield",
-  state: "Illinois",
-  address: "123 Main St, Springfield, IL 62701",
-  googleReviewUrl: "https://g.page/r/CdWWUaI_IBAoEBM/review",
+  city: "",
+  state: "",
+  address: "",
+  googleReviewUrl: "",
   reviewGateHeading: "How did we do?",
-  projectName: "Kitchen Renovation",
-  projectDescription:
-    "Complete kitchen remodel with custom cabinets and granite countertops",
+  projectName: "",
+  projectDescription: "",
   reviewGateThreshold: 4,
-  reviewGateSeoKeywords: "kitchen renovation, custom cabinets, home remodeling, Springfield contractor",
-  serviceCategory: "Home Renovation",
+  reviewGateSeoKeywords: "",
+  serviceCategory: "",
   reviewGateVideoUrl: "",
   reviewGateIframeCode: "",
   reviewGateThankYouMessage: "",
@@ -273,11 +272,7 @@ function ReviewGatePreview({ s }: { s: ReviewGateSettings }) {
   const [previewRating, setPreviewRating] = useState(0);
   const [previewText, setPreviewText] = useState("");
 
-  const isHighRating = previewRating >= s.reviewGateThreshold;
-  const keywords = s.reviewGateSeoKeywords
-    .split(",")
-    .map((k) => k.trim())
-    .filter(Boolean);
+  const isHighRating = previewRating >= s.reviewGateThreshold && !!s.googleReviewUrl;
 
   return (
     <div className="min-h-full bg-gradient-to-br from-slate-50 to-blue-50 p-4">
@@ -382,28 +377,11 @@ function ReviewGatePreview({ s }: { s: ReviewGateSettings }) {
 
             {/* High-rating action */}
             {isHighRating && previewText.trim() && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-                <h4 className="text-xs font-semibold text-blue-900 mb-1">
-                  ✨ Enhanced Version of Your Review
-                </h4>
-                <p className="text-xs text-blue-700 mb-3">
-                  We've enhanced your review with location details and service keywords
-                  that help other customers in {s.city} find {s.businessName}.
-                </p>
-                <div className="bg-white p-3 rounded-lg border border-blue-200 text-xs mb-3 shadow-sm text-gray-700">
-                  {previewText} — {s.businessName} in {s.city}, {s.state} truly excels
-                  at {s.serviceCategory.toLowerCase()}.{" "}
-                  {keywords[0] && `Their ${keywords[0]} expertise made this experience exceptional.`}
-                </div>
-                <button className="w-full bg-blue-600 text-white text-xs py-2 rounded-lg font-medium flex items-center justify-center gap-1.5">
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy Enhanced &amp; Continue to Google
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </button>
-                <button className="w-full mt-2 border border-blue-300 text-blue-700 text-xs py-2 rounded-lg font-medium">
-                  Use Original &amp; Continue to Google
-                </button>
-              </div>
+              <button className="w-full bg-blue-600 text-white text-xs py-2 rounded-lg font-medium flex items-center justify-center gap-1.5">
+                <Copy className="h-3.5 w-3.5" />
+                Copy My Review &amp; Continue to Google
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
             )}
 
             {/* Low-rating submit */}
@@ -492,17 +470,30 @@ export default function ReviewGateEditor() {
   const [settings, setSettings] = useState<ReviewGateSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load from Supabase (businesses.settings) with localStorage cache fallback
+  // Load from Supabase (businesses.settings)
   useEffect(() => {
-    const applySettings = (s: Record<string, any>, bizName?: string) => {
+    const applySettings = (
+      s: Record<string, any>,
+      bizName?: string,
+      bizAddress?: Record<string, any> | null,
+      gmb?: Record<string, any> | null,
+    ) => {
+      const addr = bizAddress || {};
       setSettings({
         businessName: bizName || s.businessName || DEFAULTS.businessName,
         businessLogo: s.reviewGateLogoUrl || s.businessLogo || DEFAULTS.businessLogo,
-        city: s.city || DEFAULTS.city,
-        state: s.state || DEFAULTS.state,
-        address: s.address || DEFAULTS.address,
-        googleReviewUrl: s.reviewGateGoogleUrl || s.googleBusinessUrl || DEFAULTS.googleReviewUrl,
+        city: s.city || addr.city || DEFAULTS.city,
+        state: s.state || addr.state || DEFAULTS.state,
+        address: s.address || addr.street || addr.address || DEFAULTS.address,
+        googleReviewUrl:
+          s.reviewGateGoogleUrl ||
+          s.googleBusinessUrl ||
+          gmb?.review_url ||
+          gmb?.reviewUrl ||
+          DEFAULTS.googleReviewUrl,
         reviewGateHeading: s.reviewGateHeading || DEFAULTS.reviewGateHeading,
         projectName: s.projectName || DEFAULTS.projectName,
         projectDescription: s.projectDescription || DEFAULTS.projectDescription,
@@ -517,31 +508,36 @@ export default function ReviewGateEditor() {
     };
 
     const load = async () => {
-      // 1. Try Supabase first
+      setLoading(true);
+      setLoadError(null);
       try {
-        let wsState = workspaceService.getState();
-        if (!wsState.initialized) wsState = await workspaceService.initialize();
-        if (wsState.currentBusinessId) {
-          const { data: biz } = await supabaseClient
-            .from("businesses")
-            .select("name, settings")
-            .eq("id", wsState.currentBusinessId)
-            .single();
-          if (biz) {
-            applySettings((biz.settings || {}) as Record<string, any>, biz.name);
-            return;
-          }
+        const wsState = await workspaceService.whenReady();
+        if (!wsState.currentBusinessId) {
+          setLoadError("No business is selected for this workspace.");
+          return;
         }
-      } catch {
-        // fall through to localStorage cache
-      }
-
-      // 2. localStorage cache fallback
-      try {
-        const raw = localStorage.getItem("business_settings");
-        if (raw) applySettings(JSON.parse(raw));
-      } catch {
-        // keep defaults
+        const { data: biz, error } = await supabaseClient
+          .from("businesses")
+          .select("name, settings, address, google_my_business")
+          .eq("id", wsState.currentBusinessId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!biz) {
+          setLoadError("Business not found.");
+          return;
+        }
+        applySettings(
+          (biz.settings || {}) as Record<string, any>,
+          biz.name,
+          biz.address as Record<string, any> | null,
+          biz.google_my_business as Record<string, any> | null,
+        );
+      } catch (err) {
+        console.error("[ReviewGateEditor] load failed:", err);
+        setLoadError(err instanceof Error ? err.message : "Failed to load settings");
+        toast.error("Failed to load review gate settings");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -579,50 +575,43 @@ export default function ReviewGateEditor() {
         reviewGateButtonText: settings.reviewGateButtonText,
       };
 
-      // 1. Persist to Supabase (primary)
-      let savedToSupabase = false;
-      try {
-        let wsState = workspaceService.getState();
-        if (!wsState.initialized) wsState = await workspaceService.initialize();
-        if (wsState.currentBusinessId) {
-          const { data: biz } = await supabaseClient
-            .from("businesses")
-            .select("settings")
-            .eq("id", wsState.currentBusinessId)
-            .single();
-          const merged = { ...(biz?.settings || {}), ...patch };
-          const { error } = await supabaseClient
-            .from("businesses")
-            .update({ settings: merged, updated_at: new Date().toISOString() })
-            .eq("id", wsState.currentBusinessId);
-          if (error) throw error;
-          savedToSupabase = true;
-        }
-      } catch (err) {
-        console.error("[ReviewGateEditor] Supabase save failed:", err);
+      const wsState = await workspaceService.whenReady();
+      if (!wsState.currentBusinessId) {
+        throw new Error("No business is selected for this workspace.");
       }
-
-      // 2. Keep localStorage in sync as a fast-read cache
-      let existing: Record<string, any> = {};
-      try {
-        const raw = localStorage.getItem("business_settings");
-        if (raw) existing = JSON.parse(raw);
-      } catch {}
-      localStorage.setItem("business_settings", JSON.stringify({ ...existing, ...patch }));
+      const { data: biz, error: readError } = await supabaseClient
+        .from("businesses")
+        .select("settings")
+        .eq("id", wsState.currentBusinessId)
+        .single();
+      if (readError) throw readError;
+      const merged = { ...((biz?.settings as Record<string, any>) || {}), ...patch };
+      const { error } = await supabaseClient
+        .from("businesses")
+        .update({ settings: merged, updated_at: new Date().toISOString() })
+        .eq("id", wsState.currentBusinessId);
+      if (error) throw error;
 
       setHasChanges(false);
-      toast.success(savedToSupabase ? "Review gate settings saved!" : "Settings saved locally (Supabase unavailable).");
-    } catch {
-      toast.error("Failed to save settings");
+      toast.success("Review gate settings saved!");
+    } catch (err) {
+      console.error("[ReviewGateEditor] save failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setSaving(false);
     }
   };
 
   const handleReset = () => {
-    setSettings(DEFAULTS);
+    setSettings((prev) => ({
+      ...DEFAULTS,
+      businessName: prev.businessName,
+      city: prev.city,
+      state: prev.state,
+      address: prev.address,
+    }));
     setHasChanges(true);
-    toast.info("Reset to default values — click Save to apply.");
+    toast.info("Review gate fields cleared — click Save to apply.");
   };
 
   return (
@@ -654,7 +643,7 @@ export default function ReviewGateEditor() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate("/review-demo")}
+              onClick={() => navigate("/review/preview")}
               className="gap-1.5 text-xs"
             >
               <Eye className="h-3.5 w-3.5" />
@@ -673,8 +662,19 @@ export default function ReviewGateEditor() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="mx-4 mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {loadError}
+        </div>
+      )}
+
       {/* Split layout */}
-      <div className="flex h-[calc(100vh-8rem)] overflow-hidden">
+      <div className="flex h-[calc(100vh-8rem)] overflow-hidden relative">
+        {loading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        )}
 
         {/* ── LEFT PANEL: Editor ── */}
         <div className="w-[380px] flex-shrink-0 border-r overflow-y-auto bg-background">
@@ -703,7 +703,7 @@ export default function ReviewGateEditor() {
                     <Input
                       value={settings.city}
                       onChange={(e) => update("city", e.target.value)}
-                      placeholder="Springfield"
+                      placeholder="City"
                     />
                   </Field>
                   <Field label="State">
@@ -741,7 +741,7 @@ export default function ReviewGateEditor() {
                   <Input
                     value={settings.projectName}
                     onChange={(e) => update("projectName", e.target.value)}
-                    placeholder="Kitchen Renovation"
+                    placeholder="Project name shown to the customer"
                   />
                 </Field>
                 <Field label="Project Description">
@@ -961,7 +961,7 @@ export default function ReviewGateEditor() {
               variant="ghost"
               size="sm"
               className="text-xs h-7 gap-1"
-              onClick={() => navigate("/review-demo")}
+              onClick={() => navigate("/review/preview")}
             >
               <Eye className="h-3.5 w-3.5" />
               Open full page

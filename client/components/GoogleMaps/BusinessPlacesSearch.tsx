@@ -140,12 +140,6 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
       };
 
       service.textSearch(request, (results, status) => {
-        console.log(
-          "Business search - Status:",
-          status,
-          "Results:",
-          results?.length,
-        );
 
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           const businessResults: BusinessPlaceResult[] = results
@@ -187,13 +181,8 @@ export const BusinessPlacesSearch: React.FC<BusinessPlacesSearchProps> = ({
               };
             });
 
-          console.log(
-            "Business search results processed:",
-            businessResults.length,
-          );
           setSuggestions(businessResults);
         } else {
-          console.log("No business results or bad status:", status);
           setSuggestions([]);
         }
         setIsLoading(false);

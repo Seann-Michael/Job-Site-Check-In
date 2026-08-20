@@ -134,7 +134,6 @@ export default function BusinessDetail() {
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [passwordChangeUser, setPasswordChangeUser] =
     useState<BusinessUser | null>(null);
-  const [newPassword, setNewPassword] = useState("");
   const [newUsername, setNewUsername] = useState("");
 
   const [businessData, setBusinessData] = useState({
@@ -178,7 +177,8 @@ export default function BusinessDetail() {
           .select("*, owner:owner_id(name, email, phone)")
           .eq("id", businessId)
           .single();
-        if (error || !data) return;
+        if (error) throw error;
+        if (!data) throw new Error("Business not found");
         const ownerName: string = data.owner?.name ?? "";
         const nameParts = ownerName.split(" ");
         const addrObj = data.address as Record<string, string> | null;
@@ -201,8 +201,8 @@ export default function BusinessDetail() {
           storage: "—", storageLimit: "—", revenue: 0, billingDate: "—", lastFourCard: "",
           planDetails: { currentPlan: (data.metadata as any)?.plan ?? "", monthlyPrice: 0, features: [], nextBilling: "" },
         });
-      } catch {
-        // keep blank
+      } catch (err: any) {
+        toast.error("Failed to load business: " + (err?.message ?? "Unknown error"));
       } finally {
         setLoadingBusiness(false);
       }
@@ -294,8 +294,8 @@ export default function BusinessDetail() {
             setUsers([mapped]);
           }
         }
-      } catch (err) {
-        console.error("Failed to load business related data:", err);
+      } catch (err: any) {
+        toast.error("Failed to load notes and users: " + (err?.message ?? "Unknown error"));
       }
     };
     loadRelated();
@@ -419,26 +419,6 @@ export default function BusinessDetail() {
     } catch {
       toast.error("Failed to delete note");
     }
-  };
-
-  const handlePasswordChange = async () => {
-    if (!passwordChangeUser || !newPassword) return;
-    try {
-      // Update via server-side endpoint (requires admin privileges)
-      const res = await fetch("/api/auth/admin-reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: passwordChangeUser.id, password: newPassword }),
-      });
-      if (!res.ok) throw new Error("Server error");
-      toast.success(`Password updated for ${passwordChangeUser.name}`);
-    } catch {
-      // Fallback: update the users table with a note (actual auth password requires admin API)
-      toast.info(`Password reset queued for ${passwordChangeUser.name}. Ensure server-side admin API is configured.`);
-    }
-    setShowPasswordChange(false);
-    setNewPassword("");
-    setPasswordChangeUser(null);
   };
 
   const handleUsernameChange = async () => {
@@ -803,20 +783,6 @@ export default function BusinessDetail() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Payment Method</Label>
-                <div className="flex items-center justify-between p-2 border rounded">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    <span className="text-sm">
-                      **** **** **** {businessData.lastFourCard}
-                    </span>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Update
-                  </Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -1125,11 +1091,11 @@ export default function BusinessDetail() {
           </CardContent>
         </Card>
 
-        {/* Password/Username Change Dialog */}
+        {/* Username/Email Change Dialog */}
         <Dialog open={showPasswordChange} onOpenChange={setShowPasswordChange}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Change User Credentials</DialogTitle>
+              <DialogTitle>Change User Email</DialogTitle>
             </DialogHeader>
             {passwordChangeUser && (
               <div className="space-y-4">
@@ -1147,15 +1113,6 @@ export default function BusinessDetail() {
                     placeholder="Enter new username/email"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>New Password</Label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                  />
-                </div>
               </div>
             )}
             <DialogFooter>
@@ -1167,9 +1124,6 @@ export default function BusinessDetail() {
               </Button>
               <Button onClick={handleUsernameChange} disabled={!newUsername}>
                 Update Username
-              </Button>
-              <Button onClick={handlePasswordChange} disabled={!newPassword}>
-                Update Password
               </Button>
             </DialogFooter>
           </DialogContent>

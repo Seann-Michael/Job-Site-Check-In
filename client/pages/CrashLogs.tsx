@@ -26,6 +26,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AppLayout } from "@/components/AppLayout";
+import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   Search,
@@ -46,7 +48,6 @@ import {
   Info,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
 
 interface ErrorLog {
@@ -71,12 +72,36 @@ function CrashLogs() {
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadLogs = async () => {
-    const { data } = await supabaseClient
+    setLoading(true);
+    setLoadError(null);
+    // crash_logs has no business_id; the closest tenant scope is the user who
+    // hit the error. Super admins see everything.
+    const user = getCurrentUser();
+    let query = supabaseClient
       .from("crash_logs")
       .select("*")
-      .order("timestamp", { ascending: false });
+      .order("timestamp", { ascending: false })
+      .limit(500);
+    if (!isSuperAdmin()) {
+      if (!user?.id) {
+        setErrorLogs([]);
+        setLoading(false);
+        return;
+      }
+      query = query.eq("user_id", String(user.id));
+    }
+    const { data, error } = await query;
+    setLoading(false);
+    if (error) {
+      console.error("Failed to load crash logs:", error);
+      setLoadError(error.message);
+      toast.error("Failed to load crash logs");
+      return;
+    }
     if (data) {
       setErrorLogs(
         data.map((r: any) => ({
@@ -413,7 +438,17 @@ ${log.stack ? `Stack Trace:\n${log.stack}` : ""}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredLogs.length === 0 ? (
+              {loadError && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {loadError}
+                </div>
+              )}
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Loading error logs…
+                </div>
+              ) : filteredLogs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4" />
                   <p>No error logs found matching your criteria.</p>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,8 @@ export default function Profile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
@@ -59,7 +60,8 @@ export default function Profile() {
             .eq("id", uid)
             .single();
 
-          if (!error && data) {
+          if (error) throw error;
+          if (data) {
             const nameParts = (data.name || "").split(" ");
             setProfileData({
               firstName: data.first_name || nameParts[0] || "",
@@ -67,40 +69,16 @@ export default function Profile() {
               email: data.email || "",
               phone: data.phone || "",
               avatar: data.avatar_url || "",
-              role: data.role || "Admin",
+              role: data.role || "",
             });
-            return;
           }
-        }
-
-        // Fallback to localStorage
-        const saved = localStorage.getItem("userProfile");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setProfileData({
-            firstName: parsed.firstName || "",
-            lastName: parsed.lastName || "",
-            email: parsed.email || "",
-            phone: parsed.phone || "",
-            avatar: parsed.avatar || "",
-            role: parsed.role || "Admin",
-          });
         } else {
-          // Fallback from auth_user
-          const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-          if (authUser.email) {
-            const nameParts = (authUser.name || "").split(" ");
-            setProfileData((prev) => ({
-              ...prev,
-              firstName: nameParts[0] || "",
-              lastName: nameParts.slice(1).join(" ") || "",
-              email: authUser.email || "",
-              role: authUser.role || "Admin",
-            }));
-          }
+          setLoadError("No user session found. Please log in again.");
         }
       } catch (err) {
         console.error("Failed to load profile:", err);
+        setLoadError(err instanceof Error ? err.message : "Failed to load profile");
+        toast.error("Failed to load profile");
       } finally {
         setIsLoading(false);
       }
@@ -120,16 +98,38 @@ export default function Profile() {
     setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) {
-          setProfileData((prev) => ({ ...prev, avatar: evt.target?.result as string }));
-        }
-      };
-      reader.readAsDataURL(file);
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB");
+      return;
+    }
+    if (!userId) {
+      toast.error("Cannot upload — no user session found.");
+      return;
+    }
+    setIsUploadingAvatar(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `avatars/${userId}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("media")
+        .upload(path, file, { cacheControl: "3600", upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("media").getPublicUrl(path);
+      setProfileData((prev) => ({ ...prev, avatar: data.publicUrl }));
+      toast.success("Photo uploaded — click Save to apply");
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to upload photo");
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -250,6 +250,11 @@ export default function Profile() {
         </div>
 
         <div className="max-w-2xl mx-auto space-y-6">
+          {loadError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {loadError}
+            </div>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
@@ -268,13 +273,14 @@ export default function Profile() {
                     variant="outline"
                     size="sm"
                     className="gap-2"
+                    disabled={isUploadingAvatar}
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Camera className="h-4 w-4" />
-                    Change Photo
+                    {isUploadingAvatar ? "Uploading…" : "Change Photo"}
                   </Button>
                   <p className="text-sm text-muted-foreground mt-1">
-                    JPG, PNG up to 2MB
+                    JPG, PNG up to 5MB
                   </p>
                 </div>
                 <input

@@ -23,7 +23,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLocation, useNavigate } from "react-router-dom";
 import supabaseClient from "@/lib/supabaseClient";
+import { getCurrentUser } from "@/lib/auth";
 
 interface Notification {
   id: string;
@@ -43,14 +45,36 @@ export function NotificationDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isSuperAdminShell = location.pathname.startsWith("/super-admin");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Every read/write below is scoped to this id. Requires notifications.user_id.
+  const userId = getCurrentUser()?.id ? String(getCurrentUser()!.id) : null;
 
   useEffect(() => {
     const loadNotifications = async () => {
-      const { data } = await supabaseClient
+      if (!userId) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setLoadError(null);
+      const { data, error } = await supabaseClient
         .from("notifications")
         .select("*")
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50);
+      setLoading(false);
+      if (error) {
+        console.error("Failed to load notifications:", error);
+        setLoadError("Couldn't load notifications");
+        return;
+      }
       if (data) {
         const mapped: Notification[] = data.map((n: any) => ({
           id: n.id,
@@ -70,7 +94,7 @@ export function NotificationDropdown() {
       }
     };
     loadNotifications();
-  }, []);
+  }, [userId]);
 
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
@@ -102,10 +126,16 @@ export function NotificationDropdown() {
   };
 
   const markAsRead = async (notificationId: string) => {
-    await supabaseClient
+    if (!userId) return;
+    const { error } = await supabaseClient
       .from("notifications")
       .update({ read: true })
-      .eq("id", notificationId);
+      .eq("id", notificationId)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Failed to mark notification as read");
+      return;
+    }
     setNotifications(prev =>
       prev.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
@@ -115,20 +145,32 @@ export function NotificationDropdown() {
   };
 
   const markAllAsRead = async () => {
-    await supabaseClient
+    if (!userId) return;
+    const { error } = await supabaseClient
       .from("notifications")
       .update({ read: true })
-      .eq("read", false);
+      .eq("read", false)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Failed to mark notifications as read");
+      return;
+    }
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
     toast.success("All notifications marked as read");
   };
 
   const deleteNotification = async (notificationId: string) => {
-    await supabaseClient
+    if (!userId) return;
+    const { error } = await supabaseClient
       .from("notifications")
       .delete()
-      .eq("id", notificationId);
+      .eq("id", notificationId)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Failed to delete notification");
+      return;
+    }
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
     const notification = notifications.find(n => n.id === notificationId);
     if (notification && !notification.read) {
@@ -138,8 +180,15 @@ export function NotificationDropdown() {
   };
 
   const clearAllNotifications = async () => {
-    // Delete all notifications for current user (no user filter = delete all)
-    await supabaseClient.from("notifications").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (!userId) return;
+    const { error } = await supabaseClient
+      .from("notifications")
+      .delete()
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Failed to clear notifications");
+      return;
+    }
     setNotifications([]);
     setUnreadCount(0);
     toast.success("All notifications cleared");
@@ -180,7 +229,11 @@ export function NotificationDropdown() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        {notifications.length === 0 ? (
+        {loading ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : loadError ? (
+          <div className="p-4 text-center text-sm text-destructive">{loadError}</div>
+        ) : notifications.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
             <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
             No notifications
@@ -264,19 +317,20 @@ export function NotificationDropdown() {
                 <Trash2 className="h-3 w-3 mr-1" />
                 Clear all
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setIsOpen(false);
-                  // Navigate to notifications settings or page
-                  toast.info("Notification settings coming soon");
-                }}
-                className="text-xs"
-              >
-                <Settings className="h-3 w-3 mr-1" />
-                Settings
-              </Button>
+              {!isSuperAdminShell && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate("/admin/settings?tab=notifications");
+                  }}
+                  className="text-xs"
+                >
+                  <Settings className="h-3 w-3 mr-1" />
+                  Settings
+                </Button>
+              )}
             </div>
           </>
         )}

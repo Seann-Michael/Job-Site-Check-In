@@ -601,8 +601,8 @@ export default function ClientDetail() {
   };
 
   const getSupabaseUrl = (path: string) => {
-    const base = import.meta.env.VITE_SUPABASE_URL;
-    return `${base}/storage/v1/object/public/media/${path}`;
+    if (/^https?:\/\//i.test(path)) return path;
+    return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
   };
 
   if (loading) {

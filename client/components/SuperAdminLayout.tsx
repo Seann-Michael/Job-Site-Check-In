@@ -245,7 +245,7 @@ export function SuperAdminLayout({
                 {currentUser?.name || "Super Admin"}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {currentUser?.email || "admin@system.com"}
+                {currentUser?.email || ""}
               </p>
             </div>
           </div>
@@ -391,7 +391,7 @@ export function SuperAdminLayout({
                         {currentUser?.name || "Super Admin"}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {currentUser?.email || "admin@system.com"}
+                        {currentUser?.email || ""}
                       </p>
                     </div>
                   </DropdownMenuLabel>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -59,7 +58,7 @@ interface ReviewSnapshot {
   currentRating: number;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Defaults ─────────────────────────────────────────────────────────────────
 
 const EMPTY_SNAPSHOT: ReviewSnapshot = {
   connectedAt: "",

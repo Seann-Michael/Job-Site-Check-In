@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { ContextualHeader } from "@/components/ContextualHeader";
 import { HeaderSearch } from "@/components/SmartSearch";
 import { AppNotifications } from "@/components/UpdateNotification";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
@@ -65,7 +64,6 @@ import {
   Bot,
   UserCheck,
   Lightbulb,
-  Share2,
   Moon,
   Sun,
 } from "lucide-react";
@@ -143,7 +141,6 @@ export function AppLayout({
   const currentUser = getCurrentUser();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [businessName, setBusinessName] = useState("");
   const [zoomLevel, setZoomLevel] = useState(100);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
@@ -163,53 +160,16 @@ export function AppLayout({
     }
   };
 
-  // Load business name and zoom level on mount and listen for changes
+  // Restore saved zoom level on mount
   useEffect(() => {
-    const loadBusinessName = () => {
-      const name = localStorage.getItem("business_name") || "Waypoint";
-      console.log("Loading business name:", name);
-      setBusinessName(name);
-    };
-
-    const loadZoomLevel = () => {
-      const savedZoom = localStorage.getItem("system_zoom");
-      if (savedZoom) {
-        const zoom = parseInt(savedZoom);
+    const savedZoom = localStorage.getItem("system_zoom");
+    if (savedZoom) {
+      const zoom = parseInt(savedZoom);
+      if (!Number.isNaN(zoom)) {
         setZoomLevel(zoom);
         document.body.style.zoom = `${zoom}%`;
       }
-    };
-
-    // Load initially
-    loadBusinessName();
-    loadZoomLevel();
-
-    // Listen for storage changes (in case updated from another tab/window)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "business_name") {
-        setBusinessName(e.newValue || "My Business");
-      }
-    };
-
-    // Listen for custom business name change events (same tab updates)
-    const handleBusinessNameChange = (e: CustomEvent) => {
-      setBusinessName(e.detail || "My Business");
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener(
-      "businessNameChanged",
-      handleBusinessNameChange as EventListener,
-    );
-
-    // Clean up listeners
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener(
-        "businessNameChanged",
-        handleBusinessNameChange as EventListener,
-      );
-    };
+    }
   }, []);
 
   // Lock body scroll when mobile sidebar is open
@@ -256,15 +216,6 @@ export function AppLayout({
   }, [location.pathname, expandedMenus]);
 
 
-  // Auto-expand Tools menu if we're on tools pages
-  React.useEffect(() => {
-    if (
-      location.pathname.startsWith("/admin/tools") &&
-      !expandedMenus.includes("tools")
-    ) {
-      setExpandedMenus((prev) => [...prev, "tools"]);
-    }
-  }, [location.pathname, expandedMenus]);
 
   // Navigation items with conditional visibility
   const sidebarItems = [
@@ -330,7 +281,6 @@ export function AppLayout({
       href: "", // No direct href - dropdown placeholder
       icon: Wrench,
       active:
-        location.pathname.startsWith("/admin/tools") ||
         location.pathname.startsWith("/admin/gmb-optimization"),
       comingSoon: false,
       subItems: [
@@ -341,14 +291,6 @@ export function AppLayout({
           active: location.pathname.startsWith("/admin/gmb-optimization"),
         },
       ],
-    },
-    {
-      id: "social-posting",
-      label: "Social Posting",
-      href: "/admin/social-posting",
-      icon: Share2,
-      active: location.pathname === "/admin/social-posting",
-      comingSoon: false,
     },
   ];
 
@@ -772,9 +714,11 @@ export function AppLayout({
                           <p className="text-sm font-medium leading-none">
                             {currentUser?.name || "User"}
                           </p>
-                          <p className="text-xs leading-none text-muted-foreground">
-                            {currentUser?.email || "user@example.com"}
-                          </p>
+                          {currentUser?.email && (
+                            <p className="text-xs leading-none text-muted-foreground">
+                              {currentUser.email}
+                            </p>
+                          )}
                         </div>
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />

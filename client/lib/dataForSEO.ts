@@ -1,12 +1,10 @@
+import { apiFetch, isApiError } from "./api";
 import { toast } from "sonner";
 
-// DataForSEO API Configuration
-const DATAFORSEO_BASE_URL = "https://api.dataforseo.com/v3";
-
-interface DataForSEOCredentials {
-  username: string;
-  password: string;
-}
+/**
+ * DataForSEO client. All calls go through the server proxy at
+ * /api/dataforseo/* — credentials live only on the server.
+ */
 
 interface GeographicWaypoint {
   id: string;
@@ -118,94 +116,40 @@ interface BusinessProfile {
 }
 
 class DataForSEOService {
-  private credentials: DataForSEOCredentials | null = null;
-  private baseUrl = DATAFORSEO_BASE_URL;
+  private configured: boolean | null = null;
 
-  constructor() {
-    // Initialize with environment variables if available
-    const envUsername = import.meta.env.VITE_DATAFORSEO_USERNAME;
-    const envPassword = import.meta.env.VITE_DATAFORSEO_PASSWORD;
-
-    if (envUsername && envPassword) {
-      console.log("✅ DataForSEO: Using environment variables");
-      this.credentials = {
-        username: envUsername,
-        password: envPassword,
-      };
-    } else {
-      this.loadCredentials();
-    }
-  }
-
-  private loadCredentials() {
-    // If credentials already loaded from environment variables, skip
-    if (this.credentials) {
-      return;
-    }
-
-    // Try to load from localStorage as fallback
-    if (typeof window !== "undefined") {
-      const username = localStorage.getItem("dataforseo_username");
-      const password = localStorage.getItem("dataforseo_password");
-
-      if (username && password) {
-        this.credentials = { username, password };
-      }
-    }
-  }
-
-  setCredentials(username: string, password: string) {
-    this.credentials = { username, password };
-    if (typeof window !== "undefined") {
-      localStorage.setItem("dataforseo_username", username);
-      localStorage.setItem("dataforseo_password", password);
-    }
-  }
-
-  hasCredentials(): boolean {
-    return this.credentials !== null;
-  }
-
-  private getAuthHeader(): string {
-    if (!this.credentials) {
-      throw new Error("DataForSEO credentials not configured");
-    }
-    return btoa(`${this.credentials.username}:${this.credentials.password}`);
-  }
-
-  private async makeRequest(endpoint: string, data: any): Promise<any> {
-    if (!this.credentials) {
-      throw new Error(
-        "DataForSEO credentials not configured. Please set up your API credentials in Settings.",
-      );
-    }
-
+  /** Whether the server has DataForSEO credentials configured (cached). */
+  async isConfigured(): Promise<boolean> {
+    if (this.configured !== null) return this.configured;
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const res = await apiFetch<{ configured: boolean }>("/api/dataforseo/status");
+      this.configured = !!res?.configured;
+    } catch {
+      this.configured = false;
+    }
+    return this.configured;
+  }
+
+  /**
+   * POST a DataForSEO v3 task array to the given endpoint via the proxy.
+   * @param endpoint e.g. "/serp/google/maps/live"
+   */
+  private async makeRequest(endpoint: string, data: any): Promise<any> {
+    const ep = endpoint.replace(/^\/+/, "");
+    try {
+      const result = await apiFetch<any>(`/api/dataforseo/v3/${ep}`, {
         method: "POST",
-        headers: {
-          Authorization: `Basic ${this.getAuthHeader()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+        body: data,
       });
-
-      if (!response.ok) {
-        throw new Error(
-          `API request failed: ${response.status} ${response.statusText}`,
-        );
+      if (result?.status_code && result.status_code !== 20000) {
+        throw new Error(`API error: ${result.status_message || "Unknown error"}`);
       }
-
-      const result = await response.json();
-
-      if (result.status_code !== 20000) {
-        throw new Error(
-          `API error: ${result.status_message || "Unknown error"}`,
-        );
-      }
-
       return result;
     } catch (error) {
+      if (isApiError(error) && error.isUnavailable) {
+        this.configured = false;
+        throw new Error("DataForSEO is not configured on the server.");
+      }
       console.error("DataForSEO API Error:", error);
       throw error;
     }
@@ -418,14 +362,15 @@ class DataForSEOService {
 
   async testConnection(): Promise<boolean> {
     try {
-      // Use a simple endpoint to test credentials
-      const response = await this.makeRequest(
-        "/serp/google/maps/locations",
-        [],
-      );
-      return response.status_code === 20000;
+      const res = await apiFetch<{ ok: boolean }>("/api/dataforseo/test-connection", {
+        method: "POST",
+        body: {},
+      });
+      return !!res?.ok;
     } catch (error) {
-      console.error("Connection test failed:", error);
+      if (!(isApiError(error) && error.isUnavailable)) {
+        console.error("Connection test failed:", error);
+      }
       return false;
     }
   }

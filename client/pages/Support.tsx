@@ -1,4 +1,3 @@
-// @ts-nocheck - Temporary suppression of type errors
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -58,6 +65,8 @@ import { useToast } from "@/hooks/use-toast";
 import { isAgencyAdmin, isSuperAdmin, getCurrentUser } from "@/lib/auth";
 import { ArrowUpDown } from "lucide-react";
 import { supabase } from "@/lib/dataService";
+import { Link } from "react-router-dom";
+import { downloadCsv } from "@/lib/dataExport";
 
 interface SupportTicket {
   id: string;
@@ -81,8 +90,27 @@ interface TicketResponse {
   isStaff: boolean;
 }
 
+interface CrashLogRow {
+  id: string;
+  timestamp: string;
+  severity: string;
+  component: string;
+  message: string;
+  stack: string | null;
+  user_id: string | null;
+  url: string;
+  count: number;
+  resolved: boolean;
+}
+
 export default function Support() {
   const { toast } = useToast();
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [crashLogs, setCrashLogs] = useState<CrashLogRow[]>([]);
+  const [crashLoading, setCrashLoading] = useState(true);
+  const [crashError, setCrashError] = useState<string | null>(null);
+  const [crashSeverity, setCrashSeverity] = useState("all");
+  const [crashSearch, setCrashSearch] = useState("");
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [sortField, setSortField] = useState<string>("createdDate");
@@ -90,10 +118,13 @@ export default function Support() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(
     null,
   );
+  const [responsesLoading, setResponsesLoading] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
-    priority: "medium" as const,
+    priority: "medium" as SupportTicket["priority"],
     description: "",
   });
 
@@ -112,7 +143,61 @@ export default function Support() {
 
   useEffect(() => {
     loadTickets();
+    loadCrashLogs();
   }, []);
+
+  const loadCrashLogs = async () => {
+    setCrashLoading(true);
+    setCrashError(null);
+    try {
+      let query = supabase
+        .from("crash_logs")
+        .select("id, timestamp, severity, component, message, stack, user_id, url, count, resolved")
+        .order("timestamp", { ascending: false })
+        .limit(200);
+      if (!isSuperAdmin()) {
+        const user = getCurrentUser();
+        if (!user?.id) {
+          setCrashLogs([]);
+          return;
+        }
+        query = query.eq("user_id", String(user.id));
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      setCrashLogs((data ?? []) as CrashLogRow[]);
+    } catch (err: any) {
+      setCrashError(err?.message ?? "Failed to load error reports");
+    } finally {
+      setCrashLoading(false);
+    }
+  };
+
+  const filteredCrashLogs = crashLogs.filter((log) => {
+    if (crashSeverity !== "all" && log.severity !== crashSeverity) return false;
+    const q = crashSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (log.message ?? "").toLowerCase().includes(q) ||
+      (log.component ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  const exportCrashLogs = () => {
+    downloadCsv(
+      "error-reports",
+      filteredCrashLogs.map((l) => ({
+        timestamp: l.timestamp,
+        severity: l.severity,
+        component: l.component,
+        message: l.message,
+        url: l.url,
+        count: l.count,
+        resolved: l.resolved ? "yes" : "no",
+        stack: l.stack ?? "",
+      })),
+    );
+  };
 
   const getCurrentUserRole = () => {
     if (isSuperAdmin()) return "super-admin";
@@ -123,7 +208,7 @@ export default function Support() {
   const loadTickets = async () => {
     try {
       const role = getCurrentUserRole();
-      const currentUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+      const currentUser = getCurrentUser();
 
       let query = supabase
         .from("support_tickets")
@@ -131,7 +216,7 @@ export default function Support() {
         .order("created_at", { ascending: false });
 
       // Business admin only sees their own tickets
-      if (role === "admin" && currentUser.email) {
+      if (role === "admin" && currentUser?.email) {
         query = query.eq("submitted_by", currentUser.email);
       }
 
@@ -153,11 +238,14 @@ export default function Support() {
       }));
 
       setTickets(mapped);
-    } catch (err) {
-      console.error("Failed to load tickets:", err);
-      // Fallback to localStorage
-      const existingTickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
-      setTickets(existingTickets);
+    } catch (err: any) {
+      toast({
+        title: "Couldn't load tickets",
+        description: err?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setTicketsLoading(false);
     }
   };
 
@@ -221,11 +309,10 @@ export default function Support() {
         title: "Ticket Created",
         description: `Support ticket has been created successfully.`,
       });
-    } catch (err) {
-      console.error("Failed to create ticket:", err);
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: "Failed to create ticket. Please try again.",
+        description: err?.message ?? "Failed to create ticket. Please try again.",
         variant: "destructive",
       });
     }
@@ -295,8 +382,107 @@ export default function Support() {
     return 0;
   });
 
-  const handleRowClick = (ticket: SupportTicket) => {
+  const openTicket = async (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
+    setReplyText("");
+    setResponsesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("ticket_responses")
+        .select("*")
+        .eq("ticket_id", ticket.id)
+        .eq("is_internal", false)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const responses: TicketResponse[] = (data || []).map((r: any) => ({
+        id: r.id,
+        message: r.message,
+        timestamp: r.created_at,
+        author: r.author,
+        isStaff: r.is_staff,
+      }));
+      setSelectedTicket((prev) => (prev && prev.id === ticket.id ? { ...prev, responses } : prev));
+    } catch (err: any) {
+      toast({
+        title: "Couldn't load responses",
+        description: err?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setResponsesLoading(false);
+    }
+  };
+
+  const handleRowClick = (ticket: SupportTicket) => {
+    void openTicket(ticket);
+  };
+
+  const handleAddResponse = async () => {
+    if (!selectedTicket || !replyText.trim()) return;
+    const currentUser = getCurrentUser();
+    const author = currentUser?.email;
+    if (!author) {
+      toast({ title: "Error", description: "Could not identify your account.", variant: "destructive" });
+      return;
+    }
+    setSendingReply(true);
+    try {
+      const isStaff = getCurrentUserRole() !== "admin";
+      const { data, error } = await supabase
+        .from("ticket_responses")
+        .insert({
+          ticket_id: selectedTicket.id,
+          message: replyText.trim(),
+          author,
+          is_staff: isStaff,
+          is_internal: false,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      const response: TicketResponse = {
+        id: data.id,
+        message: data.message,
+        timestamp: data.created_at,
+        author: data.author,
+        isStaff: data.is_staff,
+      };
+      setSelectedTicket((prev) => (prev ? { ...prev, responses: [...prev.responses, response] } : prev));
+      setReplyText("");
+      toast({ title: "Response added" });
+    } catch (err: any) {
+      toast({
+        title: "Couldn't add response",
+        description: err?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleMarkResolved = async (ticket: SupportTicket) => {
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("support_tickets")
+        .update({ status: "resolved", actual_resolution: now, updated_at: now })
+        .eq("id", ticket.id);
+      if (error) throw error;
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticket.id ? { ...t, status: "resolved", updatedDate: now } : t)),
+      );
+      setSelectedTicket((prev) =>
+        prev && prev.id === ticket.id ? { ...prev, status: "resolved", updatedDate: now } : prev,
+      );
+      toast({ title: "Ticket resolved" });
+    } catch (err: any) {
+      toast({
+        title: "Couldn't update ticket",
+        description: err?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getLayoutComponent = () => {
@@ -536,7 +722,11 @@ export default function Support() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {tickets.length > 0 ? (
+            {ticketsLoading ? (
+              <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" /> Loading tickets…
+              </div>
+            ) : tickets.length > 0 ? (
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -640,16 +830,16 @@ export default function Support() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleRowClick(ticket)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleRowClick(ticket)}>
                                 <MessageCircle className="mr-2 h-4 w-4" />
                                 Add Response
                               </DropdownMenuItem>
-                              {ticket.status === "open" && (
-                                <DropdownMenuItem>
+                              {(ticket.status === "open" || ticket.status === "in-progress") && (
+                                <DropdownMenuItem onClick={() => handleMarkResolved(ticket)}>
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Mark Resolved
                                 </DropdownMenuItem>
@@ -674,424 +864,156 @@ export default function Support() {
           </CardContent>
         </Card>
 
-        {/* Error Logs Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                System Logs & Error Tracking
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Logs
-                </Button>
-              </div>
-            </CardTitle>
-            <CardDescription>
-              Recent system activities and error logs for troubleshooting
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <h4 className="font-medium mb-2">Recent Errors</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2 p-2 border border-red-200 bg-red-50 rounded">
-                      <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5" />
-                      <div className="text-sm">
-                        <div className="font-medium text-red-800">
-                          API Connection Failed
-                        </div>
-                        <div className="text-red-600">
-                          Unable to connect to webhook endpoint
-                        </div>
-                        <div className="text-red-500 text-xs">
-                          2 minutes ago
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2 p-2 border border-yellow-200 bg-yellow-50 rounded">
-                      <Clock className="h-4 w-4 text-yellow-600 mt-0.5" />
-                      <div className="text-sm">
-                        <div className="font-medium text-yellow-800">
-                          Session Timeout Warning
-                        </div>
-                        <div className="text-yellow-600">
-                          User session expiring soon
-                        </div>
-                        <div className="text-yellow-500 text-xs">
-                          15 minutes ago
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">System Activity</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2 p-2 border border-green-200 bg-green-50 rounded">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div className="text-sm">
-                        <div className="font-medium text-green-800">
-                          Backup Completed
-                        </div>
-                        <div className="text-green-600">
-                          Daily system backup successful
-                        </div>
-                        <div className="text-green-500 text-xs">1 hour ago</div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2 p-2 border border-blue-200 bg-blue-50 rounded">
-                      <FileText className="h-4 w-4 text-blue-600 mt-0.5" />
-                      <div className="text-sm">
-                        <div className="font-medium text-blue-800">
-                          Log File Rotated
-                        </div>
-                        <div className="text-blue-600">
-                          System logs archived
-                        </div>
-                        <div className="text-blue-500 text-xs">3 hours ago</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 p-3 border rounded bg-muted/50">
-                <h5 className="font-medium mb-2">Log Analysis Summary</h5>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="font-medium text-red-600">3 Errors</div>
-                    <div className="text-muted-foreground">Last 24h</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-yellow-600">
-                      7 Warnings
-                    </div>
-                    <div className="text-muted-foreground">Last 24h</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-green-600">
-                      245 Success
-                    </div>
-                    <div className="text-muted-foreground">Last 24h</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-blue-600">
-                      98.7% Uptime
-                    </div>
-                    <div className="text-muted-foreground">Last 7 days</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Detailed Crash Logs */}
+        {/* Error Reports (crash_logs) */}
         <Card id="crash-logs-section">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5" />
-                User Crash Reports & Error Logs
+                Recent Error Reports
               </div>
               <div className="flex gap-2">
-                <Select defaultValue="all">
+                <Select value={crashSeverity} onValueChange={setCrashSeverity}>
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder="Filter by severity" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Errors</SelectItem>
-                    <SelectItem value="critical">Critical Only</SelectItem>
-                    <SelectItem value="warning">Warnings Only</SelectItem>
-                    <SelectItem value="info">Info Only</SelectItem>
+                    <SelectItem value="all">All severities</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="error">Error</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="info">Info</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm">
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadCrashLogs}
+                  disabled={crashLoading}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${crashLoading ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportCrashLogs}
+                  disabled={filteredCrashLogs.length === 0}
+                >
                   <Download className="h-4 w-4 mr-2" />
-                  Export All
+                  Export CSV
                 </Button>
               </div>
             </CardTitle>
             <CardDescription>
-              Real-time monitoring of application errors, crashes, and system
-              issues. Last updated: {new Date().toLocaleTimeString()}
+              {isSuperAdmin()
+                ? "Errors reported by the app across all accounts."
+                : "Errors reported by the app while you were signed in."}{" "}
+              <Link to="/admin/crash-logs" className="text-primary hover:underline">
+                Open full crash log
+              </Link>
             </CardDescription>
-
-            {/* Search and Filter Controls */}
-            <div className="flex gap-4 mt-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="Search error messages, components, or user emails..."
-                  className="w-full"
-                />
-              </div>
-              <Select defaultValue="24h">
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1h">Last Hour</SelectItem>
-                  <SelectItem value="24h">Last 24h</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="mt-4">
+              <Input
+                placeholder="Search messages or components…"
+                value={crashSearch}
+                onChange={(e) => setCrashSearch(e.target.value)}
+              />
             </div>
           </CardHeader>
           <CardContent>
-            {/* Error Statistics Summary */}
-            <div className="grid gap-4 md:grid-cols-4 mb-6">
-              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-red-800">7</div>
-                    <div className="text-sm text-red-600">Critical Crashes</div>
-                  </div>
-                  <AlertTriangle className="h-8 w-8 text-red-600" />
-                </div>
-                <div className="text-xs text-red-500 mt-1">
-                  +3 since yesterday
-                </div>
+            {crashError && (
+              <div className="mb-4 flex items-center gap-2 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4" /> {crashError}
               </div>
-
-              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-yellow-800">12</div>
-                    <div className="text-sm text-yellow-600">
-                      Runtime Errors
-                    </div>
-                  </div>
-                  <Activity className="h-8 w-8 text-yellow-600" />
-                </div>
-                <div className="text-xs text-yellow-500 mt-1">
-                  -2 since yesterday
-                </div>
+            )}
+            {crashLoading ? (
+              <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" /> Loading error reports…
               </div>
-
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-blue-800">156</div>
-                    <div className="text-sm text-blue-600">Affected Users</div>
-                  </div>
-                  <Users className="h-8 w-8 text-blue-600" />
-                </div>
-                <div className="text-xs text-blue-500 mt-1">
-                  23% of total users
-                </div>
+            ) : filteredCrashLogs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p>No error reports{crashLogs.length > 0 ? " match your filters" : ""}.</p>
               </div>
-
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-purple-800">
-                      89%
-                    </div>
-                    <div className="text-sm text-purple-600">System Uptime</div>
-                  </div>
-                  <Activity className="h-8 w-8 text-purple-600" />
-                </div>
-                <div className="text-xs text-purple-500 mt-1">
-                  Above 95% target
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {/* Critical Crashes */}
-              <div>
-                <h4 className="font-medium mb-3 text-red-800">
-                  Critical Application Crashes
-                </h4>
-                <div className="space-y-2">
-                  <div className="p-3 border border-red-200 bg-red-50 rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-red-600" />
-                        <span className="font-medium text-red-800">
-                          Settings Module Crash
+            ) : (
+              <div className="space-y-2">
+                {filteredCrashLogs.slice(0, 25).map((log) => {
+                  const tone =
+                    log.severity === "critical" || log.severity === "error"
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : log.severity === "warning"
+                        ? "border-yellow-200 bg-yellow-50 text-yellow-800"
+                        : "border-blue-200 bg-blue-50 text-blue-800";
+                  return (
+                    <div key={log.id} className={`p-3 border rounded-lg ${tone}`}>
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span className="font-medium truncate">
+                            {log.component || "Unknown component"}
+                          </span>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {log.severity}
+                          </Badge>
+                          {log.resolved && (
+                            <Badge variant="secondary" className="text-xs">
+                              Resolved
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs whitespace-nowrap">
+                          {new Date(log.timestamp).toLocaleString()}
+                          {log.count > 1 ? ` · ×${log.count}` : ""}
                         </span>
                       </div>
-                      <span className="text-xs text-red-600">2 hours ago</span>
+                      <div className="text-sm break-words">{log.message}</div>
+                      {log.stack && (
+                        <details className="mt-2">
+                          <summary className="text-xs cursor-pointer">Stack trace</summary>
+                          <pre className="text-xs font-mono bg-white/60 p-2 rounded mt-1 overflow-x-auto whitespace-pre-wrap">
+                            {log.stack}
+                          </pre>
+                        </details>
+                      )}
+                      {log.url && (
+                        <div className="text-xs mt-1 truncate opacity-80">{log.url}</div>
+                      )}
                     </div>
-                    <div className="text-sm text-red-700 mb-2">
-                      <strong>Error:</strong> Cannot read property 'events' of
-                      undefined at Settings.tsx:3206:116
-                    </div>
-                    <div className="text-xs text-red-600 font-mono bg-red-100 p-2 rounded">
-                      TypeError: Cannot read properties of undefined (reading
-                      'join')
-                      <br />
-                      at Settings (Settings.tsx:3206:116)
-                      <br />
-                      at renderWithHooks (chunk-WPQCFWW4.js:11596:35)
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Badge variant="destructive" className="text-xs">
-                        High Priority
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        User: joe@joespizza.com
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        Browser: Chrome
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="p-3 border border-red-200 bg-red-50 rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-red-600" />
-                        <span className="font-medium text-red-800">
-                          Notifications System Crash
-                        </span>
-                      </div>
-                      <span className="text-xs text-red-600">5 hours ago</span>
-                    </div>
-                    <div className="text-sm text-red-700 mb-2">
-                      <strong>Error:</strong> Cannot access property before
-                      initialization
-                    </div>
-                    <div className="text-xs text-red-600 font-mono bg-red-100 p-2 rounded">
-                      ReferenceError: Cannot access 'NotificationPreferences'
-                      before initialization
-                      <br />
-                      at NotificationPreferences.tsx:47:12
-                      <br />
-                      at App.tsx:258:32
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Badge variant="destructive" className="text-xs">
-                        High Priority
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        User: maria@sarahssalon.com
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        Browser: Safari
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
+                {filteredCrashLogs.length > 25 && (
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Showing 25 of {filteredCrashLogs.length}.{" "}
+                    <Link to="/admin/crash-logs" className="text-primary hover:underline">
+                      View all
+                    </Link>
+                  </p>
+                )}
               </div>
-
-              {/* JavaScript Errors */}
-              <div>
-                <h4 className="font-medium mb-3 text-yellow-800">
-                  JavaScript Runtime Errors
-                </h4>
-                <div className="space-y-2">
-                  <div className="p-3 border border-yellow-200 bg-yellow-50 rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                        <span className="font-medium text-yellow-800">
-                          Webhook Form Validation Error
-                        </span>
-                      </div>
-                      <span className="text-xs text-yellow-600">
-                        1 hour ago
-                      </span>
-                    </div>
-                    <div className="text-sm text-yellow-700 mb-2">
-                      <strong>Error:</strong> FormData.get() returned null for
-                      'events' field
-                    </div>
-                    <div className="text-xs text-yellow-600 font-mono bg-yellow-100 p-2 rounded">
-                      TypeError: Cannot read properties of null (reading
-                      'split')
-                      <br />
-                      at addWebhook (Settings.tsx:1160:25)
-                      <br />
-                      at onSubmit (Settings.tsx:3170:15)
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Badge
-                        variant="default"
-                        className="text-xs bg-yellow-600"
-                      >
-                        Medium Priority
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        User: admin@mikesauto.com
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* User Impact */}
-              <div>
-                <h4 className="font-medium mb-3 text-purple-800">
-                  User Impact Summary
-                </h4>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="p-4 border rounded-lg bg-red-50 border-red-200">
-                    <div className="font-medium text-red-800 mb-1">
-                      Affected Users
-                    </div>
-                    <div className="text-2xl font-bold text-red-600">23</div>
-                    <div className="text-xs text-red-600">
-                      Out of 156 total users
-                    </div>
-                  </div>
-                  <div className="p-4 border rounded-lg bg-yellow-50 border-yellow-200">
-                    <div className="font-medium text-yellow-800 mb-1">
-                      Sessions with Errors
-                    </div>
-                    <div className="text-2xl font-bold text-yellow-600">47</div>
-                    <div className="text-xs text-yellow-600">
-                      12% of all sessions
-                    </div>
-                  </div>
-                  <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
-                    <div className="font-medium text-blue-800 mb-1">
-                      Most Problematic Feature
-                    </div>
-                    <div className="text-lg font-bold text-blue-600">
-                      Settings
-                    </div>
-                    <div className="text-xs text-blue-600">
-                      67% of all crashes
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Quick Help Section */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Common Issues
+                Knowledge Base
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm">
-                <li>• Password reset instructions</li>
-                <li>• Billing and payment questions</li>
-                <li>• User management help</li>
-                <li>• API integration guides</li>
-                <li>• Data export procedures</li>
-              </ul>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Step-by-step guides for common tasks — account access, billing,
+                team management, integrations and data export.
+              </p>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/knowledge-base">Browse articles</Link>
+              </Button>
             </CardContent>
           </Card>
 
@@ -1099,51 +1021,88 @@ export default function Support() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Response Times
+                Ticket Priorities
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Low Priority:</span>
-                  <span>24-48 hours</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Medium Priority:</span>
-                  <span>12-24 hours</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>High Priority:</span>
-                  <span>4-8 hours</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Urgent:</span>
-                  <span>1-2 hours</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Emergency Contact
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <p>For urgent technical issues:</p>
-                <p className="font-medium">emergency@support.com</p>
-                <p className="font-medium">1-800-SUPPORT</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Emergency support available 24/7 for critical system outages
-                </p>
+                <div className="flex justify-between"><span>Low</span><span className="text-muted-foreground">Questions and minor issues</span></div>
+                <div className="flex justify-between"><span>Medium</span><span className="text-muted-foreground">Something isn't working as expected</span></div>
+                <div className="flex justify-between"><span>High</span><span className="text-muted-foreground">A feature you rely on is blocked</span></div>
+                <div className="flex justify-between"><span>Urgent</span><span className="text-muted-foreground">You can't use the product at all</span></div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <Dialog open={!!selectedTicket} onOpenChange={(open) => { if (!open) setSelectedTicket(null); }}>
+        <DialogContent className="max-w-2xl">
+          {selectedTicket && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedTicket.title}</DialogTitle>
+                <DialogDescription className="flex flex-wrap items-center gap-2 pt-1">
+                  {getStatusBadge(selectedTicket.status)}
+                  {getPriorityBadge(selectedTicket.priority)}
+                  <span>{selectedTicket.category}</span>
+                  <span>· Opened {new Date(selectedTicket.createdDate).toLocaleString()}</span>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+                <div className="space-y-2">
+                  <Label>Responses</Label>
+                  {responsesLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading responses...</p>
+                  ) : selectedTicket.responses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No responses yet.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {selectedTicket.responses.map((r) => (
+                        <div
+                          key={r.id}
+                          className={`rounded-md border p-3 text-sm ${r.isStaff ? "bg-muted/50" : ""}`}
+                        >
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>{r.author}{r.isStaff ? " (support)" : ""}</span>
+                            <span>{new Date(r.timestamp).toLocaleString()}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap">{r.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedTicket.status !== "closed" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ticket-reply">Add a response</Label>
+                    <Textarea
+                      id="ticket-reply"
+                      rows={3}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="gap-2">
+                {(selectedTicket.status === "open" || selectedTicket.status === "in-progress") && (
+                  <Button variant="outline" onClick={() => handleMarkResolved(selectedTicket)}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark Resolved
+                  </Button>
+                )}
+                {selectedTicket.status !== "closed" && (
+                  <Button onClick={handleAddResponse} disabled={!replyText.trim() || sendingReply}>
+                    {sendingReply ? "Sending..." : "Send Response"}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </LayoutComponent>
   );
 }
