@@ -16,7 +16,7 @@ import supabaseClient from "@/lib/supabaseClient";
 
 const MEDIA_BUCKET = "media";
 const PUBLIC_MARKER = `/storage/v1/object/public/${MEDIA_BUCKET}/`;
-const DEFAULT_TTL_SEC = 3600;
+const DEFAULT_TTL_SEC = 600; // 10 min: keeps pre-signed media links short-lived after access changes
 /** Refresh a cached URL when less than this fraction of its TTL remains. */
 const REFRESH_AT = 0.2;
 

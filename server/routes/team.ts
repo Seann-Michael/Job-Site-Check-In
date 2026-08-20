@@ -416,12 +416,28 @@ export async function handleRemoveMember(req: Request, res: Response) {
       return res.status(500).json({ error: "Failed to remove team member" });
     }
 
+    // If this was their last access anywhere, end their live sessions so a
+    // still-valid token can't keep a stale workspace UI open. Data access is
+    // already cut by RLS the instant the membership row is gone.
+    const removedUserId = (existing as MemberRow).user_id;
+    try {
+      const [{ count: owns }, { count: memberOf }] = await Promise.all([
+        db.from("businesses").select("id", { count: "exact", head: true }).eq("owner_id", removedUserId),
+        db.from("business_members").select("id", { count: "exact", head: true }).eq("user_id", removedUserId),
+      ]);
+      if ((owns ?? 0) === 0 && (memberOf ?? 0) === 0) {
+        await db.rpc("revoke_user_sessions", { p_user_id: removedUserId });
+      }
+    } catch (revokeErr) {
+      reqLog(req).warn({ err: revokeErr }, "revoke_user_sessions after removal failed (access already cut by RLS)");
+    }
+
     await writeAudit(req, {
       action: "delete",
       resourceType: "business_member",
       resourceId: memberId,
       businessId,
-      details: { event: "remove", target_user_id: (existing as MemberRow).user_id, role: (existing as MemberRow).role },
+      details: { event: "remove", target_user_id: removedUserId, role: (existing as MemberRow).role },
     });
     return res.status(204).end();
   } catch (err) {
