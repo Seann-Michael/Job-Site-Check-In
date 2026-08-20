@@ -44,6 +44,7 @@ import { teamRouter, adminStaffRouter } from "./routes/team";
 import { billingRouter, handleStripeWebhook } from "./routes/billing";
 import { emailRouter } from "./routes/email";
 import { automationRouter } from "./routes/automation";
+import { gbpRouter } from "./routes/gbp";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
 
@@ -223,6 +224,10 @@ export function createServer(options: CreateServerOptions = {}) {
   // Google Maps helpers
   app.get("/api/resolve-url", requireAuth, handleResolveUrl);
   app.post("/api/google-place-lookup", requireAuth, handleGooglePlaceLookup);
+
+  // Google Business Profile live API (reviews, posts, Q&A, insights, sync).
+  // Router applies requireAuth itself; per-business access is enforced inside.
+  app.use("/api/gbp", gbpRouter);
 
   // Google OAuth (Business Profile connection)
   app.post("/api/oauth/google_my_business/start", requireAuth, requireWrite, handleGoogleStart);

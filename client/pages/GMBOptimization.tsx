@@ -15,6 +15,15 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -37,9 +46,24 @@ import {
   Unlink,
   ExternalLink,
   Loader2,
+  DownloadCloud,
+  Send,
+  Phone,
+  Eye,
+  Search,
+  Navigation,
+  BarChart3,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { aiApi, aiErrorMessage } from "@/lib/api";
+import { isApiError } from "@/lib/api";
+import {
+  gbpService,
+  type GbpReview,
+  type GbpLocalPost,
+  type GbpInsights,
+} from "@/lib/gbpService";
 import { supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
 import { loadGoogleMapsAPI } from "@/lib/googleMaps";
@@ -231,6 +255,33 @@ export default function GMBOptimization() {
   const [newCategory, setNewCategory] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
 
+  // ── Live GBP state ──────────────────────────────────────────────────────────
+  const [syncing, setSyncing] = useState(false);
+  // Approval gate: null = unknown, true = approved, false = connected-but-not-approved.
+  const [gbpApproved, setGbpApproved] = useState<boolean | null>(null);
+  const [gbpApprovalMessage, setGbpApprovalMessage] = useState<string | null>(null);
+
+  // Reviews (live from the GBP v4 API)
+  const [reviews, setReviews] = useState<GbpReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<GbpReview | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+
+  // Local posts
+  const [posts, setPosts] = useState<GbpLocalPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [newPost, setNewPost] = useState({ summary: "", ctaType: "", ctaUrl: "" });
+  const [creatingPost, setCreatingPost] = useState(false);
+
+  // Insights
+  const [insights, setInsights] = useState<GbpInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+
   // ── Bootstrap: get current business ────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
@@ -409,6 +460,157 @@ export default function GMBOptimization() {
       setScanning(false);
     }
   }, [profile, businessId]);
+
+  // ── Live GBP: interpret the approval gate from a thrown ApiError ───────────
+  // 403 → connected but the Business Profile API is not approved for the
+  // Google Cloud project yet. Returns true when it was an approval error.
+  const noteApprovalError = useCallback((err: unknown): boolean => {
+    if (isApiError(err) && err.status === 403) {
+      setGbpApproved(false);
+      setGbpApprovalMessage(err.message);
+      return true;
+    }
+    return false;
+  }, []);
+
+  // ── Sync from Google ────────────────────────────────────────────────────────
+  const handleSync = useCallback(async () => {
+    if (!businessId) return;
+    setSyncing(true);
+    try {
+      const result = await gbpService.sync(businessId);
+      setGbpApproved(result.approved);
+      setGbpApprovalMessage(result.approved ? null : result.message ?? null);
+      if (result.insights) setInsights(result.insights);
+      if (result.locationSynced) {
+        if (result.approved) {
+          toast.success(
+            `Synced from Google — ${result.reviews} review(s), ${result.questions} question(s).`,
+          );
+        } else {
+          toast.message("Basic profile synced. Reviews, posts & insights need Google API approval.");
+        }
+        // Reload profile/hours/reviews/qas from the DB the sync just populated.
+        await loadProfile(businessId);
+      } else {
+        toast.message(result.message ?? "Nothing to sync yet.");
+      }
+    } catch (err) {
+      if (isApiError(err) && err.status === 409) {
+        toast.error("Not connected — connect Google Business Profile in Settings.");
+      } else if (noteApprovalError(err)) {
+        toast.error("Google Business Profile API is not approved for this project yet.");
+      } else {
+        toast.error(isApiError(err) ? err.message : "Sync failed.");
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }, [businessId, loadProfile, noteApprovalError]);
+
+  // ── Load live reviews ───────────────────────────────────────────────────────
+  const loadReviews = useCallback(async () => {
+    if (!businessId) return;
+    setReviewsLoading(true);
+    setReviewsError(null);
+    try {
+      const data = await gbpService.reviews(businessId);
+      setReviews(data);
+      setGbpApproved(true);
+    } catch (err) {
+      if (noteApprovalError(err)) setReviewsError(null);
+      else setReviewsError(isApiError(err) ? err.message : "Could not load reviews.");
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [businessId, noteApprovalError]);
+
+  const handleReplySubmit = useCallback(async () => {
+    if (!businessId || !replyTarget || !replyText.trim()) return;
+    setReplySubmitting(true);
+    try {
+      await gbpService.replyReview(businessId, replyTarget.name, replyText.trim());
+      toast.success("Reply posted to Google.");
+      setReplyTarget(null);
+      setReplyText("");
+      await loadReviews();
+    } catch (err) {
+      if (noteApprovalError(err)) toast.error("Business Profile API not approved yet.");
+      else toast.error(isApiError(err) ? err.message : "Could not post reply.");
+    } finally {
+      setReplySubmitting(false);
+    }
+  }, [businessId, replyTarget, replyText, loadReviews, noteApprovalError]);
+
+  // ── Load local posts ────────────────────────────────────────────────────────
+  const loadPosts = useCallback(async () => {
+    if (!businessId) return;
+    setPostsLoading(true);
+    setPostsError(null);
+    try {
+      const data = await gbpService.posts(businessId);
+      setPosts(data);
+      setGbpApproved(true);
+    } catch (err) {
+      if (noteApprovalError(err)) setPostsError(null);
+      else setPostsError(isApiError(err) ? err.message : "Could not load posts.");
+    } finally {
+      setPostsLoading(false);
+    }
+  }, [businessId, noteApprovalError]);
+
+  const handleCreatePost = useCallback(async () => {
+    if (!businessId || !newPost.summary.trim()) {
+      toast.error("Enter a post summary.");
+      return;
+    }
+    setCreatingPost(true);
+    try {
+      await gbpService.createPost(businessId, {
+        summary: newPost.summary.trim(),
+        ...(newPost.ctaType
+          ? { callToAction: { actionType: newPost.ctaType, url: newPost.ctaUrl || undefined } }
+          : {}),
+      });
+      toast.success("Post published to Google.");
+      setPostDialogOpen(false);
+      setNewPost({ summary: "", ctaType: "", ctaUrl: "" });
+      await loadPosts();
+    } catch (err) {
+      if (noteApprovalError(err)) toast.error("Business Profile API not approved yet.");
+      else toast.error(isApiError(err) ? err.message : "Could not create post.");
+    } finally {
+      setCreatingPost(false);
+    }
+  }, [businessId, newPost, loadPosts, noteApprovalError]);
+
+  // ── Load insights ───────────────────────────────────────────────────────────
+  const loadInsights = useCallback(async () => {
+    if (!businessId) return;
+    setInsightsLoading(true);
+    setInsightsError(null);
+    try {
+      const data = await gbpService.insights(businessId);
+      setInsights(data);
+      setGbpApproved(true);
+    } catch (err) {
+      if (noteApprovalError(err)) setInsightsError(null);
+      else setInsightsError(isApiError(err) ? err.message : "Could not load insights.");
+    } finally {
+      setInsightsLoading(false);
+    }
+  }, [businessId, noteApprovalError]);
+
+  // Lazy-load a tab's live data the first time it is opened.
+  const handleTabChange = useCallback(
+    (tab: string) => {
+      setSelectedTab(tab);
+      if (tab === "reviews" && reviews.length === 0 && !reviewsLoading) loadReviews();
+      if (tab === "posts" && posts.length === 0 && !postsLoading) loadPosts();
+      if (tab === "insights" && !insights && !insightsLoading) loadInsights();
+    },
+    [reviews.length, reviewsLoading, loadReviews, posts.length, postsLoading, loadPosts, insights, insightsLoading, loadInsights],
+  );
 
   // ── Disconnect ──────────────────────────────────────────────────────────────
   const handleDisconnect = async () => {
@@ -651,17 +853,35 @@ export default function GMBOptimization() {
                   )}
                 </div>
 
-                <Button
-                  className="w-full"
-                  disabled={connecting}
-                  onClick={createProfileFromConnection}
-                >
-                  {connecting ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Setting up…</>
-                  ) : (
-                    <><Wand2 className="h-4 w-4 mr-2" />Set up optimization</>
-                  )}
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Button
+                    className="w-full"
+                    disabled={syncing}
+                    onClick={handleSync}
+                  >
+                    {syncing ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing…</>
+                    ) : (
+                      <><DownloadCloud className="h-4 w-4 mr-2" />Sync from Google</>
+                    )}
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={connecting}
+                    onClick={createProfileFromConnection}
+                  >
+                    {connecting ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Setting up…</>
+                    ) : (
+                      <><Wand2 className="h-4 w-4 mr-2" />Set up manually</>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  “Sync from Google” pulls your live profile, reviews, Q&amp;A and insights. Reviews, posts &amp;
+                  insights require Google Business Profile API approval.
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -731,7 +951,11 @@ export default function GMBOptimization() {
                 {profile.last_scanned_at ? new Date(profile.last_scanned_at).toLocaleString() : "Never"}
               </div>
             </div>
-            <Button onClick={handleScan} disabled={scanning} className="gap-2">
+            <Button onClick={handleSync} disabled={syncing} className="gap-2">
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
+              {syncing ? "Syncing…" : "Sync from Google"}
+            </Button>
+            <Button onClick={handleScan} disabled={scanning} variant="outline" className="gap-2">
               {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {scanning ? "Scanning…" : "Scan Profile"}
             </Button>
@@ -792,10 +1016,57 @@ export default function GMBOptimization() {
           </CardContent>
         </Card>
 
+        {/* Approval banner: connected but the Business Profile API is not approved yet */}
+        {gbpApproved === false && (
+          <Alert className="mb-6 border-yellow-300 bg-yellow-50">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertTitle className="text-yellow-800">Connected, but Business Profile API access isn’t approved yet</AlertTitle>
+            <AlertDescription className="text-yellow-700">
+              Basic profile info (name, address, hours) is available. Reviews, posts, and insights require
+              Google’s Business Profile API approval for this Google Cloud project.
+              {gbpApprovalMessage && (
+                <span className="block mt-1 text-xs opacity-80">Google says: {gbpApprovalMessage}</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Insights tile row (last 30 days) */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          {[
+            { label: "Calls", value: insights?.calls, icon: Phone },
+            { label: "Views", value: insights?.views, icon: Eye },
+            { label: "Searches", value: insights?.searches, icon: Search },
+            { label: "Website clicks", value: insights?.websiteClicks, icon: Globe },
+            { label: "Directions", value: insights?.directionRequests, icon: Navigation },
+          ].map(({ label, value, icon: Icon }) => (
+            <Card key={label}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </div>
+                <div className="text-2xl font-bold">
+                  {insightsLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : value != null ? (
+                    value.toLocaleString()
+                  ) : (
+                    <span className="text-muted-foreground text-base font-normal">—</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
         {/* Tabs */}
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs value={selectedTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8">
             <TabsTrigger value="audit"><AlertTriangle className="h-4 w-4 mr-1.5" />Audit</TabsTrigger>
+            <TabsTrigger value="reviews"><Star className="h-4 w-4 mr-1.5" />Reviews</TabsTrigger>
+            <TabsTrigger value="posts"><FileText className="h-4 w-4 mr-1.5" />Posts</TabsTrigger>
+            <TabsTrigger value="insights"><BarChart3 className="h-4 w-4 mr-1.5" />Insights</TabsTrigger>
             <TabsTrigger value="hours"><Clock className="h-4 w-4 mr-1.5" />Hours</TabsTrigger>
             <TabsTrigger value="qa"><MessageSquare className="h-4 w-4 mr-1.5" />Q&amp;A</TabsTrigger>
             <TabsTrigger value="categories"><Settings className="h-4 w-4 mr-1.5" />Categories</TabsTrigger>
@@ -855,6 +1126,195 @@ export default function GMBOptimization() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* ── Reviews Tab (live from GBP) ───────────────────────────────── */}
+          <TabsContent value="reviews" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Google Reviews ({reviews.length})</span>
+                  <Button variant="outline" size="sm" onClick={loadReviews} disabled={reviewsLoading} className="gap-1.5">
+                    {reviewsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Refresh
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {reviewsLoading && reviews.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 mx-auto animate-spin" />
+                  </div>
+                ) : gbpApproved === false ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Reviews require Google Business Profile API approval (see the banner above).
+                  </p>
+                ) : reviewsError ? (
+                  <p className="text-sm text-red-500 text-center py-8">{reviewsError}</p>
+                ) : reviews.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No reviews found. Click <strong>Sync from Google</strong> or <strong>Refresh</strong>.
+                  </p>
+                ) : (
+                  reviews.map((r) => (
+                    <div key={r.name} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{r.reviewer}</span>
+                            <span className="flex items-center gap-0.5">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-3.5 w-3.5 ${i < r.rating ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"}`}
+                                />
+                              ))}
+                            </span>
+                            {r.createTime && (
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(r.createTime).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
+                          {r.reply && (
+                            <div className="mt-2 ml-3 pl-3 border-l-2 border-primary/40">
+                              <div className="text-xs font-medium text-primary mb-0.5">Owner reply</div>
+                              <p className="text-sm text-muted-foreground">{r.reply.comment}</p>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 shrink-0"
+                          onClick={() => {
+                            setReplyTarget(r);
+                            setReplyText(r.reply?.comment ?? "");
+                          }}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          {r.reply ? "Edit reply" : "Reply"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Posts Tab (live from GBP) ─────────────────────────────────── */}
+          <TabsContent value="posts" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Google Posts ({posts.length})</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={loadPosts} disabled={postsLoading} className="gap-1.5">
+                      {postsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      Refresh
+                    </Button>
+                    <Button size="sm" onClick={() => setPostDialogOpen(true)} className="gap-1.5">
+                      <Plus className="h-4 w-4" />
+                      Create post
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {postsLoading && posts.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 mx-auto animate-spin" />
+                  </div>
+                ) : gbpApproved === false ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Posts require Google Business Profile API approval (see the banner above).
+                  </p>
+                ) : postsError ? (
+                  <p className="text-sm text-red-500 text-center py-8">{postsError}</p>
+                ) : posts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No posts yet. Click <strong>Create post</strong> to publish one to Google.
+                  </p>
+                ) : (
+                  posts.map((p) => (
+                    <div key={p.name} className="border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        {p.topicType && <Badge variant="outline" className="text-xs">{p.topicType}</Badge>}
+                        {p.state && <Badge variant="outline" className="text-xs">{p.state}</Badge>}
+                        {p.createTime && (
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(p.createTime).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{p.summary}</p>
+                      {p.searchUrl && (
+                        <a
+                          href={p.searchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline flex items-center gap-0.5 mt-2"
+                        >
+                          View on Google <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Insights Tab (live from GBP performance API) ──────────────── */}
+          <TabsContent value="insights" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Performance (last {insights?.rangeDays ?? 30} days)</span>
+                  <Button variant="outline" size="sm" onClick={loadInsights} disabled={insightsLoading} className="gap-1.5">
+                    {insightsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Refresh
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {insightsLoading && !insights ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 mx-auto animate-spin" />
+                  </div>
+                ) : gbpApproved === false ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Insights require Google Business Profile API approval (see the banner above).
+                  </p>
+                ) : insightsError ? (
+                  <p className="text-sm text-red-500 text-center py-8">{insightsError}</p>
+                ) : !insights ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No insights yet. Click <strong>Refresh</strong> or <strong>Sync from Google</strong>.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[
+                      { label: "Calls", value: insights.calls, icon: Phone },
+                      { label: "Total views", value: insights.views, icon: Eye },
+                      { label: "Search views", value: insights.searches, icon: Search },
+                      { label: "Website clicks", value: insights.websiteClicks, icon: Globe },
+                      { label: "Direction requests", value: insights.directionRequests, icon: Navigation },
+                    ].map(({ label, value, icon: Icon }) => (
+                      <div key={label} className="border rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
+                        </div>
+                        <div className="text-2xl font-bold">{value.toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ── Hours Tab ─────────────────────────────────────────────────── */}
@@ -1074,6 +1534,94 @@ export default function GMBOptimization() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Reply-to-review dialog */}
+      <Dialog open={!!replyTarget} onOpenChange={(o) => !o && setReplyTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reply to {replyTarget?.reviewer}</DialogTitle>
+            <DialogDescription>Your reply is posted publicly on Google.</DialogDescription>
+          </DialogHeader>
+          {replyTarget?.comment && (
+            <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+              “{replyTarget.comment}”
+            </div>
+          )}
+          <Textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder="Write your reply…"
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReplyTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReplySubmit} disabled={replySubmitting || !replyText.trim()} className="gap-1.5">
+              {replySubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Post reply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create-post dialog */}
+      <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a Google post</DialogTitle>
+            <DialogDescription>Published to your Google Business Profile.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Summary</Label>
+              <Textarea
+                value={newPost.summary}
+                onChange={(e) => setNewPost((p) => ({ ...p, summary: e.target.value }))}
+                placeholder="What’s new with your business?"
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Call to action (optional)</Label>
+                <Select value={newPost.ctaType} onValueChange={(v) => setNewPost((p) => ({ ...p, ctaType: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LEARN_MORE">Learn more</SelectItem>
+                    <SelectItem value="BOOK">Book</SelectItem>
+                    <SelectItem value="ORDER">Order online</SelectItem>
+                    <SelectItem value="SHOP">Shop</SelectItem>
+                    <SelectItem value="SIGN_UP">Sign up</SelectItem>
+                    <SelectItem value="CALL">Call</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newPost.ctaType && newPost.ctaType !== "CALL" && (
+                <div>
+                  <Label>CTA URL</Label>
+                  <Input
+                    value={newPost.ctaUrl}
+                    onChange={(e) => setNewPost((p) => ({ ...p, ctaUrl: e.target.value }))}
+                    placeholder="https://…"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPostDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreatePost} disabled={creatingPost || !newPost.summary.trim()} className="gap-1.5">
+              {creatingPost ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Publish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
