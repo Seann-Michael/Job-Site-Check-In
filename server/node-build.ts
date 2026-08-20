@@ -4,6 +4,7 @@ import express, { Request, Response, NextFunction } from "express";
 import * as Sentry from "@sentry/node";
 import { createServer, APP_VERSION } from "./index";
 import { logger } from "./lib/logger";
+import { startWorker, stopWorker } from "./lib/worker";
 
 // Optional error reporting: only active when SENTRY_DSN is set. Must run
 // before createServer() so the error handler's captureException has a client.
@@ -85,6 +86,9 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 
 const server = app.listen(port, () => {
   logger.info({ port, version: APP_VERSION, env: process.env.NODE_ENV || "development" }, "Server listening");
+  // Single-instance in-process poller for scheduled broadcasts / campaigns /
+  // automation triggers. No-op under NODE_ENV=test or DISABLE_WORKER=true.
+  startWorker();
 });
 
 // Keep-alive tuned for load balancers (DigitalOcean App Platform idles at 60s).
@@ -97,6 +101,7 @@ function shutdown(signal: string, code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, "Shutting down");
+  stopWorker();
   const force = setTimeout(() => {
     logger.error("Forced shutdown after timeout");
     process.exit(1);

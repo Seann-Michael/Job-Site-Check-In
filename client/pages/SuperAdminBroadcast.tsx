@@ -128,6 +128,7 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
     content: "",
     type: "info" as BroadcastMessage["type"],
     targetAudience: "all" as string,
+    scheduledFor: "",
     expiresAt: "",
   });
 
@@ -230,6 +231,7 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
       content: "",
       type: "info",
       targetAudience: "all",
+      scheduledFor: "",
       expiresAt: "",
     });
     setEditingMessage(null);
@@ -295,15 +297,22 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
     setIsSaving(true);
     try {
       const now = new Date().toISOString();
+      // Future scheduled_for → hand off to the background worker (status
+      // 'scheduled'); it delivers the notifications when the time arrives.
+      const scheduledForIso =
+        formData.scheduledFor && new Date(formData.scheduledFor).getTime() > Date.now()
+          ? new Date(formData.scheduledFor).toISOString()
+          : null;
+
       const payload = {
         title: formData.title.trim(),
         content: formData.content.trim(),
         type: formData.type,
         target_audience: formData.targetAudience,
-        scheduled_for: null,
+        scheduled_for: scheduledForIso,
         expires_at: formData.expiresAt || null,
         created_by: "Super Admin",
-        status: "sending",
+        status: scheduledForIso ? "scheduled" : "sending",
         sent_at: null,
         view_count: 0,
         dismiss_count: 0,
@@ -316,6 +325,14 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
         .select("id")
         .single();
       if (error) throw error;
+
+      if (scheduledForIso) {
+        toast.success(`Broadcast scheduled for ${formatDateTime(scheduledForIso)}`);
+        setShowCreateDialog(false);
+        resetForm();
+        fetchMessages();
+        return;
+      }
 
       let recipientCount = 0;
       try {
@@ -350,6 +367,7 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
       content: message.content,
       type: message.type,
       targetAudience: message.target_audience as any,
+      scheduledFor: message.scheduled_for ? message.scheduled_for.slice(0, 16) : "",
       expiresAt: message.expires_at ? message.expires_at.slice(0, 16) : "",
     });
     setShowCreateDialog(true);
@@ -362,15 +380,21 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
     try {
       const now = new Date().toISOString();
       const alreadySent = !!editingMessage.sent_at;
-      const sendNow = !alreadySent;
+      const scheduledForIso =
+        formData.scheduledFor && new Date(formData.scheduledFor).getTime() > Date.now()
+          ? new Date(formData.scheduledFor).toISOString()
+          : null;
+      // Deliver now only when the message hasn't been sent and isn't scheduled
+      // for the future; a future schedule is left for the worker.
+      const sendNow = !alreadySent && !scheduledForIso;
       const payload = {
         title: formData.title.trim(),
         content: formData.content.trim(),
         type: formData.type,
         target_audience: formData.targetAudience,
-        scheduled_for: null,
+        scheduled_for: alreadySent ? editingMessage.scheduled_for ?? null : scheduledForIso,
         expires_at: formData.expiresAt || null,
-        status: alreadySent ? editingMessage.status : "sending",
+        status: alreadySent ? editingMessage.status : scheduledForIso ? "scheduled" : "sending",
         sent_at: editingMessage.sent_at,
         is_active: true,
         updated_at: now,
@@ -399,6 +423,8 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
           .eq("id", editingMessage.id);
         if (markError) throw markError;
         toast.success(`Broadcast delivered to ${recipientCount} user${recipientCount === 1 ? "" : "s"}`);
+      } else if (scheduledForIso && !alreadySent) {
+        toast.success(`Broadcast scheduled for ${formatDateTime(scheduledForIso)}`);
       } else {
         toast.success("Broadcast message updated");
       }
@@ -501,6 +527,12 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
       return false;
     return true;
   });
+
+  const willSchedule =
+    !editingMessage?.sent_at &&
+    !!formData.scheduledFor &&
+    new Date(formData.scheduledFor).getTime() > Date.now();
+  const primaryLabel = editingMessage ? "Update Message" : willSchedule ? "Schedule Broadcast" : "Send Now";
 
   const skeletonRows = Array.from({ length: 5 });
 
@@ -659,12 +691,24 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
                     </Select>
                   </div>
                 </div>
-                <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground flex items-start gap-2">
-                  <Send className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>
-                    Broadcasts are delivered immediately as in-app notifications.
-                    Scheduled sending is not available yet.
-                  </span>
+                <div className="grid gap-2">
+                  <Label htmlFor="scheduledFor">Schedule For (Optional)</Label>
+                  <Input
+                    id="scheduledFor"
+                    type="datetime-local"
+                    value={formData.scheduledFor}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, scheduledFor: e.target.value }))
+                    }
+                    disabled={!!editingMessage?.sent_at}
+                  />
+                  <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Leave empty to deliver immediately. A future time queues the
+                      broadcast; the background worker delivers it then.
+                    </span>
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="expiresAt">Expires At (Optional)</Label>
@@ -694,11 +738,7 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
                   onClick={editingMessage ? handleUpdateMessage : handleCreateMessage}
                   disabled={isSaving}
                 >
-                  {isSaving
-                    ? "Saving..."
-                    : editingMessage
-                    ? "Update Message"
-                    : "Send Now"}
+                  {isSaving ? "Saving..." : primaryLabel}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -755,7 +795,7 @@ export default function SuperAdminBroadcast({ embedded = false }: { embedded?: b
               }}
               disabled={isSaving}
             >
-              {editingMessage ? "Update Message" : "Send Now"}
+              {primaryLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

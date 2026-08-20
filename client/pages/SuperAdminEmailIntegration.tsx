@@ -62,6 +62,9 @@ import {
 import { toast } from "sonner";
 import { formatSystemDate } from "@/lib/dateUtils";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { testProvider, sendCampaign } from "@/lib/emailService";
+import { isApiError } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 
 interface EmailProvider {
   id: string;
@@ -184,6 +187,8 @@ export default function SuperAdminEmailIntegration() {
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [testingProviderId, setTestingProviderId] = useState<string | null>(null);
+  const [sendingCampaignId, setSendingCampaignId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("providers");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -501,6 +506,46 @@ export default function SuperAdminEmailIntegration() {
       fetchAll();
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to delete campaign");
+    }
+  };
+
+  // ─── Real sending (server-backed) ────────────────────────────────────────────
+  const handleTestProvider = async (provider: EmailProvider) => {
+    const suggested = getCurrentUser()?.email || provider.config?.fromEmail || "";
+    const to = window.prompt("Send a test email to:", suggested);
+    if (!to || !to.trim()) return;
+    setTestingProviderId(provider.id);
+    try {
+      const result = await testProvider(provider.id, to.trim());
+      toast.success(`Test email sent via ${result.provider}`);
+      fetchAll();
+    } catch (err: any) {
+      const msg = isApiError(err) ? err.message : err?.message ?? "Failed to send test email";
+      toast.error(msg);
+    } finally {
+      setTestingProviderId(null);
+    }
+  };
+
+  const handleSendCampaign = async (campaign: EmailCampaign) => {
+    if (campaign.scheduled_at && new Date(campaign.scheduled_at).getTime() > Date.now()) {
+      if (!confirm("This campaign is scheduled for later. Send it now anyway?")) return;
+    } else if (!confirm(`Send "${campaign.name}" now?`)) {
+      return;
+    }
+    setSendingCampaignId(campaign.id);
+    try {
+      const result = await sendCampaign(campaign.id);
+      toast.success(`Campaign sent — ${result.sent} delivered${result.failed ? `, ${result.failed} failed` : ""}`);
+      fetchAll();
+    } catch (err: any) {
+      if (isApiError(err) && err.isUnavailable) {
+        toast.error("No email provider configured — add one first");
+      } else {
+        toast.error(isApiError(err) ? err.message : err?.message ?? "Failed to send campaign");
+      }
+    } finally {
+      setSendingCampaignId(null);
     }
   };
 
@@ -980,6 +1025,13 @@ export default function SuperAdminEmailIntegration() {
                                   <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => handleTestProvider(provider)}
+                                    disabled={testingProviderId === provider.id}
+                                  >
+                                    <Send className="h-4 w-4 mr-2" />
+                                    {testingProviderId === provider.id ? "Sending…" : "Send Test Email"}
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => openEditProvider(provider)}>
                                     <Edit className="h-4 w-4 mr-2" />Edit
                                   </DropdownMenuItem>
@@ -1175,6 +1227,15 @@ export default function SuperAdminEmailIntegration() {
                                   <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  {campaign.status !== "sent" && campaign.status !== "sending" && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleSendCampaign(campaign)}
+                                      disabled={sendingCampaignId === campaign.id}
+                                    >
+                                      <Send className="h-4 w-4 mr-2" />
+                                      {sendingCampaignId === campaign.id ? "Sending…" : "Send Now"}
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem onClick={() => handleDeleteCampaign(campaign.id)} className="text-red-600 focus:text-red-600">
                                     <Trash2 className="h-4 w-4 mr-2" />Delete
                                   </DropdownMenuItem>

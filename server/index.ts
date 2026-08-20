@@ -42,6 +42,8 @@ import { handleLogout, handleChangePassword } from "./routes/authApi";
 import { handleAIReviewResponse } from "./routes/aiReview";
 import { teamRouter, adminStaffRouter } from "./routes/team";
 import { billingRouter, handleStripeWebhook } from "./routes/billing";
+import { emailRouter } from "./routes/email";
+import { automationRouter } from "./routes/automation";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
 
@@ -257,6 +259,14 @@ export function createServer(options: CreateServerOptions = {}) {
   // PostgREST, so these are the only write paths.
   app.use("/api/team", teamRouter);
   app.use("/api/admin/staff", adminStaffRouter);
+
+  // Email — real sending (providers, campaigns, tests). The router applies
+  // requireAuth + requireRole('super_admin') itself, plus per-user rate limits.
+  app.use("/api/email", emailRouter);
+
+  // Automation — background-worker control surface (run a trigger now, view its
+  // run log, kick a full tick). Router applies requireAuth + super_admin.
+  app.use("/api/automation", automationRouter);
 
   // Workflows
   app.post("/api/webhooks/register", requireAuth, requireWrite, handleRegisterWebhook);

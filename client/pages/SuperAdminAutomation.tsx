@@ -62,6 +62,7 @@ import {
 import { toast } from "sonner";
 import { formatSystemDate } from "@/lib/dateUtils";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { runTrigger, triggerRuns, type TriggerRunRow } from "@/lib/automationService";
 
 interface TriggerCondition {
   field: string;
@@ -177,6 +178,12 @@ export default function SuperAdminAutomation() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [formData, setFormData] = useState(EMPTY_FORM);
+
+  // Run-now + run-history state
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [runsDialogTrigger, setRunsDialogTrigger] = useState<EventTrigger | null>(null);
+  const [runs, setRuns] = useState<TriggerRunRow[]>([]);
+  const [runsLoading, setRunsLoading] = useState(false);
 
   const fetchTriggers = useCallback(async () => {
     setIsLoading(true);
@@ -305,6 +312,42 @@ export default function SuperAdminAutomation() {
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to delete trigger");
     }
+  };
+
+  const handleRunNow = async (trigger: EventTrigger) => {
+    setRunningId(trigger.id);
+    try {
+      const { result } = await runTrigger(trigger.id);
+      const summary = `${result.status} — ${result.detail}`;
+      if (result.status === "failed") toast.error(`Trigger "${trigger.name}": ${summary}`);
+      else if (result.status === "skipped") toast(`Trigger "${trigger.name}": ${summary}`);
+      else toast.success(`Trigger "${trigger.name}": ${summary}`);
+      fetchTriggers();
+      if (runsDialogTrigger?.id === trigger.id) loadRuns(trigger);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to run trigger");
+    } finally {
+      setRunningId(null);
+    }
+  };
+
+  const loadRuns = async (trigger: EventTrigger) => {
+    setRunsLoading(true);
+    try {
+      const { runs: rows } = await triggerRuns(trigger.id);
+      setRuns(rows);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to load runs");
+      setRuns([]);
+    } finally {
+      setRunsLoading(false);
+    }
+  };
+
+  const handleViewRuns = (trigger: EventTrigger) => {
+    setRunsDialogTrigger(trigger);
+    setRuns([]);
+    loadRuns(trigger);
   };
 
   const handleDuplicate = async (trigger: EventTrigger) => {
@@ -790,6 +833,67 @@ export default function SuperAdminAutomation() {
           </DialogContent>
         </Dialog>
 
+        {/* Run history dialog */}
+        <Dialog open={!!runsDialogTrigger} onOpenChange={(open) => !open && setRunsDialogTrigger(null)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Recent Runs — {runsDialogTrigger?.name}</DialogTitle>
+              <DialogDescription>
+                Execution log for this trigger (most recent first).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              {runsLoading ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-12 animate-pulse bg-muted rounded" />
+                  ))}
+                </div>
+              ) : runs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                  <Activity className="h-8 w-8 mx-auto mb-2" />
+                  <p>No runs recorded yet. Use "Run now" to execute it.</p>
+                </div>
+              ) : (
+                runs.map((run) => (
+                  <div key={run.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {run.status === "success" ? (
+                          <Badge className="bg-green-500">Success</Badge>
+                        ) : run.status === "failed" ? (
+                          <Badge variant="destructive">Failed</Badge>
+                        ) : (
+                          <Badge variant="secondary">Skipped</Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground">{run.event}</span>
+                      </div>
+                      {run.detail && (
+                        <pre className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                          {JSON.stringify(run.detail, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatSystemDate(run.created_at)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => runsDialogTrigger && loadRuns(runsDialogTrigger)}
+                disabled={runsLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${runsLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -980,6 +1084,17 @@ export default function SuperAdminAutomation() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleRunNow(trigger)}
+                                  disabled={runningId === trigger.id}
+                                >
+                                  <Play className="h-4 w-4 mr-2" />
+                                  {runningId === trigger.id ? "Running…" : "Run now"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleViewRuns(trigger)}>
+                                  <Activity className="h-4 w-4 mr-2" />
+                                  View runs
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEdit(trigger)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
