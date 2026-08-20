@@ -71,14 +71,13 @@ expires_at, created_by), a security-definer RPC that returns only the selected
 media through signed URLs, and RLS so only the owning workspace can manage
 them.
 
-## 7. Dependency upgrades (deferred to post-launch)
+## 7. Dependency upgrades - DONE
 
-- **Vite 5 -> 8** and **React Router 6 -> 7** resolve the remaining
-  `npm audit` findings. Both are major upgrades touching the build config,
-  the server bundle (`vite.config.server.ts`) and every route definition, and
-  the open advisories affect the dev server only. Deferred so the launch
-  build stays on the configuration that has been tested end-to-end; do it as
-  the first post-launch PR.
+- Vite 5 -> 8.2 (Rolldown), `@vitejs/plugin-react` 4 -> 6, React Router 6 -> 7
+  (`react-router-dom@7`), `@supabase/supabase-js` -> 2.112, TypeScript -> 5.9.
+  `npm audit` (prod and dev) reports 0 vulnerabilities. Node 20.19+ is still
+  supported by Vite 8, so `.nvmrc` / `engines` are unchanged. React stays on
+  18 and ESLint stays on 8 (ESLint 9 would force a flat-config rewrite).
 
 ## 8. Supabase project settings
 

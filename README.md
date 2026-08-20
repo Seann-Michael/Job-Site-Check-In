@@ -6,8 +6,8 @@ rank checks and automation workflows.
 
 ## Stack
 
-- **Client**: React 18, TypeScript, Vite 5, Tailwind, Radix UI, TanStack Query,
-  React Router 6 (`client/`)
+- **Client**: React 18, TypeScript, Vite 8, Tailwind, Radix UI, TanStack Query,
+  React Router 7 (`client/`)
 - **API**: Express 5 on Node 20 (`server/`), bundled with Vite SSR build
 - **Data/Auth/Storage**: Supabase (Postgres, Auth, Storage). Migrations live in
   `supabase/migrations/`

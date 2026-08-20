@@ -3,7 +3,7 @@ import path from "path";
 import { builtinModules } from "module";
 import { readFileSync } from "fs";
 
-const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8"));
+const pkg = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf-8"));
 
 // Server build: bundle server/node-build.ts into dist/server/node-build.mjs.
 // All node built-ins and every runtime dependency stay external (they are
@@ -12,7 +12,7 @@ export default defineConfig({
   publicDir: false,
   build: {
     lib: {
-      entry: path.resolve(__dirname, "server/node-build.ts"),
+      entry: path.resolve(import.meta.dirname, "server/node-build.ts"),
       name: "server",
       fileName: "node-build",
       formats: ["es"],
@@ -37,7 +37,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./client"),
+      "@": path.resolve(import.meta.dirname, "./client"),
     },
   },
   // NODE_ENV is deliberately not defined here; the runtime environment decides.

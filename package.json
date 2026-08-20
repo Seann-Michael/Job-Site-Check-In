@@ -49,7 +49,7 @@
     "@react-google-maps/api": "^2.20.7",
     "@sentry/node": "^10.70.0",
     "@sentry/react": "^10.70.0",
-    "@supabase/supabase-js": "^2.39.7",
+    "@supabase/supabase-js": "^2.112.3",
     "@tanstack/react-query": "^5.85.3",
     "@tanstack/react-virtual": "^3.0.1",
     "class-variance-authority": "^0.7.0",
@@ -74,7 +74,7 @@
     "react-hook-form": "^7.50.1",
     "react-is": "^18.2.0",
     "react-resizable-panels": "^2.0.12",
-    "react-router-dom": "^6.22.0",
+    "react-router-dom": "^7.18.2",
     "recharts": "^2.15.4",
     "sonner": "^1.4.3",
     "stripe": "^12.10.0",
@@ -94,7 +94,7 @@
     "@types/supertest": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^6.1.0",
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
@@ -106,11 +106,8 @@
     "supertest": "^7.2.2",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.1",
-    "typescript": "^5.2.2",
-    "vite": "^5.1.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
     "vitest": "^4.1.11"
-  },
-  "overrides": {
-    "@rollup/rollup-android-arm-eabi": "npm:@rollup/rollup-linux-x64-gnu@4.22.4"
   }
 }

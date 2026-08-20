@@ -59,8 +59,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), buildIdPlugin(), expressPlugin()],
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./client"),
-        "@shared": path.resolve(__dirname, "./shared"),
+        "@": path.resolve(import.meta.dirname, "./client"),
+        "@shared": path.resolve(import.meta.dirname, "./shared"),
       },
       // Force a single copy of React packages to prevent "Invalid hook call"
       // errors caused by mismatched React versions (e.g. react-is@19 vs react@18)
@@ -104,7 +104,7 @@ function buildIdPlugin(): Plugin {
     closeBundle() {
       // Vite copies public/ into dist after the bundle is written, so patch
       // the copied file in place.
-      const out = path.resolve(__dirname, "dist/sw.js");
+      const out = path.resolve(import.meta.dirname, "dist/sw.js");
       if (!fs.existsSync(out)) return;
       const sw = fs.readFileSync(out, "utf-8");
       fs.writeFileSync(out, sw.replace(/__BUILD_ID__/g, BUILD_ID));
@@ -113,7 +113,7 @@ function buildIdPlugin(): Plugin {
       // In dev, serve sw.js with the placeholder replaced too.
       server.middlewares.use((req, res, next) => {
         if (req.url === "/sw.js") {
-          const swPath = path.resolve(__dirname, "public/sw.js");
+          const swPath = path.resolve(import.meta.dirname, "public/sw.js");
           try {
             const sw = fs.readFileSync(swPath, "utf-8");
             res.setHeader("Content-Type", "application/javascript");
