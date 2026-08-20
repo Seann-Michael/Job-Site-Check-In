@@ -40,6 +40,7 @@ import {
   getGoogleMapsApiKey,
   createStreetViewEmbedUrl,
   checkStreetViewAvailability,
+  type PlaceResult,
 } from "@/lib/googleMaps";
 
 interface EnhancedPhoto {
@@ -131,28 +132,34 @@ export default function AdminAddProject() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleAddressSelect = async (address: any) => {
+  const handleAddressSelect = async (place: PlaceResult) => {
     const updatedFormData = {
       ...formData,
-      addressSearch: address.formatted_address || "",
-      streetAddress: address.name || "",
-      city: address.city || "",
-      state: address.state || "",
-      zipCode: address.postal_code || "",
-      placeId: address.place_id || "",
-      gpsLat: address.geometry?.location?.lat?.toString() || "",
-      gpsLng: address.geometry?.location?.lng?.toString() || "",
+      addressSearch: place.formattedAddress || "",
+      streetAddress: place.street || "",
+      city: place.city || "",
+      state: place.state || "",
+      zipCode: place.postalCode || "",
+      placeId: place.placeId || "",
+      gpsLat:
+        place.lat !== undefined && place.lat !== null
+          ? place.lat.toString()
+          : "",
+      gpsLng:
+        place.lng !== undefined && place.lng !== null
+          ? place.lng.toString()
+          : "",
     };
 
     setFormData(updatedFormData);
 
     // Check for Street View availability
     const apiKey = getGoogleMapsApiKey();
-    if (apiKey && address.geometry?.location) {
+    if (apiKey && place.lat && place.lng) {
       try {
         const location = {
-          lat: Number(address.geometry.location.lat),
-          lng: Number(address.geometry.location.lng),
+          lat: Number(place.lat),
+          lng: Number(place.lng),
         };
         const streetViewAvailable = await checkStreetViewAvailability(location);
 

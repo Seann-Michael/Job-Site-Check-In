@@ -42,6 +42,9 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const [apiKeyAvailable, setApiKeyAvailable] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  // When we programmatically set the input value (e.g. after selecting a
+  // suggestion), we don't want the search effect to re-open the dropdown.
+  const suppressSearchRef = useRef(false);
 
   const { suggestions, isLoading, error, searchAddress, clearSuggestions } =
     useAddressSearch();
@@ -71,6 +74,14 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   }, [value]);
 
   useEffect(() => {
+    // Skip searching (and re-opening the dropdown) when the value change came
+    // from selecting a suggestion / geocoding / clearing the input.
+    if (suppressSearchRef.current) {
+      suppressSearchRef.current = false;
+      setShowSuggestions(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
       if (inputValue && inputValue.length >= 3 && apiKeyAvailable) {
         searchAddress(inputValue);
@@ -120,22 +131,41 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     }
   };
 
-  const handleSuggestionSelect = (place: PlaceResult) => {
+  const handleSuggestionSelect = async (place: PlaceResult) => {
+    // Suppress the search effect so setting the input value below does not
+    // re-open the suggestions dropdown (previously required a second click).
+    suppressSearchRef.current = true;
     setInputValue(place.formattedAddress);
     setSelectedPlace(place);
     setShowSuggestions(false);
     clearSuggestions(); // Clear suggestions to prevent re-selection
 
+    // Resolve the full structured address via Place Details when possible —
+    // it yields more reliable address_components than geocoding a description.
+    let fullPlace = place;
+    if (place.placeId) {
+      try {
+        const { getPlaceDetails } = await import("@/lib/googleMaps");
+        const details = await getPlaceDetails(place.placeId);
+        if (details) {
+          fullPlace = { ...place, ...details };
+          setSelectedPlace(fullPlace);
+        }
+      } catch (error) {
+        console.error("Failed to fetch place details:", error);
+      }
+    }
+
     // Only call onChange if place is different from current selection
     if (
       onChange &&
-      (!selectedPlace || selectedPlace.placeId !== place.placeId)
+      (!selectedPlace || selectedPlace.placeId !== fullPlace.placeId)
     ) {
-      onChange(place.formattedAddress, place);
+      onChange(fullPlace.formattedAddress, fullPlace);
     }
 
     if (onCoordinatesChange) {
-      onCoordinatesChange(place.lat, place.lng);
+      onCoordinatesChange(fullPlace.lat, fullPlace.lng);
     }
   };
 
@@ -149,6 +179,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         const { geocodeAddress } = await import("@/lib/googleMaps");
         const result = await geocodeAddress(inputValue);
         if (result) {
+          suppressSearchRef.current = true;
           setSelectedPlace(result);
           setInputValue(result.formattedAddress);
           if (onChange) {
@@ -165,6 +196,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   };
 
   const clearInput = () => {
+    suppressSearchRef.current = true;
     setInputValue("");
     setSelectedPlace(null);
     clearSuggestions();

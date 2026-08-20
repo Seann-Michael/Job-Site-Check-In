@@ -18,6 +18,14 @@ export interface PlaceResult {
   lng: number;
   placeId: string;
   formattedAddress: string;
+  // Structured address components (parsed from Google address_components)
+  streetNumber?: string;
+  route?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
 }
 
 export interface AddressComponent {
@@ -25,6 +33,69 @@ export interface AddressComponent {
   short_name: string;
   types: string[];
 }
+
+// Parse Google address_components into structured fields
+export const parseAddressComponents = (
+  components:
+    | google.maps.GeocoderAddressComponent[]
+    | google.maps.places.PlaceResult["address_components"]
+    | undefined,
+): {
+  streetNumber?: string;
+  route?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+} => {
+  const parsed: {
+    streetNumber?: string;
+    route?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  } = {};
+
+  if (!components) return parsed;
+
+  for (const component of components) {
+    const types = component.types || [];
+
+    if (types.includes("street_number")) {
+      parsed.streetNumber = component.long_name;
+    }
+    if (types.includes("route")) {
+      parsed.route = component.long_name;
+    }
+    // City: prefer locality, fall back to sublocality / postal_town
+    if (types.includes("locality")) {
+      parsed.city = component.long_name;
+    } else if (
+      !parsed.city &&
+      (types.includes("sublocality") ||
+        types.includes("sublocality_level_1") ||
+        types.includes("postal_town"))
+    ) {
+      parsed.city = component.long_name;
+    }
+    if (types.includes("administrative_area_level_1")) {
+      parsed.state = component.short_name;
+    }
+    if (types.includes("postal_code")) {
+      parsed.postalCode = component.long_name;
+    }
+    if (types.includes("country")) {
+      parsed.country = component.short_name;
+    }
+  }
+
+  parsed.street = [parsed.streetNumber, parsed.route].filter(Boolean).join(" ");
+
+  return parsed;
+};
 
 // Google Maps API Key Management
 export const getGoogleMapsApiKey = (): string => {
@@ -174,6 +245,7 @@ export const geocodeAddress = async (
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
           const result = results[0];
           const location = result.geometry.location;
+          const parsed = parseAddressComponents(result.address_components);
 
           resolve({
             address: address,
@@ -181,6 +253,7 @@ export const geocodeAddress = async (
             lng: location.lng(),
             placeId: result.place_id || "",
             formattedAddress: result.formatted_address,
+            ...parsed,
           });
         } else {
           resolve(null);
@@ -189,6 +262,60 @@ export const geocodeAddress = async (
     });
   } catch (error) {
     console.error("Geocoding failed:", error);
+    return null;
+  }
+};
+
+// Fetch full Place Details (including address_components) for a place ID.
+// Autocomplete predictions only carry placeId + description, so structured
+// address fields must be resolved via a Place Details lookup.
+export const getPlaceDetails = async (
+  placeId: string,
+): Promise<PlaceResult | null> => {
+  if (!placeId) return null;
+  try {
+    await loadGoogleMapsAPI();
+
+    const service = new google.maps.places.PlacesService(
+      document.createElement("div"),
+    );
+
+    return new Promise((resolve) => {
+      service.getDetails(
+        {
+          placeId,
+          fields: [
+            "address_components",
+            "formatted_address",
+            "geometry",
+            "place_id",
+            "name",
+          ],
+        },
+        (place, status) => {
+          if (
+            status === google.maps.places.PlacesServiceStatus.OK &&
+            place
+          ) {
+            const location = place.geometry?.location;
+            const parsed = parseAddressComponents(place.address_components);
+
+            resolve({
+              address: place.formatted_address || place.name || "",
+              lat: location?.lat() || 0,
+              lng: location?.lng() || 0,
+              placeId: place.place_id || placeId,
+              formattedAddress: place.formatted_address || "",
+              ...parsed,
+            });
+          } else {
+            resolve(null);
+          }
+        },
+      );
+    });
+  } catch (error) {
+    console.error("Failed to fetch place details:", error);
     return null;
   }
 };

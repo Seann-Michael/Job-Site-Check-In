@@ -1255,8 +1255,19 @@ export default function Settings() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <Label htmlFor="businessName">Business Name</Label>
+                        <Input
+                          id="businessName"
+                          value={settings.businessName || ""}
+                          onChange={(e) =>
+                            updateSetting("businessName", e.target.value)
+                          }
+                          placeholder="Your business name"
+                        />
+                      </div>
                       <div>
-                        <Label htmlFor="firstName">First Name</Label>
+                        <Label htmlFor="firstName">Owner First Name</Label>
                         <Input
                           id="firstName"
                           value={settings.firstName || ""}
@@ -1266,7 +1277,7 @@ export default function Settings() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="lastName">Last Name</Label>
+                        <Label htmlFor="lastName">Owner Last Name</Label>
                         <Input
                           id="lastName"
                           value={settings.lastName || ""}
