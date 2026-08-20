@@ -19,7 +19,6 @@ import {
   CheckCircle,
   Clock,
   MapPin,
-  Phone,
   Globe,
   Star,
   Edit3,
@@ -44,7 +43,7 @@ import { aiApi, aiErrorMessage } from "@/lib/api";
 import { supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
 import { loadGoogleMapsAPI } from "@/lib/googleMaps";
-import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
+import { useNavigate } from "react-router-dom";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +65,38 @@ interface GMBProfile {
   lng: number | null;
   google_url: string | null;
   last_scanned_at: string | null;
+}
+
+/** Google Business Profile location as stored in businesses.settings.gmbAccounts */
+interface GmbAccountLite {
+  name?: string;
+  title?: string;
+  accountName?: string;
+  address?: string;
+  phone?: string;
+  storefrontAddress?: unknown;
+  placeId?: string;
+  place_id?: string;
+}
+
+/** Subset of businesses.settings relevant to the Google connection */
+interface BusinessGmbSettings {
+  googleMyBusinessConnected?: boolean;
+  googleOAuthEmail?: string;
+  gmbAccounts?: GmbAccountLite[];
+  selectedGmbAccountId?: string;
+  selectedGmbAccountName?: string;
+}
+
+/** The current business row we read to reuse the Settings-level connection */
+interface BusinessRow {
+  settings: BusinessGmbSettings | null;
+  google_place_id: string | null;
+  google_my_business: unknown;
+  name: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
 }
 
 interface GMBHour {
@@ -170,8 +201,11 @@ function generateAuditFromPlace(place: any): Omit<AuditResult, "id">[] {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function GMBOptimization() {
+  const navigate = useNavigate();
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [profile, setProfile] = useState<GMBProfile | null>(null);
+  const [business, setBusiness] = useState<BusinessRow | null>(null);
+  const [businessLoadError, setBusinessLoadError] = useState(false);
   const [hours, setHours] = useState<GMBHour[]>([]);
   const [qas, setQAs] = useState<GMBQA[]>([]);
   const [categories, setCategories] = useState<GMBCategory[]>([]);
@@ -184,10 +218,6 @@ export default function GMBOptimization() {
   const [savingHours, setSavingHours] = useState(false);
   const [editingHours, setEditingHours] = useState(false);
   const [selectedTab, setSelectedTab] = useState("audit");
-
-  // Connection form state
-  const [showConnectFlow, setShowConnectFlow] = useState(false);
-  const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
 
   // Q&A form
   const [newQA, setNewQA] = useState({ question: "", answer: "" });
@@ -217,14 +247,16 @@ export default function GMBOptimization() {
   // ── Data loaders ────────────────────────────────────────────────────────────
   const loadProfile = useCallback(async (bid: string) => {
     setLoading(true);
+    setBusinessLoadError(false);
     try {
-      const [profRes, hoursRes, qaRes, catRes, svcRes, auditRes] = await Promise.all([
+      const [profRes, hoursRes, qaRes, catRes, svcRes, auditRes, bizRes] = await Promise.all([
         supabase.from("gmb_profiles").select("*").eq("business_id", bid).maybeSingle(),
         supabase.from("gmb_hours").select("*").eq("business_id", bid).order("id"),
         supabase.from("gmb_qas").select("*").eq("business_id", bid).order("created_at", { ascending: false }),
         supabase.from("gmb_categories").select("*").eq("business_id", bid).order("is_primary", { ascending: false }),
         supabase.from("gmb_services").select("*").eq("business_id", bid).order("created_at"),
         supabase.from("gmb_audit_results").select("*").eq("business_id", bid).order("scanned_at", { ascending: false }).limit(20),
+        supabase.from("businesses").select("settings, google_place_id, google_my_business, name, address, phone, website").eq("id", bid).maybeSingle(),
       ]);
 
       if (profRes.data) setProfile(profRes.data as unknown as GMBProfile);
@@ -233,6 +265,15 @@ export default function GMBOptimization() {
       if (catRes.data) setCategories(catRes.data as unknown as GMBCategory[]);
       if (svcRes.data) setServices(svcRes.data as unknown as GMBService[]);
       if (auditRes.data) setAuditResults(auditRes.data as unknown as AuditResult[]);
+
+      // The business row backs the "not connected" branch: it carries the
+      // Settings-level Google Business Profile connection we now reuse.
+      if (bizRes.error) {
+        console.error("Error loading business row:", bizRes.error);
+        setBusinessLoadError(true);
+      } else {
+        setBusiness((bizRes.data as unknown as BusinessRow) ?? null);
+      }
     } catch (err) {
       console.error("Error loading GMB profile:", err);
     } finally {
@@ -240,50 +281,55 @@ export default function GMBOptimization() {
     }
   }, []);
 
-  // ── Connect GMB via Places API ──────────────────────────────────────────────
-  const handleConnect = useCallback(async () => {
-    if (!selectedPlace || !businessId) return;
+  // ── Set up optimization from the Settings-level connection ─────────────────
+  // Creates the gmb_profiles row from the Google Business Profile the user
+  // already connected in Settings (businesses.settings + businesses.google_place_id),
+  // instead of running a fresh Google Places search here.
+  const createProfileFromConnection = useCallback(async () => {
+    if (!businessId || !business) return;
     setConnecting(true);
 
     try {
-      // Fetch full place details via Places API
-      await loadGoogleMapsAPI();
-      const service = new window.google.maps.places.PlacesService(document.createElement("div"));
+      const settings = business.settings ?? {};
+      const accounts = settings.gmbAccounts ?? [];
+      const selectedAccount =
+        accounts.find((a) => a.name && a.name === settings.selectedGmbAccountId) ??
+        (accounts.length === 1 ? accounts[0] : undefined);
 
-      const detail: any = await new Promise((resolve, reject) => {
-        service.getDetails(
-          {
-            placeId: selectedPlace.placeId,
-            fields: ["place_id", "name", "formatted_address", "formatted_phone_number", "website", "rating", "user_ratings_total", "types", "opening_hours", "photos", "geometry", "url"],
-          },
-          (result: any, status: string) => {
-            if (status === "OK" && result) resolve(result);
-            else reject(new Error(status));
-          },
-        );
-      });
+      // place_id is NOT NULL in the schema. Prefer the business's stored
+      // google_place_id, then any id the selected location carries, then fall
+      // back to the location resource name, and finally an empty string so the
+      // record can still be created when GBP exposes no place id.
+      const placeId =
+        business.google_place_id ||
+        selectedAccount?.placeId ||
+        selectedAccount?.place_id ||
+        selectedAccount?.name ||
+        "";
 
-      const photoUrls = (detail.photos || []).slice(0, 5).map((p: any) =>
-        p.getUrl({ maxWidth: 800 })
-      );
+      const name =
+        settings.selectedGmbAccountName ||
+        selectedAccount?.title ||
+        selectedAccount?.accountName ||
+        business.name ||
+        "My Business";
 
-      // Upsert profile
       const profileData = {
         business_id: businessId,
-        place_id: detail.place_id,
-        business_name: detail.name,
-        address: detail.formatted_address || null,
-        phone: detail.formatted_phone_number || null,
-        website: detail.website || null,
-        rating: detail.rating || null,
-        review_count: detail.user_ratings_total || 0,
-        types: detail.types || [],
-        photos: photoUrls,
-        lat: detail.geometry?.location?.lat() || null,
-        lng: detail.geometry?.location?.lng() || null,
-        google_url: detail.url || null,
+        place_id: placeId,
+        business_name: name,
+        address: business.address || selectedAccount?.address || null,
+        phone: business.phone || selectedAccount?.phone || null,
+        website: business.website || null,
+        rating: null,
+        review_count: 0,
+        types: [],
+        photos: [],
+        lat: null,
+        lng: null,
+        google_url: null,
         overall_score: 0,
-        last_scanned_at: new Date().toISOString(),
+        last_scanned_at: null,
       };
 
       const { data: savedProfile, error: profErr } = await supabase
@@ -294,62 +340,15 @@ export default function GMBOptimization() {
 
       if (profErr) throw profErr;
 
-      // Seed hours from Google
-      if (detail.opening_hours?.weekday_text) {
-        const hoursData: GMBHour[] = DAYS.map((day) => {
-          const text = detail.opening_hours.weekday_text.find((t: string) => t.toLowerCase().startsWith(day.toLowerCase()));
-          if (!text || text.toLowerCase().includes("closed")) {
-            return { business_id: businessId, day, open_time: "", close_time: "", is_closed: true };
-          }
-          const match = text.match(/(\d{1,2}:\d{2}\s*[AP]M)\s*[–-]\s*(\d{1,2}:\d{2}\s*[AP]M)/i);
-          if (match) {
-            return { business_id: businessId, day, open_time: match[1], close_time: match[2], is_closed: false };
-          }
-          return { business_id: businessId, day, open_time: "", close_time: "", is_closed: false };
-        });
-
-        const { error: hoursDelErr } = await supabase
-          .from("gmb_hours")
-          .delete()
-          .eq("business_id", businessId);
-        if (hoursDelErr) throw hoursDelErr;
-        const { error: hoursInsErr } = await supabase
-          .from("gmb_hours")
-          .insert(hoursData as any[]);
-        if (hoursInsErr) throw hoursInsErr;
-        setHours(hoursData.map((h, i) => ({ ...h, id: String(i) })));
-      }
-
-      // Generate and save initial audit
-      const auditItems = generateAuditFromPlace(detail);
-      const { error: auditDelErr } = await supabase
-        .from("gmb_audit_results")
-        .delete()
-        .eq("business_id", businessId);
-      if (auditDelErr) throw auditDelErr;
-      const { data: savedAudit, error: auditInsErr } = await supabase
-        .from("gmb_audit_results")
-        .insert(auditItems.map((a) => ({ ...a, business_id: businessId })))
-        .select();
-      if (auditInsErr) throw auditInsErr;
-
-      // Compute overall score
-      const good = auditItems.filter((a) => a.status === "good").length;
-      const score = Math.round((good / auditItems.length) * 100);
-      await supabase.from("gmb_profiles").update({ overall_score: score }).eq("business_id", businessId);
-
-      setProfile({ ...(savedProfile as unknown as GMBProfile), overall_score: score });
-      if (savedAudit) setAuditResults(savedAudit as unknown as AuditResult[]);
-      setShowConnectFlow(false);
-      setSelectedPlace(null);
-      toast.success("Google My Business profile connected!");
+      setProfile(savedProfile as unknown as GMBProfile);
+      toast.success("Google Business Profile connected! Run a scan to build your first audit.");
     } catch (err: any) {
       console.error("Connection error:", err);
-      toast.error("Failed to connect profile: " + (err.message || err));
+      toast.error("Failed to set up optimization: " + (err.message || err));
     } finally {
       setConnecting(false);
     }
-  }, [selectedPlace, businessId]);
+  }, [businessId, business]);
 
   // ── Scan / refresh from Places API ─────────────────────────────────────────
   const handleScan = useCallback(async () => {
@@ -571,8 +570,106 @@ export default function GMBOptimization() {
     );
   }
 
-  // ── Not connected: connection flow ─────────────────────────────────────────
+  // ── Not connected: reuse the Settings-level Google Business Profile ─────────
   if (!profile) {
+    // The business row backs this whole branch. If it failed to load we can't
+    // tell connected from not-connected, so show an error rather than a blank.
+    if (businessLoadError) {
+      return (
+        <AppLayout breadcrumbs={[{ label: "GMB Optimization" }]}>
+          <div className="container mx-auto px-4 py-16 max-w-lg text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Couldn’t load this business</h2>
+            <p className="text-muted-foreground mb-6">
+              We hit an error loading your business details. Please try again.
+            </p>
+            <Button onClick={() => businessId && loadProfile(businessId)} className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        </AppLayout>
+      );
+    }
+
+    const settings = business?.settings ?? {};
+    const accounts = settings.gmbAccounts ?? [];
+    const selectedAccount =
+      accounts.find((a) => a.name && a.name === settings.selectedGmbAccountId) ??
+      (accounts.length === 1 ? accounts[0] : undefined);
+    const hasSelectedLocation = !!settings.selectedGmbAccountId || accounts.length === 1;
+    const isConnected =
+      (settings.googleMyBusinessConnected === true && hasSelectedLocation) ||
+      !!business?.google_place_id;
+
+    const connectedName =
+      settings.selectedGmbAccountName ||
+      selectedAccount?.title ||
+      selectedAccount?.accountName ||
+      business?.name ||
+      "Your business";
+    const connectedAddress = business?.address || selectedAccount?.address || null;
+
+    if (isConnected) {
+      return (
+        <AppLayout breadcrumbs={[{ label: "GMB Optimization" }]}>
+          <div className="container mx-auto px-4 py-8 max-w-2xl">
+            <div className="mb-8 text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Building2 className="h-8 w-8 text-primary" />
+              </div>
+              <h1 className="text-2xl font-bold mb-2">Google Business Profile connected</h1>
+              <p className="text-muted-foreground">
+                We’ll use the profile you connected in Settings — no need to search Google again.
+              </p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  Connected Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="border rounded-lg p-4 bg-muted/40 space-y-2">
+                  <div className="font-semibold flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    {connectedName}
+                  </div>
+                  {connectedAddress && (
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {connectedAddress}
+                    </div>
+                  )}
+                  {settings.googleOAuthEmail && (
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Link2 className="h-3.5 w-3.5" />
+                      Connected as {settings.googleOAuthEmail}
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  className="w-full"
+                  disabled={connecting}
+                  onClick={createProfileFromConnection}
+                >
+                  {connecting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Setting up…</>
+                  ) : (
+                    <><Wand2 className="h-4 w-4 mr-2" />Set up optimization</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </AppLayout>
+      );
+    }
+
+    // Not connected at all — direct the user to Settings to connect via OAuth.
     return (
       <AppLayout breadcrumbs={[{ label: "GMB Optimization" }]}>
         <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -580,9 +677,9 @@ export default function GMBOptimization() {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Building2 className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold mb-2">Connect Google My Business</h1>
+            <h1 className="text-2xl font-bold mb-2">Connect Google Business Profile</h1>
             <p className="text-muted-foreground">
-              Search for your business on Google to connect your profile and start optimizing your presence.
+              Your Google Business Profile must be connected before you can manage it here.
             </p>
           </div>
 
@@ -590,50 +687,19 @@ export default function GMBOptimization() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Link2 className="h-5 w-5" />
-                Find Your Business
+                Not connected yet
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <BusinessPlacesSearch
-                placeholder="Type your business name or address…"
-                onPlaceSelect={(place) => setSelectedPlace(place)}
-              />
-
-              {selectedPlace && (
-                <div className="border rounded-lg p-4 bg-muted/40 space-y-2">
-                  <div className="font-semibold flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    {selectedPlace.name}
-                  </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {selectedPlace.formattedAddress}
-                  </div>
-                  {selectedPlace.phoneNumber && (
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-3.5 w-3.5" />
-                      {selectedPlace.phoneNumber}
-                    </div>
-                  )}
-                  {selectedPlace.rating && (
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 text-yellow-500" />
-                      {selectedPlace.rating} ({selectedPlace.userRatingsTotal} reviews)
-                    </div>
-                  )}
-                </div>
-              )}
-
+              <p className="text-sm text-muted-foreground">
+                Connect your Google Business Profile under Settings → Google Integration to manage it here.
+              </p>
               <Button
                 className="w-full"
-                disabled={!selectedPlace || connecting}
-                onClick={handleConnect}
+                onClick={() => navigate("/admin/settings?tab=integrations")}
               >
-                {connecting ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting…</>
-                ) : (
-                  <><Link2 className="h-4 w-4 mr-2" />Connect This Profile</>
-                )}
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Connect in Settings
               </Button>
             </CardContent>
           </Card>
