@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { getSupabaseClient } from "../supabaseClient";
 import { logger } from "../lib/logger";
 import { getEnv } from "../lib/env";
-import { canAccessBusiness } from "../middleware/requireAuth";
+import { canWriteBusiness } from "../middleware/requireAuth";
 
 const moduleLog = logger.child({ module: "twilio" });
 const reqLog = (req: Request) => (req.log ?? moduleLog).child({ module: "twilio" });
@@ -76,7 +76,7 @@ function validateSmsInput(req: Request, to: unknown, message: unknown, businessI
     return { status: 400, error: `Message must be at most ${MAX_SMS_LENGTH} characters` };
   }
   if (businessId !== undefined && businessId !== null && businessId !== "") {
-    if (typeof businessId !== "string" || !canAccessBusiness(req, businessId)) {
+    if (typeof businessId !== "string" || !canWriteBusiness(req, businessId)) {
       return { status: 403, error: "You do not have access to this business" };
     }
   }

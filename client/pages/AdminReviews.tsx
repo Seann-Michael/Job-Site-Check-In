@@ -1,3 +1,4 @@
+import { useMyRole } from "@/hooks/useMyRole";
 import React, { useState, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AppLayout } from "@/components/AppLayout";
@@ -493,6 +494,7 @@ function ReviewDataTable({
 }
 
 export default function AdminReviews() {
+  const { canWrite } = useMyRole();
   const navigate = useNavigate();
   const [reviewRequests, setReviewRequests] = useState<ReviewRequest[]>([]);
   const [stats, setStats] = useState<ReviewStats>({
@@ -819,17 +821,19 @@ export default function AdminReviews() {
             </p>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              onClick={() => {
-                setActiveRequest(null);
-                setShowReviewRequest(true);
-              }}
-              className="gap-2 whitespace-nowrap w-full sm:w-auto"
-            >
-              <Send className="h-4 w-4" />
-              <span className="hidden sm:inline">Send Review Request</span>
-              <span className="sm:hidden">Send Request</span>
-            </Button>
+            {canWrite && (
+              <Button
+                onClick={() => {
+                  setActiveRequest(null);
+                  setShowReviewRequest(true);
+                }}
+                className="gap-2 whitespace-nowrap w-full sm:w-auto"
+              >
+                <Send className="h-4 w-4" />
+                <span className="hidden sm:inline">Send Review Request</span>
+                <span className="sm:hidden">Send Request</span>
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="shrink-0">

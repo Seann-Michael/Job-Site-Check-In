@@ -1,3 +1,4 @@
+import { useMyRole } from "@/hooks/useMyRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ const HOME_SERVICE_TYPES = [
 ];
 
 export default function AdminAddProject() {
+  const { canWrite } = useMyRole();
   const navigate = useNavigate();
   const [photos, setPhotos] = useState<EnhancedPhoto[]>([]);
   const [businesses, setBusinesses] = useState<any[]>([]);
@@ -718,7 +720,11 @@ export default function AdminAddProject() {
                 Cancel
               </Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || !canWrite}
+              title={!canWrite ? "Read-only access" : undefined}
+            >
               <Save className="mr-2 h-4 w-4" />
               {isSubmitting ? "Creating..." : "Create Job"}
             </Button>

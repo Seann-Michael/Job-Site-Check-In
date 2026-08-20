@@ -68,6 +68,8 @@ import {
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import supabaseClient from "@/lib/supabaseClient";
+import { inviteInternalUser } from "@/lib/settingsTeamService";
+import { AlertTriangle } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type DbRole = "super_admin" | "agency_admin" | "business_owner" | "staff" | "viewer";
@@ -137,6 +139,28 @@ export default function SuperAdminUsers() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", email: "", role: "viewer" as DbRole });
   const [savingAdd, setSavingAdd] = useState(false);
+
+  // Invite internal (super admin) user dialog
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "" });
+  const [savingInvite, setSavingInvite] = useState(false);
+
+  const handleInviteInternal = async () => {
+    const email = inviteForm.email.trim();
+    if (!email) return;
+    setSavingInvite(true);
+    try {
+      await inviteInternalUser({ email, name: inviteForm.name });
+      toast.success(`Invitation sent to ${email}`);
+      setShowInvite(false);
+      setInviteForm({ name: "", email: "" });
+      void fetchUsers();
+    } catch (err: any) {
+      toast.error("Failed to send invite: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSavingInvite(false);
+    }
+  };
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
@@ -342,6 +366,10 @@ export default function SuperAdminUsers() {
             <Button size="sm" className="gap-2" onClick={() => setShowAddUser(true)}>
               <UserPlus className="h-4 w-4" />
               Add User
+            </Button>
+            <Button size="sm" variant="destructive" className="gap-2" onClick={() => setShowInvite(true)}>
+              <Shield className="h-4 w-4" />
+              Invite internal user
             </Button>
           </div>
         </div>
@@ -682,6 +710,62 @@ export default function SuperAdminUsers() {
             <Button variant="outline" onClick={() => setShowAddUser(false)}>Cancel</Button>
             <Button onClick={handleAddUser} disabled={savingAdd || !addForm.email.trim()}>
               {savingAdd ? "Adding…" : "Add User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Invite Internal User Dialog ─────────────────────────────────────── */}
+      <Dialog open={showInvite} onOpenChange={(open) => !savingInvite && setShowInvite(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite internal user</DialogTitle>
+            <DialogDescription>
+              Sends an email invite. The user sets a password and joins as a Super Admin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                <strong>Super Admin grants full access to every account</strong> on this
+                platform, including billing, settings and all customer data. Only invite
+                trusted internal staff.
+              </span>
+            </div>
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input
+                value={inviteForm.name}
+                onChange={(e) => setInviteForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email *</Label>
+              <Input
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="name@yourcompany.com"
+                type="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive">Super Admin</Badge>
+                <span className="text-xs text-muted-foreground">Fixed for internal invites</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInvite(false)} disabled={savingInvite}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleInviteInternal}
+              disabled={savingInvite || !inviteForm.email.trim()}
+            >
+              {savingInvite ? "Sending…" : "Send invite"}
             </Button>
           </DialogFooter>
         </DialogContent>

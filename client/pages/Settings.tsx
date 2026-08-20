@@ -101,6 +101,7 @@ import {
   type BillingRecordRow,
 } from "@/lib/billingService";
 import { fetchBusinessTeam } from "@/lib/settingsTeamService";
+import { useMyRole } from "@/hooks/useMyRole";
 
 // Comprehensive Types
 interface SettingsData {
@@ -413,6 +414,7 @@ const createDefaultSettings = (): SettingsData => ({
 });
 
 export default function Settings() {
+  const { canWrite } = useMyRole();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(
     () => searchParams.get("tab") || "general",
@@ -545,7 +547,9 @@ export default function Settings() {
         businessId ? fetchBillingRecords(businessId) : Promise.resolve([]),
         businessId ? fetchCurrentPlanName(businessId) : Promise.resolve(null),
         businessId
-          ? fetchBusinessTeam(businessId).then((team) => team.length)
+          ? fetchBusinessTeam(businessId)
+              .then((team) => team.members.length + 1)
+              .catch(() => null)
           : Promise.resolve(null),
       ]);
       setPlans(planRows);
@@ -1102,7 +1106,8 @@ export default function Settings() {
           </div>
           <Button
             onClick={handleSave}
-            disabled={isLoading || isLoadingSettings || !!loadError}
+            disabled={isLoading || isLoadingSettings || !!loadError || !canWrite}
+            title={!canWrite ? "Read-only access" : undefined}
             className="gap-2 w-full sm:w-auto min-h-[44px]"
           >
             <Save className="h-4 w-4" />

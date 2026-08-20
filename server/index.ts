@@ -40,6 +40,7 @@ import {
 } from "./routes/payments";
 import { handleLogout, handleChangePassword } from "./routes/authApi";
 import { handleAIReviewResponse } from "./routes/aiReview";
+import { teamRouter, adminStaffRouter } from "./routes/team";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
 
@@ -242,6 +243,12 @@ export function createServer(options: CreateServerOptions = {}) {
   // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/change-password", requireAuth, handleChangePassword);
+
+  // Team memberships (routers apply requireAuth themselves; admin router
+  // additionally requires super_admin). business_members is read-only over
+  // PostgREST, so these are the only write paths.
+  app.use("/api/team", teamRouter);
+  app.use("/api/admin/staff", adminStaffRouter);
 
   // Workflows
   app.post("/api/webhooks/register", requireAuth, requireWrite, handleRegisterWebhook);

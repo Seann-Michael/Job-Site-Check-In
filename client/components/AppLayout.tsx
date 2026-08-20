@@ -794,6 +794,14 @@ export function AppLayout({
                 </Link>
               </div>
             )}
+            {wsState.initialized &&
+              !workspaceService.isSuperAdmin() &&
+              workspaceService.getMyRole() === "viewer" && (
+                <div className="px-4 py-1.5 text-xs text-muted-foreground bg-muted/60 border-b">
+                  Read-only access — you can view this business but not make
+                  changes.
+                </div>
+              )}
             <div className="flex-1 w-full mobile-bottom-safe">{children}</div>
 
             {/* Footer - Always at bottom */}

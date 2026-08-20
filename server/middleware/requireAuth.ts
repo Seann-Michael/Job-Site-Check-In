@@ -7,6 +7,8 @@ export interface AuthUser {
   email: string | null;
 }
 
+export type BusinessRole = "owner" | "staff" | "viewer";
+
 export interface AuthProfile {
   id: string;
   email: string | null;
@@ -14,11 +16,19 @@ export interface AuthProfile {
   /** users.sub_account_id — legacy text account identifier used by media/RSS. */
   accountId: string | null;
   /**
-   * businesses.id values this user owns (businesses.owner_id = users.id).
-   * For super admins this is NOT the full access set — check `isSuperAdmin`
-   * (or use canAccessBusiness()) which grants access to every business.
+   * businesses.id values this user can access: businesses they own
+   * (businesses.owner_id = users.id) UNION businesses they are a member of
+   * (business_members.user_id). For super admins this is NOT the full access
+   * set — check `isSuperAdmin` (or use canAccessBusiness()) which grants
+   * access to every business.
    */
   businessIds: string[];
+  /**
+   * Per-business role: `owner` (businesses.owner_id), or the
+   * business_members.role (`staff` = read+write, `viewer` = read-only).
+   * Keyed by business id; only businesses in `businessIds` are present.
+   */
+  memberRoles: Record<string, BusinessRole>;
   /** True for role super_admin: full admin access to every business. */
   isSuperAdmin: boolean;
 }
@@ -60,9 +70,10 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
     const user: AuthUser = { id: data.user.id, email: data.user.email ?? null };
     req.user = user;
 
-    const [{ data: row }, { data: businesses }] = await Promise.all([
+    const [{ data: row }, { data: businesses }, { data: memberships }] = await Promise.all([
       db.from("users").select("id, email, role, sub_account_id").eq("id", user.id).maybeSingle(),
       db.from("businesses").select("id").eq("owner_id", user.id),
+      db.from("business_members").select("business_id, role").eq("user_id", user.id),
     ]);
 
     // A valid token with no profile row is an anomaly (the signup trigger
@@ -72,12 +83,21 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
     }
 
     const role: string | null = (row as any)?.role ?? null;
+    const memberRoles: Record<string, BusinessRole> = {};
+    // Memberships first, so an owner row (below) always wins if both exist.
+    for (const m of ((memberships as any[]) || [])) {
+      if (m?.business_id && (m.role === "staff" || m.role === "viewer")) memberRoles[m.business_id] = m.role;
+    }
+    for (const b of ((businesses as any[]) || [])) {
+      if (b?.id) memberRoles[b.id] = "owner";
+    }
     req.profile = {
       id: user.id,
       email: (row as any)?.email ?? user.email,
       role,
       accountId: (row as any)?.sub_account_id ?? null,
-      businessIds: ((businesses as any[]) || []).map((b) => b.id as string),
+      businessIds: Object.keys(memberRoles),
+      memberRoles,
       isSuperAdmin: normalizeRole(role) === "superadmin",
     };
     return next();
@@ -124,9 +144,27 @@ export const requireWrite: RequestHandler = (req, res, next) => {
   return next();
 };
 
-/** True when the authenticated user may act on the given business id. */
+/** True when the authenticated user may READ the given business (owner, member, or super admin). */
 export function canAccessBusiness(req: Request, businessId: string | null | undefined): boolean {
   if (!businessId) return false;
   if (isSuperAdmin(req)) return true;
-  return !!req.profile?.businessIds.includes(businessId);
+  return !!req.profile?.memberRoles?.[businessId];
+}
+
+/**
+ * True when the authenticated user may WRITE to the given business: super
+ * admin, owner, or a `staff` member. `viewer` members are read-only.
+ */
+export function canWriteBusiness(req: Request, businessId: string | null | undefined): boolean {
+  if (!businessId) return false;
+  if (isSuperAdmin(req)) return true;
+  const r = req.profile?.memberRoles?.[businessId];
+  return r === "owner" || r === "staff";
+}
+
+/** True when the authenticated user is the owner of the business (or a super admin). */
+export function isBusinessOwner(req: Request, businessId: string | null | undefined): boolean {
+  if (!businessId) return false;
+  if (isSuperAdmin(req)) return true;
+  return req.profile?.memberRoles?.[businessId] === "owner";
 }

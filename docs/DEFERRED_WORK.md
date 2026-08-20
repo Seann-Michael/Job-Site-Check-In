@@ -53,14 +53,14 @@ The fake MFA endpoints were removed. Real TOTP via Supabase `auth.mfa`
 (enroll / challenge / verify) plus an AAL2 requirement for super-admin routes
 is a follow-up.
 
-## 5. Staff / viewer membership model
+## 5. Staff / viewer membership model — DONE
 
-Access is owner-only today (`owns_business()` in RLS; one account per
-workspace). A `memberships` table (user, account, role: owner | staff |
-viewer) with matching RLS helpers and a team-management page is needed for
-non-owner access. `supabase/migrations_pending/` has an earlier draft
-(`w0_01_identity_companies_membership`) to mine for ideas; it does not apply
-cleanly to the current schema.
+Implemented in `supabase/migrations/20260820008000_business_memberships.sql`
+(`business_members` table, `can_read_business` / `can_write_business`
+helpers, every tenant policy split into `_select` / `_write`, storage
+`storage_path_writable`) and `server/routes/team.ts` (`/api/team/*`,
+`/api/admin/staff/invite`). `business_members` is read-only over PostgREST;
+all mutations are server-side and audited. See `docs/AUTH_AND_RLS.md`.
 
 ## 6. Shared galleries
 

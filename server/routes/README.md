@@ -18,12 +18,20 @@ run before body parsing.
 
 Body limits: 1mb JSON globally; `/api/ai/*` accepts up to 8mb (base64 images).
 
-**Roles.** `req.profile.role` drives a simple capability model: `super_admin`,
-`business_owner` and `staff` may write; `viewer` is read-only and gets `403` on
-every mutating route (media upload/delete, webhook register, workflow
-webhook-url, Google OAuth connect, Twilio send/review-request, RSS add item).
-Reads are unchanged. `super_admin` may act on any business; everyone else only
-on businesses they own (`businesses.owner_id`).
+**Roles.** Two layers. (1) Global `users.role`: `super_admin`, `business_owner`
+and `staff` pass `requireWrite`; `viewer` gets `403` on every mutating route
+(media upload/delete, webhook register, workflow webhook-url, Google OAuth
+connect, Twilio send/review-request, RSS add item). (2) Per-business
+membership (`business_members`, see `docs/AUTH_AND_RLS.md`): `profile.businessIds`
+= owned ∪ member businesses, `profile.memberRoles[businessId]` =
+`owner | staff | viewer`. Reads use `canAccessBusiness()` (owner, member, super
+admin); business-scoped writes use `canWriteBusiness()` (owner, staff, super
+admin) — a `viewer` member of a business gets `403`/`404` on writes to it even
+if their global role would otherwise allow writes. `super_admin` may act on
+any business.
+
+Rate limits (team): 20 invites / hour / user on `/api/team/:businessId/invite`;
+10 / hour / user on `/api/admin/staff/invite`.
 
 Every response carries `X-Request-Id` (pino-http request id) for log correlation.
 Logged URLs have their query string stripped (OAuth `?code=`/`?state=` never
@@ -36,6 +44,22 @@ reach the logs).
 | Method | Path | Auth | Response |
 |---|---|---|---|
 | GET | `/health`, `/api/health` | no | `{ status:"ok", uptime:number, version:string }` |
+
+## Team (`/api/team/*`, auth)
+
+`business_members` has INSERT/UPDATE/DELETE revoked from the `authenticated`
+role, so these endpoints are the only way to add, change or remove a team
+member. Every mutation writes an `audit_logs` row (`resource_type:
+business_member`, actor `user_id`, `business_id`, `details.target_user_id`).
+Owners are implicit (`businesses.owner_id`) and are never member rows.
+
+| Method | Path | Who | Request body | Response |
+|---|---|---|---|---|
+| GET | `/api/team/:businessId` | owner, member, super admin (else `404`) | | `{ owner:{id,email,name}, members:[{id,userId,email,name,role:'staff'\|'viewer',status:'active'\|'invited',createdAt}] }` — `invited` = auth user has never signed in |
+| POST | `/api/team/:businessId/invite` | owner or super admin (`403` for staff/viewer, `404` for non-members) | `{ email*, role*: 'staff'\|'viewer', name? }` | `201` member object. Looks up `public.users` by email; if absent, `auth.admin.inviteUserByEmail` (redirect `APP_URL/reset-password`, new user's global role = invited role); then upserts the membership. `400` for bad email/role, inviting the owner, yourself, or a super admin. |
+| PATCH | `/api/team/:businessId/members/:memberId` | owner or super admin | `{ role*: 'staff'\|'viewer' }` | member object |
+| DELETE | `/api/team/:businessId/members/:memberId` | owner or super admin | | `204`. Removes the membership only — the auth user is kept (may belong to other businesses). |
+| POST | `/api/admin/staff/invite` | `super_admin` only (`403` otherwise) | `{ email*, name?, role*: 'super_admin' }` | `201 { id, email, name, role:'super_admin', status }`. Invites (or finds) the user and sets `users.role='super_admin'` via the service role; audited (`resource_type: user`). This is how internal staff are added. |
 
 ## AI (`/api/ai/*`, auth, 503 `{error:"AI not configured"}` without `OPENAI_API_KEY`)
 

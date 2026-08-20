@@ -1,3 +1,4 @@
+import { useMyRole } from "@/hooks/useMyRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import { Project, User, Business, supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
 
 export default function Index() {
+  const { canWrite } = useMyRole();
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
 
@@ -329,12 +331,14 @@ export default function Index() {
               </Button>
             )}
             
-            <Button asChild>
-              <Link to="/add-job">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Job
-              </Link>
-            </Button>
+            {canWrite && (
+              <Button asChild>
+                <Link to="/add-job">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Job
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -408,12 +412,14 @@ export default function Index() {
                   ? "Get started by creating your first job"
                   : "Try adjusting your search or filters"}
               </p>
-              <Button asChild>
-                <Link to="/add-job">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Job
-                </Link>
-              </Button>
+              {canWrite && (
+                <Button asChild>
+                  <Link to="/add-job">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Job
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

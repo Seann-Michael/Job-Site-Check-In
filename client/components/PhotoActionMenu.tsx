@@ -135,15 +135,19 @@ export function PhotoActionMenu({
           Edit Metadata
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
 
-        <DropdownMenuItem
-          onClick={handleDelete}
-          className="gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleDelete}
+              className="gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

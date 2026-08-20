@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { getSupabaseClient } from "../supabaseClient";
 import { logger } from "../lib/logger";
 import { getAppUrl } from "../lib/env";
-import { canAccessBusiness } from "../middleware/requireAuth";
+import { canWriteBusiness } from "../middleware/requireAuth";
 
 const log = logger.child({ module: "rss" });
 
@@ -103,7 +103,7 @@ export async function handleAddRssItem(req: Request, res: Response) {
     let allowed = req.profile?.accountId === workflowId;
     if (!allowed) {
       const { data: wf } = await db.from("workflows").select("business_id").eq("id", workflowId).maybeSingle();
-      allowed = !!wf && canAccessBusiness(req, wf.business_id as string);
+      allowed = !!wf && canWriteBusiness(req, wf.business_id as string);
     }
     if (!allowed) return res.status(404).json({ error: "Feed not found" });
 

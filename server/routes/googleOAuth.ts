@@ -3,7 +3,7 @@ import { getAppUrl } from "../lib/env";
 import { logger } from "../lib/logger";
 import { createOAuthState, consumeOAuthState } from "../lib/oauthState";
 import { getSupabaseClient } from "../supabaseClient";
-import { canAccessBusiness } from "../middleware/requireAuth";
+import { canWriteBusiness } from "../middleware/requireAuth";
 
 const log = logger.child({ module: "googleOAuth" });
 
@@ -85,7 +85,7 @@ async function buildAuthorizeUrl(req: Request): Promise<{ url?: string; error?: 
   const ownWorkspace = profile.accountId || "";
   let workspaceId = ownWorkspace;
   if (requested && requested !== ownWorkspace) {
-    if (!canAccessBusiness(req, requested)) {
+    if (!canWriteBusiness(req, requested)) {
       return { error: { status: 403, message: "You do not have access to this workspace." } };
     }
     workspaceId = requested;

@@ -1,3 +1,4 @@
+import { useMyRole } from "@/hooks/useMyRole";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,6 +170,7 @@ function VideoThumbnail({ url, onClick }: { url: string; onClick: () => void }) 
 }
 
 export default function Gallery() {
+  const { canWrite } = useMyRole();
   const [photos, setPhotos] = useState<PhotoWithMetadata[]>([]);
   const [filteredPhotos, setFilteredPhotos] = useState<PhotoWithMetadata[]>([]);
   const [displayedPhotos, setDisplayedPhotos] = useState<PhotoWithMetadata[]>(
@@ -631,14 +633,16 @@ export default function Gallery() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              onClick={() => setShowUploader(true)}
-              className="gap-2 w-full sm:w-auto"
-            >
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Upload Files</span>
-              <span className="sm:hidden">Upload</span>
-            </Button>
+            {canWrite && (
+              <Button
+                onClick={() => setShowUploader(true)}
+                className="gap-2 w-full sm:w-auto"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Upload Files</span>
+                <span className="sm:hidden">Upload</span>
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -1001,7 +1005,7 @@ export default function Gallery() {
                                 index={index}
                                 projectName={photo.projectName}
                                 onEdit={handlePhotoEdit}
-                                onDelete={handlePhotoDelete}
+                                onDelete={canWrite ? handlePhotoDelete : undefined}
                                 onToggleFavorite={handlePhotoToggleFavorite}
                                 onDownload={handlePhotoDownload}
                                 onViewDetails={handlePhotoViewDetails}

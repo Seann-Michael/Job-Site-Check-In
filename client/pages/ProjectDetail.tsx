@@ -1,3 +1,4 @@
+import { useMyRole } from "@/hooks/useMyRole";
 import React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -179,6 +180,7 @@ interface Project {
 
 
 export default function ProjectDetail() {
+  const { canWrite } = useMyRole();
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
@@ -1633,18 +1635,22 @@ export default function ProjectDetail() {
                       <Share className="h-4 w-4 mr-2" />
                       Share Project
                     </DropdownMenuItem>
-                    <DropdownMenuItem key="rename-project" onClick={() => { setEditNameValue(project.name); setEditingName(true); }}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Rename Project
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      key="delete-project"
-                      onClick={handleDelete}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Project
-                    </DropdownMenuItem>
+                    {canWrite && (
+                      <DropdownMenuItem key="rename-project" onClick={() => { setEditNameValue(project.name); setEditingName(true); }}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Rename Project
+                      </DropdownMenuItem>
+                    )}
+                    {canWrite && (
+                      <DropdownMenuItem
+                        key="delete-project"
+                        onClick={handleDelete}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Project
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -2024,15 +2030,17 @@ export default function ProjectDetail() {
                               </Button>
                             </div>
                           )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => setShowMediaUploader(true)}
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add Media
-                          </Button>
+                          {canWrite && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => setShowMediaUploader(true)}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Media
+                            </Button>
+                          )}
                         </div>
                       </CardHeader>
                       <CardContent>

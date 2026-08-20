@@ -1,3 +1,4 @@
+import { useMyRole } from "@/hooks/useMyRole";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,7 @@ const COLS = "160px 180px 140px 200px minmax(160px,1fr) 80px 140px 52px";
 const emptyForm = { name: "", email: "", phone: "", address: "", notes: "" };
 
 export default function Clients() {
+  const { canWrite } = useMyRole();
   const navigate = useNavigate();
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -539,14 +541,18 @@ export default function Clients() {
             </p>
           </div>
           <div className="flex gap-2 self-start sm:self-auto">
-            <Button variant="outline" onClick={openBulkDialog} className="gap-2">
-              <Upload className="h-4 w-4" />
-              Bulk Upload
-            </Button>
-            <Button onClick={openAdd} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Client
-            </Button>
+            {canWrite && (
+              <Button variant="outline" onClick={openBulkDialog} className="gap-2">
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+            )}
+            {canWrite && (
+              <Button onClick={openAdd} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Client
+              </Button>
+            )}
           </div>
         </div>
 
@@ -742,12 +748,14 @@ export default function Clients() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
+                                    disabled={!canWrite}
                                     onClick={(e) => openEdit(client, e)}
                                   >
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
+                                    disabled={!canWrite}
                                     className="text-destructive focus:text-destructive"
                                     onClick={(e) => deleteClient(client, e)}
                                   >

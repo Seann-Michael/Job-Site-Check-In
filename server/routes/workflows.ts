@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 import { getAppUrl } from "../lib/env";
 import { safeFetch, SafeFetchError, readLimitedText, DEFAULT_MAX_RESPONSE_BYTES } from "../lib/safeFetch";
 import { generateSecret, signWithTimestamp, verifySignature } from "../lib/webhookSignature";
-import { canAccessBusiness } from "../middleware/requireAuth";
+import { canAccessBusiness, canWriteBusiness } from "../middleware/requireAuth";
 
 interface WebhookPayload {
   [key: string]: any;
@@ -23,13 +23,16 @@ const log = logger.child({ module: "workflows" });
 /** Request-scoped logger (carries req.id) when available, else the module logger. */
 const reqLog = (req: Request) => (req.log ?? log).child({ module: "workflows" });
 
-/** Resolve the business the caller is acting on and verify they may. */
+/**
+ * Resolve the business the caller is acting on (mutations) and verify they may
+ * WRITE to it: super admin, owner, or staff member. Viewers get null.
+ */
 function resolveBusinessId(req: Request, requested?: unknown): string | null {
   const profile = req.profile;
   if (!profile) return null;
   const wanted = typeof requested === "string" && requested ? requested : null;
-  if (wanted) return canAccessBusiness(req, wanted) ? wanted : null;
-  return profile.businessIds[0] ?? null;
+  if (wanted) return canWriteBusiness(req, wanted) ? wanted : null;
+  return profile.businessIds.find((id) => canWriteBusiness(req, id)) ?? null;
 }
 
 // ── Outbound webhook registration ────────────────────────────────────────────

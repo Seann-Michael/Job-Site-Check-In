@@ -83,7 +83,8 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
 
   const isSuperAdmin = user.role === "super_admin";
 
-  // Owns businesses, but none are active => suspended. Not onboarding.
+  // Has businesses (owned or as a team member), but none are active =>
+  // suspended. Not onboarding.
   if (
     !isSuperAdmin &&
     wsState.businessIds.length === 0 &&
@@ -98,6 +99,9 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
     );
   }
 
+  // Only users with no business access at all (not an owner, not an invited
+  // member) are sent to create one. `ownedBusinessCount` counts owned +
+  // member businesses regardless of status.
   const needsOnboarding =
     !isSuperAdmin && wsState.ownedBusinessCount === 0;
 

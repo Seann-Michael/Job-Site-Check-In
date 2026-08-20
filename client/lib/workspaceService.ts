@@ -32,7 +32,16 @@ export interface WorkspaceBusiness {
   accountId: string | null;
   /** users.id of the owner; lets the UI tell "my business" from "someone else's". */
   ownerId: string | null;
+  /**
+   * The signed-in user's relationship to this business. Owners are
+   * `businesses.owner_id`; staff/viewer come from `business_members`.
+   * Super admins are reported as `owner` for every business.
+   */
+  myRole: BusinessRole;
 }
+
+/** Access level a user has on a single business. */
+export type BusinessRole = "owner" | "staff" | "viewer";
 
 /** @deprecated alias kept for readability inside this module */
 type OwnedBusiness = WorkspaceBusiness;
@@ -43,14 +52,16 @@ export interface WorkspaceState {
   currentBusinessId: string | null;
   /**
    * Active business UUIDs this user may act on (used for data scoping).
-   * Owners: businesses they own. Super admins: every business.
+   * Owners/members: businesses they own or belong to. Super admins: every
+   * business.
    */
   businessIds: string[];
   /** Every business visible to this user (any status), sorted by name. */
   businesses: WorkspaceBusiness[];
   /**
-   * Total number of businesses owned regardless of status. When this is > 0
-   * but `businessIds` is empty, every business is suspended/inactive.
+   * Total number of businesses the user can access (owned + member)
+   * regardless of status. When this is > 0 but `businessIds` is empty,
+   * every business is suspended/inactive.
    */
   ownedBusinessCount: number;
   /** True when the auth session exists but no `public.users` row was found. */
@@ -298,8 +309,9 @@ class WorkspaceService {
   }
 
   /**
-   * Businesses this user can see. Owners get the businesses they own; super
-   * admins get every business (RLS `is_super_admin()` allows the read).
+   * Businesses this user can see. Owners/members get the businesses RLS
+   * exposes (owned ∪ member); super admins get every business (RLS
+   * `is_super_admin()` allows the read).
    */
   private async fetchVisibleBusinesses(
     user: WorkspaceUser,
@@ -308,7 +320,7 @@ class WorkspaceService {
       return this.fetchAllBusinesses();
     }
     return isValidUUID(user.id)
-      ? await this.fetchOwnedBusinesses(user.id)
+      ? await this.fetchAccessibleBusinesses(user.id)
       : this.noBusinessesForNonUuidUser(user.id);
   }
 
@@ -343,6 +355,7 @@ class WorkspaceService {
       account_id: string | null;
       owner_id: string | null;
     }> | null,
+    roleFor: (row: { id: string; owner_id: string | null }) => BusinessRole,
   ): OwnedBusiness[] {
     return (data ?? []).map((b) => ({
       id: b.id,
@@ -350,28 +363,69 @@ class WorkspaceService {
       status: b.status ?? "active",
       accountId: b.account_id ?? null,
       ownerId: b.owner_id ?? null,
+      myRole: roleFor(b),
     }));
   }
 
-  private async fetchOwnedBusinesses(
+  /**
+   * Membership rows for the signed-in user (`business_members` is RLS-scoped
+   * to `user_id = auth.uid()` for non-admins). Missing table / error => {}.
+   */
+  private async fetchMembershipRoles(
+    userId: string,
+  ): Promise<Record<string, BusinessRole>> {
+    try {
+      const { data, error } = await supabase
+        .from("business_members")
+        .select("business_id, role")
+        .eq("user_id", userId);
+      if (error) {
+        console.warn(
+          "[workspace] fetchMembershipRoles error:",
+          serializeError(error),
+        );
+        return {};
+      }
+      const out: Record<string, BusinessRole> = {};
+      for (const row of (data ?? []) as Array<{
+        business_id: string;
+        role: string | null;
+      }>) {
+        out[row.business_id] = row.role === "staff" ? "staff" : "viewer";
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Every business the user can access: RLS on `businesses` returns rows the
+   * user owns plus rows they are a member of, so no owner filter is applied.
+   */
+  private async fetchAccessibleBusinesses(
     userId: string,
   ): Promise<OwnedBusiness[]> {
     try {
       // Load every status so the UI can tell "suspended" apart from "none".
-      const { data, error } = await supabase
-        .from("businesses")
-        .select("id, name, status, account_id, owner_id")
-        .eq("owner_id", userId)
-        .order("name", { ascending: true });
+      const [{ data, error }, memberships] = await Promise.all([
+        supabase
+          .from("businesses")
+          .select("id, name, status, account_id, owner_id")
+          .order("name", { ascending: true }),
+        this.fetchMembershipRoles(userId),
+      ]);
 
       if (error) {
         console.warn(
-          "[workspace] fetchOwnedBusinesses error:",
+          "[workspace] fetchAccessibleBusinesses error:",
           serializeError(error),
         );
         return [];
       }
-      return this.mapRows(data);
+      return this.mapRows(data, (b) =>
+        b.owner_id === userId ? "owner" : (memberships[b.id] ?? "viewer"),
+      );
     } catch {
       return [];
     }
@@ -391,7 +445,8 @@ class WorkspaceService {
         );
         return [];
       }
-      return this.mapRows(data);
+      // Super admins have full access everywhere.
+      return this.mapRows(data, () => "owner");
     } catch {
       return [];
     }
@@ -432,6 +487,23 @@ class WorkspaceService {
   /** Businesses available to the switcher (`{ id, name, status }[]`). */
   getBusinessList(): WorkspaceBusiness[] {
     return this.state.businesses;
+  }
+
+  /**
+   * The signed-in user's role on a business (defaults to the current one).
+   * Super admins are always `owner`. Unknown business => `viewer`
+   * (least privilege).
+   */
+  getMyRole(businessId?: string | null): BusinessRole {
+    if (this.isSuperAdmin()) return "owner";
+    const id = businessId ?? this.state.currentBusinessId;
+    if (!id) return "viewer";
+    return this.state.businesses.find((b) => b.id === id)?.myRole ?? "viewer";
+  }
+
+  /** True when the user may create/edit/delete data in the given business. */
+  canWrite(businessId?: string | null): boolean {
+    return this.getMyRole(businessId) !== "viewer";
   }
 
   /** Name of the currently selected business, if known. */

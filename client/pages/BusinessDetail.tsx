@@ -69,6 +69,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
 import { workspaceService } from "@/lib/workspaceService";
+import { UserManagementSystem } from "@/components/UserManagementSystem";
 import { getCurrentUser } from "@/lib/auth";
 
 interface BusinessUser {
@@ -939,6 +940,25 @@ export default function BusinessDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Team membership (owner + invited staff/viewers) */}
+        {businessId && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Team</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Invite, change roles for, or remove people on this account.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <UserManagementSystem
+                businessId={businessId}
+                canManage
+                embedded
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* User Management */}
         <Card>
