@@ -41,6 +41,7 @@ import {
 import { handleLogout, handleChangePassword } from "./routes/authApi";
 import { handleAIReviewResponse } from "./routes/aiReview";
 import { teamRouter, adminStaffRouter } from "./routes/team";
+import { billingRouter, handleStripeWebhook } from "./routes/billing";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
 
@@ -238,6 +239,13 @@ export function createServer(options: CreateServerOptions = {}) {
   app.post("/api/create-checkout-stripe", handleStripeCheckout);
   app.post("/api/create-checkout-paypal", handlePaypalCheckout);
   app.post("/api/payments/confirm", handleStripeConfirm);
+
+  // Billing module (plans, subscriptions, invoices, revenue). The router
+  // applies requireAuth itself; super-admin routes add requireRole inside.
+  app.use("/api/billing", billingRouter);
+  // Stripe webhook — raw body parser for this path is mounted above; the
+  // handler verifies the signature and no-ops cleanly when Stripe is dormant.
+  app.post("/api/webhooks/stripe", handleStripeWebhook);
 
   // Auth API. Login + password reset happen client-side directly against
   // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.

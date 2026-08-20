@@ -144,18 +144,14 @@ const DEFAULT_SETTINGS: SuperAdminSettings = {
 };
 
 export default function SuperAdminSettings() {
-  const [showWorkspaceDialog, setShowWorkspaceDialog] = useState(false);
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [showPromoDialog, setShowPromoDialog] = useState(false);
-  const [editingWorkspace, setEditingWorkspace] = useState<any>(null);
   const [editingPlan, setEditingPlan] = useState<any>(null);
-  const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [promoCodes, setPromoCodes] = useState<any[]>([]);
   const [billingStats, setBillingStats] = useState<{ monthlyRevenue: number; activeSubscriptions: number } | null>(null);
 
   // Controlled form state for create/edit dialogs
-  const [workspaceForm, setWorkspaceForm] = useState({ name: "", storageLimit: "10", userLimit: "5" });
   const [planForm, setPlanForm] = useState({ name: "", price: "", features: "" });
   const [promoForm, setPromoForm] = useState({ name: "", code: "", discount: "", discountType: "%", usageLimit: "100", expiryDate: "" });
 
@@ -199,22 +195,12 @@ export default function SuperAdminSettings() {
 
   useEffect(() => {
     const loadData = async () => {
-      const [wsRes, plRes, pcRes] = await Promise.all([
-        supabaseClient.from("workspaces").select("*").order("created_at", { ascending: false }),
+      const [plRes, pcRes] = await Promise.all([
         supabaseClient.from("plans").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("promo_codes").select("*").order("created_at", { ascending: false }),
       ]);
-      for (const [label, res] of [["workspaces", wsRes], ["plans", plRes], ["promo codes", pcRes]] as const) {
+      for (const [label, res] of [["plans", plRes], ["promo codes", pcRes]] as const) {
         if (res.error) toast.error(`Failed to load ${label}: ${res.error.message}`);
-      }
-      if (wsRes.data) {
-        setWorkspaces(wsRes.data.map((w: any) => ({
-          id: w.id,
-          name: w.name,
-          users: w.user_count,
-          storage: w.storage_used,
-          modules: w.modules ?? [],
-        })));
       }
       if (plRes.data) {
         setPlans(plRes.data.map((p: any) => ({
@@ -325,7 +311,6 @@ export default function SuperAdminSettings() {
 
   const tabs = [
     { id: "system", label: "System", icon: Settings },
-    { id: "workspaces", label: "Workspaces", icon: Building2 },
     { id: "billing", label: "Billing & Plans", icon: DollarSign },
     { id: "login-slides", label: "Login Slides", icon: Monitor },
     { id: "signup-slides", label: "Signup Slides", icon: Monitor },
@@ -641,178 +626,6 @@ export default function SuperAdminSettings() {
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Workspace Control */}
-            {activeTab === "workspaces" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Subaccount / Workspace Control</CardTitle>
-                  <CardDescription>
-                    Manage subaccounts, allocate resources, and control module
-                    access
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Active Workspaces</h4>
-                    <Dialog
-                      open={showWorkspaceDialog}
-                      onOpenChange={setShowWorkspaceDialog}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          className="gap-2"
-                          onClick={() => {
-                            setEditingWorkspace(null);
-                            setShowWorkspaceDialog(true);
-                          }}
-                        >
-                          <Plus className="h-4 w-4" />
-                          Create Workspace
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            {editingWorkspace
-                              ? "Edit Workspace"
-                              : "Create New Workspace"}
-                          </DialogTitle>
-                          <DialogDescription>
-                            Configure workspace settings and module access
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Workspace Name</Label>
-                            <Input
-                              placeholder="Enter workspace name"
-                              value={workspaceForm.name}
-                              onChange={(e) => setWorkspaceForm((f) => ({ ...f, name: e.target.value }))}
-                            />
-                          </div>
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label>Storage Limit (GB)</Label>
-                              <Input
-                                type="number"
-                                value={workspaceForm.storageLimit}
-                                onChange={(e) => setWorkspaceForm((f) => ({ ...f, storageLimit: e.target.value }))}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>User Limit</Label>
-                              <Input
-                                type="number"
-                                value={workspaceForm.userLimit}
-                                onChange={(e) => setWorkspaceForm((f) => ({ ...f, userLimit: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowWorkspaceDialog(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={async () => {
-                              const name = workspaceForm.name.trim() || "New Workspace";
-                              if (editingWorkspace) {
-                                const { error } = await supabaseClient
-                                  .from("workspaces")
-                                  .update({ name, user_count: parseInt(workspaceForm.userLimit) || 5, storage_used: workspaceForm.storageLimit + " GB" })
-                                  .eq("id", editingWorkspace.id);
-                                if (!error) setWorkspaces((prev) => prev.map((w) => w.id === editingWorkspace.id ? { ...w, name, users: parseInt(workspaceForm.userLimit) || 5, storage: workspaceForm.storageLimit + " GB" } : w));
-                              } else {
-                                const { data } = await supabaseClient
-                                  .from("workspaces")
-                                  .insert({ name, user_count: parseInt(workspaceForm.userLimit) || 5, storage_used: workspaceForm.storageLimit + " GB", modules: ["Projects", "Gallery"] })
-                                  .select().single();
-                                if (data) setWorkspaces((prev) => [...prev, { id: data.id, name: data.name, users: data.user_count, storage: data.storage_used, modules: data.modules ?? [] }]);
-                              }
-                              setShowWorkspaceDialog(false);
-                              setWorkspaceForm({ name: "", storageLimit: "10", userLimit: "5" });
-                              toast.success(editingWorkspace ? "Workspace updated!" : "Workspace created!");
-                            }}
-                          >
-                            {editingWorkspace ? "Update" : "Create"}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-
-                  <div className="space-y-3">
-                    {workspaces.map((workspace) => (
-                      <div key={workspace.id} className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h5 className="font-medium">{workspace.name}</h5>
-                            <p className="text-sm text-muted-foreground">
-                              {workspace.users} users • {workspace.storage}{" "}
-                              storage used
-                            </p>
-                            <div className="flex gap-2 mt-2">
-                              {workspace.modules.map((module) => (
-                                <span
-                                  key={module}
-                                  className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
-                                >
-                                  {module}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingWorkspace(workspace);
-                                setWorkspaceForm({ name: workspace.name, storageLimit: String(workspace.storage?.replace(" GB", "") ?? "10"), userLimit: String(workspace.users ?? 5) });
-                                setShowWorkspaceDialog(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingWorkspace(workspace);
-                                setShowWorkspaceDialog(true);
-                              }}
-                            >
-                              <Settings className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                await supabaseClient
-                                  .from("workspaces")
-                                  .delete()
-                                  .eq("id", workspace.id);
-                                setWorkspaces((prev) =>
-                                  prev.filter((w) => w.id !== workspace.id),
-                                );
-                                toast.success("Workspace deleted");
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
                 </CardContent>
               </Card>
             )}

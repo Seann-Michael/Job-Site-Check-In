@@ -175,9 +175,112 @@ function getSizeBadge(count: number) {
   return <Badge variant="secondary">Small</Badge>;
 }
 
+// ── Client-side segment counting ────────────────────────────────────────────
+// The server never evaluates a segment's `criteria`, so `user_count` is always
+// stored as 0. We recompute it here against a lightweight `users` snapshot.
+// Only fields that map to real `users` columns are supported; any criterion we
+// can't evaluate makes the whole segment "unsupported" (shown as "—") rather
+// than silently reporting a wrong number.
+interface CountableUser {
+  role: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  last_login: string | null;
+}
+
+/** Evaluate one criterion for one user. Returns null when unsupported. */
+function evaluateCriterion(user: CountableUser, c: SegmentCriteria): boolean | null {
+  const op = c.operator;
+  const value = (c.value ?? "").trim();
+
+  if (c.field === "role") {
+    const role = (user.role ?? "").toLowerCase();
+    const v = value.toLowerCase();
+    const list = v.split(",").map((s) => s.trim()).filter(Boolean);
+    switch (op) {
+      case "equals": return role === v;
+      case "contains": return role.includes(v);
+      case "starts_with": return role.startsWith(v);
+      case "ends_with": return role.endsWith(v);
+      case "in": return list.includes(role);
+      case "not_in": return !list.includes(role);
+      default: return null;
+    }
+  }
+
+  if (c.field === "isActive" || c.field === "is_active") {
+    const active = user.is_active === true;
+    if (op === "is_true") return active;
+    if (op === "is_false") return !active;
+    return null;
+  }
+
+  if (c.field === "signupDate" || c.field === "lastLogin") {
+    const raw = c.field === "signupDate" ? user.created_at : user.last_login;
+    const userTime = raw ? new Date(raw).getTime() : null;
+    switch (op) {
+      case "before":
+      case "after":
+      case "equals": {
+        const target = new Date(value).getTime();
+        if (isNaN(target)) return null;
+        if (userTime === null) return false;
+        if (op === "before") return userTime < target;
+        if (op === "after") return userTime > target;
+        // equals → same calendar day
+        return new Date(userTime).toDateString() === new Date(target).toDateString();
+      }
+      case "days_ago":
+      case "weeks_ago": {
+        const n = Number(value);
+        if (!isFinite(n)) return null;
+        if (userTime === null) return false;
+        const ms = n * (op === "weeks_ago" ? 7 : 1) * 86400000;
+        // "within the last N days/weeks"
+        return userTime >= Date.now() - ms;
+      }
+      default:
+        return null;
+    }
+  }
+
+  // Behaviour / engagement / business fields have no backing column here.
+  return null;
+}
+
+/**
+ * Count matching users for a segment. Returns null when the segment uses any
+ * criterion we can't evaluate (so the UI can show "—" instead of a wrong 0).
+ */
+function countSegment(users: CountableUser[], criteria: SegmentCriteria[]): number | null {
+  if (!criteria || criteria.length === 0) return null;
+  let unsupported = false;
+  const count = users.filter((u) => {
+    let result: boolean | null = null;
+    for (let i = 0; i < criteria.length; i++) {
+      const r = evaluateCriterion(u, criteria[i]);
+      if (r === null) {
+        unsupported = true;
+        return false;
+      }
+      if (i === 0) {
+        result = r;
+      } else {
+        const logic = criteria[i].logicalOperator || "AND";
+        result = logic === "OR" ? result! || r : result! && r;
+      }
+    }
+    return result === true;
+  }).length;
+  return unsupported ? null : count;
+}
+
 export default function SuperAdminSegmentation() {
   const [segments, setSegments] = useState<UserSegment[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
+  // Computed live counts per segment id: number, or null when the segment's
+  // criteria can't be evaluated against real user columns.
+  const [counts, setCounts] = useState<Record<string, number | null>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
@@ -190,7 +293,7 @@ export default function SuperAdminSegmentation() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [segRes, userRes] = await Promise.all([
+      const [segRes, userRes, usersFullRes] = await Promise.all([
         supabaseClient
           .from("user_segments")
           .select("*")
@@ -198,11 +301,29 @@ export default function SuperAdminSegmentation() {
         supabaseClient
           .from("users")
           .select("id", { count: "exact", head: true }),
+        // Lightweight snapshot used to evaluate segment criteria client-side.
+        supabaseClient
+          .from("users")
+          .select("role, is_active, created_at, last_login"),
       ]);
 
       if (segRes.error) throw segRes.error;
-      setSegments(segRes.data || []);
+      const segs = (segRes.data || []) as UserSegment[];
+      setSegments(segs);
       setTotalUsers(userRes.count || 0);
+
+      if (usersFullRes.error) {
+        // Counting is best-effort; surface it but don't block the segment list.
+        toast.error(`Couldn't compute segment sizes: ${usersFullRes.error.message}`);
+        setCounts({});
+      } else {
+        const snapshot = (usersFullRes.data || []) as CountableUser[];
+        const next: Record<string, number | null> = {};
+        for (const s of segs) {
+          next[s.id] = countSegment(snapshot, s.criteria || []);
+        }
+        setCounts(next);
+      }
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to load segments");
     } finally {
@@ -214,18 +335,18 @@ export default function SuperAdminSegmentation() {
     fetchData();
   }, [fetchData]);
 
+  const numericCounts = segments
+    .map((seg) => counts[seg.id])
+    .filter((c): c is number => typeof c === "number");
+  const numericTotal = numericCounts.reduce((a, b) => a + b, 0);
+
   const stats = {
     totalSegments: segments.length,
     activeSegments: segments.filter((s) => s.is_active).length,
     totalUsers,
-    segmentedUsers: Math.min(
-      segments.reduce((s, seg) => s + (seg.user_count || 0), 0),
-      totalUsers
-    ),
+    segmentedUsers: Math.min(numericTotal, totalUsers),
     averageSegmentSize:
-      segments.length > 0
-        ? Math.round(segments.reduce((s, seg) => s + (seg.user_count || 0), 0) / segments.length)
-        : 0,
+      numericCounts.length > 0 ? Math.round(numericTotal / numericCounts.length) : 0,
   };
 
   const resetForm = () => {
@@ -412,7 +533,11 @@ export default function SuperAdminSegmentation() {
   const filteredSegments = segments.filter((segment) => {
     if (statusFilter === "active" && !segment.is_active) return false;
     if (statusFilter === "inactive" && segment.is_active) return false;
-    if (sizeFilter !== "all" && getSizeCategory(segment.user_count) !== sizeFilter) return false;
+    if (sizeFilter !== "all") {
+      const c = counts[segment.id];
+      // Segments whose size can't be computed are excluded from size filters.
+      if (typeof c !== "number" || getSizeCategory(c) !== sizeFilter) return false;
+    }
     if (
       searchTerm &&
       !segment.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -844,12 +969,21 @@ export default function SuperAdminSegmentation() {
                             </div>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {(segment.user_count || 0).toLocaleString()}
+                            {typeof counts[segment.id] === "number" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  {(counts[segment.id] as number).toLocaleString()}
+                                </span>
+                                {getSizeBadge(counts[segment.id] as number)}
+                              </div>
+                            ) : (
+                              <span
+                                className="text-muted-foreground"
+                                title="Segment size can't be computed from its criteria yet"
+                              >
+                                —
                               </span>
-                              {getSizeBadge(segment.user_count || 0)}
-                            </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">

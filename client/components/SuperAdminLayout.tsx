@@ -21,6 +21,7 @@ import {
   Building2,
   Settings,
   DollarSign,
+  CreditCard,
   Database,
   LogOut,
   User,
@@ -43,6 +44,7 @@ import {
   FolderOpen,
   TestTube,
   Zap,
+  UserPlus,
 } from "lucide-react";
 import { useState, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -84,6 +86,12 @@ export function SuperAdminLayout({
       active: location.pathname.startsWith("/super-admin/users"),
     },
     {
+      label: "Businesses",
+      href: "/super-admin/businesses",
+      icon: Building2,
+      active: location.pathname.startsWith("/super-admin/businesses"),
+    },
+    {
       label: "Workspaces",
       href: "/super-admin/workspaces",
       icon: Building2,
@@ -94,6 +102,12 @@ export function SuperAdminLayout({
       href: "/super-admin/staff",
       icon: User,
       active: location.pathname.startsWith("/super-admin/staff"),
+    },
+    {
+      label: "Billing",
+      href: "/super-admin/billing",
+      icon: CreditCard,
+      active: location.pathname.startsWith("/super-admin/billing"),
     },
     {
       label: "Ideas Management",
@@ -112,6 +126,18 @@ export function SuperAdminLayout({
       href: "/super-admin/communications",
       icon: Megaphone,
       active: location.pathname.startsWith("/super-admin/communications"),
+    },
+    {
+      label: "Templates",
+      href: "/super-admin/templates",
+      icon: FileText,
+      active: location.pathname.startsWith("/super-admin/templates"),
+    },
+    {
+      label: "Leads",
+      href: "/super-admin/leads",
+      icon: UserPlus,
+      active: location.pathname.startsWith("/super-admin/leads"),
     },
     {
       label: "Automation",
@@ -154,6 +180,12 @@ export function SuperAdminLayout({
       href: "/super-admin/support",
       icon: MessageSquare,
       active: location.pathname === "/super-admin/support",
+    },
+    {
+      label: "Settings",
+      href: "/super-admin/settings",
+      icon: Settings,
+      active: location.pathname.startsWith("/super-admin/settings"),
     },
   ];
 

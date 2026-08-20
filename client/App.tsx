@@ -34,6 +34,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
 const SuperAdminStaff = lazy(() => import("./pages/SuperAdminStaff"));
+const SuperAdminBilling = lazy(() => import("./pages/SuperAdminBilling"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Login = lazy(() => import("./pages/Login"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -407,6 +408,14 @@ const App = () => (
                   element={
                     <ProtectedRoute roles={["super_admin"]}>
                       <SuperAdminStaff />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/billing"
+                  element={
+                    <ProtectedRoute roles={["super_admin"]}>
+                      <SuperAdminBilling />
                     </ProtectedRoute>
                   }
                 />

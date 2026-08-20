@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,12 +31,10 @@ import {
   Eye,
   LogIn,
   Search,
-  Download,
   RefreshCw,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Columns,
   Ban,
   Trash2,
   MoreVertical,
@@ -53,28 +50,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
 import { workspaceService } from "@/lib/workspaceService";
+import { fetchBusinessAggregates, formatDate } from "@/lib/businessMetrics";
+import { formatMoney } from "@/lib/billingService";
 
 interface Business {
   id: string;
   name: string;
   admin: string;
   email: string;
-  users: number;
-  photos: number;
-  videos: number;
-  projects: number;
-  storage: string;
+  /** Real aggregates; null while loading or if the metric fetch failed. */
+  users: number | null;
+  photos: number | null;
+  videos: number | null;
+  projects: number | null;
   plan: "Free" | "Pro" | "Enterprise";
   status: "Active" | "Trial" | "Suspended" | "Canceled";
   lastActivity: string;
   signupDate: string;
   canceledDate?: string;
-  revenue: number;
+  /** Real revenue in dollars (paid billing_records); null while loading/failed. */
+  revenue: number | null;
 }
 
 type SortKey = keyof Business;
@@ -95,15 +96,6 @@ export default function BusinessManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [visibleColumns, setVisibleColumns] = useState({
-    business: true,
-    status: true,
-    plan: true,
-    users: true,
-    content: true,
-    storage: true,
-    lastActivity: true,
-  });
 
   const fetchBusinesses = useCallback(async () => {
       setLoading(true);
@@ -118,18 +110,42 @@ export default function BusinessManagement() {
           name: b.name,
           admin: b.owner?.name ?? b.owner?.email ?? "—",
           email: b.owner?.email ?? b.email ?? "—",
-          users: 0,
-          photos: 0,
-          videos: 0,
-          projects: 0,
-          storage: "—",
+          users: null,
+          photos: null,
+          videos: null,
+          projects: null,
           plan: (b.metadata?.plan as Business["plan"]) ?? "Free",
           status: mapDbStatus(b.status),
           lastActivity: b.updated_at ? new Date(b.updated_at).toLocaleDateString() : "—",
           signupDate: b.created_at ? new Date(b.created_at).toISOString().slice(0, 10) : "—",
-          revenue: 0,
+          revenue: null,
         }));
         setBusinesses(mapped);
+
+        // Real per-business aggregates via grouped queries (not N+1). Failure
+        // here is non-fatal: rows still render, metrics stay "—".
+        try {
+          const agg = await fetchBusinessAggregates(mapped.map((m) => m.id));
+          setBusinesses((prev) =>
+            prev.map((b) => {
+              const a = agg[b.id];
+              return a
+                ? {
+                    ...b,
+                    users: a.members,
+                    photos: a.photos,
+                    videos: a.videos,
+                    projects: a.jobs,
+                    revenue: a.revenueCents / 100,
+                  }
+                : b;
+            }),
+          );
+        } catch (aggErr: any) {
+          toast.error(
+            "Failed to load business metrics: " + (aggErr?.message ?? "Unknown error"),
+          );
+        }
       } catch (err: any) {
         toast.error("Failed to load businesses: " + (err?.message ?? "Unknown error"));
       } finally {
@@ -253,14 +269,23 @@ export default function BusinessManagement() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground">
-        <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading businesses…
-      </div>
+      <SuperAdminLayout
+        title="Business Management"
+        breadcrumbs={[{ label: "Business Management" }]}
+      >
+        <div className="flex items-center justify-center h-48 text-muted-foreground">
+          <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading businesses…
+        </div>
+      </SuperAdminLayout>
     );
   }
 
   return (
-    <div className="w-full max-w-none overflow-x-auto min-w-0">
+    <SuperAdminLayout
+      title="Business Management"
+      breadcrumbs={[{ label: "Business Management" }]}
+    >
+      <div className="w-full max-w-none overflow-x-auto min-w-0">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -347,16 +372,6 @@ export default function BusinessManagement() {
                       </Button>
                     </TableHead>
                     <TableHead>Content</TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("storage")}
-                        className="h-auto p-0 font-semibold gap-1"
-                      >
-                        Storage
-                        {getSortIcon("storage")}
-                      </Button>
-                    </TableHead>
                     <TableHead>
                       <Button
                         variant="ghost"
@@ -450,7 +465,9 @@ export default function BusinessManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="text-center">
-                          <div className="font-medium">{business.users}</div>
+                          <div className="font-medium">
+                            {business.users ?? "—"}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             users
                           </div>
@@ -460,35 +477,32 @@ export default function BusinessManagement() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-1 text-xs">
                             <Camera className="h-3 w-3" />
-                            {business.photos}
+                            {business.photos ?? "—"}
                           </div>
                           <div className="flex items-center gap-1 text-xs">
                             <Video className="h-3 w-3" />
-                            {business.videos}
+                            {business.videos ?? "—"}
                           </div>
                           <div className="flex items-center gap-1 text-xs">
                             <FolderOpen className="h-3 w-3" />
-                            {business.projects}
+                            {business.projects ?? "—"}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium">{business.storage}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">${business.revenue}</div>
+                        <div className="font-medium">
+                          {formatMoney(business.revenue)}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          {new Date(business.signupDate).toLocaleDateString()}
+                          {formatDate(business.signupDate)}
                         </div>
                       </TableCell>
                       <TableCell>
                         {business.canceledDate ? (
                           <div className="text-sm text-red-600">
-                            {new Date(
-                              business.canceledDate,
-                            ).toLocaleDateString()}
+                            {formatDate(business.canceledDate)}
                           </div>
                         ) : (
                           <div className="text-sm text-muted-foreground">-</div>
@@ -601,6 +615,7 @@ export default function BusinessManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </SuperAdminLayout>
   );
 }

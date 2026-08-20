@@ -29,8 +29,6 @@ interface OverviewStats {
   activeTemplates: number;
   totalViews: number;
   engagementRate: number;
-  openRate: number;
-  clickRate: number;
   scheduledMessages: number;
   activeMessages: number;
 }
@@ -55,8 +53,6 @@ export default function SuperAdminCommunications() {
     activeTemplates: 0,
     totalViews: 0,
     engagementRate: 0,
-    openRate: 0,
-    clickRate: 0,
     scheduledMessages: 0,
     activeMessages: 0,
   });
@@ -88,20 +84,11 @@ export default function SuperAdminCommunications() {
       const engagementRate =
         totalViews > 0 ? ((totalViews - totalDismissals) / totalViews) * 100 : 0;
 
-      const sentMessages = messages.filter((m) => m.status === "sent");
-      const sentViews = sentMessages.reduce((s, m) => s + (m.view_count || 0), 0);
-      const openRate =
-        sentMessages.length > 0 && sentViews > 0
-          ? Math.min((sentViews / (sentMessages.length * 100)) * 100, 100)
-          : 0;
-
       setStats({
         totalMessages: messages.length,
         activeTemplates: templates.filter((t) => t.status === "active").length,
         totalViews,
         engagementRate,
-        openRate,
-        clickRate: engagementRate * 0.2,
         scheduledMessages: messages.filter((m) => m.status === "scheduled").length,
         activeMessages: messages.filter((m) => m.is_active).length,
       });
@@ -301,55 +288,7 @@ export default function SuperAdminCommunications() {
               </div>
 
               {/* Performance Metrics */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Open Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {isLoading ? skeletonCard : (
-                      <>
-                        <div className="text-3xl font-bold text-green-600">
-                          {Math.round(stats.openRate)}%
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Average across sent broadcasts
-                        </p>
-                        <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-green-600 h-2 rounded-full transition-all"
-                            style={{ width: `${Math.min(stats.openRate, 100)}%` }}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Click Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {isLoading ? skeletonCard : (
-                      <>
-                        <div className="text-3xl font-bold text-blue-600">
-                          {Math.round(stats.clickRate)}%
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Estimated from engagement
-                        </p>
-                        <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all"
-                            style={{ width: `${Math.min(stats.clickRate, 100)}%` }}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
+              <div className="grid gap-4 md:grid-cols-1">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Quick Actions</CardTitle>
@@ -477,7 +416,7 @@ export default function SuperAdminCommunications() {
 
             {/* Broadcast Tab */}
             <TabsContent value="broadcast">
-              <SuperAdminBroadcast />
+              <SuperAdminBroadcast embedded />
             </TabsContent>
 
             {/* Templates Tab */}
@@ -487,7 +426,7 @@ export default function SuperAdminCommunications() {
 
             {/* Analytics Tab */}
             <TabsContent value="analytics">
-              <SuperAdminAnalytics />
+              <SuperAdminAnalytics embedded />
             </TabsContent>
           </Tabs>
         </div>

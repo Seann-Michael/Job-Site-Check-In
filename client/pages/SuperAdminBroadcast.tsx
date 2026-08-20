@@ -35,7 +35,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus,
   Send,
@@ -61,6 +60,7 @@ import { toast } from "sonner";
 import { formatSystemDate, formatDateTime } from "@/lib/dateUtils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { SuperAdminLayout } from "@/components/SuperAdminLayout";
 
 interface BroadcastMessage {
   id: string;
@@ -101,7 +101,7 @@ interface MessageTemplate {
   usage_count: number;
 }
 
-export default function SuperAdminBroadcast() {
+export default function SuperAdminBroadcast({ embedded = false }: { embedded?: boolean }) {
   const [messages, setMessages] = useState<BroadcastMessage[]>([]);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [stats, setStats] = useState<BroadcastStats>({
@@ -128,9 +128,7 @@ export default function SuperAdminBroadcast() {
     content: "",
     type: "info" as BroadcastMessage["type"],
     targetAudience: "all" as string,
-    scheduledFor: "",
     expiresAt: "",
-    isImmediate: true,
   });
 
   const fetchMessages = useCallback(async () => {
@@ -232,9 +230,7 @@ export default function SuperAdminBroadcast() {
       content: "",
       type: "info",
       targetAudience: "all",
-      scheduledFor: "",
       expiresAt: "",
-      isImmediate: true,
     });
     setEditingMessage(null);
     setShowPreview(false);
@@ -304,14 +300,14 @@ export default function SuperAdminBroadcast() {
         content: formData.content.trim(),
         type: formData.type,
         target_audience: formData.targetAudience,
-        scheduled_for: formData.isImmediate ? null : formData.scheduledFor || null,
+        scheduled_for: null,
         expires_at: formData.expiresAt || null,
         created_by: "Super Admin",
-        status: formData.isImmediate ? "sending" : "scheduled",
+        status: "sending",
         sent_at: null,
         view_count: 0,
         dismiss_count: 0,
-        is_active: formData.isImmediate,
+        is_active: true,
       };
 
       const { data: inserted, error } = await supabaseClient
@@ -321,26 +317,22 @@ export default function SuperAdminBroadcast() {
         .single();
       if (error) throw error;
 
-      if (formData.isImmediate) {
-        let recipientCount = 0;
-        try {
-          recipientCount = await deliverBroadcast(payload, formData.targetAudience);
-        } catch (deliveryErr: any) {
-          await supabaseClient
-            .from("broadcast_messages")
-            .update({ status: "draft", is_active: false, updated_at: new Date().toISOString() })
-            .eq("id", inserted.id);
-          throw new Error(`Saved as draft — delivery failed: ${deliveryErr?.message ?? "unknown error"}`);
-        }
-        const { error: markError } = await supabaseClient
+      let recipientCount = 0;
+      try {
+        recipientCount = await deliverBroadcast(payload, formData.targetAudience);
+      } catch (deliveryErr: any) {
+        await supabaseClient
           .from("broadcast_messages")
-          .update({ status: "sent", sent_at: now, updated_at: now })
+          .update({ status: "draft", is_active: false, updated_at: new Date().toISOString() })
           .eq("id", inserted.id);
-        if (markError) throw markError;
-        toast.success(`Broadcast delivered to ${recipientCount} user${recipientCount === 1 ? "" : "s"}`);
-      } else {
-        toast.success("Broadcast scheduled");
+        throw new Error(`Saved as draft — delivery failed: ${deliveryErr?.message ?? "unknown error"}`);
       }
+      const { error: markError } = await supabaseClient
+        .from("broadcast_messages")
+        .update({ status: "sent", sent_at: now, updated_at: now })
+        .eq("id", inserted.id);
+      if (markError) throw markError;
+      toast.success(`Broadcast delivered to ${recipientCount} user${recipientCount === 1 ? "" : "s"}`);
       setShowCreateDialog(false);
       resetForm();
       fetchMessages();
@@ -358,11 +350,7 @@ export default function SuperAdminBroadcast() {
       content: message.content,
       type: message.type,
       targetAudience: message.target_audience as any,
-      scheduledFor: message.scheduled_for
-        ? message.scheduled_for.slice(0, 16)
-        : "",
       expiresAt: message.expires_at ? message.expires_at.slice(0, 16) : "",
-      isImmediate: !message.scheduled_for,
     });
     setShowCreateDialog(true);
   };
@@ -374,17 +362,17 @@ export default function SuperAdminBroadcast() {
     try {
       const now = new Date().toISOString();
       const alreadySent = !!editingMessage.sent_at;
-      const sendNow = formData.isImmediate && !alreadySent;
+      const sendNow = !alreadySent;
       const payload = {
         title: formData.title.trim(),
         content: formData.content.trim(),
         type: formData.type,
         target_audience: formData.targetAudience,
-        scheduled_for: formData.isImmediate ? null : formData.scheduledFor || null,
+        scheduled_for: null,
         expires_at: formData.expiresAt || null,
-        status: alreadySent ? editingMessage.status : formData.isImmediate ? "sending" : "scheduled",
+        status: alreadySent ? editingMessage.status : "sending",
         sent_at: editingMessage.sent_at,
-        is_active: formData.isImmediate,
+        is_active: true,
         updated_at: now,
       };
 
@@ -516,7 +504,7 @@ export default function SuperAdminBroadcast() {
 
   const skeletonRows = Array.from({ length: 5 });
 
-  return (
+  const content = (
     <div className="max-w-full overflow-x-hidden">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="min-w-0">
@@ -671,29 +659,13 @@ export default function SuperAdminBroadcast() {
                     </Select>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="immediate"
-                    checked={formData.isImmediate}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({ ...prev, isImmediate: !!checked }))
-                    }
-                  />
-                  <Label htmlFor="immediate">Send immediately</Label>
+                <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground flex items-start gap-2">
+                  <Send className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    Broadcasts are delivered immediately as in-app notifications.
+                    Scheduled sending is not available yet.
+                  </span>
                 </div>
-                {!formData.isImmediate && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="scheduledFor">Schedule For</Label>
-                    <Input
-                      id="scheduledFor"
-                      type="datetime-local"
-                      value={formData.scheduledFor}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, scheduledFor: e.target.value }))
-                      }
-                    />
-                  </div>
-                )}
                 <div className="grid gap-2">
                   <Label htmlFor="expiresAt">Expires At (Optional)</Label>
                   <Input
@@ -726,9 +698,7 @@ export default function SuperAdminBroadcast() {
                     ? "Saving..."
                     : editingMessage
                     ? "Update Message"
-                    : formData.isImmediate
-                    ? "Send Now"
-                    : "Schedule Message"}
+                    : "Send Now"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -785,7 +755,7 @@ export default function SuperAdminBroadcast() {
               }}
               disabled={isSaving}
             >
-              {editingMessage ? "Update Message" : formData.isImmediate ? "Send Now" : "Schedule Message"}
+              {editingMessage ? "Update Message" : "Send Now"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -996,4 +966,6 @@ export default function SuperAdminBroadcast() {
       </Card>
     </div>
   );
+
+  return embedded ? content : <SuperAdminLayout>{content}</SuperAdminLayout>;
 }

@@ -207,7 +207,7 @@ function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: 
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function SuperAdminAnalytics() {
+export default function SuperAdminAnalytics({ embedded = false }: { embedded?: boolean }) {
   const [metrics, setMetrics] = useState<Metrics>(blankMetrics());
   const [dateRange, setDateRange] = useState("30");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -216,7 +216,7 @@ export default function SuperAdminAnalytics() {
   const setMetric = (key: keyof Metrics, value: number | string, error?: string) =>
     setMetrics((prev) => ({ ...prev, [key]: { value, loading: false, error } }));
 
-  const fetchMetrics = useCallback(async () => {
+  const fetchMetrics = useCallback(async ({ notify = false }: { notify?: boolean } = {}) => {
     setIsRefreshing(true);
     setMetrics(blankMetrics());
 
@@ -468,7 +468,7 @@ export default function SuperAdminAnalytics() {
 
     setLastRefreshed(new Date());
     setIsRefreshing(false);
-    toast.success("Analytics refreshed");
+    if (notify) toast.success("Analytics refreshed");
   }, [dateRange]);
 
   useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
@@ -479,9 +479,8 @@ export default function SuperAdminAnalytics() {
   const ratingChangeVal = typeof metrics.avgReviewRatingChange.value === "number" ? metrics.avgReviewRatingChange.value : 0;
   const ratingChangeTrend: "up" | "down" | "neutral" = ratingChangeVal > 0 ? "up" : ratingChangeVal < 0 ? "down" : "neutral";
 
-  return (
-    <SuperAdminLayout>
-      <div className="space-y-6 px-1">
+  const content = (
+    <div className="space-y-6 px-1">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -513,7 +512,7 @@ export default function SuperAdminAnalytics() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchMetrics}
+              onClick={() => fetchMetrics({ notify: true })}
               disabled={isRefreshing}
               className="gap-2"
             >
@@ -667,7 +666,8 @@ export default function SuperAdminAnalytics() {
             />
           </div>
         </section>
-      </div>
-    </SuperAdminLayout>
+    </div>
   );
+
+  return embedded ? content : <SuperAdminLayout>{content}</SuperAdminLayout>;
 }

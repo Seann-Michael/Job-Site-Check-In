@@ -69,6 +69,8 @@ import {
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
 import { Input as SearchInput } from "@/components/ui/input";
+import { inviteInternalUser } from "@/lib/adminUserService";
+import { AlertTriangle } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type StaffRole = "super_admin" | "agency_admin" | "staff" | "viewer";
@@ -119,6 +121,11 @@ export default function SuperAdminStaff() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [formData, setFormData] = useState(blankForm());
 
+  // Invite internal (super admin) user dialog
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "" });
+  const [inviting, setInviting] = useState(false);
+
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -158,11 +165,30 @@ export default function SuperAdminStaff() {
     );
   });
 
-  // ── Open add / edit dialog ─────────────────────────────────────────────────
-  const openAdd = () => {
-    setEditingId(null);
-    setFormData(blankForm());
-    setDialogOpen(true);
+  // ── Invite internal user (creates a login-capable super admin) ─────────────
+  const openInvite = () => {
+    setInviteForm({ name: "", email: "" });
+    setInviteOpen(true);
+  };
+
+  const handleInvite = async () => {
+    const email = inviteForm.email.trim();
+    if (!email) {
+      toast.error("Email is required");
+      return;
+    }
+    setInviting(true);
+    try {
+      await inviteInternalUser({ email, name: inviteForm.name });
+      toast.success(`Invitation sent to ${email}`);
+      setInviteOpen(false);
+      setInviteForm({ name: "", email: "" });
+      fetchMembers();
+    } catch (err: any) {
+      toast.error("Failed to send invite: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setInviting(false);
+    }
   };
 
   const openEdit = (m: StaffMember) => {
@@ -171,40 +197,29 @@ export default function SuperAdminStaff() {
     setDialogOpen(true);
   };
 
-  // ── Save (add or update) ───────────────────────────────────────────────────
+  // ── Save (update existing only) ────────────────────────────────────────────
+  // New staff are created via the invite endpoint (openInvite) so they get a
+  // real auth account and can log in. This path only edits existing records.
   const handleSave = async () => {
+    if (!editingId) return;
     if (!formData.email.trim()) {
       toast.error("Email is required");
       return;
     }
     setSaving(true);
     try {
-      if (editingId) {
-        // Update existing
-        const { error } = await supabaseClient
-          .from("users")
-          .update({
-            name: formData.name || null,
-            email: formData.email,
-            role: formData.role,
-            phone: formData.phone || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingId);
-        if (error) throw error;
-        toast.success("Staff member updated");
-      } else {
-        // Insert new
-        const { error } = await supabaseClient.from("users").insert({
+      const { error } = await supabaseClient
+        .from("users")
+        .update({
           name: formData.name || null,
           email: formData.email,
           role: formData.role,
           phone: formData.phone || null,
-          email_verified: false,
-        });
-        if (error) throw error;
-        toast.success("Staff member added");
-      }
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingId);
+      if (error) throw error;
+      toast.success("Staff member updated");
       setDialogOpen(false);
       fetchMembers();
     } catch (err: any) {
@@ -270,9 +285,9 @@ export default function SuperAdminStaff() {
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button className="gap-2" onClick={openAdd}>
+            <Button className="gap-2" onClick={openInvite}>
               <Plus className="h-4 w-4" />
-              Add Staff Member
+              Invite internal user
             </Button>
           </div>
         </div>
@@ -392,7 +407,7 @@ export default function SuperAdminStaff() {
                       <TableCell colSpan={6} className="text-center py-16 text-muted-foreground">
                         <User className="h-10 w-10 mx-auto mb-3 opacity-30" />
                         <p className="font-medium">No staff members found</p>
-                        <p className="text-sm mt-1">Add a staff member to get started</p>
+                        <p className="text-sm mt-1">Invite an internal user to get started</p>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -564,6 +579,65 @@ export default function SuperAdminStaff() {
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
               {editingId ? "Save Changes" : "Add Member"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Internal User Dialog */}
+      <Dialog open={inviteOpen} onOpenChange={(open) => !inviting && setInviteOpen(open)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Invite internal user</DialogTitle>
+            <DialogDescription>
+              Sends an email invite. The user sets a password and joins as a Super Admin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                <strong>Super Admin grants full access to every account</strong> on this
+                platform, including billing, settings and all customer data. Only invite
+                trusted internal staff.
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-name">Full Name</Label>
+              <Input
+                id="invite-name"
+                placeholder="Jane Smith"
+                value={inviteForm.name}
+                onChange={(e) => setInviteForm((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email">
+                Email Address <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="jane@company.com"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive">Super Admin</Badge>
+                <span className="text-xs text-muted-foreground">Fixed for internal invites</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteOpen(false)} disabled={inviting}>
+              Cancel
+            </Button>
+            <Button onClick={handleInvite} disabled={inviting || !inviteForm.email.trim()} className="gap-2">
+              {inviting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+              Send invite
             </Button>
           </DialogFooter>
         </DialogContent>

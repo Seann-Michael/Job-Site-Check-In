@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 
 import { getSupabaseClient } from "../supabaseClient";
 import { getAppUrl } from "../lib/env";
+import { getStripe } from "../lib/stripe";
 
 // ── Stripe Checkout ───────────────────────────────────────────────────────────
 
@@ -19,9 +20,14 @@ export async function handleStripeCheckout(req: Request, res: Response) {
   const appUrl = getAppUrl();
 
   try {
-    // Dynamic import so the server doesn't crash if stripe pkg is missing
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(secretKey, { apiVersion: "2023-10-16" as any });
+    // Shared client factory (dynamic import; never crashes if stripe pkg absent).
+    const stripe = await getStripe();
+    if (!stripe) {
+      return res.status(503).json({
+        error: "stripe_not_configured",
+        message: "Stripe is not configured. Please add your STRIPE_SECRET_KEY environment variable.",
+      });
+    }
 
     const { mode = "subscription", priceId, amount = 4900, planName = "Pro", email, businessId } = req.body;
 
@@ -100,8 +106,13 @@ export async function handleStripeConfirm(req: Request, res: Response) {
   }
 
   try {
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(secretKey, { apiVersion: "2023-10-16" as any });
+    const stripe = await getStripe();
+    if (!stripe) {
+      return res.status(503).json({
+        error: "stripe_not_configured",
+        message: "Stripe is not configured. Please add your STRIPE_SECRET_KEY environment variable.",
+      });
+    }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== "paid") {

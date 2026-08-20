@@ -68,7 +68,7 @@ import {
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import supabaseClient from "@/lib/supabaseClient";
-import { inviteInternalUser } from "@/lib/settingsTeamService";
+import { inviteInternalUser } from "@/lib/adminUserService";
 import { AlertTriangle } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -134,11 +134,6 @@ export default function SuperAdminUsers() {
 
   // Suspend confirm
   const [suspendTarget, setSuspendTarget] = useState<DbUser | null>(null);
-
-  // Add user dialog
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", email: "", role: "viewer" as DbRole });
-  const [savingAdd, setSavingAdd] = useState(false);
 
   // Invite internal (super admin) user dialog
   const [showInvite, setShowInvite] = useState(false);
@@ -285,33 +280,6 @@ export default function SuperAdminUsers() {
     window.open(`mailto:${user.email}`, "_blank");
   };
 
-  const handleAddUser = async () => {
-    if (!addForm.email.trim()) return;
-    setSavingAdd(true);
-    try {
-      const { data, error } = await supabaseClient
-        .from("users")
-        .insert({ name: addForm.name || null, email: addForm.email.trim(), role: addForm.role, is_active: true })
-        .select()
-        .single();
-      if (error) throw error;
-      const newUser: DbUser = {
-        id: data.id, email: data.email, name: data.name, role: data.role,
-        created_at: data.created_at, last_login: null, email_verified: false,
-        phone: null, avatar_url: null,
-      };
-      setUsers((prev) => [newUser, ...prev]);
-      setTotal((t) => t + 1);
-      setShowAddUser(false);
-      setAddForm({ name: "", email: "", role: "viewer" });
-      toast.success("User added");
-    } catch (err: any) {
-      toast.error("Failed to add user: " + (err?.message ?? "Unknown error"));
-    } finally {
-      setSavingAdd(false);
-    }
-  };
-
   const handleExport = () => {
     const csv = [
       ["Name", "Email", "Role", "Business", "Joined", "Last Login", "Email Verified"].join(","),
@@ -363,12 +331,8 @@ export default function SuperAdminUsers() {
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
-            <Button size="sm" className="gap-2" onClick={() => setShowAddUser(true)}>
+            <Button size="sm" className="gap-2" onClick={() => setShowInvite(true)}>
               <UserPlus className="h-4 w-4" />
-              Add User
-            </Button>
-            <Button size="sm" variant="destructive" className="gap-2" onClick={() => setShowInvite(true)}>
-              <Shield className="h-4 w-4" />
               Invite internal user
             </Button>
           </div>
@@ -547,8 +511,6 @@ export default function SuperAdminUsers() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => {
-                                const biz = user.business_name;
-                                // Navigate to business detail if they have one
                                 toast.info(`User: ${user.name ?? user.email} — ${user.email}`);
                               }}>
                                 <Eye className="mr-2 h-4 w-4" />
@@ -662,54 +624,6 @@ export default function SuperAdminUsers() {
             <Button variant="outline" onClick={() => setEditingUser(null)}>Cancel</Button>
             <Button onClick={handleSaveEdit} disabled={savingEdit}>
               {savingEdit ? "Saving…" : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Add User Dialog ────────────────────────────────────────────────── */}
-      <Dialog open={showAddUser} onOpenChange={setShowAddUser}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>Create a new user account in the system.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input
-                value={addForm.name}
-                onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Full name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email *</Label>
-              <Input
-                value={addForm.email}
-                onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="Email address"
-                type="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={addForm.role} onValueChange={(v) => setAddForm((f) => ({ ...f, role: v as DbRole }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                  <SelectItem value="agency_admin">Agency Admin</SelectItem>
-                  <SelectItem value="business_owner">Business Owner</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddUser(false)}>Cancel</Button>
-            <Button onClick={handleAddUser} disabled={savingAdd || !addForm.email.trim()}>
-              {savingAdd ? "Adding…" : "Add User"}
             </Button>
           </DialogFooter>
         </DialogContent>
