@@ -13,8 +13,14 @@ export interface AuthProfile {
   role: string | null;
   /** users.sub_account_id — legacy text account identifier used by media/RSS. */
   accountId: string | null;
-  /** businesses.id values this user owns (businesses.owner_id = users.id). */
+  /**
+   * businesses.id values this user owns (businesses.owner_id = users.id).
+   * For super admins this is NOT the full access set — check `isSuperAdmin`
+   * (or use canAccessBusiness()) which grants access to every business.
+   */
   businessIds: string[];
+  /** True for role super_admin: full admin access to every business. */
+  isSuperAdmin: boolean;
 }
 
 declare global {
@@ -65,12 +71,14 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
       return res.status(401).json({ error: "User profile not found" });
     }
 
+    const role: string | null = (row as any)?.role ?? null;
     req.profile = {
       id: user.id,
       email: (row as any)?.email ?? user.email,
-      role: (row as any)?.role ?? null,
+      role,
       accountId: (row as any)?.sub_account_id ?? null,
       businessIds: ((businesses as any[]) || []).map((b) => b.id as string),
+      isSuperAdmin: normalizeRole(role) === "superadmin",
     };
     return next();
   } catch (err) {
@@ -95,7 +103,7 @@ export function requireRole(...roles: string[]): RequestHandler {
 }
 
 export function isSuperAdmin(req: Request): boolean {
-  return normalizeRole(req.profile?.role) === "superadmin";
+  return req.profile?.isSuperAdmin === true || normalizeRole(req.profile?.role) === "superadmin";
 }
 
 /** Roles allowed to perform mutating (write) operations. `viewer` is read-only. */

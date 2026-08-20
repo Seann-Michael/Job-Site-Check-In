@@ -34,7 +34,8 @@ All variables are listed with comments in [`.env.example`](.env.example).
 | Group                             | Variables                                                                                                                                                                                                                                                        |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Client (public, inlined at build) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GOOGLE_MAPS_API_KEY`, `VITE_VAPID_PUBLIC_KEY`, `VITE_SENTRY_DSN`, `VITE_API_URL`                                                                                                                            |
-| Server (required)                 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`                                                                                                                                                                                                           |
+| Server (required)                 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                                                                                                                                                                                                      |
+| Server (strongly recommended)     | `APP_URL` - required for Google OAuth redirects and outbound webhooks; `CORS_ORIGINS` defaults to it                                                                                                                                                              |
 | Server (optional)                 | `CORS_ORIGINS`, `SENTRY_DSN`, `LOG_LEVEL`, `PORT`, `GOOGLE_MAPS_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID/SECRET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `DATAFORSEO_USERNAME/PASSWORD`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID/SECRET`, `TWILIO_*` |
 
 Never put the service-role key in a `VITE_` variable; it would ship to browsers.
@@ -57,14 +58,17 @@ Never put the service-role key in a `VITE_` variable; it would ship to browsers.
 
 `.do/app.yaml` defines two components from this repo:
 
-- `web` - static site built with `npm run build:client`, `catchall_document:
-index.html`, `VITE_*` vars as build-time secrets.
-- `api` - Node service running `node dist/server/node-build.mjs` on port 8080,
-  health check `GET /health`, routed at `/api`.
+- `web` - a single Node service: `npm ci && npm run build`, then
+  `node dist/server/node-build.mjs` on port 8080 serves the API (`/api/*`,
+  `/health`, `/public/media/*`) and the built SPA from `dist/` for everything
+  else. Routed at `/`; health check `GET /health`.
 
-Set the secrets in the DO dashboard (the yaml only declares keys). CI
-(`.github/workflows/ci.yml`) runs lint, typecheck, tests and a full build on
-every push/PR. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for details.
+Set the secrets in the DO dashboard (the yaml mirrors the dashboard, which is
+authoritative). A CI workflow (`.github/workflows/ci.yml`: lint, typecheck,
+tests, full build) is in the repo but is **not yet active on GitHub**: the push
+that added it was rejected because the token lacked the `workflow` scope. Run
+`gh auth refresh -s workflow` and push again to enable it. See
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for details.
 
 ## Database migrations
 

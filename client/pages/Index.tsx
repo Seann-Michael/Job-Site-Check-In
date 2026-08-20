@@ -53,12 +53,12 @@ export default function Index() {
 
   // Redirect super admin users to super admin dashboard
   useEffect(() => {
-    if (currentUser?.role === "super_admin" && !currentUser?.isImpersonated) {
+    if (currentUser?.role === "super_admin") {
       navigate("/super-admin", { replace: true });
       return;
     }
 
-  }, [currentUser?.role, currentUser?.isImpersonated, navigate]);
+  }, [currentUser?.role, navigate]);
 
   useEffect(() => {
     trackPageView("/admin/jobs");
@@ -101,9 +101,13 @@ export default function Index() {
             .from("users")
             .select("*")
             .in("id", userIds)
+            // Super admins are not part of any business's team.
+            .neq("role", "super_admin")
             .order("name", { ascending: true });
           if (userError) throw userError;
-          setUsers((userRows || []) as User[]);
+          setUsers(
+            ((userRows || []) as User[]).filter((u) => u.role !== "super_admin"),
+          );
         } else {
           setUsers([]);
         }

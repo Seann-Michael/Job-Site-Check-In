@@ -29,6 +29,17 @@ const indexHtml = path.join(distPath, "index.html");
 
 const app = createServer();
 
+// Service worker: must always be revalidated so a new deploy can replace the
+// installed worker immediately (browsers cap SW max-age at 24h, but
+// intermediate caches and the 1h default below would delay updates).
+app.get("/sw.js", (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.sendFile(path.join(distPath, "sw.js"), (err) => {
+    if (err) next(err);
+  });
+});
+
 // Hashed build assets: cache forever.
 app.use(
   "/assets",

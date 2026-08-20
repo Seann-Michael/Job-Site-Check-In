@@ -60,7 +60,7 @@ function popupPage(res: Response, status: number, message: unknown, payload: Rec
 const errorPage = (res: Response, status: number, msg: string, delay = 0) =>
   popupPage(res, status, msg, { type: "oauth_error", platform: "google", error: msg }, delay);
 
-function buildAuthorizeUrl(req: Request): { url?: string; error?: { status: number; message: string } } {
+async function buildAuthorizeUrl(req: Request): Promise<{ url?: string; error?: { status: number; message: string } }> {
   if (!clientId() || !clientSecret()) {
     return { error: { status: 503, message: "Google OAuth is not configured on the server." } };
   }
@@ -93,7 +93,13 @@ function buildAuthorizeUrl(req: Request): { url?: string; error?: { status: numb
   if (!workspaceId) {
     return { error: { status: 403, message: "No workspace associated with this account." } };
   }
-  const state = createOAuthState({ workspace_id: workspaceId, user_id: req.user.id });
+  let state: string;
+  try {
+    state = await createOAuthState({ workspace_id: workspaceId, user_id: req.user.id });
+  } catch (err) {
+    log.error({ err }, "Failed to create OAuth state");
+    return { error: { status: 503, message: "Could not start Google sign-in. Please try again." } };
+  }
 
   const params = new URLSearchParams({
     client_id: clientId(),
@@ -115,8 +121,8 @@ function buildAuthorizeUrl(req: Request): { url?: string; error?: { status: numb
  * recommended flow: a popup cannot carry an Authorization header, so the
  * authenticated request happens here and the popup only visits Google.
  */
-export function handleGoogleStart(req: Request, res: Response) {
-  const { url, error } = buildAuthorizeUrl(req);
+export async function handleGoogleStart(req: Request, res: Response) {
+  const { url, error } = await buildAuthorizeUrl(req);
   if (error) return res.status(error.status).json({ error: error.message });
   res.json({ authorizeUrl: url });
 }
@@ -127,8 +133,8 @@ export function handleGoogleStart(req: Request, res: Response) {
  * can send a Bearer header on a navigation (API clients); browsers should use
  * the POST /start endpoint above.
  */
-export function handleGoogleAuthorize(req: Request, res: Response) {
-  const { url, error } = buildAuthorizeUrl(req);
+export async function handleGoogleAuthorize(req: Request, res: Response) {
+  const { url, error } = await buildAuthorizeUrl(req);
   if (error) return errorPage(res, error.status, error.message, 4000);
   res.redirect(url!);
 }
@@ -142,7 +148,7 @@ export function handleGoogleAuthorize(req: Request, res: Response) {
 export async function handleGoogleCallback(req: Request, res: Response) {
   const { code, error, state } = req.query as Record<string, string | undefined>;
 
-  const stateData = consumeOAuthState(state);
+  const stateData = await consumeOAuthState(state);
   if (!stateData) {
     return errorPage(res, 400, "This sign-in link has expired or is invalid. Please try again.");
   }

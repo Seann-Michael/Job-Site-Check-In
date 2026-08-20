@@ -180,25 +180,6 @@ new one. `400` bad/missing current password or `newPassword` < 8; `503` when
 **Removed:** `POST /api/auth/login`, `POST /api/auth/enable-mfa`,
 `POST /api/auth/verify-mfa` (and their handlers).
 
-## Admin (`/api/admin/*`)
-
-| Method | Path | Auth | Request | Response |
-|---|---|---|---|---|
-| POST | `/api/admin/impersonate` | **auth + super_admin** | `{ userId* }` | `{ email, token, actionLink }` |
-
-Impersonation without the target's password: the server generates a one-time
-magic-link OTP for the target user (`auth.admin.generateLink({ type:"magiclink" })`)
-and returns it. **The client completes impersonation by calling**
-`supabase.auth.verifyOtp({ email, token, type:"magiclink" })` (using the returned
-`email` + `token`), which yields a real session for the target user. `actionLink`
-is the full magic-link URL as an alternative. The target's email is read from
-Supabase Auth (`auth.admin.getUserById`). The `audit_logs` row (`action:"login"`,
-`resource_type:"user"`, `details.event:"impersonate"` with actor/target ids +
-emails) is written **before** the token is minted; if the insert fails the
-request fails with `500` and no token is issued. `400` missing/self `userId`,
-`403` caller not super_admin **or target is a super_admin**, `404` target not
-found.
-
 ## Twilio (`/api/twilio/*`)
 
 | Method | Path | Auth | Notes |
@@ -226,8 +207,12 @@ found.
 ## Environment
 
 Required (server refuses to start without): `SUPABASE_URL` (alias `VITE_SUPABASE_URL`),
-`SUPABASE_SERVICE_ROLE_KEY`, `APP_URL` (alias `VITE_APP_URL`; public origin, e.g.
-`https://app.example.com`).
+`SUPABASE_SERVICE_ROLE_KEY`.
+
+Strongly recommended: `APP_URL` (alias `VITE_APP_URL`; public origin, e.g.
+`https://app.example.com`). Required for Google OAuth (redirect URI is derived
+from it) and outbound webhooks; the server logs a warning when it is unset and
+those routes respond 500.
 
 Optional: `SENTRY_DSN` (enables `@sentry/node` error reporting for 5xx handler
 errors and unhandled rejections; off when unset), `SENTRY_ENVIRONMENT`,

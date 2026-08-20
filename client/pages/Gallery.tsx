@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/dataService";
+import { getSignedMediaUrls } from "@/lib/mediaUrls";
 import { AppLayout } from "@/components/AppLayout";
 import { MediaViewer } from "@/components/MediaViewer";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
@@ -241,6 +242,12 @@ export default function Gallery() {
         }
       }
 
+      // Private bucket: one batched signing call for originals + thumbnails.
+      const signed = await getSignedMediaUrls([
+        ...mediaRows.map((m) => m.file_path),
+        ...mediaRows.map((m) => m.metadata?.thumbnail_path),
+      ]);
+
       for (const media of mediaRows) {
         const project = projectById.get(media.job_id);
         if (!project) continue;
@@ -257,8 +264,8 @@ export default function Gallery() {
 
         allPhotos.push({
           mediaId: media.id,
-          url: media.file_path,
-          thumbnailUrl: media.metadata?.thumbnail_path || undefined,
+          url: signed[media.file_path] || media.file_path,
+          thumbnailUrl: signed[media.metadata?.thumbnail_path] || undefined,
           projectId: project.id,
           projectName: project.name,
           projectAddress: project.location || project.address || "",

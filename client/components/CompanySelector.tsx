@@ -1,134 +1,77 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  MapPin,
-  ChevronDown,
-  Check,
-  Search,
-} from "lucide-react";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
+import { MapPin, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { workspaceService } from "@/lib/workspaceService";
-import { supabase } from "@/lib/dataService";
-
-interface Company {
-  id: string;
-  name: string;
-}
+import {
+  workspaceService,
+  type WorkspaceBusiness,
+  type WorkspaceState,
+} from "@/lib/workspaceService";
 
 interface CompanySelectorProps {
   collapsed?: boolean;
   className?: string;
 }
 
+function announceBusinessName(name: string) {
+  localStorage.setItem("business_name", name);
+  window.dispatchEvent(new CustomEvent("businessNameChanged", { detail: name }));
+}
+
+/**
+ * Sidebar business switcher.
+ *
+ * - Owners: a simple list of the businesses they own (hidden when only one).
+ * - Super admins: a searchable combobox over every business (name + account id),
+ *   since a super admin has full access to all accounts.
+ */
 export function CompanySelector({ collapsed = false, className }: CompanySelectorProps) {
   const navigate = useNavigate();
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [wsState, setWsState] = useState<WorkspaceState>(() => workspaceService.getState());
   const [isOpen, setIsOpen] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus search input when popover opens
   useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 100);
-    }
-  }, [isOpen]);
-
-  // Load businesses scoped to the current workspace
-  useEffect(() => {
-    const loadCompanies = async () => {
-      try {
-        setIsLoading(true);
-
-        // Wait for workspace to be initialized if not already
-        let state = workspaceService.getState();
-        if (!state.initialized) {
-          await workspaceService.initialize();
-          state = workspaceService.getState();
-        }
-
-        const businessIds = state.businessIds;
-        const currentBusinessId = state.currentBusinessId;
-
-        if (businessIds.length === 0) {
-          setCompanies([]);
-          setSelectedCompanyId(null);
-          setIsLoading(false);
-          return;
-        }
-
-        // Fetch business details for these IDs from Supabase
-        const { data, error } = await supabase
-          .from("businesses")
-          .select("id, name")
-          .in("id", businessIds)
-          .order("name");
-
-        if (error) {
-          console.warn("[CompanySelector] failed to load businesses:", error.message);
-          setIsLoading(false);
-          return;
-        }
-
-        const loaded: Company[] = (data ?? []).map((b: { id: string; name: string }) => ({
-          id: b.id,
-          name: b.name,
-        }));
-
-        setCompanies(loaded);
-        setSelectedCompanyId(currentBusinessId ?? loaded[0]?.id ?? null);
-
-        // Sync business name to localStorage for other components
-        const active = loaded.find((c) => c.id === (currentBusinessId ?? loaded[0]?.id));
-        if (active) {
-          localStorage.setItem("business_name", active.name);
-          window.dispatchEvent(new CustomEvent("businessNameChanged", { detail: active.name }));
-        }
-      } catch (err) {
-        console.warn("[CompanySelector] error loading companies:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCompanies();
+    const unsubscribe = workspaceService.subscribe(setWsState);
+    void workspaceService.whenReady();
+    return unsubscribe;
   }, []);
 
+  const isSuperAdmin = workspaceService.isSuperAdmin();
+  const companies: WorkspaceBusiness[] = wsState.businesses.filter((b) =>
+    wsState.businessIds.includes(b.id),
+  );
+  const selectedCompany = companies.find((c) => c.id === wsState.currentBusinessId);
+
+  // Keep the legacy "business_name" hook in sync for components that read it.
+  useEffect(() => {
+    if (selectedCompany) announceBusinessName(selectedCompany.name);
+  }, [selectedCompany?.id, selectedCompany?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCompanyChange = async (companyId: string) => {
-    setSelectedCompanyId(companyId);
     setIsOpen(false);
-    setSearchTerm("");
-
+    if (companyId === wsState.currentBusinessId) return;
     await workspaceService.switchBusiness(companyId);
-
+    const selected = companies.find((c) => c.id === companyId);
+    if (selected) announceBusinessName(selected.name);
     // Navigate to jobs page so the user sees data for the new company
     navigate("/admin/jobs");
-
-    const selected = companies.find((c) => c.id === companyId);
-    if (selected) {
-      localStorage.setItem("business_name", selected.name);
-      window.dispatchEvent(new CustomEvent("businessNameChanged", { detail: selected.name }));
-    }
   };
 
-  const filteredCompanies = companies.filter((c) =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId);
-
-  if (isLoading) {
+  if (!wsState.initialized) {
     return (
       <div className={cn("p-4 border-b", className)}>
         <div className="animate-pulse">
@@ -149,11 +92,13 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
     );
   }
 
+  const canSwitch = isSuperAdmin ? companies.length >= 1 : companies.length > 1;
+
   return (
     <div className={cn("p-4 border-b space-y-3", className)}>
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Active Company
+          {isSuperAdmin ? "Account" : "Active Company"}
         </div>
 
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -162,59 +107,85 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
               variant="outline"
               role="combobox"
               aria-expanded={isOpen}
+              disabled={!canSwitch}
               className="w-full justify-between h-auto p-3"
             >
               <div className="flex items-center justify-between w-full">
-                <div className="flex-1 text-left">
+                <div className="flex-1 text-left min-w-0">
                   <div className="font-medium text-sm truncate">
                     {selectedCompany?.name || "Select Company"}
                   </div>
+                  {isSuperAdmin && selectedCompany?.accountId && (
+                    <div className="text-xs text-muted-foreground font-mono truncate">
+                      {selectedCompany.accountId}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                </div>
+                {canSwitch && (
+                  <div className="flex items-center">
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </div>
+                )}
               </div>
             </Button>
           </PopoverTrigger>
 
-          <PopoverContent className="w-full p-0" align="start">
-            {/* Search */}
-            <div className="p-2 border-b">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  ref={searchInputRef}
-                  placeholder="Search companies..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 h-9"
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </div>
-            </div>
-
-            <div className="max-h-[200px] overflow-y-auto">
-              {filteredCompanies.length === 0 && (
-                <div className="p-4 text-center text-muted-foreground text-sm">
-                  {searchTerm ? `No companies found matching "${searchTerm}"` : "No companies available"}
-                </div>
-              )}
-
-              {filteredCompanies.map((company) => (
-                <div
-                  key={company.id}
-                  className="flex items-center justify-between w-full p-2 hover:bg-muted cursor-pointer"
-                  onClick={() => handleCompanyChange(company.id)}
-                >
-                  <div className="flex items-center space-x-2 flex-1">
-                    <span className="font-medium text-sm">{company.name}</span>
-                    {company.id === selectedCompanyId && (
-                      <Check className="h-3 w-3 text-primary" />
-                    )}
+          <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[260px] p-0" align="start">
+            {isSuperAdmin ? (
+              <Command>
+                <CommandInput placeholder="Search by name or account id..." />
+                <CommandList className="max-h-[260px]">
+                  <CommandEmpty>No accounts found.</CommandEmpty>
+                  <CommandGroup>
+                    {companies.map((company) => (
+                      <CommandItem
+                        key={company.id}
+                        value={`${company.name} ${company.accountId ?? ""}`}
+                        onSelect={() => void handleCompanyChange(company.id)}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{company.name}</div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {company.accountId ?? "—"}
+                            {company.status !== "active" && (
+                              <span className="ml-2 not-italic font-sans capitalize">
+                                · {company.status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {company.id === wsState.currentBusinessId && (
+                          <Check className="h-3 w-3 text-primary shrink-0" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            ) : (
+              <div className="max-h-[200px] overflow-y-auto">
+                {companies.length === 0 && (
+                  <div className="p-4 text-center text-muted-foreground text-sm">
+                    No companies available
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+                {companies.map((company) => (
+                  <div
+                    key={company.id}
+                    className="flex items-center justify-between w-full p-2 hover:bg-muted cursor-pointer"
+                    onClick={() => void handleCompanyChange(company.id)}
+                  >
+                    <div className="flex items-center space-x-2 flex-1">
+                      <span className="font-medium text-sm">{company.name}</span>
+                      {company.id === wsState.currentBusinessId && (
+                        <Check className="h-3 w-3 text-primary" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </PopoverContent>
         </Popover>
       </div>

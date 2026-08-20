@@ -65,10 +65,10 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
-import { apiFetch } from "@/lib/api";
+import { workspaceService } from "@/lib/workspaceService";
 import { getCurrentUser } from "@/lib/auth";
 
 interface BusinessUser {
@@ -128,6 +128,7 @@ interface Payment {
 
 export default function BusinessDetail() {
   const { businessId } = useParams();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState<BusinessUser | null>(null);
@@ -351,35 +352,22 @@ export default function BusinessDetail() {
     }
   };
 
-  const impersonateUser = async (userId?: string) => {
-    if (!userId) {
-      toast.error("No user available to impersonate.");
+  /**
+   * Super admins have full access to every account: switch the workspace to
+   * this business and open the regular admin UI.
+   */
+  const openAccount = async () => {
+    if (!businessId) return;
+    await workspaceService.whenReady();
+    if (!workspaceService.getBusinessIds().includes(businessId)) {
+      await workspaceService.reloadBusinesses();
+    }
+    if (!workspaceService.getBusinessIds().includes(businessId)) {
+      toast.error("Could not open this account.");
       return;
     }
-    const user = users.find((u) => u.id === userId);
-    try {
-      toast.info(`Signing in as ${user?.name ?? "user"}…`);
-      // Server issues a real Supabase session for the target user.
-      // Expected: POST /api/admin/impersonate { userId } ->
-      //   { access_token: string, refresh_token: string }
-      const session = await apiFetch<{
-        access_token: string;
-        refresh_token: string;
-      }>("/api/admin/impersonate", {
-        method: "POST",
-        body: { userId },
-      });
-      await supabaseClient.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
-      window.location.assign("/admin/jobs");
-    } catch (err) {
-      toast.error(
-        "Could not impersonate this user: " +
-          (err instanceof Error ? err.message : "Unknown error"),
-      );
-    }
+    await workspaceService.switchBusiness(businessId);
+    navigate("/admin/jobs");
   };
 
   const addTimestampedNote = async () => {
@@ -464,13 +452,9 @@ export default function BusinessDetail() {
       <div className="space-y-6">
         {/* Action Buttons */}
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => impersonateUser(users[0]?.id)}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={() => void openAccount()} className="gap-2">
             <LogIn className="h-4 w-4" />
-            Sign In As Admin
+            Open account
           </Button>
           {!isEditing ? (
             <Button onClick={() => setIsEditing(true)} className="gap-2">
@@ -1028,15 +1012,6 @@ export default function BusinessDetail() {
                     <TableCell className="text-sm">{user.lastLogin}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => impersonateUser(user.id)}
-                          className="gap-1"
-                        >
-                          <LogIn className="h-3 w-3" />
-                          Sign In As
-                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

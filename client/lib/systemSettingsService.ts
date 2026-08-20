@@ -44,7 +44,7 @@ export interface BrandingSettings {
 export const BRANDING_KEY = "branding";
 
 /**
- * Upload a branding asset to the public `media` bucket under `branding/` and
+ * Upload a branding asset to the public `public-assets` bucket under `branding/` and
  * return its public URL (cache-busted). The caller persists the URL via
  * setSystemSetting(BRANDING_KEY, ...).
  */
@@ -55,11 +55,11 @@ export async function uploadBrandingAsset(
   const ext = (file.name.split(".").pop() || "png").toLowerCase();
   const path = `branding/${kind}.${ext}`;
   const { error } = await supabaseClient.storage
-    .from("media")
+    .from("public-assets")
     .upload(path, file, { contentType: file.type, upsert: true });
   if (error) throw error;
   const {
     data: { publicUrl },
-  } = supabaseClient.storage.from("media").getPublicUrl(path);
+  } = supabaseClient.storage.from("public-assets").getPublicUrl(path);
   return `${publicUrl}?v=${Date.now()}`;
 }

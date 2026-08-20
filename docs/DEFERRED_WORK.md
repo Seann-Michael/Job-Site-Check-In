@@ -1,62 +1,110 @@
-# Deferred work (next steps after the production-hardening branch)
+# Deferred work (after the production-hardening branch)
 
-The `production-hardening` branch removed all mock data, dead UI, and dead code,
-hardened the Express server, and made the database schema reproducible. The
-owner asked that the following areas be left for dedicated follow-up steps.
-Each item below is a known, open production blocker until its step lands.
+Status as of 2026-08-20. The `production-hardening` branch removed mock data
+and dead code, hardened the Express server, made the schema reproducible, and
+**completed the authentication and RLS work**: Supabase Auth is used
+end-to-end, the localStorage auth layer and dev-bypass buttons are gone,
+`requireAuth` / role guards are mounted on every route, impersonation is
+server-side, and the anon-role lockdown + RLS policies are applied (see
+[AUTH_AND_RLS.md](AUTH_AND_RLS.md)). The OAuth `state` store now lives in the
+`oauth_states` table (migration `20260820007000`), so the API is safe to scale
+horizontally.
 
-## Step 1 — Authentication (highest priority)
+What remains is listed below, roughly in priority order. None of these blocks
+a launch with the current feature set; each is scoped so it can land as a
+standalone PR.
 
-Files intentionally left untouched: `client/lib/auth.ts`, `client/lib/accountManager.ts`,
-`client/components/ProtectedRoute.tsx`, `client/hooks/useAuth.ts`,
-`client/pages/Login.tsx`, `Signup.tsx`, `ForgotPassword.tsx`, `server/routes/authApi.ts`.
+## 1. Google OAuth sign-in provider
 
-Open issues:
-- `client/lib/auth.ts` fabricates a demo admin user in localStorage when nobody is signed in; `isAuthenticated()` is always true.
-- "Dev Bypass" buttons on Login/Signup ship to production.
-- Email/password login is a localStorage lookup with plaintext passwords (`accountManager.ts`).
-- `POST /api/auth/login` never verifies the password; `POST /api/auth/change-password` resets any account by email with no auth; MFA endpoints always return success.
-- No role guard on `/super-admin/*` routes; `SuperAdminLayout` has no role check.
-- Client-side impersonation writes `auth_user` to localStorage (`BusinessDetail.tsx`, `BusinessManagement.tsx`).
-- The Supabase session created by Google sign-in is ignored by the app shell.
+The Google Business Profile *connect* flow (`/api/oauth/google_my_business/*`)
+is done. Signing **in** with Google is not enabled: the provider must be
+configured in Supabase Auth (client id/secret, redirect
+`https://<project>.supabase.co/auth/v1/callback`) and in Google Cloud, then
+`VITE_GOOGLE_AUTH_ENABLED=true` at build time shows the button.
 
-Plan: use Supabase Auth end-to-end (one client, `onAuthStateChange`), delete the localStorage auth layer,
-add a role guard, rewrite/remove `authApi.ts` on `signInWithPassword` + `auth.mfa`, move impersonation
-server-side. `server/middleware/requireAuth.ts` already exists and is mounted on every new/hardened
-route; it only needs the client to send the Supabase access token (`client/lib/api.ts` already does
-when a session exists).
+## 2. Payments (Stripe / PayPal) - `server/routes/payments.ts`
 
-## Step 2 — Database RLS / anon lockdown (lands with Step 1)
+Not production-ready; keep the Payments UI hidden or labelled "coming soon".
 
-`supabase/migrations_pending/` holds the anon lockdown and the W0 series. They are not applied
-because the current client writes with the anon key and a fake identity; applying them first would
-break the app. After Step 1, apply in order per `supabase/migrations_pending/README.md` and add
-RLS policies for `notifications.user_id`.
+- `POST /api/stripe/create-checkout-session` takes `amount`, `planName` and
+  `businessId` from the request body. The server must own prices (look up the
+  plan in `plans` by id and use its Stripe price id); never trust a client
+  amount.
+- There is no Stripe webhook handler. `express.raw` is already mounted at
+  `/api/webhooks/stripe` in `server/index.ts`; implement
+  `checkout.session.completed` / `customer.subscription.*` with
+  `stripe.webhooks.constructEvent` and `STRIPE_WEBHOOK_SECRET`.
+- The plan is granted by a client-triggered `/confirm` call after redirect;
+  it should be granted by the webhook instead.
+- PayPal is hardcoded to `api-m.sandbox.paypal.com`, never captures the order,
+  and has no webhook. Needs a live/sandbox switch, capture on approval, and
+  `PAYMENT.CAPTURE.COMPLETED` handling with signature verification.
 
-Until then: the anon key (shipped in the web and mobile bundles) can read and write most tables.
-Do not expose the current deployment to untrusted users.
+## 3. Twilio webhook signature
 
-## Step 3 — Payments (Stripe / PayPal)
+`POST /api/webhooks/twilio` (`server/routes/twilio.ts`) does not verify
+`X-Twilio-Signature`. Use `twilio.validateRequest(authToken, signature, url,
+params)` with the public URL (`APP_URL` + path) and reject on mismatch. The
+send endpoints are already behind `requireAuth` + write role + rate limits.
 
-`server/routes/payments.ts` and `client/pages/Payments.tsx` untouched. Open issues:
-- Amount and business id are taken from the request body; server must own prices (from `plans`).
-- No Stripe webhook handler; `express.raw` is already mounted at `/api/webhooks/stripe` in `server/index.ts` for it.
-- PayPal hardcoded to sandbox, no capture, no webhook.
-- Plan granted on a client-triggered `/confirm` call.
+## 4. MFA
 
-## Step 4 — Twilio / SMS and email delivery
+The fake MFA endpoints were removed. Real TOTP via Supabase `auth.mfa`
+(enroll / challenge / verify) plus an AAL2 requirement for super-admin routes
+is a follow-up.
 
-`server/routes/twilio.ts` untouched. Open issues:
-- `POST /api/twilio/sms/send` and `/review-request` are unauthenticated (toll-fraud risk) — mount `requireAuth`.
-- `POST /api/webhooks/twilio` has no `X-Twilio-Signature` verification.
-- Email campaigns/broadcast email have no sending backend (campaigns save as drafts; broadcast delivers in-app notifications only).
+## 5. Staff / viewer membership model
 
-## Housekeeping
+Access is owner-only today (`owns_business()` in RLS; one account per
+workspace). A `memberships` table (user, account, role: owner | staff |
+viewer) with matching RLS helpers and a team-management page is needed for
+non-owner access. `supabase/migrations_pending/` has an earlier draft
+(`w0_01_identity_companies_membership`) to mine for ideas; it does not apply
+cleanly to the current schema.
 
-- Live database still contains demo rows (`demo@localseodemo.com`, 3 businesses, 9 jobs, reviews, analytics) and ~62 MB of anonymous test uploads in the `media` bucket. Owner chose to keep them during testing. Nothing in the repo seeds them any more. `kv_store_32071718` is a leftover scaffold table; safe to drop.
-- `index.html` `og:url` uses the placeholder `https://localseoranker.com/` — confirm the real domain.
-- `media` storage bucket is public; making it private is a one-line change and the server already supports signed URLs.
-- OAuth `state` store is in-memory (fine for a single instance; move to the DB for multi-instance).
-- Remaining `npm audit` findings require major upgrades: vite 6 → 8 (dev-server only issues) and react-router 6 → 7.
-- ~1000 ESLint warnings (unused imports / `any`) remain; lint passes with 0 errors.
-- `mobile/` (Expo app) is in this repo but has no shared build; it has its own demo mode and the same anon-key exposure as above.
+## 6. Shared galleries
+
+Public per-job pages work through the `public_job` RPC. Customer-facing
+*galleries* (a curated, shareable set of media with its own token and expiry)
+need a `shared_galleries` table (token, business_id, job ids / media ids,
+expires_at, created_by), a security-definer RPC that returns only the selected
+media through signed URLs, and RLS so only the owning workspace can manage
+them.
+
+## 7. Dependency upgrades (deferred to post-launch)
+
+- **Vite 5 -> 8** and **React Router 6 -> 7** resolve the remaining
+  `npm audit` findings. Both are major upgrades touching the build config,
+  the server bundle (`vite.config.server.ts`) and every route definition, and
+  the open advisories affect the dev server only. Deferred so the launch
+  build stays on the configuration that has been tested end-to-end; do it as
+  the first post-launch PR.
+
+## 8. Supabase project settings
+
+Flagged by the Supabase advisor; both are dashboard toggles, not code:
+
+- Enable leaked-password protection (Auth -> Settings -> Password).
+- Apply the pending Postgres security patch (Settings -> Infrastructure).
+
+## 9. Data cleanup
+
+- The live database still holds demo rows (`demo@localseodemo.com`, 3
+  businesses, 9 jobs, reviews, analytics) and ~62 MB of anonymous test
+  uploads in the `media` bucket. Nothing in the repo seeds them. Delete once
+  testing is finished.
+- `kv_store_32071718` is a leftover scaffold table with no readers or
+  writers; drop it with a migration (`drop table if exists
+  public.kv_store_32071718;`).
+
+## Smaller notes
+
+- `index.html` `og:url` uses the placeholder `https://localseoranker.com/`;
+  confirm the real domain.
+- ~1000 ESLint warnings (unused imports / `any`) remain; lint passes with 0
+  errors.
+- `mobile/` (Expo app) is in the repo without a shared build and still has
+  its own demo mode; treat it as unsupported until it is brought up to the
+  web app's auth model.
+- The CI workflow (`.github/workflows/ci.yml`) is in the repo but not yet
+  active on GitHub; see [DEPLOYMENT.md](DEPLOYMENT.md#ci).

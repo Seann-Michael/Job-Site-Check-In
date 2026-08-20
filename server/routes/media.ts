@@ -14,14 +14,16 @@ import { requireAuth, requireWrite } from "../middleware/requireAuth";
  * (users.sub_account_id, falling back to the user id), never from headers.
  * Upload and delete require a write role (viewer -> 403).
  *
- * Thumbnail endpoints were removed: nothing generated thumbnails, so they
- * always 404'd. Use the returned URL directly (Supabase image transforms can
- * be layered on later if needed).
+ * The bucket is PRIVATE: every URL returned here is a short-lived signed URL
+ * (see docs/MEDIA_STORAGE.md). Thumbnail endpoints were removed: nothing
+ * generated thumbnails, so they always 404'd.
  */
 
 const BUCKET = "media";
 const MAX_BYTES = 25 * 1024 * 1024;
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
+/** Mounted under /api so it survives the DO /api/* routing rule. */
+const PUBLIC_MEDIA_BASE = "/api/public/media";
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",
@@ -95,10 +97,6 @@ async function getRow(mediaId: string): Promise<MediaRow | null> {
   return (data as MediaRow | null) ?? null;
 }
 
-function publicUrlFor(storedPath: string): string {
-  return getSupabaseClient().storage.from(BUCKET).getPublicUrl(storedPath).data.publicUrl;
-}
-
 async function signedUrlFor(storedPath: string): Promise<string | null> {
   const { data, error } = await getSupabaseClient()
     .storage.from(BUCKET)
@@ -110,7 +108,13 @@ async function signedUrlFor(storedPath: string): Promise<string | null> {
   return data.signedUrl;
 }
 
-function serialize(row: MediaRow) {
+/**
+ * Wire shape. `url` is a short-lived signed URL (the bucket is private, so
+ * there is no public object URL to hand out); callers that need something
+ * stable use `secureUrl` (auth) or `publicUrl` (is_public rows only), both of
+ * which 302 to a fresh signed URL.
+ */
+async function serialize(row: MediaRow) {
   const encodedName = encodeURIComponent(row.original_name);
   return {
     id: row.id,
@@ -125,8 +129,8 @@ function serialize(row: MediaRow) {
     uploadedAt: row.uploaded_at,
     uploadedBy: row.uploaded_by,
     secureUrl: `/api/media/${row.id}/${encodedName}`,
-    publicUrl: row.is_public && row.public_url_id ? `/public/media/${row.public_url_id}/${encodedName}` : "",
-    url: row.is_public ? publicUrlFor(row.stored_path) : "",
+    publicUrl: row.is_public && row.public_url_id ? `${PUBLIC_MEDIA_BASE}/${row.public_url_id}/${encodedName}` : "",
+    url: (await signedUrlFor(row.stored_path)) || "",
   };
 }
 
@@ -189,18 +193,14 @@ export const handleMediaUpload: RequestHandler = async (req, res) => {
     return res.status(500).json({ error: "Failed to record upload" });
   }
 
-  const out = serialize(row);
-  if (!isPublic) out.url = (await signedUrlFor(storedPath)) || "";
-  res.status(201).json({ success: true, mediaFile: out });
+  res.status(201).json({ success: true, mediaFile: await serialize(row) });
 };
 
 /** GET /api/media/metadata/:mediaId  (auth) */
 export const handleMediaMetadata: RequestHandler = async (req, res) => {
   const row = await getRow(req.params.mediaId);
   if (!row || !canAccess(req, row)) return res.status(404).json({ error: "Media file not found" });
-  const out = serialize(row);
-  if (!row.is_public) out.url = (await signedUrlFor(row.stored_path)) || "";
-  res.json(out);
+  res.json(await serialize(row));
 };
 
 /** GET /api/media/:mediaId/:filename  (auth) -> 302 to a short-lived signed URL */
@@ -213,7 +213,10 @@ export const handleSecureMedia: RequestHandler = async (req, res) => {
   res.redirect(302, url);
 };
 
-/** GET /public/media/:publicId/:filename  (public) -> 302 to the public object URL */
+/**
+ * GET /api/public/media/:publicId/:filename  (public) -> 302 to a short-lived
+ * signed URL, only for rows flagged is_public. Mounted by routes/publicContent.
+ */
 export const handlePublicMedia: RequestHandler = async (req, res) => {
   const db = getSupabaseClient();
   const { data } = await db
@@ -224,8 +227,11 @@ export const handlePublicMedia: RequestHandler = async (req, res) => {
     .maybeSingle();
   const row = data as MediaRow | null;
   if (!row) return res.status(404).json({ error: "Media file not found" });
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.redirect(302, publicUrlFor(row.stored_path));
+  const url = await signedUrlFor(row.stored_path);
+  if (!url) return res.status(502).json({ error: "Could not generate media URL" });
+  // The redirect target expires, so cache well under the signed TTL.
+  res.setHeader("Cache-Control", `public, max-age=${Math.floor(SIGNED_URL_TTL_SECONDS / 2)}`);
+  res.redirect(302, url);
 };
 
 /** DELETE /api/media/:mediaId  (auth) */
@@ -258,7 +264,7 @@ export const handleMediaList: RequestHandler = async (req, res) => {
     reqLog(req).error({ err: error }, "media list failed");
     return res.status(500).json({ error: "Failed to list media" });
   }
-  res.json({ media: ((data as MediaRow[]) || []).map(serialize) });
+  res.json({ media: await Promise.all(((data as MediaRow[]) || []).map(serialize)) });
 };
 
 // ── Router ───────────────────────────────────────────────────────────────────
@@ -288,7 +294,10 @@ mediaRouter.get("/metadata/:mediaId", wrap(handleMediaMetadata));
 mediaRouter.delete("/:mediaId", requireWrite, wrap(handleMediaDelete));
 mediaRouter.get("/:mediaId/:filename", wrap(handleSecureMedia));
 
-/** Public media redirects, mount at /public/media */
+/**
+ * Public media redirects. Canonical mount is /api/public/media (via
+ * routes/publicContent); this router is kept for the legacy /public/media mount.
+ */
 export const publicMediaRouter = Router();
 publicMediaRouter.get("/:publicId/:filename", wrap(handlePublicMedia));
 

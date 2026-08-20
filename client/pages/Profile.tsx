@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
 import { apiFetch } from "@/lib/api";
+import { getSignedMediaUrl } from "@/lib/mediaUrls";
 
 export default function Profile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,6 +34,8 @@ export default function Profile() {
     email: "",
     phone: "",
     avatar: "",
+    /** Signed display URL for `avatar` (which is a private-bucket key). */
+    avatarPreview: "",
     role: "Admin",
   });
 
@@ -72,6 +75,7 @@ export default function Profile() {
               email: data.email || "",
               phone: data.phone || "",
               avatar: data.avatar_url || "",
+              avatarPreview: (await getSignedMediaUrl(data.avatar_url)) || "",
               role: data.role || "",
             });
           }
@@ -125,8 +129,10 @@ export default function Profile() {
         .from("media")
         .upload(path, file, { cacheControl: "3600", upsert: true });
       if (error) throw error;
-      const { data } = supabase.storage.from("media").getPublicUrl(path);
-      setProfileData((prev) => ({ ...prev, avatar: data.publicUrl }));
+      // users.avatar_url stores the object key (private bucket); show a
+      // signed preview now and keep the key for the save.
+      const preview = await getSignedMediaUrl(path);
+      setProfileData((prev) => ({ ...prev, avatar: path, avatarPreview: preview ?? "" }));
       toast.success("Photo uploaded — click Save to apply");
     } catch (err) {
       console.error("Avatar upload failed:", err);
@@ -254,7 +260,7 @@ export default function Profile() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src={profileData.avatar} />
+                  <AvatarImage src={profileData.avatarPreview || undefined} />
                   <AvatarFallback className="text-lg">
                     {`${profileData.firstName?.[0] || ""}${profileData.lastName?.[0] || ""}`}
                   </AvatarFallback>

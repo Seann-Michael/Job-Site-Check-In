@@ -155,7 +155,7 @@ function VideoUploader({
 
       setProgress(30);
       const { error } = await supabaseClient.storage
-        .from("media")
+        .from("public-assets")
         .upload(path, file, { cacheControl: "3600", upsert: false });
 
       if (error) throw error;
@@ -163,7 +163,7 @@ function VideoUploader({
 
       const {
         data: { publicUrl },
-      } = supabaseClient.storage.from("media").getPublicUrl(path);
+      } = supabaseClient.storage.from("public-assets").getPublicUrl(path);
 
       setProgress(100);
       onUpload(publicUrl);

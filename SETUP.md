@@ -68,7 +68,8 @@ npm test
 
 - **"API proxying is disabled"** on `npm run dev`: `SUPABASE_URL` /
   `VITE_SUPABASE_URL` is missing from `.env`.
-- **Server exits with "Missing required env"**: set `SUPABASE_URL`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`.
+- **Server exits with "Missing required env"**: set `SUPABASE_URL` and
+  `SUPABASE_SERVICE_ROLE_KEY`. `APP_URL` is strongly recommended (required for
+  Google OAuth and outbound webhooks; the server only warns when it is unset).
 - **Stale service worker after a deploy**: caches are namespaced per build id;
   hard-reload once or unregister the worker in DevTools -> Application.

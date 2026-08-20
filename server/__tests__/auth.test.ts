@@ -114,36 +114,3 @@ describe("POST /api/auth/change-password", () => {
     expect(res.body.error).toMatch(/8 characters/);
   });
 });
-
-describe("POST /api/admin/impersonate", () => {
-  it("401 without a token", async () => {
-    const res = await request(app).post("/api/admin/impersonate").send({ userId: "target-id" });
-    expect(res.status).toBe(401);
-  });
-
-  it("403 for a non-super_admin caller", async () => {
-    const res = await request(app)
-      .post("/api/admin/impersonate")
-      .set("Authorization", "Bearer owner")
-      .send({ userId: "target-id" });
-    expect(res.status).toBe(403);
-  });
-
-  it("mints a one-time token for a super_admin caller", async () => {
-    const res = await request(app)
-      .post("/api/admin/impersonate")
-      .set("Authorization", "Bearer super")
-      .send({ userId: "target-id" });
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ email: "target@x.com", token: "otp-123" });
-    expect(res.body.actionLink).toContain("target@x.com");
-  });
-
-  it("404 when the target user does not exist", async () => {
-    const res = await request(app)
-      .post("/api/admin/impersonate")
-      .set("Authorization", "Bearer super")
-      .send({ userId: "missing-id" });
-    expect(res.status).toBe(404);
-  });
-});

@@ -57,7 +57,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import supabaseClient from "@/lib/supabaseClient";
-import { apiFetch } from "@/lib/api";
+import { workspaceService } from "@/lib/workspaceService";
 
 interface Business {
   id: string;
@@ -234,31 +234,21 @@ export default function BusinessManagement() {
     }
   };
 
-  const impersonateUser = async (businessId: string) => {
-    const targetBusiness = businesses.find((b) => b.id === businessId);
-    try {
-      toast.info(`Signing in as ${targetBusiness?.admin ?? "owner"}…`);
-      // Server issues a real Supabase session for the business owner.
-      // Expected: POST /api/admin/impersonate { businessId } ->
-      //   { access_token: string, refresh_token: string }
-      const session = await apiFetch<{
-        access_token: string;
-        refresh_token: string;
-      }>("/api/admin/impersonate", {
-        method: "POST",
-        body: { businessId },
-      });
-      await supabaseClient.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
-      window.location.assign("/admin/jobs");
-    } catch (err) {
-      toast.error(
-        "Could not impersonate this business owner: " +
-          (err instanceof Error ? err.message : "Unknown error"),
-      );
+  /**
+   * Super admins have full access to every account: switch the workspace to
+   * this business and open the regular admin UI.
+   */
+  const openAccount = async (businessId: string) => {
+    await workspaceService.whenReady();
+    if (!workspaceService.getBusinessIds().includes(businessId)) {
+      await workspaceService.reloadBusinesses();
     }
+    if (!workspaceService.getBusinessIds().includes(businessId)) {
+      toast.error("Could not open this account.");
+      return;
+    }
+    await workspaceService.switchBusiness(businessId);
+    navigate("/admin/jobs");
   };
 
   if (loading) {
@@ -515,11 +505,11 @@ export default function BusinessManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => impersonateUser(business.id)}
+                            onClick={() => void openAccount(business.id)}
                             className="gap-1"
                           >
                             <LogIn className="h-3 w-3" />
-                            Sign In As
+                            Open account
                           </Button>
                           <Button
                             variant="ghost"

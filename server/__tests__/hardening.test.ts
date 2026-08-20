@@ -299,38 +299,6 @@ describe("POST /api/workflows/webhook/:id timestamp replay protection", () => {
   });
 });
 
-// ── (d) Impersonation ─────────────────────────────────────────────────────────
-describe("POST /api/admin/impersonate hardening", () => {
-  it("403 when the target is another super_admin", async () => {
-    const res = await request(app)
-      .post("/api/admin/impersonate")
-      .set("Authorization", "Bearer super")
-      .send({ userId: "super2-id" });
-    expect(res.status).toBe(403);
-    expect(state.inserts.filter((i) => i.table === "audit_logs")).toHaveLength(0);
-  });
-
-  it("writes the audit row before minting and fails closed when it cannot", async () => {
-    state.auditInsertError = { message: "db down" };
-    const res = await request(app)
-      .post("/api/admin/impersonate")
-      .set("Authorization", "Bearer super")
-      .send({ userId: "target-id" });
-    expect(res.status).toBe(500);
-    expect(res.body.token).toBeUndefined();
-  });
-
-  it("still works for a normal target (email from auth.admin.getUserById)", async () => {
-    const res = await request(app)
-      .post("/api/admin/impersonate")
-      .set("Authorization", "Bearer super")
-      .send({ userId: "target-id" });
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ email: "target@x.com", token: "otp-123" });
-    expect(state.inserts.filter((i) => i.table === "audit_logs")).toHaveLength(1);
-  });
-});
-
 // ── (e) canWrite on media ─────────────────────────────────────────────────────
 describe("write-role guard", () => {
   it("viewer gets 403 on DELETE /api/media/:id", async () => {

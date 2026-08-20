@@ -22,8 +22,29 @@ not configured yet).
 - New routes: `/reset-password`, `/onboarding`.
 - The Express server never checks passwords itself. `POST /api/auth/change-password`
   is authenticated (verifies the old password, changes the current user's).
-  Impersonation is `POST /api/admin/impersonate` (super-admin only, issues a
-  magic-link token the client redeems). Twilio SMS-send endpoints now require auth.
+  Twilio SMS-send endpoints now require auth.
+
+## Super admin access (no impersonation)
+
+There is no impersonation. A `super_admin` never becomes another user; instead
+their own session has full admin access to every account:
+
+- **Database:** every RLS policy starts with `public.is_super_admin()`, so a
+  super admin can read/write all tenant rows as themselves (audit trails keep
+  the real actor id).
+- **Server:** `requireAuth` sets `req.profile.isSuperAdmin`; `canAccessBusiness()`
+  returns true for super admins regardless of `businessIds` (which only lists
+  businesses they personally own).
+- **Client workspace:** `workspaceService` loads *all* businesses (any status)
+  for a super admin, so `businessIds` covers every account. The sidebar switcher
+  becomes a searchable combobox (name + account id). "Open account" on
+  `/super-admin/businesses` and the business detail page calls
+  `workspaceService.switchBusiness(id)` and navigates to `/admin/jobs`; `AppLayout`
+  shows a "Viewing <business> as super admin" banner with a link back.
+- **Hidden from tenants:** super admins are excluded from business team/user
+  lists in the client, and migration `20260820005000_hide_super_admins_from_tenants`
+  tightens `users_select` so non-super-admin callers can only see non-super-admin
+  rows (plus themselves).
 
 ## Roles
 
@@ -69,9 +90,12 @@ on public-read tables and the RPCs. The four summary views were switched to
 
 ## Still deferred
 
-- Google OAuth sign-in (configure provider + `google_oauth_tokens` already exists).
+- Google OAuth sign-in (configure the provider in Supabase Auth; the GBP
+  connect flow and `google_oauth_tokens` / `oauth_states` tables already exist).
 - Staff/viewer membership model (non-owner team access).
 - MFA (removed the fake endpoints; real TOTP via `auth.mfa` is a follow-up).
 - Payments (Stripe/PayPal) and Twilio webhook signature verification.
 - Supabase project config: enable leaked-password protection; apply the pending
   Postgres security patch (both flagged by the Supabase linter).
+
+See [DEFERRED_WORK.md](DEFERRED_WORK.md) for the full list with details.

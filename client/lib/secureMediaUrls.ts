@@ -32,7 +32,7 @@ export interface SecureMediaFile {
  */
 export class SecureMediaUrlGenerator {
   private static readonly BASE_URL = "/api/media";
-  private static readonly PUBLIC_BASE_URL = "/public/media";
+  private static readonly PUBLIC_BASE_URL = "/api/public/media";
 
   /**
    * Generate a secure random string for URLs
@@ -83,7 +83,7 @@ export class SecureMediaUrlGenerator {
     const randomId = this.generateSecureToken(24);
     const timestamp = Date.now().toString(36); // Base36 for shorter string
 
-    // Format: /public/media/{hashedAccount}_{hashedProject}_{timestamp}_{random}/{filename}
+    // Format: /api/public/media/{hashedAccount}_{hashedProject}_{timestamp}_{random}/{filename}
     const publicId =
       `${accountHash}_${projectHash}_${timestamp}_${randomId}`.replace(
         /__/g,

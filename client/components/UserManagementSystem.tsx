@@ -60,7 +60,9 @@ export function UserManagementSystem() {
       if (!ws.currentBusinessId) {
         throw new Error("No business is associated with this account.");
       }
-      setMembers(await fetchBusinessTeam(ws.currentBusinessId));
+      const team = await fetchBusinessTeam(ws.currentBusinessId);
+      // Defense in depth: super admins are never shown as team members.
+      setMembers(team.filter((m) => m.role !== "super_admin"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load team";
       setError(msg);

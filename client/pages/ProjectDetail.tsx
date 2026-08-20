@@ -71,6 +71,7 @@ import {
 } from "@/components/ui/dialog";
 import { compatibleDataService as dataService } from "@/lib/compatibleDataService";
 import { supabase } from "@/lib/dataService";
+import { getSignedMediaUrl, getSignedMediaUrls } from "@/lib/mediaUrls";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 
@@ -240,6 +241,8 @@ export default function ProjectDetail() {
         const { data } = await supabase
           .from("users")
           .select("id, name, email")
+          // Super admins are not assignable team members for a business.
+          .neq("role", "super_admin")
           .order("name", { ascending: true });
         if (data && data.length > 0) {
           setStaffUsers(data.map((u: any) => ({ id: u.id, name: u.name || u.email, email: u.email })));
@@ -264,10 +267,18 @@ export default function ProjectDetail() {
             dataService.getProjectDocuments(foundProject.id),
           ]);
 
+          // Media lives in the private `media` bucket: resolve signed display
+          // URLs for originals + thumbnails up front (one batched call).
+          const signed = await getSignedMediaUrls([
+            ...dbMedia.map((m: any) => m.file_path),
+            ...dbMedia.map((m: any) => m.metadata?.thumbnail_path),
+            ...dbDocuments.map((d: any) => d.file_path),
+          ]);
+
           // Convert ProjectMedia objects to TaggedPhoto format
           const convertedPhotos: TaggedPhoto[] = dbMedia.map((media: any) => ({
-            url: media.file_path,
-            thumbnailUrl: media.metadata?.thumbnail_path || undefined,
+            url: signed[media.file_path] || media.file_path,
+            thumbnailUrl: signed[media.metadata?.thumbnail_path] || undefined,
             tags: media.metadata?.tags || [],
             // Prefer the real capture time (mobile records it in metadata even
             // for photos synced days later); the captured_at column is a
@@ -336,7 +347,7 @@ export default function ProjectDetail() {
             documents: dbDocuments.map((doc: any) => ({
               id: doc.id,
               name: doc.original_name || doc.filename,
-              url: doc.file_path,
+              url: signed[doc.file_path] || doc.file_path,
               type: doc.mime_type || "application/octet-stream",
               size: doc.file_size,
               uploadedAt: doc.created_at,
@@ -518,7 +529,7 @@ export default function ProjectDetail() {
           }
 
           newPhotos.push({
-            url: uploadedMedia.file_path,
+            url: (await getSignedMediaUrl(uploadedMedia.file_path)) || uploadedMedia.file_path,
             tags: tagsArray,
             uploadedAt: uploadedMedia.created_at,
             // uploadProjectMedia stamps the signed-in user's name here.
@@ -586,7 +597,7 @@ export default function ProjectDetail() {
         uploadedDocs.push({
           id: dbDoc.id,
           name: dbDoc.original_name || dbDoc.filename,
-          url: dbDoc.file_path,
+          url: (await getSignedMediaUrl(dbDoc.file_path)) || dbDoc.file_path,
           type: dbDoc.mime_type || "application/octet-stream",
           size: dbDoc.file_size,
           uploadedAt: dbDoc.created_at,
@@ -634,7 +645,7 @@ export default function ProjectDetail() {
 
           // Convert returned ProjectMedia to TaggedPhoto
           newPhotos.push({
-            url: uploadedMedia.file_path,
+            url: (await getSignedMediaUrl(uploadedMedia.file_path)) || uploadedMedia.file_path,
             tags: [],
             uploadedAt: uploadedMedia.created_at,
             // uploadProjectMedia stamps the signed-in user's name here.

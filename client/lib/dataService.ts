@@ -1,5 +1,6 @@
 import { supabaseClient as supabase } from "./supabaseClient";
 import { workspaceService } from "./workspaceService";
+import { getSignedMediaUrls, mediaObjectKey } from "./mediaUrls";
 
 export { supabase };
 
@@ -683,10 +684,6 @@ export class DataService {
 
     if (uploadError) throw uploadError;
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("media").getPublicUrl(filePath);
 
     // Attribution both apps can read: the uploaded_by column carries the auth
     // user id (the mobile app's "My Stuff" scope filters on it) and metadata
@@ -705,7 +702,7 @@ export class DataService {
       job_id: projectId,
       filename: fileName,
       original_name: file.name,
-      file_path: publicUrl,
+      file_path: filePath,
       file_size: file.size,
       mime_type: file.type,
       media_type: mediaType,
@@ -791,9 +788,6 @@ export class DataService {
 
     if (uploadError) throw uploadError;
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("media").getPublicUrl(filePath);
 
     const { data, error } = await supabase
       .from("job_media")
@@ -802,7 +796,7 @@ export class DataService {
         job_id: null,
         filename: fileName,
         original_name: file.name,
-        file_path: publicUrl,
+        file_path: filePath,
         file_size: file.size,
         mime_type: file.type,
         media_type: mediaType,
@@ -834,19 +828,13 @@ export class DataService {
     }
   }
 
-  /** Object key inside the 'media' bucket, recovered from a stored public URL. */
+  /**
+   * Object key inside the private 'media' bucket for a stored file_path —
+   * either a bare key (web uploads) or the legacy public-URL form (older rows
+   * and mobile uploads).
+   */
   private mediaStorageKey(url?: string | null): string | undefined {
-    if (!url) return undefined;
-    const marker = "/storage/v1/object/public/media/";
-    const index = url.indexOf(marker);
-    if (index === -1) return undefined;
-    const key = url.slice(index + marker.length).split("?")[0];
-    if (!key) return undefined;
-    try {
-      return decodeURIComponent(key);
-    } catch {
-      return key;
-    }
+    return mediaObjectKey(url) ?? undefined;
   }
 
   /**
@@ -874,7 +862,7 @@ export class DataService {
   async deleteProjectMedia(id: string): Promise<void> {
 
     // Read the row first: it is the only record of which objects in the
-    // public 'media' bucket belong to it. Deleting only the row left the
+    // private 'media' bucket belong to it. Deleting only the row left the
     // file (and its thumbnail) fetchable by URL forever.
     const { data: row } = await supabase
       .from("job_media")
@@ -939,7 +927,10 @@ export class DataService {
     if (error) throw error;
   }
 
-  /** Batch fetch featured media for multiple projects. Returns a map of projectId -> file_path */
+  /**
+   * Batch fetch featured media for multiple projects. Returns a map of
+   * projectId -> displayable (signed, ~1h) URL for the featured image.
+   */
   async getFeaturedMediaForProjects(projectIds: string[]): Promise<Record<string, string>> {
     if (!projectIds.length) return {};
     try {
@@ -952,11 +943,16 @@ export class DataService {
 
       if (error) throw error;
 
-      const map: Record<string, string> = {};
+      const paths: Record<string, string> = {};
       for (const row of data || []) {
-        if (row.job_id && row.file_path && !map[row.job_id]) {
-          map[row.job_id] = row.file_path;
+        if (row.job_id && row.file_path && !paths[row.job_id]) {
+          paths[row.job_id] = row.file_path;
         }
+      }
+      const signed = await getSignedMediaUrls(Object.values(paths));
+      const map: Record<string, string> = {};
+      for (const [jobId, path] of Object.entries(paths)) {
+        if (signed[path]) map[jobId] = signed[path];
       }
       return map;
     } catch (error) {
@@ -1001,10 +997,6 @@ export class DataService {
 
     if (uploadError) throw uploadError;
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("media").getPublicUrl(filePath);
 
     // Create document record
     const { data, error } = await supabase
@@ -1013,7 +1005,7 @@ export class DataService {
         job_id: projectId,
         filename: fileName,
         original_name: metadata.custom_name || file.name,
-        file_path: publicUrl,
+        file_path: filePath,
         file_size: file.size,
         mime_type: file.type,
         document_type: metadata.document_type || "general",
@@ -1047,9 +1039,6 @@ export class DataService {
 
     if (uploadError) throw uploadError;
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("media").getPublicUrl(filePath);
 
     const { data, error } = await supabase
       .from("job_documents")
@@ -1058,7 +1047,7 @@ export class DataService {
         job_id: null,
         filename: fileName,
         original_name: metadata.custom_name || file.name,
-        file_path: publicUrl,
+        file_path: filePath,
         file_size: file.size,
         mime_type: file.type,
         document_type: metadata.document_type || "general",

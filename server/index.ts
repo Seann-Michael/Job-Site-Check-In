@@ -8,9 +8,10 @@ import * as Sentry from "@sentry/node";
 
 import { logger } from "./lib/logger";
 import { getEnv, validateEnv, EnvError } from "./lib/env";
-import { requireAuth, requireRole, requireWrite } from "./middleware/requireAuth";
+import { requireAuth, requireWrite } from "./middleware/requireAuth";
 
 import { mediaRouter, publicMediaRouter } from "./routes/media";
+import { publicContentRouter } from "./routes/publicContent";
 import { aiRouter } from "./routes/ai";
 import { dataForSEORouter } from "./routes/dataforseo";
 import {
@@ -38,7 +39,6 @@ import {
   handlePaymentStatus,
 } from "./routes/payments";
 import { handleLogout, handleChangePassword } from "./routes/authApi";
-import { handleImpersonate } from "./routes/admin";
 import { handleAIReviewResponse } from "./routes/aiReview";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
@@ -192,6 +192,11 @@ export function createServer(options: CreateServerOptions = {}) {
   app.use("/api/media", mediaRouter);
   app.use("/public/media", publicMediaRouter);
 
+  // Public share-page content (no auth, own 60/15min limiter): public_job +
+  // review_request_public with server-signed URLs for the private media
+  // bucket, and /api/public/media/:publicId/:filename redirects.
+  app.use("/api/public", publicContentRouter);
+
   // AI
   app.use("/api/ai", requireAuth, aiRouter);
   app.post("/api/ai-review-response", requireAuth, handleAIReviewResponse);
@@ -237,9 +242,6 @@ export function createServer(options: CreateServerOptions = {}) {
   // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/change-password", requireAuth, handleChangePassword);
-
-  // Admin
-  app.post("/api/admin/impersonate", requireAuth, requireRole("super_admin"), handleImpersonate);
 
   // Workflows
   app.post("/api/webhooks/register", requireAuth, requireWrite, handleRegisterWebhook);

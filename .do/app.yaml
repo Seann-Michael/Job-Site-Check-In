@@ -1,60 +1,67 @@
+# DigitalOcean App Platform spec — Local SEO Ranker
+#
+# ONE web service serves everything: the Express server in dist/server/
+# handles /api/*, /health, /public/media/* and falls back to the built SPA in
+# dist/ for every other route.
+#
+# This file MIRRORS what must be configured in the DigitalOcean dashboard
+# (App -> Settings). The dashboard is authoritative: if the app was created
+# there, edits to this file are NOT applied automatically — either re-import
+# the spec (`doctl apps update <id> --spec .do/app.yaml`) or make the same
+# change in the dashboard. Secret values are never stored here; set them in
+# the dashboard (type: SECRET below marks which ones).
+#
+# Why a single service: the previous layout (a `static_sites` entry for the
+# SPA plus a separate `services` entry routed at /api) broke in two ways —
+# App Platform strips the route prefix before forwarding, so the API received
+# requests without the `/api` prefix and every route 404'd; and the
+# `/public/media` uploads served by Express were unreachable because only
+# `/api` was routed to the service. One component, routed at `/`, avoids both.
+
 name: local-seo-ranker
 region: nyc
 
-# Frontend: static Vite build served by DigitalOcean's CDN.
-static_sites:
+services:
   - name: web
     github:
-      repo: Seann-Michael/Local-SEO-Ranker
-      branch: Main
-      deploy_on_push: true
-    build_command: npm ci && npm run build:client
-    output_dir: dist
-    catchall_document: index.html
-    environment_slug: node-js
-    routes:
-      - path: /
-    envs:
-      - key: VITE_SUPABASE_URL
-        scope: BUILD_TIME
-        type: SECRET
-      - key: VITE_SUPABASE_ANON_KEY
-        scope: BUILD_TIME
-        type: SECRET
-      - key: VITE_GOOGLE_MAPS_API_KEY
-        scope: BUILD_TIME
-        type: SECRET
-      - key: VITE_VAPID_PUBLIC_KEY
-        scope: BUILD_TIME
-        type: SECRET
-      - key: VITE_SENTRY_DSN
-        scope: BUILD_TIME
-        type: SECRET
-      - key: VITE_API_URL
-        scope: BUILD_TIME
-        value: /api
-
-# Backend: Express API (server/) bundled by `npm run build:server`.
-services:
-  - name: api
-    github:
-      repo: Seann-Michael/Local-SEO-Ranker
+      repo: Seann-Michael/Local-GMB-Booster
       branch: Main
       deploy_on_push: true
     source_dir: /
-    build_command: npm ci && npm run build:server
-    run_command: node dist/server/node-build.mjs
     environment_slug: node-js
+    build_command: npm ci && npm run build
+    run_command: node dist/server/node-build.mjs
+    http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs
-    http_port: 8080
     health_check:
       http_path: /health
-      initial_delay_seconds: 10
+      initial_delay_seconds: 15
       period_seconds: 30
     routes:
-      - path: /api
+      - path: /
     envs:
+      # ── Build-time (baked into the client bundle by Vite; public values) ──
+      - key: VITE_SUPABASE_URL
+        scope: BUILD_TIME
+        value: https://YOUR-PROJECT.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        scope: BUILD_TIME
+        value: YOUR_SUPABASE_ANON_KEY
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        scope: BUILD_TIME
+        value: YOUR_BROWSER_RESTRICTED_MAPS_KEY
+      - key: VITE_SENTRY_DSN
+        scope: BUILD_TIME
+        value: ""
+      - key: VITE_VAPID_PUBLIC_KEY
+        scope: BUILD_TIME
+        value: ""
+      - key: VITE_GOOGLE_AUTH_ENABLED
+        scope: BUILD_TIME
+        value: "false"
+
+      # ── Run-time (server) ────────────────────────────────────────────────
       - key: NODE_ENV
         scope: RUN_TIME
         value: production
@@ -65,10 +72,13 @@ services:
       # Supabase
       - key: SUPABASE_URL
         scope: RUN_TIME
-        type: SECRET
+        value: https://YOUR-PROJECT.supabase.co
       - key: SUPABASE_SERVICE_ROLE_KEY
         scope: RUN_TIME
         type: SECRET
+      - key: SUPABASE_ANON_KEY
+        scope: RUN_TIME
+        value: YOUR_SUPABASE_ANON_KEY
 
       # App
       - key: APP_URL
@@ -77,6 +87,9 @@ services:
       - key: CORS_ORIGINS
         scope: RUN_TIME
         value: ${APP_URL}
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: info
       - key: SENTRY_DSN
         scope: RUN_TIME
         type: SECRET
@@ -107,8 +120,11 @@ services:
       - key: DATAFORSEO_PASSWORD
         scope: RUN_TIME
         type: SECRET
+      - key: DATAFORSEO_DAILY_LIMIT
+        scope: RUN_TIME
+        value: "200"
 
-      # Payments
+      # Payments (not live yet — see docs/DEFERRED_WORK.md)
       - key: STRIPE_SECRET_KEY
         scope: RUN_TIME
         type: SECRET
@@ -130,8 +146,5 @@ services:
         scope: RUN_TIME
         type: SECRET
       - key: TWILIO_PHONE_NUMBER
-        scope: RUN_TIME
-        type: SECRET
-      - key: TWILIO_WEBHOOK_URL
         scope: RUN_TIME
         type: SECRET

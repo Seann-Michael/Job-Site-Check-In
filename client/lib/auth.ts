@@ -11,6 +11,7 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { supabaseClient } from "./supabaseClient";
+import { clearSignedMediaUrlCache, getSignedMediaUrl, isMediaPath } from "./mediaUrls";
 import { workspaceService } from "./workspaceService";
 
 // ---------------------------------------------------------------------------
@@ -41,7 +42,6 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
-  isImpersonated?: boolean;
   agencyId?: string;
   agencyName?: string;
   firstName?: string;
@@ -101,6 +101,9 @@ function emit() {
 // Session / profile plumbing
 // ---------------------------------------------------------------------------
 
+/** Avatars are signed once per session/profile refresh; give them a long TTL. */
+const AVATAR_URL_TTL_SEC = 12 * 60 * 60;
+
 async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   try {
     const { data, error } = await supabaseClient
@@ -112,7 +115,14 @@ async function fetchProfile(userId: string): Promise<ProfileRow | null> {
       console.warn("[auth] fetchProfile error:", error.message);
       return null;
     }
-    return (data as ProfileRow | null) ?? null;
+    const row = (data as ProfileRow | null) ?? null;
+    if (row?.avatar_url && isMediaPath(row.avatar_url)) {
+      // Avatars live in the private `media` bucket; the profile row holds the
+      // object key. Resolve a long-lived signed URL once per profile load so
+      // every consumer of currentUser.avatar gets something an <img> can load.
+      row.avatar_url = (await getSignedMediaUrl(row.avatar_url, AVATAR_URL_TTL_SEC)) ?? null;
+    }
+    return row;
   } catch (err) {
     console.warn("[auth] fetchProfile failed:", err);
     return null;
@@ -146,6 +156,7 @@ function applySession(session: Session | null): Promise<void> {
   // user's business ids while the new profile is loading.
   if (nextUserId !== prevUserId) {
     cache.profile = null;
+    clearSignedMediaUrlCache();
     workspaceService.reset();
   }
 
@@ -303,7 +314,9 @@ export function switchToBusiness(businessId: string): boolean {
 }
 
 export function canSwitchBusinesses(): boolean {
-  return workspaceService.getBusinessIds().length > 1;
+  const count = workspaceService.getBusinessIds().length;
+  // Super admins can open any account, so the switcher is useful with even one.
+  return workspaceService.isSuperAdmin() ? count >= 1 : count > 1;
 }
 
 // ---------------------------------------------------------------------------

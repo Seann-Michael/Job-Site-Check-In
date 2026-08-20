@@ -869,9 +869,10 @@ export default function Settings() {
   };
 
   /**
-   * Upload a picked logo file to the public 'media' storage bucket (the only
-   * bucket this project has — the mobile app uploads to the same
-   * business-logos/ folder) and keep its public URL in settings.businessLogo.
+   * Upload a picked logo file to the public 'public-assets' storage bucket
+   * (business-logos/<businessId>/) and keep its public URL in
+   * settings.businessLogo. Logos are hot-linked from public pages, so they
+   * live in the public bucket, not the private 'media' bucket.
    * A URL, not a base64 blob: the mobile app reads this key to show and stamp
    * the logo, and a multi-megabyte data-URL in the settings JSONB would never
    * reach it. The URL is persisted on Save Changes like every other setting.
@@ -903,12 +904,12 @@ export default function Settings() {
             : "jpg";
       const path = `business-logos/${businessId}/logo.${ext}`;
       const { error } = await supabase.storage
-        .from("media")
+        .from("public-assets")
         .upload(path, file, { contentType: file.type, upsert: true });
       if (error) throw error;
       const {
         data: { publicUrl },
-      } = supabase.storage.from("media").getPublicUrl(path);
+      } = supabase.storage.from("public-assets").getPublicUrl(path);
       // `?v=` busts caches — the storage path itself never changes.
       updateSetting("businessLogo", `${publicUrl}?v=${Date.now()}`);
       toast.success("Logo uploaded — click Save Changes to keep it.");
@@ -921,7 +922,7 @@ export default function Settings() {
     }
   };
 
-  /** Upload a review-gate video to the 'media' bucket and keep its public URL. */
+  /** Upload a review-gate video to the public 'public-assets' bucket and keep its public URL. */
   const handleVideoFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -944,12 +945,12 @@ export default function Settings() {
       const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
       const path = `review-gate-videos/${businessId}/video.${ext}`;
       const { error } = await supabase.storage
-        .from("media")
+        .from("public-assets")
         .upload(path, file, { contentType: file.type, upsert: true });
       if (error) throw error;
       const {
         data: { publicUrl },
-      } = supabase.storage.from("media").getPublicUrl(path);
+      } = supabase.storage.from("public-assets").getPublicUrl(path);
       updateSetting("reviewGateVideoUrl", `${publicUrl}?v=${Date.now()}`);
       toast.success("Video uploaded — click Save Changes to keep it.");
     } catch (error) {

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Images, MapPin, CalendarDays, Tag } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import supabaseClient from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/api";
 
 interface TaggedPhoto {
   url: string;
@@ -11,6 +11,17 @@ interface TaggedPhoto {
   uploadedAt: string;
   uploadedBy: string;
   isPrimary?: boolean;
+}
+
+interface PublicJobResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  seo_targets: unknown;
+  metadata: unknown;
+  /** Signed (1h) URLs, already filtered to what the job exposes publicly. */
+  photos: string[];
 }
 
 interface Project {
@@ -43,17 +54,6 @@ const deriveKeywords = (seoTargets: unknown, metadata: unknown): string[] => {
   return asStringArray((metadata as { keywords?: unknown } | null)?.keywords);
 };
 
-/**
- * job_media.file_path is a full public URL for mobile uploads and a path
- * relative to the public media bucket for web uploads (see ClientDetail's
- * getSupabaseUrl) — normalize both to something an <img> can load.
- */
-const toPublicUrl = (path: unknown): string | null => {
-  if (typeof path !== "string" || !path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  return supabaseClient.storage.from("media").getPublicUrl(path).data.publicUrl;
-};
-
 export default function PublicProject() {
   const { id } = useParams();
   const [project, setProject] = useState<Project | null>(null);
@@ -64,18 +64,14 @@ export default function PublicProject() {
     if (!id) return;
     const loadProject = async () => {
       try {
-        const { data, error } = await supabaseClient.rpc("public_job", {
-          p_id: id,
-        });
+        // The media bucket is private and anon can't sign URLs, so the
+        // server calls the public_job RPC and returns signed photo URLs.
+        const row = await apiFetch<PublicJobResponse>(
+          `/api/public/job/${encodeURIComponent(id)}`,
+        );
+        if (!row) return;
 
-        const row = Array.isArray(data) ? data[0] : data;
-        if (error || !row) return;
-
-        // photo_paths carries the mobile/web media URLs the job_media table
-        // used to hold; normalize each through toPublicUrl.
-        const photos = asStringArray(row.photo_paths)
-          .map((path) => toPublicUrl(path))
-          .filter((url): url is string => url !== null);
+        const photos = asStringArray(row.photos);
 
         const keywords = deriveKeywords(row.seo_targets, row.metadata);
 

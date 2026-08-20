@@ -69,20 +69,25 @@ export async function fetchBusinessTeam(businessId: string): Promise<TeamMember[
     .from("users")
     .select("id, name, email, role, phone, last_login, created_at, email_verified")
     .in("id", ids)
+    // Super admins have access to every account but are not part of any
+    // business's team; never surface them in tenant-facing lists.
+    .neq("role", "super_admin")
     .order("created_at", { ascending: true });
   if (usersError) throw usersError;
 
-  return (users ?? []).map((u: any) => ({
-    id: u.id,
-    name: u.name ?? null,
-    email: u.email,
-    role: u.role ?? "",
-    phone: u.phone ?? null,
-    last_login: u.last_login ?? null,
-    created_at: u.created_at ?? null,
-    email_verified: u.email_verified ?? null,
-    isOwner: u.id === ownerId,
-  }));
+  return (users ?? [])
+    .filter((u: any) => u.role !== "super_admin")
+    .map((u: any) => ({
+      id: u.id,
+      name: u.name ?? null,
+      email: u.email,
+      role: u.role ?? "",
+      phone: u.phone ?? null,
+      last_login: u.last_login ?? null,
+      created_at: u.created_at ?? null,
+      email_verified: u.email_verified ?? null,
+      isOwner: u.id === ownerId,
+    }));
 }
 
 export async function updateTeamMemberRole(userId: string, role: TeamRole) {

@@ -70,6 +70,7 @@ import {
 import React, { useState, useEffect, ReactNode, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentUser, signOut } from "@/lib/auth";
+import { workspaceService, type WorkspaceState } from "@/lib/workspaceService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -144,9 +145,22 @@ export function AppLayout({
   const [zoomLevel, setZoomLevel] = useState(100);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
-  // Check if current user is a superadmin (but exclude impersonated accounts)
-  const showSuperAdmin =
-    currentUser?.role === "super_admin" && !currentUser?.isImpersonated;
+  // Super admins get the Super Admin nav and can open any account.
+  const showSuperAdmin = currentUser?.role === "super_admin";
+
+  // Track workspace so the "viewing as super admin" banner follows the
+  // currently selected business.
+  const [wsState, setWsState] = useState<WorkspaceState>(() =>
+    workspaceService.getState(),
+  );
+  useEffect(() => workspaceService.subscribe(setWsState), []);
+  const viewedBusiness = wsState.businesses.find(
+    (b) => b.id === wsState.currentBusinessId,
+  );
+  const viewingForeignBusiness =
+    showSuperAdmin &&
+    !!viewedBusiness &&
+    viewedBusiness.ownerId !== currentUser?.id;
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -763,6 +777,23 @@ export function AppLayout({
 
           {/* Page Content */}
           <main className="flex-1 flex flex-col overflow-auto w-full">
+            {viewingForeignBusiness && viewedBusiness && (
+              <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs bg-amber-50 text-amber-900 border-b border-amber-200">
+                <span className="truncate">
+                  Viewing <strong>{viewedBusiness.name}</strong>
+                  {viewedBusiness.accountId && (
+                    <span className="font-mono"> ({viewedBusiness.accountId})</span>
+                  )}{" "}
+                  as super admin
+                </span>
+                <Link
+                  to="/super-admin/businesses"
+                  className="shrink-0 font-medium underline underline-offset-2 hover:text-amber-700"
+                >
+                  Back to Super Admin
+                </Link>
+              </div>
+            )}
             <div className="flex-1 w-full mobile-bottom-safe">{children}</div>
 
             {/* Footer - Always at bottom */}

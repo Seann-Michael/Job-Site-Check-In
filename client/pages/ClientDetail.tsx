@@ -42,6 +42,7 @@ import {
 } from "@/lib/clientNames";
 import { SmartMediaUploader } from "@/components/SmartMediaUploader";
 import { workspaceService } from "@/lib/workspaceService";
+import { getSignedMediaUrls } from "@/lib/mediaUrls";
 import {
   Dialog,
   DialogContent,
@@ -600,10 +601,29 @@ export default function ClientDetail() {
     }
   };
 
-  const getSupabaseUrl = (path: string) => {
-    if (/^https?:\/\//i.test(path)) return path;
-    return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
-  };
+  // Media lives in the private `media` bucket: resolve short-lived signed URLs
+  // for everything on screen whenever the lists change.
+  const [displayUrls, setDisplayUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const paths = [
+      ...media.map((m) => m.file_path),
+      ...videos.map((v) => v.file_path),
+      ...documents.map((d) => d.file_path),
+    ].filter(Boolean);
+    if (paths.length === 0) {
+      setDisplayUrls({});
+      return;
+    }
+    let cancelled = false;
+    getSignedMediaUrls(paths).then((map) => {
+      if (!cancelled) setDisplayUrls(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [media, videos, documents]);
+
+  const getSupabaseUrl = (path: string) => displayUrls[path] || "";
 
   if (loading) {
     return (
@@ -964,10 +984,10 @@ export default function ClientDetail() {
                         <div
                           key={item.id}
                           className="aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setSelectedPhoto(url)}
+                          onClick={() => url && setSelectedPhoto(url)}
                         >
                           <img
-                            src={url}
+                            src={url || undefined}
                             alt={item.original_name}
                             className="h-full w-full object-cover"
                             onError={(e) => {
@@ -1009,7 +1029,7 @@ export default function ClientDetail() {
                           className="rounded-lg overflow-hidden bg-muted aspect-video"
                         >
                           <video
-                            src={url}
+                            src={url || undefined}
                             controls
                             className="h-full w-full object-cover"
                             preload="metadata"
@@ -1073,7 +1093,7 @@ export default function ClientDetail() {
                           </p>
                         </div>
                         <a
-                          href={doc.file_path.startsWith("http") ? doc.file_path : getSupabaseUrl(doc.file_path)}
+                          href={getSupabaseUrl(doc.file_path) || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}

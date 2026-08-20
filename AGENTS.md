@@ -26,7 +26,7 @@ Path aliases: `@/` -> `client/`, `@shared/` -> `shared/`.
 - `npm run dev` - Vite + in-process API (needs `SUPABASE_URL` in `.env`)
 - `npm run lint` / `npm run typecheck` / `npm test` - must pass before a PR
 - `npm run build` - client then server bundle
-- CI runs all four on every push (`.github/workflows/ci.yml`)
+- `.github/workflows/ci.yml` runs all four on push/PR once it is enabled on GitHub (the workflow file exists in the repo but the push was rejected for lack of `workflow` token scope: run `gh auth refresh -s workflow`, then push)
 
 ## Conventions
 

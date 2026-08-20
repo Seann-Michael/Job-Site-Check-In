@@ -24,17 +24,30 @@ export interface WorkspaceUser {
   subAccountId: string | null;
 }
 
-interface OwnedBusiness {
+export interface WorkspaceBusiness {
   id: string;
+  name: string;
   status: string;
+  /** Display account id (XXX-XXX-XXX), if set. */
+  accountId: string | null;
+  /** users.id of the owner; lets the UI tell "my business" from "someone else's". */
+  ownerId: string | null;
 }
+
+/** @deprecated alias kept for readability inside this module */
+type OwnedBusiness = WorkspaceBusiness;
 
 export interface WorkspaceState {
   user: WorkspaceUser | null;
   /** UUID of the business currently selected */
   currentBusinessId: string | null;
-  /** Active business UUIDs that belong to this user (used for data scoping) */
+  /**
+   * Active business UUIDs this user may act on (used for data scoping).
+   * Owners: businesses they own. Super admins: every business.
+   */
   businessIds: string[];
+  /** Every business visible to this user (any status), sorted by name. */
+  businesses: WorkspaceBusiness[];
   /**
    * Total number of businesses owned regardless of status. When this is > 0
    * but `businessIds` is empty, every business is suspended/inactive.
@@ -93,6 +106,7 @@ class WorkspaceService {
     user: null,
     currentBusinessId: null,
     businessIds: [],
+    businesses: [],
     ownedBusinessCount: 0,
     profileMissing: false,
     initialized: false,
@@ -127,7 +141,7 @@ class WorkspaceService {
 
   /**
    * Clear all workspace state and allow initialize() to run again. Called when
-   * the signed-in identity changes (login / logout / impersonation).
+   * the signed-in identity changes (login / logout).
    */
   reset(): void {
     this.initPromise = null;
@@ -135,6 +149,7 @@ class WorkspaceService {
       user: null,
       currentBusinessId: null,
       businessIds: [],
+      businesses: [],
       ownedBusinessCount: 0,
       profileMissing: false,
       initialized: false,
@@ -162,6 +177,7 @@ class WorkspaceService {
           user: null,
           currentBusinessId: null,
           businessIds: [],
+          businesses: [],
           ownedBusinessCount: 0,
           // A session without a users row cannot be repaired client-side
           // (RLS forbids inserting into `users`); surface it to the UI.
@@ -172,19 +188,14 @@ class WorkspaceService {
         return this.state;
       }
 
-      // Fetch businesses scoped to owner_id. Non-UUID ids own nothing.
-      const owned = isValidUUID(workspaceUser.id)
-        ? await this.fetchOwnedBusinesses(workspaceUser.id)
-        : this.noBusinessesForNonUuidUser(workspaceUser.id);
-      const businessIds = owned
-        .filter((b) => b.status === "active")
-        .map((b) => b.id);
+      const owned = await this.fetchVisibleBusinesses(workspaceUser);
+      const businessIds = this.scopedIds(workspaceUser, owned);
 
       const stored = localStorage.getItem("workspace_business_id");
       const currentBusinessId =
         stored && businessIds.includes(stored)
           ? stored
-          : businessIds[0] ?? null;
+          : this.defaultBusinessId(owned, businessIds);
 
       if (currentBusinessId) {
         localStorage.setItem("workspace_business_id", currentBusinessId);
@@ -194,6 +205,7 @@ class WorkspaceService {
         user: workspaceUser,
         currentBusinessId,
         businessIds,
+        businesses: owned,
         ownedBusinessCount: owned.length,
         profileMissing: false,
         initialized: true,
@@ -276,6 +288,71 @@ class WorkspaceService {
   // Business scoping
   // -------------------------------------------------------------------------
 
+  private static isSuperAdminRole(role: string | null | undefined): boolean {
+    return (role || "").toLowerCase().replace(/[^a-z]/g, "") === "superadmin";
+  }
+
+  /** True when the workspace user is a super_admin (full access to all accounts). */
+  isSuperAdmin(): boolean {
+    return WorkspaceService.isSuperAdminRole(this.state.user?.role);
+  }
+
+  /**
+   * Businesses this user can see. Owners get the businesses they own; super
+   * admins get every business (RLS `is_super_admin()` allows the read).
+   */
+  private async fetchVisibleBusinesses(
+    user: WorkspaceUser,
+  ): Promise<OwnedBusiness[]> {
+    if (WorkspaceService.isSuperAdminRole(user.role)) {
+      return this.fetchAllBusinesses();
+    }
+    return isValidUUID(user.id)
+      ? await this.fetchOwnedBusinesses(user.id)
+      : this.noBusinessesForNonUuidUser(user.id);
+  }
+
+  /**
+   * Business ids the user may act on. Owners are limited to their active
+   * businesses (suspended ones are excluded so the UI can show the suspended
+   * screen); super admins may open any business regardless of status.
+   */
+  private scopedIds(user: WorkspaceUser, list: OwnedBusiness[]): string[] {
+    if (WorkspaceService.isSuperAdminRole(user.role)) {
+      return list.map((b) => b.id);
+    }
+    return list.filter((b) => b.status === "active").map((b) => b.id);
+  }
+
+  /** Prefer the first active business, then fall back to any allowed id. */
+  private defaultBusinessId(
+    list: OwnedBusiness[],
+    allowed: string[],
+  ): string | null {
+    const firstActive = list.find(
+      (b) => b.status === "active" && allowed.includes(b.id),
+    );
+    return firstActive?.id ?? allowed[0] ?? null;
+  }
+
+  private mapRows(
+    data: Array<{
+      id: string;
+      name: string | null;
+      status: string | null;
+      account_id: string | null;
+      owner_id: string | null;
+    }> | null,
+  ): OwnedBusiness[] {
+    return (data ?? []).map((b) => ({
+      id: b.id,
+      name: b.name ?? "Unnamed business",
+      status: b.status ?? "active",
+      accountId: b.account_id ?? null,
+      ownerId: b.owner_id ?? null,
+    }));
+  }
+
   private async fetchOwnedBusinesses(
     userId: string,
   ): Promise<OwnedBusiness[]> {
@@ -283,8 +360,9 @@ class WorkspaceService {
       // Load every status so the UI can tell "suspended" apart from "none".
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, status")
-        .eq("owner_id", userId);
+        .select("id, name, status, account_id, owner_id")
+        .eq("owner_id", userId)
+        .order("name", { ascending: true });
 
       if (error) {
         console.warn(
@@ -293,10 +371,27 @@ class WorkspaceService {
         );
         return [];
       }
-      return (data ?? []).map((b: { id: string; status: string | null }) => ({
-        id: b.id,
-        status: b.status ?? "active",
-      }));
+      return this.mapRows(data);
+    } catch {
+      return [];
+    }
+  }
+
+  private async fetchAllBusinesses(): Promise<OwnedBusiness[]> {
+    try {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("id, name, status, account_id, owner_id")
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.warn(
+          "[workspace] fetchAllBusinesses error:",
+          serializeError(error),
+        );
+        return [];
+      }
+      return this.mapRows(data);
     } catch {
       return [];
     }
@@ -334,6 +429,18 @@ class WorkspaceService {
     return this.state.businessIds;
   }
 
+  /** Businesses available to the switcher (`{ id, name, status }[]`). */
+  getBusinessList(): WorkspaceBusiness[] {
+    return this.state.businesses;
+  }
+
+  /** Name of the currently selected business, if known. */
+  getCurrentBusinessName(): string | null {
+    const id = this.state.currentBusinessId;
+    if (!id) return null;
+    return this.state.businesses.find((b) => b.id === id)?.name ?? null;
+  }
+
   async switchBusiness(businessId: string): Promise<void> {
     if (!this.state.businessIds.includes(businessId)) return;
     this.state = { ...this.state, currentBusinessId: businessId };
@@ -342,23 +449,20 @@ class WorkspaceService {
   }
 
   async reloadBusinesses(): Promise<void> {
-    const userId = this.getUserId();
-    if (!userId) return;
-    const owned = isValidUUID(userId)
-      ? await this.fetchOwnedBusinesses(userId)
-      : this.noBusinessesForNonUuidUser(userId);
-    const businessIds = owned
-      .filter((b) => b.status === "active")
-      .map((b) => b.id);
+    const user = this.state.user;
+    if (!user) return;
+    const owned = await this.fetchVisibleBusinesses(user);
+    const businessIds = this.scopedIds(user, owned);
     const currentBusinessId =
       this.state.currentBusinessId &&
       businessIds.includes(this.state.currentBusinessId)
         ? this.state.currentBusinessId
-        : businessIds[0] ?? null;
+        : this.defaultBusinessId(owned, businessIds);
 
     this.state = {
       ...this.state,
       businessIds,
+      businesses: owned,
       currentBusinessId,
       ownedBusinessCount: owned.length,
     };
