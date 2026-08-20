@@ -42,9 +42,14 @@ export function getAppUrl(): string {
   return requireEnv("APP_URL").replace(/\/+$/, "");
 }
 
-const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "APP_URL"];
+// Only the two Supabase vars are truly required for the app to function.
+// APP_URL is needed for OAuth redirects and outbound webhook URLs (deferred
+// features); if it's absent the server still boots and getAppUrl() returns a
+// 500 only for the specific endpoints that need it, rather than crashing.
+const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
 
 const OPTIONAL: Array<[string, string]> = [
+  ["APP_URL", "OAuth redirects & webhook URLs (defaults to same-origin for CORS)"],
   ["SUPABASE_ANON_KEY", "Self-service password change (old-password verification)"],
   ["STRIPE_SECRET_KEY", "Payments (Stripe)"],
   ["PAYPAL_CLIENT_ID", "Payments (PayPal)"],
