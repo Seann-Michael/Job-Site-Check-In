@@ -98,6 +98,24 @@ export function isSuperAdmin(req: Request): boolean {
   return normalizeRole(req.profile?.role) === "superadmin";
 }
 
+/** Roles allowed to perform mutating (write) operations. `viewer` is read-only. */
+const WRITE_ROLES = new Set(["superadmin", "businessowner", "staff"]);
+
+/** True when the authenticated user's role may perform writes. */
+export function canWrite(req: Request): boolean {
+  return WRITE_ROLES.has(normalizeRole(req.profile?.role));
+}
+
+/**
+ * Must be used after requireAuth. 403 for read-only roles (e.g. `viewer`) on
+ * mutating routes.
+ */
+export const requireWrite: RequestHandler = (req, res, next) => {
+  if (!req.profile) return res.status(401).json({ error: "Authentication required" });
+  if (!canWrite(req)) return res.status(403).json({ error: "Forbidden: read-only role" });
+  return next();
+};
+
 /** True when the authenticated user may act on the given business id. */
 export function canAccessBusiness(req: Request, businessId: string | null | undefined): boolean {
   if (!businessId) return false;

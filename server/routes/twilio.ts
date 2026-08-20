@@ -1,5 +1,12 @@
 import { Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { getSupabaseClient } from "../supabaseClient";
+import { logger } from "../lib/logger";
+import { getEnv } from "../lib/env";
+import { canAccessBusiness } from "../middleware/requireAuth";
+
+const moduleLog = logger.child({ module: "twilio" });
+const reqLog = (req: Request) => (req.log ?? moduleLog).child({ module: "twilio" });
 
 // Twilio Configuration
 interface TwilioConfig {
@@ -16,11 +23,24 @@ interface SMSRequest {
   businessId?: string;
 }
 
-interface SMSResponse {
-  success: boolean;
-  messageId?: string;
-  error?: string;
-}
+export const E164_RE = /^\+[1-9]\d{6,14}$/;
+export const MAX_SMS_LENGTH = 1600;
+
+/**
+ * Per-user limit for outbound SMS endpoints (send + review-request share the
+ * bucket): 30 sends per hour per authenticated user. Must be mounted after
+ * requireAuth so req.user is populated.
+ */
+export const smsSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip || "anonymous",
+  // Keyed by user id, so the IPv6-subnet keyGenerator validation does not apply.
+  validate: { keyGeneratorIpFallback: false },
+  message: { success: false, error: "Too many messages sent, please try again later" },
+});
 
 // Get Twilio configuration from environment variables
 const getTwilioConfig = (): TwilioConfig | null => {
@@ -41,25 +61,65 @@ const getTwilioConfig = (): TwilioConfig | null => {
   return null;
 };
 
+/**
+ * Validate the shared SMS fields. Returns an error string or null.
+ * `businessId`, when provided, must be one the caller can act on.
+ */
+function validateSmsInput(req: Request, to: unknown, message: unknown, businessId: unknown): { status: number; error: string } | null {
+  if (typeof to !== "string" || typeof message !== "string" || !to || !message) {
+    return { status: 400, error: "Phone number and message are required" };
+  }
+  if (!E164_RE.test(to)) {
+    return { status: 400, error: "Phone number must be in E.164 format (e.g. +15551234567)" };
+  }
+  if (message.length > MAX_SMS_LENGTH) {
+    return { status: 400, error: `Message must be at most ${MAX_SMS_LENGTH} characters` };
+  }
+  if (businessId !== undefined && businessId !== null && businessId !== "") {
+    if (typeof businessId !== "string" || !canAccessBusiness(req, businessId)) {
+      return { status: 403, error: "You do not have access to this business" };
+    }
+  }
+  return null;
+}
+
+/** A review link must be https and (when APP_URL is set) on the app's own host. */
+function isValidReviewLink(reviewLink: unknown): boolean {
+  if (typeof reviewLink !== "string" || reviewLink.length > 2048) return false;
+  let url: URL;
+  try {
+    url = new URL(reviewLink);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const appUrl = getEnv("APP_URL");
+  if (!appUrl) return false;
+  try {
+    return url.host.toLowerCase() === new URL(appUrl).host.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 // Send SMS via Twilio API
 export const handleSendSMS = async (req: Request, res: Response) => {
+  const log = reqLog(req);
   try {
     const config = getTwilioConfig();
-    
+
     if (!config) {
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
         error: "Twilio credentials not configured"
       });
     }
 
-    const { to, message, campaignId, businessId }: SMSRequest = req.body;
+    const { to, message, campaignId, businessId }: SMSRequest = req.body ?? {};
 
-    if (!to || !message) {
-      return res.status(400).json({
-        success: false,
-        error: "Phone number and message are required"
-      });
+    const invalid = validateSmsInput(req, to, message, businessId);
+    if (invalid) {
+      return res.status(invalid.status).json({ success: false, error: invalid.error });
     }
 
     // Prepare Twilio API request
@@ -82,14 +142,17 @@ export const handleSendSMS = async (req: Request, res: Response) => {
           'Authorization': `Basic ${authString}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: params.toString()
+        body: params.toString(),
+        signal: AbortSignal.timeout(15_000),
       }
     );
 
-    const data = await response.json();
+    const data = (await response.json().catch(() => ({}))) as any;
 
     if (!response.ok) {
-      throw new Error(`Twilio API error: ${data.message || response.status}`);
+      // Never echo Twilio's error text to the client.
+      log.error({ status: response.status, code: data?.code, message: data?.message }, "Twilio API error");
+      return res.status(502).json({ success: false, error: "SMS provider request failed" });
     }
 
     // Persist SMS log to Supabase
@@ -103,11 +166,13 @@ export const handleSendSMS = async (req: Request, res: Response) => {
         message,
         status: data.status ?? "sent",
         campaign_id: campaignId ?? null,
-        business_id: businessId ?? null,
+        business_id: businessId || null,
       }).then(({ error }) => {
-        if (error) console.error("[twilio] Failed to log SMS:", error.message);
+        if (error) log.error({ err: error.message }, "Failed to log SMS");
       });
     }
+
+    log.info({ userId: req.user?.id, businessId: businessId || null, campaignId: campaignId ?? null }, "SMS sent");
 
     res.json({
       success: true,
@@ -116,25 +181,29 @@ export const handleSendSMS = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error("Twilio SMS error:", error);
-    res.status(500).json({
+    log.error({ err: error }, "Twilio SMS error");
+    res.status(502).json({
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
+      error: "SMS provider request failed"
     });
   }
 };
 
-// Handle Twilio webhook for message status updates
+// Handle Twilio webhook for message status updates.
+//
+// NOTE: this endpoint is intentionally unauthenticated because Twilio calls it.
+// X-Twilio-Signature verification is deferred to the Twilio hardening step;
+// until then the handler only updates status columns for an existing SID.
 export const handleTwilioWebhook = async (req: Request, res: Response) => {
+  const log = reqLog(req);
   try {
-    const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = req.body;
+    const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = req.body ?? {};
 
-    console.log('Twilio webhook received:', {
+    log.info({
       messageId: MessageSid,
       status: MessageStatus,
       errorCode: ErrorCode,
-      errorMessage: ErrorMessage
-    });
+    }, "Twilio webhook received");
 
     // Update message status in Supabase
     const db = getSupabaseClient();
@@ -149,7 +218,7 @@ export const handleTwilioWebhook = async (req: Request, res: Response) => {
         })
         .eq("twilio_sid", MessageSid)
         .then(({ error }) => {
-          if (error) console.error("[twilio] Failed to update SMS status:", error.message);
+          if (error) log.error({ err: error.message }, "Failed to update SMS status");
         });
     }
 
@@ -157,18 +226,19 @@ export const handleTwilioWebhook = async (req: Request, res: Response) => {
     res.status(200).send('OK');
 
   } catch (error) {
-    console.error("Twilio webhook error:", error);
+    log.error({ err: error }, "Twilio webhook error");
     res.status(500).send('Error processing webhook');
   }
 };
 
 // Test Twilio connection
-export const handleTwilioTest = async (_req: Request, res: Response) => {
+export const handleTwilioTest = async (req: Request, res: Response) => {
+  const log = reqLog(req);
   try {
     const config = getTwilioConfig();
-    
+
     if (!config) {
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
         error: "Twilio credentials not configured"
       });
@@ -184,14 +254,16 @@ export const handleTwilioTest = async (_req: Request, res: Response) => {
       {
         headers: {
           'Authorization': `Basic ${authString}`,
-        }
+        },
+        signal: AbortSignal.timeout(15_000),
       }
     );
 
-    const data = await response.json();
+    const data = (await response.json().catch(() => ({}))) as any;
 
     if (!response.ok) {
-      throw new Error(`Twilio API error: ${data.message || response.status}`);
+      log.error({ status: response.status, code: data?.code, message: data?.message }, "Twilio test failed");
+      return res.status(502).json({ success: false, error: "Connection test failed" });
     }
 
     res.json({
@@ -204,10 +276,10 @@ export const handleTwilioTest = async (_req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error("Twilio test error:", error);
-    res.status(500).json({
+    log.error({ err: error }, "Twilio test error");
+    res.status(502).json({
       success: false,
-      error: error instanceof Error ? error.message : "Connection test failed"
+      error: "Connection test failed"
     });
   }
 };
@@ -215,7 +287,7 @@ export const handleTwilioTest = async (_req: Request, res: Response) => {
 // Check if Twilio is configured
 export const handleTwilioStatus = async (_req: Request, res: Response) => {
   const config = getTwilioConfig();
-  
+
   res.json({
     success: true,
     configured: !!config,
@@ -225,14 +297,15 @@ export const handleTwilioStatus = async (_req: Request, res: Response) => {
 
 // Send review request SMS
 export const handleSendReviewRequest = async (req: Request, res: Response) => {
+  const log = reqLog(req);
   try {
-    const { 
-      to, 
-      businessName, 
-      customerName, 
+    const {
+      to,
+      businessName,
+      customerName,
       reviewLink,
-      businessId 
-    } = req.body;
+      businessId
+    } = req.body ?? {};
 
     if (!to || !businessName || !reviewLink) {
       return res.status(400).json({
@@ -240,10 +313,22 @@ export const handleSendReviewRequest = async (req: Request, res: Response) => {
         error: "Phone number, business name, and review link are required"
       });
     }
+    if (typeof businessName !== "string" || businessName.length > 120) {
+      return res.status(400).json({ success: false, error: "Invalid business name" });
+    }
+    if (customerName !== undefined && (typeof customerName !== "string" || customerName.length > 80)) {
+      return res.status(400).json({ success: false, error: "Invalid customer name" });
+    }
+    if (!isValidReviewLink(reviewLink)) {
+      return res.status(400).json({
+        success: false,
+        error: "reviewLink must be an https URL on this application's domain"
+      });
+    }
 
     const message = `Hi ${customerName || 'there'}! Thank you for choosing ${businessName}. We'd love to hear about your experience. Please leave us a review: ${reviewLink}`;
 
-    // Use the existing SMS handler
+    // Use the existing SMS handler (it re-validates `to`, length and businessId).
     req.body = {
       to,
       message,
@@ -254,10 +339,10 @@ export const handleSendReviewRequest = async (req: Request, res: Response) => {
     return handleSendSMS(req, res);
 
   } catch (error) {
-    console.error("Review request SMS error:", error);
+    log.error({ err: error }, "Review request SMS error");
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to send review request"
+      error: "Failed to send review request"
     });
   }
 };

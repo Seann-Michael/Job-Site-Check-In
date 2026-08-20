@@ -420,22 +420,21 @@ export default function Support() {
   const handleAddResponse = async () => {
     if (!selectedTicket || !replyText.trim()) return;
     const currentUser = getCurrentUser();
-    const author = currentUser?.email;
+    const author = currentUser?.name || currentUser?.email;
     if (!author) {
       toast({ title: "Error", description: "Could not identify your account.", variant: "destructive" });
       return;
     }
     setSendingReply(true);
     try {
-      const isStaff = getCurrentUserRole() !== "admin";
+      // RLS only allows (ticket_id, message, author) on insert; staff/internal
+      // flags are set server-side for super admin tooling, never from here.
       const { data, error } = await supabase
         .from("ticket_responses")
         .insert({
           ticket_id: selectedTicket.id,
           message: replyText.trim(),
           author,
-          is_staff: isStaff,
-          is_internal: false,
         })
         .select()
         .single();
@@ -445,7 +444,7 @@ export default function Support() {
         message: data.message,
         timestamp: data.created_at,
         author: data.author,
-        isStaff: data.is_staff,
+        isStaff: !!data.is_staff,
       };
       setSelectedTicket((prev) => (prev ? { ...prev, responses: [...prev.responses, response] } : prev));
       setReplyText("");
@@ -460,6 +459,9 @@ export default function Support() {
       setSendingReply(false);
     }
   };
+
+  // Only super admins can UPDATE support_tickets under RLS.
+  const canResolveTickets = isSuperAdmin();
 
   const handleMarkResolved = async (ticket: SupportTicket) => {
     try {
@@ -838,7 +840,7 @@ export default function Support() {
                                 <MessageCircle className="mr-2 h-4 w-4" />
                                 Add Response
                               </DropdownMenuItem>
-                              {(ticket.status === "open" || ticket.status === "in-progress") && (
+                              {canResolveTickets && (ticket.status === "open" || ticket.status === "in-progress") && (
                                 <DropdownMenuItem onClick={() => handleMarkResolved(ticket)}>
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Mark Resolved
@@ -1087,7 +1089,7 @@ export default function Support() {
                 )}
               </div>
               <DialogFooter className="gap-2">
-                {(selectedTicket.status === "open" || selectedTicket.status === "in-progress") && (
+                {canResolveTickets && (selectedTicket.status === "open" || selectedTicket.status === "in-progress") && (
                   <Button variant="outline" onClick={() => handleMarkResolved(selectedTicket)}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Mark Resolved

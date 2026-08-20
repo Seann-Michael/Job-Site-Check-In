@@ -1,4 +1,5 @@
 import supabaseClient from "@/lib/supabaseClient";
+import { isSuperAdmin } from "@/lib/auth";
 
 /**
  * Business-level values of the `users.role` enum
@@ -85,6 +86,12 @@ export async function fetchBusinessTeam(businessId: string): Promise<TeamMember[
 }
 
 export async function updateTeamMemberRole(userId: string, role: TeamRole) {
+  // `users.role` is column-restricted by RLS: only super admins may change it.
+  if (!isSuperAdmin()) {
+    throw new Error(
+      "Only a super admin can change team member roles. Contact support to request a role change.",
+    );
+  }
   const { error } = await supabaseClient
     .from("users")
     .update({ role, updated_at: new Date().toISOString() })

@@ -3,6 +3,7 @@ import { getAppUrl } from "../lib/env";
 import { logger } from "../lib/logger";
 import { createOAuthState, consumeOAuthState } from "../lib/oauthState";
 import { getSupabaseClient } from "../supabaseClient";
+import { canAccessBusiness } from "../middleware/requireAuth";
 
 const log = logger.child({ module: "googleOAuth" });
 
@@ -71,9 +72,28 @@ function buildAuthorizeUrl(req: Request): { url?: string; error?: { status: numb
     return { error: { status: 500, message: "Server is misconfigured." } };
   }
 
+  // The workspace is always the caller's own account (users.sub_account_id),
+  // taken from the authenticated profile. A workspace_id supplied in the body
+  // or query is only honoured when it matches the caller's own account id or
+  // one of their business ids; anything else is rejected.
+  const profile = req.profile;
+  if (!req.user?.id || !profile) {
+    return { error: { status: 401, message: "Authentication required." } };
+  }
   const rawWorkspace = (req.body?.workspace_id ?? req.query.workspace_id) as unknown;
-  const workspaceId = typeof rawWorkspace === "string" ? rawWorkspace.slice(0, 128) : "";
-  const state = createOAuthState({ workspace_id: workspaceId, user_id: req.user?.id || "" });
+  const requested = typeof rawWorkspace === "string" && rawWorkspace ? rawWorkspace.slice(0, 128) : "";
+  const ownWorkspace = profile.accountId || "";
+  let workspaceId = ownWorkspace;
+  if (requested && requested !== ownWorkspace) {
+    if (!canAccessBusiness(req, requested)) {
+      return { error: { status: 403, message: "You do not have access to this workspace." } };
+    }
+    workspaceId = requested;
+  }
+  if (!workspaceId) {
+    return { error: { status: 403, message: "No workspace associated with this account." } };
+  }
+  const state = createOAuthState({ workspace_id: workspaceId, user_id: req.user.id });
 
   const params = new URLSearchParams({
     client_id: clientId(),
@@ -89,7 +109,9 @@ function buildAuthorizeUrl(req: Request): { url?: string; error?: { status: numb
 
 /**
  * POST /api/oauth/google_my_business/start  (auth)  { workspace_id? }
- * Returns { authorizeUrl } for the client to open in a popup. This is the
+ * The workspace is the caller's own account id (from the profile); an explicit
+ * workspace_id must match the caller's account or an owned business (403
+ * otherwise). Returns { authorizeUrl } for the client to open in a popup. This is the
  * recommended flow: a popup cannot carry an Authorization header, so the
  * authenticated request happens here and the popup only visits Google.
  */
@@ -114,7 +136,8 @@ export function handleGoogleAuthorize(req: Request, res: Response) {
 /**
  * GET /api/oauth/google_my_business/callback  (public; protected by state nonce)
  * Exchanges the code for tokens, stores them server-side in
- * google_oauth_tokens, then posts a summary (no refresh token) to the opener.
+ * google_oauth_tokens, then posts a summary (email, Google account id,
+ * locations; no tokens of any kind) to the opener.
  */
 export async function handleGoogleCallback(req: Request, res: Response) {
   const { code, error, state } = req.query as Record<string, string | undefined>;
@@ -242,17 +265,17 @@ export async function handleGoogleCallback(req: Request, res: Response) {
       locations: gmbLocations,
     });
 
-    // The refresh token is intentionally NOT sent to the browser; it lives in
-    // google_oauth_tokens and is used by server-side GBP calls.
+    // Neither the access token nor the refresh token is sent to the browser;
+    // both live in google_oauth_tokens and are used by server-side GBP calls.
+    // The popup only receives the connected identity and its locations.
     const accountInfo = {
       email: profile.email,
       name: profile.name,
       picture: profile.picture,
       googleId: profile.sub,
-      accessToken: tokens.access_token,
       expiresAt: expiresAtMs,
       gmbAccounts: gmbLocations,
-      gmbAccountsRaw: gmbAccounts,
+      gmbAccountsRaw: (gmbAccounts as any[]).map((a) => ({ name: a?.name, accountName: a?.accountName, type: a?.type })),
       gmbDebugErrors: debugErrors,
       workspaceId,
     };

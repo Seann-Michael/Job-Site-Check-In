@@ -2,8 +2,8 @@ import { Request, Response } from "express";
 import { getSupabaseClient } from "../supabaseClient";
 import { logger } from "../lib/logger";
 import { getAppUrl } from "../lib/env";
-import { safeFetch, SafeFetchError } from "../lib/safeFetch";
-import { generateSecret, signPayload, verifySignature } from "../lib/webhookSignature";
+import { safeFetch, SafeFetchError, readLimitedText, DEFAULT_MAX_RESPONSE_BYTES } from "../lib/safeFetch";
+import { generateSecret, signWithTimestamp, verifySignature } from "../lib/webhookSignature";
 import { canAccessBusiness } from "../middleware/requireAuth";
 
 interface WebhookPayload {
@@ -20,6 +20,8 @@ interface WorkflowStep {
 }
 
 const log = logger.child({ module: "workflows" });
+/** Request-scoped logger (carries req.id) when available, else the module logger. */
+const reqLog = (req: Request) => (req.log ?? log).child({ module: "workflows" });
 
 /** Resolve the business the caller is acting on and verify they may. */
 function resolveBusinessId(req: Request, requested?: unknown): string | null {
@@ -33,6 +35,7 @@ function resolveBusinessId(req: Request, requested?: unknown): string | null {
 // ── Outbound webhook registration ────────────────────────────────────────────
 // POST /api/webhooks/register  (auth)  { url, events?, headers?, business_id? }
 export async function handleRegisterWebhook(req: Request, res: Response) {
+  const log = reqLog(req);
   try {
     const { url, events, headers, business_id } = req.body ?? {};
     const businessId = resolveBusinessId(req, business_id);
@@ -93,6 +96,7 @@ export async function handleRegisterWebhook(req: Request, res: Response) {
 // the first time a URL is requested and returned to the caller so they can
 // configure the sender.
 export async function handleGenerateWebhookUrl(req: Request, res: Response) {
+  const log = reqLog(req);
   try {
     const { workflowId, business_id, rotateSecret } = req.body ?? {};
     const businessId = resolveBusinessId(req, business_id);
@@ -132,7 +136,8 @@ export async function handleGenerateWebhookUrl(req: Request, res: Response) {
       path: webhookPath,
       secret,
       signatureHeader: "x-webhook-signature",
-      signatureScheme: "sha256=HMAC_SHA256(secret, raw_body) hex",
+      timestampHeader: "x-webhook-timestamp",
+      signatureScheme: "sha256=HMAC_SHA256(secret, `${unix_seconds}.${raw_body}`) hex; timestamp within 300s",
     });
   } catch (error) {
     log.error({ err: error }, "handleGenerateWebhookUrl failed");
@@ -163,12 +168,15 @@ function ensureWebhookSecret(steps: unknown, rotate: boolean): { secret: string;
 }
 
 // ── Inbound webhook (public, HMAC-verified) ──────────────────────────────────
-// POST /api/workflows/webhook/:workflowId   header: x-webhook-signature
+// POST /api/workflows/webhook/:workflowId
+//   headers: x-webhook-signature, x-webhook-timestamp (unix seconds, +/-300s)
 export async function handleWorkflowWebhook(req: Request, res: Response) {
+  const log = reqLog(req);
   try {
     const { workflowId } = req.params;
     const payload = (req.body ?? {}) as WebhookPayload;
     const signature = req.headers["x-webhook-signature"];
+    const timestamp = req.headers["x-webhook-timestamp"];
 
     if (!workflowId) {
       return res.status(400).json({ error: "Workflow ID is required" });
@@ -194,7 +202,19 @@ export async function handleWorkflowWebhook(req: Request, res: Response) {
       });
     }
     const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(payload));
-    if (!verifySignature(secret, rawBody, typeof signature === "string" ? signature : undefined)) {
+    const verdict = verifySignature(
+      secret,
+      rawBody,
+      typeof signature === "string" ? signature : undefined,
+      typeof timestamp === "string" ? timestamp : undefined,
+    );
+    if ("reason" in verdict) {
+      if (verdict.reason === "bad_timestamp") {
+        return res.status(401).json({ error: "Missing or invalid x-webhook-timestamp header" });
+      }
+      if (verdict.reason === "stale") {
+        return res.status(401).json({ error: "Webhook timestamp outside the allowed window" });
+      }
       return res.status(401).json({ error: "Invalid webhook signature" });
     }
 
@@ -483,6 +503,18 @@ async function createJob(
 }
 
 // ── rss_add_item ─────────────────────────────────────────────────────────────
+/** users.sub_account_id of the business owner (null when unknown). */
+async function ownerSubAccountId(businessId: unknown): Promise<string | null> {
+  if (typeof businessId !== "string" || !businessId) return null;
+  const db = getSupabaseClient();
+  const { data: biz } = await db.from("businesses").select("owner_id").eq("id", businessId).maybeSingle();
+  const ownerId = (biz as any)?.owner_id;
+  if (!ownerId) return null;
+  const { data: owner } = await db.from("users").select("sub_account_id").eq("id", ownerId).maybeSingle();
+  const sub = (owner as any)?.sub_account_id;
+  return typeof sub === "string" && sub ? sub : null;
+}
+
 async function addRssItem(
   config: Record<string, any>,
   payload: WebhookPayload,
@@ -495,11 +527,14 @@ async function addRssItem(
     payload.item_title, payload.title, payload.job?.title, payload.jobTitle,
   );
   if (!title) throw new Error("item_title is required");
+  // sub_account_id is derived from the workflow's business owner, never from
+  // the (attacker-controllable) inbound payload.
+  const subAccountId = await ownerSubAccountId(workflow.business_id);
   const { data, error } = await db
     .from("rss_feed_items")
     .insert({
       workflow_id: String(workflow.id),
-      sub_account_id: payload.sub_account_id || null,
+      sub_account_id: subAccountId,
       feed_title: firstString(config.feed_title && interpolate(config.feed_title, ctx), payload.feed_title) || "Completed Jobs Feed",
       item_title: title,
       item_description: firstString(config.item_description && interpolate(config.item_description, ctx), payload.item_description, payload.description),
@@ -589,7 +624,9 @@ async function sendWebhook(
     }
   }
   if (body !== undefined && typeof signing_secret === "string" && signing_secret) {
-    requestHeaders["X-Webhook-Signature"] = signPayload(signing_secret, body);
+    const signed = signWithTimestamp(signing_secret, body);
+    requestHeaders["X-Webhook-Signature"] = signed.signature;
+    requestHeaders["X-Webhook-Timestamp"] = signed.timestamp;
   }
 
   const db = getSupabaseClient();
@@ -608,7 +645,21 @@ async function sendWebhook(
     return `webhook delivery failed: ${reason}`;
   }
 
-  const responseBody = (await response.text()).slice(0, 10_000);
+  let responseBody: string;
+  try {
+    responseBody = (await readLimitedText(response, DEFAULT_MAX_RESPONSE_BYTES)).slice(0, 10_000);
+  } catch (err) {
+    const reason = err instanceof SafeFetchError ? err.message : "failed to read response";
+    await db.from("webhook_deliveries").insert({
+      webhook_id: null,
+      execution_id: executionId,
+      payload,
+      status: "failed",
+      http_status_code: response.status,
+      error_message: reason,
+    });
+    return `webhook delivery failed: ${reason}`;
+  }
   await db.from("webhook_deliveries").insert({
     webhook_id: null,
     execution_id: executionId,
@@ -627,6 +678,7 @@ async function sendWebhook(
 
 // GET /api/workflows/deliveries/:executionId  (auth)
 export async function handleGetWebhookDeliveries(req: Request, res: Response) {
+  const log = reqLog(req);
   try {
     const { executionId } = req.params;
     if (!executionId) return res.status(400).json({ error: "Missing executionId" });

@@ -27,6 +27,11 @@ function makeServiceClient() {
         return { data: { user: null }, error: { message: "invalid" } };
       },
       admin: {
+        getUserById: async (id: string) => {
+          const row = usersRow(id);
+          if (!row) return { data: { user: null }, error: { message: "User not found", status: 404 } };
+          return { data: { user: { id, email: row.email } }, error: null };
+        },
         generateLink: async ({ email }: { email: string }) => ({
           data: {
             properties: {

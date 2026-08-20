@@ -1,10 +1,16 @@
 import dns from "dns/promises";
 import net from "net";
+import { Agent, fetch as undiciFetch } from "undici";
 
 /**
  * SSRF-safe fetch. Only http/https, DNS-resolves every hop and rejects
  * private / loopback / link-local / metadata ranges, follows at most
  * `maxRedirects` redirects (re-validating each hop), and times out.
+ *
+ * DNS rebinding: the addresses validated by assertSafeUrl are pinned and the
+ * TCP connection is made to one of them via a custom undici `connect.lookup`,
+ * so a hostname cannot resolve to a public address during validation and a
+ * private one at connect time.
  */
 
 export class SafeFetchError extends Error {
@@ -23,7 +29,15 @@ export interface SafeFetchOptions extends Omit<RequestInit, "redirect" | "signal
   allowedHosts?: string[];
   /** "follow" (default) follows redirects; "manual" returns the first response. */
   redirect?: "follow" | "manual";
+  /**
+   * Max response body size in bytes (default 2 MB). Enforced up front via
+   * Content-Length and again while streaming through readLimitedText /
+   * readLimitedBuffer; reading more than this aborts the body.
+   */
+  maxBytes?: number;
 }
+
+export const DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 function ipv4ToInt(ip: string): number {
   return ip.split(".").reduce((acc, o) => (acc << 8) + Number(o), 0) >>> 0;
@@ -106,6 +120,14 @@ export async function assertSafeUrl(
   input: string | URL,
   opts: { allowedHosts?: string[] } = {},
 ): Promise<URL> {
+  return (await resolveSafeUrl(input, opts)).url;
+}
+
+/** Like assertSafeUrl but also returns the validated addresses (for pinning). */
+export async function resolveSafeUrl(
+  input: string | URL,
+  opts: { allowedHosts?: string[] } = {},
+): Promise<{ url: URL; addresses: string[] }> {
   let url: URL;
   try {
     url = typeof input === "string" ? new URL(input) : input;
@@ -128,7 +150,7 @@ export async function assertSafeUrl(
 
   if (net.isIP(host)) {
     if (isBlockedIp(host)) throw new SafeFetchError("Address not allowed", "blocked_ip");
-    return url;
+    return { url, addresses: [host] };
   }
 
   let addresses: string[];
@@ -142,7 +164,89 @@ export async function assertSafeUrl(
   if (addresses.some(isBlockedIp)) {
     throw new SafeFetchError("Address not allowed", "blocked_ip");
   }
-  return url;
+  return { url, addresses };
+}
+
+// ── Pinned-address dispatcher ────────────────────────────────────────────────
+// Hostname -> addresses validated by resolveSafeUrl, consulted by the agent's
+// lookup instead of the system resolver. Entries are short-lived; a connect for
+// a hostname that is not pinned fails closed.
+
+const PIN_TTL_MS = 60_000;
+const pinned = new Map<string, { addresses: string[]; expires: number }>();
+
+function pinAddresses(hostname: string, addresses: string[]): void {
+  const now = Date.now();
+  if (pinned.size > 1000) {
+    for (const [k, v] of pinned) if (v.expires < now) pinned.delete(k);
+  }
+  pinned.set(hostname.toLowerCase(), { addresses, expires: now + PIN_TTL_MS });
+}
+
+type LookupCb = (err: NodeJS.ErrnoException | null, address?: any, family?: number) => void;
+
+function pinnedLookup(hostname: string, options: any, callback: LookupCb): void {
+  const entry = pinned.get(hostname.toLowerCase());
+  if (!entry || entry.expires < Date.now() || entry.addresses.length === 0) {
+    const err: NodeJS.ErrnoException = new Error(`Address for ${hostname} was not validated`);
+    err.code = "ENOTFOUND";
+    return callback(err);
+  }
+  const wantFamily = Number(options?.family) || 0;
+  const records = entry.addresses
+    .map((address) => ({ address, family: net.isIP(address) }))
+    .filter((r) => r.family !== 0 && (wantFamily === 0 || r.family === wantFamily));
+  if (records.length === 0) {
+    const err: NodeJS.ErrnoException = new Error(`No ${wantFamily ? `IPv${wantFamily}` : ""} address for ${hostname}`);
+    err.code = "ENOTFOUND";
+    return callback(err);
+  }
+  if (options?.all) return callback(null, records);
+  return callback(null, records[0].address, records[0].family);
+}
+
+let agent: Agent | null = null;
+function pinnedAgent(): Agent {
+  if (!agent) {
+    agent = new Agent({
+      connect: { lookup: pinnedLookup as any, timeout: 10_000 },
+      connections: 16,
+    });
+  }
+  return agent;
+}
+
+// ── Bounded body readers ─────────────────────────────────────────────────────
+
+/**
+ * Read a response body up to `maxBytes`; cancels the stream and throws
+ * SafeFetchError("too_large") if the limit is exceeded.
+ */
+export async function readLimitedBuffer(res: Response, maxBytes = DEFAULT_MAX_RESPONSE_BYTES): Promise<Buffer> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new SafeFetchError("Response too large", "too_large");
+  }
+  if (!res.body) return Buffer.alloc(0);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new SafeFetchError("Response too large", "too_large");
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, total);
+}
+
+export async function readLimitedText(res: Response, maxBytes = DEFAULT_MAX_RESPONSE_BYTES): Promise<string> {
+  return (await readLimitedBuffer(res, maxBytes)).toString("utf8");
 }
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -153,19 +257,29 @@ export async function safeFetch(input: string | URL, options: SafeFetchOptions =
     timeoutMs = 10_000,
     allowedHosts,
     redirect = "follow",
+    maxBytes = DEFAULT_MAX_RESPONSE_BYTES,
     ...init
   } = options;
 
-  let current = await assertSafeUrl(input, { allowedHosts });
+  let resolved = await resolveSafeUrl(input, { allowedHosts });
+  let current = resolved.url;
   let method = (init.method || "GET").toUpperCase();
   let body = init.body;
 
   for (let hop = 0; ; hop++) {
+    pinAddresses(current.hostname.replace(/^\[|\]$/g, ""), resolved.addresses);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let res: Response;
     try {
-      res = await fetch(current, { ...init, method, body, redirect: "manual", signal: controller.signal });
+      res = (await undiciFetch(current, {
+        ...(init as any),
+        method,
+        body,
+        redirect: "manual",
+        signal: controller.signal,
+        dispatcher: pinnedAgent(),
+      })) as unknown as Response;
     } catch (err: any) {
       clearTimeout(timer);
       if (err?.name === "AbortError") throw new SafeFetchError("Request timed out", "timeout");
@@ -175,6 +289,11 @@ export async function safeFetch(input: string | URL, options: SafeFetchOptions =
 
     const location = res.headers.get("location");
     if (redirect === "manual" || !REDIRECT_STATUSES.has(res.status) || !location) {
+      const declared = Number(res.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > maxBytes) {
+        res.body?.cancel().catch(() => undefined);
+        throw new SafeFetchError("Response too large", "too_large");
+      }
       return res;
     }
     if (hop >= maxRedirects) {
@@ -189,7 +308,8 @@ export async function safeFetch(input: string | URL, options: SafeFetchOptions =
     } catch {
       throw new SafeFetchError("Invalid redirect location", "invalid_url");
     }
-    current = await assertSafeUrl(next, { allowedHosts });
+    resolved = await resolveSafeUrl(next, { allowedHosts });
+    current = resolved.url;
     if (res.status === 303 || ((res.status === 301 || res.status === 302) && method === "POST")) {
       method = "GET";
       body = undefined;

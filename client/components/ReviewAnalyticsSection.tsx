@@ -40,6 +40,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { supabase } from "@/lib/dataService";
+import { workspaceService } from "@/lib/workspaceService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -140,9 +141,18 @@ export function ReviewAnalyticsSection({ timeRange, refreshTrigger = 0 }: Review
       const since = isAllTime ? null : new Date();
       if (since) since.setMonth(since.getMonth() - months);
 
+      const { currentBusinessId } = await workspaceService.whenReady();
+      if (!currentBusinessId) {
+        setChartData([]);
+        setSnapshot(EMPTY_SNAPSHOT);
+        setDataSource("none");
+        return;
+      }
+
       let query = supabase
         .from("analytics")
         .select("*")
+        .eq("business_id", currentBusinessId)
         .in("metric_type", ["review_count", "review_rating"])
         .order("date", { ascending: true });
       if (since) query = query.gte("date", since.toISOString().slice(0, 10));

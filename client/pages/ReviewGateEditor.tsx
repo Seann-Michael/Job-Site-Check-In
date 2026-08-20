@@ -146,7 +146,10 @@ function VideoUploader({
     setProgress(10);
     try {
       const ext = file.name.split(".").pop() ?? "mp4";
-      const path = `review-gate-videos/${Date.now()}-${Math.random()
+      // Storage RLS requires <area>/<business_id>/... so writes are tenant-scoped.
+      const bizId = workspaceService.getCurrentBusinessId();
+      if (!bizId) throw new Error("No business selected");
+      const path = `review-gate-videos/${bizId}/${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}.${ext}`;
 

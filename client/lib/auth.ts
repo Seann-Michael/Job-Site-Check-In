@@ -122,27 +122,52 @@ async function fetchProfile(userId: string): Promise<ProfileRow | null> {
 /**
  * Apply a Supabase session to the cache, refreshing the profile row and keeping
  * workspace state in sync with the session identity.
+ *
+ * Idempotent per user id: concurrent calls for the same user (e.g.
+ * signInWithPassword + the SIGNED_IN event from onAuthStateChange) share one
+ * in-flight promise so the workspace loads once and `emit()` fires once with
+ * the fully loaded workspace.
  */
-async function applySession(session: Session | null): Promise<void> {
+let inFlight: { userId: string | null; promise: Promise<void> } | null = null;
+
+function applySession(session: Session | null): Promise<void> {
   const prevUserId = cache.session?.user?.id ?? null;
   const nextUserId = session?.user?.id ?? null;
 
+  // Always keep the freshest session (tokens rotate on refresh).
   cache.session = session;
-  cache.profile = session?.user ? await fetchProfile(session.user.id) : null;
 
-  // Re-scope the workspace whenever the signed-in identity changes.
-  if (nextUserId !== prevUserId) {
-    workspaceService.reset();
-    if (nextUserId) {
-      try {
-        await workspaceService.initialize();
-      } catch (err) {
-        console.warn("[auth] workspace re-init failed:", err);
-      }
-    }
+  if (inFlight && inFlight.userId === nextUserId) {
+    return inFlight.promise;
   }
 
-  emit();
+  // Re-scope the workspace synchronously — BEFORE the first await — whenever
+  // the signed-in identity changes so no reader observes the previous
+  // user's business ids while the new profile is loading.
+  if (nextUserId !== prevUserId) {
+    cache.profile = null;
+    workspaceService.reset();
+  }
+
+  const promise = (async () => {
+    try {
+      cache.profile = nextUserId ? await fetchProfile(nextUserId) : null;
+      if (nextUserId) {
+        try {
+          // initialize() is itself idempotent (shared initPromise).
+          await workspaceService.initialize();
+        } catch (err) {
+          console.warn("[auth] workspace re-init failed:", err);
+        }
+      }
+    } finally {
+      if (inFlight?.promise === promise) inFlight = null;
+      emit();
+    }
+  })();
+
+  inFlight = { userId: nextUserId, promise };
+  return promise;
 }
 
 /**
@@ -187,10 +212,9 @@ export function getCurrentUser(): User | null {
   if (!session?.user) return null;
 
   const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
-  const role =
-    (profile?.role as UserRole | undefined) ??
-    (typeof meta.role === "string" ? (meta.role as UserRole) : undefined) ??
-    "business_owner";
+  // Role comes from public.users only — never from client-writable
+  // user_metadata. Missing profile => least privilege.
+  const role: UserRole = (profile?.role as UserRole | undefined) ?? "viewer";
 
   const firstName =
     profile?.first_name ??
@@ -227,6 +251,15 @@ export function getAuthToken(): string | null {
 
 export function isAuthenticated(): boolean {
   return !!cache.session?.user;
+}
+
+/**
+ * True when there is an authenticated session but no matching `public.users`
+ * row could be loaded. The client cannot create one (RLS), so callers should
+ * show an error state rather than redirecting to onboarding.
+ */
+export function isProfileMissing(): boolean {
+  return !!cache.session?.user && cache.profile === null;
 }
 
 export function isSuperAdmin(): boolean {

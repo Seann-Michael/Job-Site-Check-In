@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { logger } from "../lib/logger";
 
 /**
@@ -16,6 +16,9 @@ import { logger } from "../lib/logger";
  *        (legacy shape kept for the existing handler)
  *   POST /api/dataforseo/local-rankings         -> { status_code, tasks } (convenience)
  *        body: { keyword, latitude, longitude, language_code?, device?, os?, depth? }
+ *
+ * Every proxied POST counts against a per-user daily quota (see below);
+ * bodies are capped at 5 tasks, `priority` is forced to 1 and `depth` <= 100.
  */
 export const dataForSEORouter = Router();
 
@@ -34,7 +37,84 @@ const ALLOWED_PREFIXES = [
   "appendix/",
 ];
 
-const MAX_TASKS = 25;
+const MAX_TASKS = 5;
+const MAX_DEPTH = 100;
+
+/**
+ * Per-user daily quota (default 200 proxied calls/day, env DATAFORSEO_DAILY_LIMIT).
+ *
+ * CAVEAT: the counter is an in-memory Map keyed by `${userId}:${YYYY-MM-DD}`
+ * (UTC). It is per process: with multiple instances each one has its own
+ * budget, and a restart resets it. Good enough as a cost guard for a
+ * single-instance deployment; move to Redis/Postgres before scaling out.
+ */
+const dailyUsage = new Map<string, number>();
+
+function dailyLimit(): number {
+  const n = Number(process.env.DATAFORSEO_DAILY_LIMIT);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 200;
+}
+
+function usageKey(userId: string, now = new Date()): string {
+  return `${userId}:${now.toISOString().slice(0, 10)}`;
+}
+
+/** Increment today's counter for the user; returns false when over quota. */
+export function consumeDailyQuota(userId: string): { ok: boolean; used: number; limit: number } {
+  const key = usageKey(userId);
+  // Drop stale days so the map does not grow unbounded.
+  if (dailyUsage.size > 10_000) {
+    const today = key.slice(key.lastIndexOf(":") + 1);
+    for (const k of dailyUsage.keys()) if (!k.endsWith(today)) dailyUsage.delete(k);
+  }
+  const limit = dailyLimit();
+  const used = (dailyUsage.get(key) ?? 0) + 1;
+  if (used > limit) return { ok: false, used: used - 1, limit };
+  dailyUsage.set(key, used);
+  return { ok: true, used, limit };
+}
+
+/** Test hook: clear all counters. */
+export function resetDailyQuota(): void {
+  dailyUsage.clear();
+}
+
+function quotaMiddleware(req: Request, res: Response, next: NextFunction) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+  const { ok, used, limit } = consumeDailyQuota(userId);
+  res.setHeader("X-DataForSEO-Quota-Limit", String(limit));
+  res.setHeader("X-DataForSEO-Quota-Used", String(Math.min(used, limit)));
+  if (!ok) {
+    log.warn({ userId, limit }, "DataForSEO daily quota exceeded");
+    return res.status(429).json({ success: false, error: "Daily DataForSEO quota exceeded" });
+  }
+  return next();
+}
+
+/**
+ * Normalise a pass-through task body: `priority` is forced to 1 (cheapest
+ * queue) and `depth` is capped at MAX_DEPTH on every task object.
+ */
+function sanitizeTasks(body: unknown): unknown {
+  const fix = (task: unknown) => {
+    if (!task || typeof task !== "object" || Array.isArray(task)) return task;
+    const t = { ...(task as Record<string, unknown>) };
+    if ("priority" in t) t.priority = 1;
+    if (t.depth !== undefined) {
+      const d = Number(t.depth);
+      t.depth = Number.isFinite(d) ? Math.min(MAX_DEPTH, Math.max(1, Math.floor(d))) : MAX_DEPTH;
+    }
+    return t;
+  };
+  if (Array.isArray(body)) return body.map(fix);
+  return fix(body);
+}
+
+function taskCount(body: unknown): number {
+  if (Array.isArray(body)) return body.length;
+  return body && typeof body === "object" ? 1 : 0;
+}
 
 function getCredentials(): { username: string; password: string } | null {
   const username = process.env.DATAFORSEO_USERNAME;
@@ -62,11 +142,14 @@ function validateBody(body: unknown): string | null {
 }
 
 async function forward(
+  req: Request,
   res: Response,
   endpoint: string,
   method: "GET" | "POST",
   body: unknown,
 ) {
+  const reqLog = req.log ?? log;
+  reqLog.info({ userId: req.user?.id, endpoint, method, tasks: taskCount(body) }, "DataForSEO proxy call");
   const credentials = getCredentials();
   if (!credentials) {
     return res.status(503).json({ success: false, error: "DataForSEO is not configured" });
@@ -140,18 +223,18 @@ dataForSEORouter.post("/test-connection", async (_req, res) => {
 });
 
 // POST /proxy  { endpoint, method?, body? }   (legacy handler shape)
-dataForSEORouter.post("/proxy", async (req: Request, res: Response) => {
+dataForSEORouter.post("/proxy", quotaMiddleware, async (req: Request, res: Response) => {
   const endpoint = normalizeEndpoint(req.body?.endpoint);
   if (!endpoint) return res.status(400).json({ success: false, error: "Invalid or disallowed endpoint" });
   const method = String(req.body?.method || "POST").toUpperCase();
   if (method !== "GET" && method !== "POST") return res.status(400).json({ success: false, error: "Unsupported method" });
   const bodyError = validateBody(req.body?.body);
   if (bodyError) return res.status(400).json({ success: false, error: bodyError });
-  return forward(res, endpoint, method, req.body?.body);
+  return forward(req, res, endpoint, method, sanitizeTasks(req.body?.body));
 });
 
 // POST /local-rankings  { keyword, latitude, longitude, ... }
-dataForSEORouter.post("/local-rankings", async (req: Request, res: Response) => {
+dataForSEORouter.post("/local-rankings", quotaMiddleware, async (req: Request, res: Response) => {
   const { keyword, latitude, longitude, language_code, device, os, depth } = req.body ?? {};
   const lat = Number(latitude);
   const lng = Number(longitude);
@@ -167,22 +250,22 @@ dataForSEORouter.post("/local-rankings", async (req: Request, res: Response) => 
     language_code: typeof language_code === "string" ? language_code.slice(0, 8) : "en",
     device: device === "mobile" ? "mobile" : "desktop",
     os: typeof os === "string" ? os.slice(0, 16) : "windows",
-    depth: Math.min(100, Math.max(10, Number(depth) || 20)),
+    depth: Math.min(MAX_DEPTH, Math.max(10, Number(depth) || 20)),
     se_domain: "google.com",
     calculate_rectangles: true,
   };
-  return forward(res, "serp/google/maps/live", "POST", [task]);
+  return forward(req, res, "serp/google/maps/live", "POST", [task]);
 });
 
 // POST /v3/<path>   body = DataForSEO task payload
-dataForSEORouter.post("/v3/*path", async (req: Request, res: Response) => {
+dataForSEORouter.post("/v3/*path", quotaMiddleware, async (req: Request, res: Response) => {
   const p = req.params.path as unknown;
   const joined = Array.isArray(p) ? p.join("/") : String(p ?? "");
   const endpoint = normalizeEndpoint(joined);
   if (!endpoint) return res.status(400).json({ success: false, error: "Invalid or disallowed endpoint" });
   const bodyError = validateBody(req.body);
   if (bodyError) return res.status(400).json({ success: false, error: bodyError });
-  return forward(res, endpoint, "POST", req.body);
+  return forward(req, res, endpoint, "POST", sanitizeTasks(req.body));
 });
 
 // Kept for backward compatibility with existing imports.

@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SuperAdminLayout } from "@/components/SuperAdminLayout";
-import { EnhancedBroadcastAlert } from "@/components/EnhancedBroadcastAlert";
 import {
   Users,
   Activity,
@@ -281,9 +280,6 @@ export default function SuperAdmin() {
   return (
     <SuperAdminLayout>
       <div className="space-y-6">
-        {/* Broadcast Messages */}
-        <EnhancedBroadcastAlert />
-
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>

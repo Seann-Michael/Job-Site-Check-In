@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { workspaceService } from "@/lib/workspaceService";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   TEAM_ROLES,
   type TeamMember,
@@ -83,6 +84,9 @@ export function UserManagementSystem() {
     const matchesRole = filterRole === "all" || m.role === filterRole;
     return matchesSearch && matchesRole;
   });
+
+  // Role changes are restricted to super admins at the database level.
+  const canEditRoles = isSuperAdmin();
 
   const handleRoleChange = async (member: TeamMember, role: TeamRole) => {
     if (member.role === role) return;
@@ -253,7 +257,7 @@ export function UserManagementSystem() {
                     {savingId === m.id && (
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     )}
-                    {knownRole(m.role) ? (
+                    {knownRole(m.role) && canEditRoles ? (
                       <Select
                         value={m.role}
                         disabled={savingId === m.id || m.isOwner}

@@ -4,7 +4,7 @@ import crypto from "crypto";
 import path from "path";
 import { getSupabaseClient } from "../supabaseClient";
 import { logger } from "../lib/logger";
-import { requireAuth } from "../middleware/requireAuth";
+import { requireAuth, requireWrite } from "../middleware/requireAuth";
 
 /**
  * Media: real multipart uploads into the Supabase Storage bucket `media`
@@ -12,6 +12,7 @@ import { requireAuth } from "../middleware/requireAuth";
  *
  * Account scoping comes from the authenticated profile
  * (users.sub_account_id, falling back to the user id), never from headers.
+ * Upload and delete require a write role (viewer -> 403).
  *
  * Thumbnail endpoints were removed: nothing generated thumbnails, so they
  * always 404'd. Use the returned URL directly (Supabase image transforms can
@@ -47,6 +48,8 @@ const EXT_BY_MIME: Record<string, string> = {
 };
 
 const log = logger.child({ module: "media" });
+/** Request-scoped logger (carries req.id) when available. */
+const reqLog = (req: Request) => (req.log ?? log).child({ module: "media" });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -160,7 +163,7 @@ export const handleMediaUpload: RequestHandler = async (req, res) => {
     upsert: false,
   });
   if (uploadError) {
-    log.error({ err: uploadError }, "Storage upload failed");
+    reqLog(req).error({ err: uploadError }, "Storage upload failed");
     return res.status(502).json({ error: "Upload to storage failed" });
   }
 
@@ -181,7 +184,7 @@ export const handleMediaUpload: RequestHandler = async (req, res) => {
 
   const { error: dbError } = await db.from("server_media_metadata").insert(row);
   if (dbError) {
-    log.error({ err: dbError }, "server_media_metadata insert failed");
+    reqLog(req).error({ err: dbError }, "server_media_metadata insert failed");
     await db.storage.from(BUCKET).remove([storedPath]).catch(() => undefined);
     return res.status(500).json({ error: "Failed to record upload" });
   }
@@ -231,10 +234,10 @@ export const handleMediaDelete: RequestHandler = async (req, res) => {
   if (!row || !canAccess(req, row)) return res.status(404).json({ error: "Media file not found" });
   const db = getSupabaseClient();
   const { error: rmError } = await db.storage.from(BUCKET).remove([row.stored_path]);
-  if (rmError) log.warn({ err: rmError }, "Storage remove failed (continuing)");
+  if (rmError) reqLog(req).warn({ err: rmError }, "Storage remove failed (continuing)");
   const { error } = await db.from("server_media_metadata").delete().eq("id", row.id);
   if (error) {
-    log.error({ err: error }, "server_media_metadata delete failed");
+    reqLog(req).error({ err: error }, "server_media_metadata delete failed");
     return res.status(500).json({ error: "Failed to delete media" });
   }
   res.json({ success: true });
@@ -252,7 +255,7 @@ export const handleMediaList: RequestHandler = async (req, res) => {
   if (typeof req.query.jobId === "string" && req.query.jobId) q = q.eq("job_id", req.query.jobId);
   const { data, error } = await q;
   if (error) {
-    log.error({ err: error }, "media list failed");
+    reqLog(req).error({ err: error }, "media list failed");
     return res.status(500).json({ error: "Failed to list media" });
   }
   res.json({ media: ((data as MediaRow[]) || []).map(serialize) });
@@ -266,6 +269,7 @@ mediaRouter.use(requireAuth);
 mediaRouter.get("/", handleMediaList);
 mediaRouter.post(
   "/upload",
+  requireWrite,
   (req, res, next) =>
     upload.single("file")(req, res, (err: any) => {
       if (!err) return next();
@@ -275,13 +279,13 @@ mediaRouter.post(
       if (err?.message === "UNSUPPORTED_MEDIA_TYPE") {
         return res.status(415).json({ error: "Unsupported file type (images and videos only)" });
       }
-      log.warn({ err }, "multer rejected upload");
+      reqLog(req).warn({ err }, "multer rejected upload");
       return res.status(400).json({ error: "Invalid upload" });
     }),
   wrap(handleMediaUpload),
 );
 mediaRouter.get("/metadata/:mediaId", wrap(handleMediaMetadata));
-mediaRouter.delete("/:mediaId", wrap(handleMediaDelete));
+mediaRouter.delete("/:mediaId", requireWrite, wrap(handleMediaDelete));
 mediaRouter.get("/:mediaId/:filename", wrap(handleSecureMedia));
 
 /** Public media redirects, mount at /public/media */

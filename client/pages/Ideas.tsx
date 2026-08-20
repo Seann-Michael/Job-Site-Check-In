@@ -137,7 +137,6 @@ export default function Ideas() {
     category: "",
     justification: "",
     author_name: "",
-    author_email: "",
   });
 
   // ── Fetch ideas ─────────────────────────────────────────────────────────────
@@ -266,24 +265,30 @@ export default function Ideas() {
       toast.error("Please fill in the required fields");
       return;
     }
+    const authorEmail = getCurrentUserEmail();
+    if (!authorEmail) {
+      toast.error("You must be logged in to submit a suggestion");
+      return;
+    }
     setSubmitting(true);
     try {
+      // RLS only allows (title, description, category, author_name, author_email)
+      // with author_email = auth.email(). Status/priority/votes are DB defaults.
+      const justification = suggestionForm.justification.trim();
+      const description = justification
+        ? `${suggestionForm.description.trim()}\n\nWhy this matters: ${justification}`
+        : suggestionForm.description.trim();
       const { error } = await supabaseClient.from("ideas").insert({
         title: suggestionForm.title.trim(),
-        description: suggestionForm.description.trim(),
+        description,
         category: suggestionForm.category,
-        status: "pending",
-        priority: "medium",
-        upvotes: 1,
-        downvotes: 0,
-        comments_count: 0,
-        author_name: suggestionForm.author_name.trim() || "Anonymous",
-        author_email: suggestionForm.author_email.trim() || null,
-        admin_notes: suggestionForm.justification.trim() || null,
+        author_name:
+          suggestionForm.author_name.trim() || getCurrentUser()?.name || "Anonymous",
+        author_email: authorEmail,
       });
       if (error) throw error;
 
-      setSuggestionForm({ title: "", description: "", category: "", justification: "", author_name: "", author_email: "" });
+      setSuggestionForm({ title: "", description: "", category: "", justification: "", author_name: "" });
       setShowSuggestionForm(false);
       toast.success("Feature suggestion submitted! It will be reviewed by our team.");
       fetchIdeas();
@@ -403,12 +408,7 @@ export default function Ideas() {
                         </div>
                         <div className="space-y-1.5">
                           <Label>Email</Label>
-                          <Input
-                            type="email"
-                            value={suggestionForm.author_email}
-                            onChange={(e) => setSuggestionForm((p) => ({ ...p, author_email: e.target.value }))}
-                            placeholder="Optional"
-                          />
+                          <Input type="email" value={getCurrentUserEmail()} readOnly disabled />
                         </div>
                       </div>
                       <div className="space-y-1.5">

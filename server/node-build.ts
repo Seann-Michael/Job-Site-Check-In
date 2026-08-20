@@ -1,8 +1,22 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import express, { Request, Response, NextFunction } from "express";
+import * as Sentry from "@sentry/node";
 import { createServer, APP_VERSION } from "./index";
 import { logger } from "./lib/logger";
+
+// Optional error reporting: only active when SENTRY_DSN is set. Must run
+// before createServer() so the error handler's captureException has a client.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "production",
+    release: process.env.APP_VERSION || process.env.npm_package_version || undefined,
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE) || 0,
+    sendDefaultPii: false,
+  });
+  logger.info("Sentry error reporting enabled");
+}
 
 const port = Number(process.env.PORT) || 8080;
 
@@ -90,11 +104,22 @@ function shutdown(signal: string, code = 0) {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
+async function flushSentry() {
+  if (!process.env.SENTRY_DSN) return;
+  try {
+    await Sentry.flush(2000);
+  } catch {
+    /* ignore */
+  }
+}
+
 process.on("unhandledRejection", (reason) => {
   logger.fatal({ err: reason }, "Unhandled promise rejection");
-  shutdown("unhandledRejection", 1);
+  Sentry.captureException(reason);
+  void flushSentry().finally(() => shutdown("unhandledRejection", 1));
 });
 process.on("uncaughtException", (err) => {
   logger.fatal({ err }, "Uncaught exception");
-  shutdown("uncaughtException", 1);
+  Sentry.captureException(err);
+  void flushSentry().finally(() => shutdown("uncaughtException", 1));
 });

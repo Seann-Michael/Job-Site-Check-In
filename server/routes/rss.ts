@@ -82,13 +82,14 @@ export async function handleGetRssFeed(req: Request, res: Response) {
 
 /**
  * POST /api/rss/:workflowId/items  (auth)
- * Body: { item_title, item_description?, item_link?, feed_title?, sub_account_id? }
+ * Body: { item_title, item_description?, item_link?, feed_title? }
+ * (`sub_account_id` is taken from the caller's profile, not the body.)
  * The caller must own the workflow's business (or the workflowId must be the
  * caller's own account id for legacy per-account feeds).
  */
 export async function handleAddRssItem(req: Request, res: Response) {
   const { workflowId } = req.params;
-  const { item_title, item_description, item_link, feed_title, sub_account_id } = req.body ?? {};
+  const { item_title, item_description, item_link, feed_title } = req.body ?? {};
 
   if (!item_title || typeof item_title !== "string") {
     return res.status(400).json({ error: "item_title is required" });
@@ -110,7 +111,8 @@ export async function handleAddRssItem(req: Request, res: Response) {
       .from("rss_feed_items")
       .insert({
         workflow_id: workflowId,
-        sub_account_id: sub_account_id || req.profile?.accountId || null,
+        // Always the caller's own account; a body-supplied sub_account_id is ignored.
+        sub_account_id: req.profile?.accountId || null,
         feed_title: feed_title || "Completed Jobs Feed",
         item_title: item_title.slice(0, 500),
         item_description: typeof item_description === "string" ? item_description.slice(0, 10_000) : "",

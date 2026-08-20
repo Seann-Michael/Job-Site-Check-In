@@ -228,10 +228,14 @@ export class DataService {
         .from("users")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching user profile:", error);
+        return null;
+      }
+      if (!data) {
+        console.warn("No public.users profile for authenticated user", user.id);
         return null;
       }
 
@@ -240,119 +244,6 @@ export class DataService {
     } catch (error) {
       console.error("Error in getCurrentUser:", error);
       return null;
-    }
-  }
-
-  async signIn(email: string, password: string) {
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-
-    // Fetch user profile
-    if (data.user) {
-      const { data: userProfile } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", data.user.id)
-        .single();
-
-      this.currentUser = userProfile as unknown as User;
-    }
-
-    return data;
-  }
-
-  async signUp(
-    email: string,
-    password: string,
-    name: string,
-    role: string = "business_owner",
-  ) {
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, role },
-      },
-    });
-
-    if (error) throw error;
-
-    // Create user profile
-    if (data.user) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from("users")
-        .insert({
-          id: data.user.id,
-          email,
-          name,
-          role,
-          email_verified: false,
-          phone_verified: false,
-          is_2fa_enabled: false,
-        })
-        .select()
-        .single();
-
-      if (profileError) throw profileError;
-      this.currentUser = userProfile as unknown as User;
-    }
-
-    return data;
-  }
-
-  async signOut() {
-
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    this.currentUser = null;
-  }
-
-  async getUsers(filters: any = {}): Promise<{ data: User[]; pagination?: { page: number; limit: number; total: number; totalPages: number } }> {
-    try {
-
-      const page = parseInt(filters.page || '1');
-      const limit = parseInt(filters.limit || '20');
-      const offset = (page - 1) * limit;
-
-      let query = supabase
-        .from("users")
-        .select("*", { count: 'exact' });
-
-      // Add pagination if specified
-      if (filters.page || filters.limit) {
-        query = query.range(offset, offset + limit - 1);
-      }
-
-      query = query.order("created_at", { ascending: false });
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      const result: { data: User[]; pagination?: any } = {
-        data: (data as unknown as User[]) || []
-      };
-
-      // Add pagination info if paginated query was made
-      if (filters.page || filters.limit) {
-        result.pagination = {
-          page,
-          limit,
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / limit),
-        };
-      }
-
-      return result;
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      throw error instanceof Error ? error : new Error("Failed to fetch users");
     }
   }
 

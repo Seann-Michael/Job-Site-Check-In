@@ -219,7 +219,7 @@ export default function GMBOptimization() {
     setLoading(true);
     try {
       const [profRes, hoursRes, qaRes, catRes, svcRes, auditRes] = await Promise.all([
-        supabase.from("gmb_profiles").select("*").eq("business_id", bid).single(),
+        supabase.from("gmb_profiles").select("*").eq("business_id", bid).maybeSingle(),
         supabase.from("gmb_hours").select("*").eq("business_id", bid).order("id"),
         supabase.from("gmb_qas").select("*").eq("business_id", bid).order("created_at", { ascending: false }),
         supabase.from("gmb_categories").select("*").eq("business_id", bid).order("is_primary", { ascending: false }),
@@ -308,18 +308,30 @@ export default function GMBOptimization() {
           return { business_id: businessId, day, open_time: "", close_time: "", is_closed: false };
         });
 
-        await supabase.from("gmb_hours").delete().eq("business_id", businessId);
-        await supabase.from("gmb_hours").insert(hoursData as any[]);
+        const { error: hoursDelErr } = await supabase
+          .from("gmb_hours")
+          .delete()
+          .eq("business_id", businessId);
+        if (hoursDelErr) throw hoursDelErr;
+        const { error: hoursInsErr } = await supabase
+          .from("gmb_hours")
+          .insert(hoursData as any[]);
+        if (hoursInsErr) throw hoursInsErr;
         setHours(hoursData.map((h, i) => ({ ...h, id: String(i) })));
       }
 
       // Generate and save initial audit
       const auditItems = generateAuditFromPlace(detail);
-      await supabase.from("gmb_audit_results").delete().eq("business_id", businessId);
-      const { data: savedAudit } = await supabase
+      const { error: auditDelErr } = await supabase
+        .from("gmb_audit_results")
+        .delete()
+        .eq("business_id", businessId);
+      if (auditDelErr) throw auditDelErr;
+      const { data: savedAudit, error: auditInsErr } = await supabase
         .from("gmb_audit_results")
         .insert(auditItems.map((a) => ({ ...a, business_id: businessId })))
         .select();
+      if (auditInsErr) throw auditInsErr;
 
       // Compute overall score
       const good = auditItems.filter((a) => a.status === "good").length;
@@ -416,13 +428,18 @@ export default function GMBOptimization() {
     if (!businessId) return;
     setSavingHours(true);
     try {
-      await supabase.from("gmb_hours").delete().eq("business_id", businessId);
+      const { error: delErr } = await supabase
+        .from("gmb_hours")
+        .delete()
+        .eq("business_id", businessId);
+      if (delErr) throw delErr;
       const toInsert = hours.map(({ id: _id, ...h }) => ({ ...h, business_id: businessId }));
-      await supabase.from("gmb_hours").insert(toInsert);
+      const { error: insErr } = await supabase.from("gmb_hours").insert(toInsert);
+      if (insErr) throw insErr;
       setEditingHours(false);
       toast.success("Business hours saved!");
-    } catch {
-      toast.error("Failed to save hours.");
+    } catch (err: any) {
+      toast.error(`Failed to save hours: ${err?.message ?? "unknown error"}`);
     } finally {
       setSavingHours(false);
     }

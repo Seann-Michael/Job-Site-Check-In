@@ -602,7 +602,7 @@ export default function Settings() {
           .from("businesses")
           .select("name, phone, email, website, address, settings, google_place_id")
           .eq("id", wsState.currentBusinessId)
-          .single();
+          .maybeSingle();
         if (error) throw error;
         if (!biz) throw new Error("Business record not found.");
 
@@ -901,7 +901,7 @@ export default function Settings() {
           : file.type === "image/webp"
             ? "webp"
             : "jpg";
-      const path = `business-logos/${businessId}.${ext}`;
+      const path = `business-logos/${businessId}/logo.${ext}`;
       const { error } = await supabase.storage
         .from("media")
         .upload(path, file, { contentType: file.type, upsert: true });
@@ -942,7 +942,7 @@ export default function Settings() {
     setIsUploadingVideo(true);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
-      const path = `review-gate-videos/${businessId}.${ext}`;
+      const path = `review-gate-videos/${businessId}/video.${ext}`;
       const { error } = await supabase.storage
         .from("media")
         .upload(path, file, { contentType: file.type, upsert: true });
@@ -2023,27 +2023,16 @@ export default function Settings() {
                   <CardContent className="space-y-4">
                     <div>
                       <Label htmlFor="goHighLevelApiKey">API Key</Label>
-                      <div className="flex gap-2 mt-1">
-                        <Input
-                          id="goHighLevelApiKey"
-                          type="password"
-                          value={settings.goHighLevelApiKey || ""}
-                          onChange={(e) =>
-                            updateSetting("goHighLevelApiKey", e.target.value)
-                          }
-                          placeholder="Enter your GoHighLevel API key"
-                          className="flex-1"
-                        />
-                        <Button
-                          variant="outline"
-                          disabled={!settings.goHighLevelApiKey}
-                          onClick={() =>
-                            toast.success("Connection tested successfully")
-                          }
-                        >
-                          Test
-                        </Button>
-                      </div>
+                      <Input
+                        id="goHighLevelApiKey"
+                        type="password"
+                        value={settings.goHighLevelApiKey || ""}
+                        onChange={(e) =>
+                          updateSetting("goHighLevelApiKey", e.target.value)
+                        }
+                        placeholder="Enter your GoHighLevel API key"
+                        className="mt-1"
+                      />
                     </div>
                   </CardContent>
                 </Card>

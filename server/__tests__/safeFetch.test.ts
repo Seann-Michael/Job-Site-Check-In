@@ -54,3 +54,24 @@ describe("assertSafeUrl", () => {
     await expect(assertSafeUrl("https://user:pw@example.com/")).rejects.toMatchObject({ code: "credentials" });
   });
 });
+
+describe("readLimitedText", () => {
+  it("reads bodies under the cap and rejects bodies over it", async () => {
+    const { readLimitedText } = await import("../lib/safeFetch");
+    const small = new Response("hello");
+    expect(await readLimitedText(small, 10)).toBe("hello");
+
+    const big = new Response("x".repeat(11), { headers: { "content-length": "11" } });
+    await expect(readLimitedText(big, 10)).rejects.toMatchObject({ code: "too_large" });
+
+    // Streamed (no content-length) bodies are cut off while reading.
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode("x".repeat(8)));
+        c.enqueue(new TextEncoder().encode("x".repeat(8)));
+        c.close();
+      },
+    });
+    await expect(readLimitedText(new Response(stream), 10)).rejects.toMatchObject({ code: "too_large" });
+  });
+});

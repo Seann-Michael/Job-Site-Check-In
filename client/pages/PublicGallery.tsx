@@ -40,7 +40,19 @@ export default function PublicGallery() {
         );
         const data = Array.isArray(rows) ? rows[0] : rows;
 
-        if (!error && data) {
+        if (error) {
+          // The `gallery_by_token` RPC (and its `shared_galleries` table) is
+          // not yet in the applied migrations. Until it ships, every token
+          // resolves to the "no longer available" state below.
+          if (/function .*gallery_by_token.* does not exist|PGRST202/i.test(`${error.code ?? ""} ${error.message ?? ""}`)) {
+            console.warn("[PublicGallery] gallery_by_token RPC is not deployed; shared galleries are unavailable.");
+          } else {
+            console.warn("[PublicGallery] gallery lookup failed:", error.message);
+          }
+          return;
+        }
+
+        if (data) {
           setGallery({
             token: data.token,
             jobTitle: data.job_title ?? "Project photos",

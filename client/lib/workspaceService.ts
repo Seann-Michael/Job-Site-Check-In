@@ -24,12 +24,24 @@ export interface WorkspaceUser {
   subAccountId: string | null;
 }
 
+interface OwnedBusiness {
+  id: string;
+  status: string;
+}
+
 export interface WorkspaceState {
   user: WorkspaceUser | null;
   /** UUID of the business currently selected */
   currentBusinessId: string | null;
-  /** All business UUIDs that belong to this user */
+  /** Active business UUIDs that belong to this user (used for data scoping) */
   businessIds: string[];
+  /**
+   * Total number of businesses owned regardless of status. When this is > 0
+   * but `businessIds` is empty, every business is suspended/inactive.
+   */
+  ownedBusinessCount: number;
+  /** True when the auth session exists but no `public.users` row was found. */
+  profileMissing: boolean;
   initialized: boolean;
 }
 
@@ -81,6 +93,8 @@ class WorkspaceService {
     user: null,
     currentBusinessId: null,
     businessIds: [],
+    ownedBusinessCount: 0,
+    profileMissing: false,
     initialized: false,
   };
 
@@ -121,6 +135,8 @@ class WorkspaceService {
       user: null,
       currentBusinessId: null,
       businessIds: [],
+      ownedBusinessCount: 0,
+      profileMissing: false,
       initialized: false,
     };
     this.emit();
@@ -139,23 +155,30 @@ class WorkspaceService {
 
   private async doInitialize(): Promise<WorkspaceState> {
     try {
-      const workspaceUser = await this.resolveWorkspaceUser();
+      const { user: workspaceUser, hasSession } = await this.resolveWorkspaceUser();
 
       if (!workspaceUser) {
         this.state = {
           user: null,
           currentBusinessId: null,
           businessIds: [],
+          ownedBusinessCount: 0,
+          // A session without a users row cannot be repaired client-side
+          // (RLS forbids inserting into `users`); surface it to the UI.
+          profileMissing: hasSession,
           initialized: true,
         };
         this.emit();
         return this.state;
       }
 
-      // Fetch business IDs scoped to owner_id. Non-UUID ids own nothing.
-      const businessIds = isValidUUID(workspaceUser.id)
-        ? await this.fetchBusinessIds(workspaceUser.id)
+      // Fetch businesses scoped to owner_id. Non-UUID ids own nothing.
+      const owned = isValidUUID(workspaceUser.id)
+        ? await this.fetchOwnedBusinesses(workspaceUser.id)
         : this.noBusinessesForNonUuidUser(workspaceUser.id);
+      const businessIds = owned
+        .filter((b) => b.status === "active")
+        .map((b) => b.id);
 
       const stored = localStorage.getItem("workspace_business_id");
       const currentBusinessId =
@@ -171,6 +194,8 @@ class WorkspaceService {
         user: workspaceUser,
         currentBusinessId,
         businessIds,
+        ownedBusinessCount: owned.length,
+        profileMissing: false,
         initialized: true,
       };
 
@@ -188,30 +213,30 @@ class WorkspaceService {
   // Resolve the workspace user
   // -------------------------------------------------------------------------
 
-  private async resolveWorkspaceUser(): Promise<WorkspaceUser | null> {
+  private async resolveWorkspaceUser(): Promise<{
+    user: WorkspaceUser | null;
+    hasSession: boolean;
+  }> {
     // The Supabase auth session is the sole source of identity.
     try {
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
       if (authUser) {
-        return await this.syncUserRecord(authUser.id, authUser.email ?? "");
+        return { user: await this.loadUserRecord(authUser.id), hasSession: true };
       }
     } catch {
       // Supabase auth not available / no session.
     }
-    return null;
+    return { user: null, hasSession: false };
   }
 
   /**
-   * Upsert the user row in Supabase and ensure sub_account_id is set.
-   * Only called when userId is a valid UUID.
+   * Load the `public.users` row for the signed-in user and make sure the
+   * sub_account_id is in display format. The row itself is created by the
+   * auth signup trigger; RLS does not allow the client to insert one.
    */
-  private async syncUserRecord(
-    userId: string,
-    email: string,
-    name?: string,
-  ): Promise<WorkspaceUser | null> {
+  private async loadUserRecord(userId: string): Promise<WorkspaceUser | null> {
     try {
       const { data: existing, error: fetchErr } = await supabase
         .from("users")
@@ -228,14 +253,8 @@ class WorkspaceService {
       }
 
       if (existing) {
-        let subAccountId = ensureFormattedId(existing.sub_account_id as string);
-        if (subAccountId !== existing.sub_account_id) {
-          // Update the stored ID to the formatted version
-          await supabase
-            .from("users")
-            .update({ sub_account_id: subAccountId })
-            .eq("id", userId);
-        }
+        // Display-format only; `users.sub_account_id` is not client-writable.
+        const subAccountId = ensureFormattedId(existing.sub_account_id as string);
         return {
           id: existing.id as string,
           email: existing.email as string,
@@ -245,40 +264,10 @@ class WorkspaceService {
         };
       }
 
-      // Row doesn't exist — insert
-      const subAccountId = generateAccountId();
-      const { data: inserted, error: insertErr } = await supabase
-        .from("users")
-        .insert({
-          id: userId,
-          email,
-          name: name ?? email,
-          role: "business_owner",
-          sub_account_id: subAccountId,
-          email_verified: false,
-          phone_verified: false,
-          is_2fa_enabled: false,
-        })
-        .select("id, email, name, role, sub_account_id")
-        .single();
-
-      if (insertErr) {
-        console.error(
-          "[workspace] could not insert user into Supabase:",
-          serializeError(insertErr),
-        );
-        return null;
-      }
-
-      return {
-        id: inserted.id as string,
-        email: inserted.email as string,
-        name: inserted.name as string,
-        role: inserted.role as string,
-        subAccountId: ensureFormattedId(inserted.sub_account_id as string) ?? subAccountId,
-      };
+      console.warn("[workspace] no public.users row for authenticated user", userId);
+      return null;
     } catch (err) {
-      console.error("[workspace] syncUserRecord failed:", serializeError(err));
+      console.error("[workspace] loadUserRecord failed:", serializeError(err));
       return null;
     }
   }
@@ -287,29 +276,34 @@ class WorkspaceService {
   // Business scoping
   // -------------------------------------------------------------------------
 
-  private async fetchBusinessIds(userId: string): Promise<string[]> {
+  private async fetchOwnedBusinesses(
+    userId: string,
+  ): Promise<OwnedBusiness[]> {
     try {
+      // Load every status so the UI can tell "suspended" apart from "none".
       const { data, error } = await supabase
         .from("businesses")
-        .select("id")
-        .eq("owner_id", userId)
-        .eq("status", "active");
+        .select("id, status")
+        .eq("owner_id", userId);
 
       if (error) {
         console.warn(
-          "[workspace] fetchBusinessIds error:",
+          "[workspace] fetchOwnedBusinesses error:",
           serializeError(error),
         );
         return [];
       }
-      return (data ?? []).map((b: { id: string }) => b.id);
+      return (data ?? []).map((b: { id: string; status: string | null }) => ({
+        id: b.id,
+        status: b.status ?? "active",
+      }));
     } catch {
       return [];
     }
   }
 
   /** Users without a real Supabase UUID cannot own businesses. */
-  private noBusinessesForNonUuidUser(userId: string): string[] {
+  private noBusinessesForNonUuidUser(userId: string): OwnedBusiness[] {
     console.warn(
       `[workspace] user id "${userId}" is not a UUID; no businesses will be loaded.`,
     );
@@ -347,42 +341,27 @@ class WorkspaceService {
     this.emit();
   }
 
-  async refreshSubAccountId(): Promise<string | null> {
-    const userId = this.getUserId();
-    if (!userId) return null;
-    const newId = generateAccountId();
-    try {
-      if (isValidUUID(userId)) {
-        await supabase
-          .from("users")
-          .update({ sub_account_id: newId })
-          .eq("id", userId);
-      }
-      this.state = {
-        ...this.state,
-        user: this.state.user ? { ...this.state.user, subAccountId: newId } : null,
-      };
-      this.emit();
-      return newId;
-    } catch (err) {
-      console.warn("[workspace] refreshSubAccountId error:", serializeError(err));
-      return null;
-    }
-  }
-
   async reloadBusinesses(): Promise<void> {
     const userId = this.getUserId();
     if (!userId) return;
-    const businessIds = isValidUUID(userId)
-      ? await this.fetchBusinessIds(userId)
+    const owned = isValidUUID(userId)
+      ? await this.fetchOwnedBusinesses(userId)
       : this.noBusinessesForNonUuidUser(userId);
+    const businessIds = owned
+      .filter((b) => b.status === "active")
+      .map((b) => b.id);
     const currentBusinessId =
       this.state.currentBusinessId &&
       businessIds.includes(this.state.currentBusinessId)
         ? this.state.currentBusinessId
         : businessIds[0] ?? null;
 
-    this.state = { ...this.state, businessIds, currentBusinessId };
+    this.state = {
+      ...this.state,
+      businessIds,
+      currentBusinessId,
+      ownedBusinessCount: owned.length,
+    };
     if (currentBusinessId)
       localStorage.setItem("workspace_business_id", currentBusinessId);
     this.emit();

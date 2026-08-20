@@ -4,10 +4,11 @@ import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { pinoHttp } from "pino-http";
+import * as Sentry from "@sentry/node";
 
 import { logger } from "./lib/logger";
 import { getEnv, validateEnv, EnvError } from "./lib/env";
-import { requireAuth, requireRole } from "./middleware/requireAuth";
+import { requireAuth, requireRole, requireWrite } from "./middleware/requireAuth";
 
 import { mediaRouter, publicMediaRouter } from "./routes/media";
 import { aiRouter } from "./routes/ai";
@@ -18,6 +19,7 @@ import {
   handleTwilioTest,
   handleTwilioStatus,
   handleSendReviewRequest,
+  smsSendLimiter,
 } from "./routes/twilio";
 import {
   handleRegisterWebhook,
@@ -44,6 +46,12 @@ export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_ve
 export interface CreateServerOptions {
   /** Skip startup env validation (tests). Defaults to true under NODE_ENV=test. */
   skipEnvValidation?: boolean;
+}
+
+function stripQuery(url: string | undefined): string | undefined {
+  if (!url) return url;
+  const i = url.indexOf("?");
+  return i === -1 ? url : url.slice(0, i);
 }
 
 function corsOrigins(): string[] {
@@ -87,7 +95,7 @@ export function createServer(options: CreateServerOptions = {}) {
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Webhook-Signature", "X-Requested-With"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Webhook-Signature", "X-Webhook-Timestamp", "X-Requested-With"],
       maxAge: 600,
     }),
   );
@@ -107,7 +115,9 @@ export function createServer(options: CreateServerOptions = {}) {
       },
       serializers: {
         req(req) {
-          return { id: req.id, method: req.method, url: req.url, remoteAddress: req.remoteAddress };
+          // Strip the query string from logged URLs: OAuth callbacks carry
+          // `?code=` / `?state=` which must never reach the logs.
+          return { id: req.id, method: req.method, url: stripQuery(req.url), remoteAddress: req.remoteAddress };
         },
         res(res) {
           return { statusCode: res.statusCode };
@@ -115,6 +125,13 @@ export function createServer(options: CreateServerOptions = {}) {
       },
     }),
   );
+
+  // Expose the pino-http request id so clients / support can correlate logs.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const id = (req as any).id;
+    if (id !== undefined && id !== null) res.setHeader("X-Request-Id", String(id));
+    next();
+  });
 
   // ── Health ──────────────────────────────────────────────────────────────
   const health = (_req: Request, res: Response) => {
@@ -124,24 +141,9 @@ export function createServer(options: CreateServerOptions = {}) {
   app.get("/health", health);
   app.get("/api/health", health);
 
-  // ── Body parsing ────────────────────────────────────────────────────────
-  // Stripe webhooks need the raw body for signature verification. The raw
-  // parser is mounted for that path BEFORE express.json so the JSON parser
-  // never consumes it. Handler lands with the payments step.
-  app.use("/api/webhooks/stripe", express.raw({ type: "application/json", limit: "1mb" }));
-
-  app.use(
-    express.json({
-      limit: "1mb",
-      // Keep the raw bytes for HMAC verification of inbound workflow webhooks.
-      verify: (req: Request, _res, buf) => {
-        req.rawBody = buf;
-      },
-    }),
-  );
-  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-
   // ── Rate limiting ───────────────────────────────────────────────────────
+  // Mounted BEFORE the body parsers so over-limit requests are rejected
+  // without buffering their bodies.
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 300,
@@ -162,6 +164,28 @@ export function createServer(options: CreateServerOptions = {}) {
   app.use("/api/ai-review-response", strictLimiter);
   app.use("/api/auth", strictLimiter);
 
+  // ── Body parsing ────────────────────────────────────────────────────────
+  // Stripe webhooks need the raw body for signature verification. The raw
+  // parser is mounted for that path BEFORE express.json so the JSON parser
+  // never consumes it. Handler lands with the payments step.
+  app.use("/api/webhooks/stripe", express.raw({ type: "application/json", limit: "1mb" }));
+
+  // AI endpoints accept base64 images, so /api/ai gets an 8mb JSON limit.
+  // Mounted before the global parser so the 1mb parser sees an already-parsed
+  // body and skips; everything else keeps the global 1mb limit.
+  app.use("/api/ai", express.json({ limit: "8mb" }));
+
+  app.use(
+    express.json({
+      limit: "1mb",
+      // Keep the raw bytes for HMAC verification of inbound workflow webhooks.
+      verify: (req: Request, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
   // ── Routes ──────────────────────────────────────────────────────────────
 
   // Media (router applies requireAuth itself) + public redirects
@@ -175,13 +199,14 @@ export function createServer(options: CreateServerOptions = {}) {
   // DataForSEO proxy
   app.use("/api/dataforseo", requireAuth, dataForSEORouter);
 
-  // Twilio — sending SMS requires a signed-in user. The `test` endpoint makes
-  // an authenticated upstream call and leaks account info, so it's protected
-  // too. `status` returns only booleans (safe to leave open). The inbound
-  // webhook stays open because Twilio calls it (signature verification is
-  // deferred to the Twilio step — see server/routes/README.md).
-  app.post("/api/twilio/sms/send", requireAuth, handleSendSMS);
-  app.post("/api/twilio/review-request", requireAuth, handleSendReviewRequest);
+  // Twilio — sending SMS requires a signed-in user with a write role and is
+  // limited to 30 sends/hour/user. The `test` endpoint makes an authenticated
+  // upstream call and leaks account info, so it's protected too. `status`
+  // returns only booleans (safe to leave open). The inbound webhook stays
+  // open because Twilio calls it (signature verification is deferred to the
+  // Twilio step — see server/routes/README.md).
+  app.post("/api/twilio/sms/send", requireAuth, requireWrite, smsSendLimiter, handleSendSMS);
+  app.post("/api/twilio/review-request", requireAuth, requireWrite, smsSendLimiter, handleSendReviewRequest);
   app.post("/api/webhooks/twilio", handleTwilioWebhook);
   app.get("/api/twilio/test", requireAuth, handleTwilioTest);
   app.get("/api/twilio/status", handleTwilioStatus);
@@ -191,16 +216,16 @@ export function createServer(options: CreateServerOptions = {}) {
   app.post("/api/google-place-lookup", requireAuth, handleGooglePlaceLookup);
 
   // Google OAuth (Business Profile connection)
-  app.post("/api/oauth/google_my_business/start", requireAuth, handleGoogleStart);
-  app.get("/api/oauth/google_my_business/authorize", requireAuth, handleGoogleAuthorize);
+  app.post("/api/oauth/google_my_business/start", requireAuth, requireWrite, handleGoogleStart);
+  app.get("/api/oauth/google_my_business/authorize", requireAuth, requireWrite, handleGoogleAuthorize);
   app.get("/api/oauth/google_my_business/callback", handleGoogleCallback);
   // Legacy aliases
-  app.get("/api/auth/google/authorize", requireAuth, handleGoogleAuthorize);
+  app.get("/api/auth/google/authorize", requireAuth, requireWrite, handleGoogleAuthorize);
   app.get("/api/auth/google/callback", handleGoogleCallback);
 
   // RSS
   app.get("/api/rss/:workflowId", handleGetRssFeed);
-  app.post("/api/rss/:workflowId/items", requireAuth, handleAddRssItem);
+  app.post("/api/rss/:workflowId/items", requireAuth, requireWrite, handleAddRssItem);
 
   // Payments (auth deferred to a later step)
   app.get("/api/payments/status", handlePaymentStatus);
@@ -217,8 +242,8 @@ export function createServer(options: CreateServerOptions = {}) {
   app.post("/api/admin/impersonate", requireAuth, requireRole("super_admin"), handleImpersonate);
 
   // Workflows
-  app.post("/api/webhooks/register", requireAuth, handleRegisterWebhook);
-  app.post("/api/workflows/webhook-url", requireAuth, handleGenerateWebhookUrl);
+  app.post("/api/webhooks/register", requireAuth, requireWrite, handleRegisterWebhook);
+  app.post("/api/workflows/webhook-url", requireAuth, requireWrite, handleGenerateWebhookUrl);
   app.post("/api/workflows/webhook/:workflowId", handleWorkflowWebhook); // public, HMAC-verified
   app.get("/api/workflows/deliveries/:executionId", requireAuth, handleGetWebhookDeliveries);
 
@@ -232,6 +257,7 @@ export function createServer(options: CreateServerOptions = {}) {
     if (res.headersSent) return;
     if (err instanceof EnvError) {
       (req.log ?? logger).error({ err }, "Environment misconfiguration");
+      Sentry.captureException(err);
       return res.status(500).json({ error: "Server misconfigured" });
     }
     if (err?.type === "entity.parse.failed") {
@@ -242,6 +268,10 @@ export function createServer(options: CreateServerOptions = {}) {
     }
     const status = Number(err?.status || err?.statusCode) || 500;
     (req.log ?? logger).error({ err, status }, "Unhandled request error");
+    if (status >= 500) {
+      // No-op unless Sentry.init() ran (node-build.ts, only with SENTRY_DSN).
+      Sentry.captureException(err, { extra: { requestId: (req as any).id, method: req.method, path: req.path } });
+    }
     res.status(status).json({ error: status >= 500 ? "Internal server error" : err?.message || "Request failed" });
   });
 

@@ -72,7 +72,7 @@ export default function IdeaDetail() {
     try {
       // Load idea and comments in parallel
       const [ideaRes, commentsRes] = await Promise.all([
-        supabaseClient.from("ideas").select("*").eq("id", id).single(),
+        supabaseClient.from("ideas").select("*").eq("id", id).maybeSingle(),
         supabaseClient
           .from("idea_comments")
           .select("*")
@@ -181,7 +181,6 @@ export default function IdeaDetail() {
           author_name: authorName,
           author_email: authorEmail,
           content: newComment.trim(),
-          is_admin: ["super_admin", "superadmin", "admin"].includes(currentUser.role as string),
         })
         .select()
         .single();
@@ -193,14 +192,8 @@ export default function IdeaDetail() {
         author: data.author_name,
         content: data.content,
         createdAt: data.created_at,
-        isAdmin: data.is_admin,
+        isAdmin: !!data.is_admin,
       };
-
-      // Increment comments_count on the idea
-      await supabaseClient
-        .from("ideas")
-        .update({ comments_count: (idea.comments?.length ?? 0) + 1 })
-        .eq("id", idea.id);
 
       setIdea({ ...idea, comments: [...idea.comments, comment] });
       setNewComment("");

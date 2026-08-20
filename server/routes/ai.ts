@@ -5,7 +5,8 @@ import { logger } from "../lib/logger";
 
 /**
  * AI helper endpoints. All require auth (mounted behind requireAuth in
- * index.ts) and all return:
+ * index.ts), accept JSON bodies up to 8mb (route-scoped parser in index.ts;
+ * the global limit stays 1mb) and all return:
  *   503 { error: "AI not configured" }   when OPENAI_API_KEY is missing
  *   502 { error }                        when OpenAI fails
  *   400 { error }                        on invalid input
@@ -34,9 +35,9 @@ function clampInt(v: unknown, min: number, max: number, dflt: number): number {
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
-function handleError(res: Response, err: unknown, what: string) {
+function handleError(req: Request, res: Response, err: unknown, what: string) {
   if (err instanceof AIError) return res.status(err.status).json({ error: err.message });
-  log.error({ err }, `${what} failed`);
+  (req.log ?? log).child({ module: "ai" }).error({ err }, `${what} failed`);
   return res.status(502).json({ error: "AI provider error" });
 }
 
@@ -82,7 +83,7 @@ aiRouter.post("/enhance-description", async (req: Request, res: Response) => {
     );
     res.json({ description: out });
   } catch (err) {
-    handleError(res, err, "enhance-description");
+    handleError(req, res, err, "enhance-description");
   }
 });
 
@@ -121,7 +122,7 @@ aiRouter.post("/generate-keywords", async (req: Request, res: Response) => {
     const keywords = strList(parsed.keywords, count, 120);
     res.json({ keywords });
   } catch (err) {
-    handleError(res, err, "generate-keywords");
+    handleError(req, res, err, "generate-keywords");
   }
 });
 
@@ -190,7 +191,7 @@ aiRouter.post("/alt-text", async (req: Request, res: Response) => {
       caption: str(parsed.caption, 500),
     });
   } catch (err) {
-    handleError(res, err, "alt-text");
+    handleError(req, res, err, "alt-text");
   }
 });
 
@@ -227,7 +228,7 @@ aiRouter.post("/service-description", async (req: Request, res: Response) => {
     );
     res.json({ description: out });
   } catch (err) {
-    handleError(res, err, "service-description");
+    handleError(req, res, err, "service-description");
   }
 });
 
@@ -258,6 +259,6 @@ aiRouter.post("/rewrite", async (req: Request, res: Response) => {
     );
     res.json({ text: out });
   } catch (err) {
-    handleError(res, err, "rewrite");
+    handleError(req, res, err, "rewrite");
   }
 });

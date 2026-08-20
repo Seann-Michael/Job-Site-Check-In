@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 
 import { getSupabaseClient } from "../supabaseClient";
+import { getAppUrl } from "../lib/env";
 
 // ── Stripe Checkout ───────────────────────────────────────────────────────────
 
@@ -14,14 +15,15 @@ export async function handleStripeCheckout(req: Request, res: Response) {
     });
   }
 
+  // Throws EnvError (-> 500 via the global error handler) when APP_URL is unset.
+  const appUrl = getAppUrl();
+
   try {
     // Dynamic import so the server doesn't crash if stripe pkg is missing
     const Stripe = (await import("stripe")).default;
     const stripe = new Stripe(secretKey, { apiVersion: "2023-10-16" as any });
 
     const { mode = "subscription", priceId, amount = 4900, planName = "Pro", email, businessId } = req.body;
-
-    const appUrl = process.env.VITE_APP_URL || "http://localhost:5173";
 
     let sessionParams: any = {
       payment_method_types: ["card"],
@@ -171,9 +173,11 @@ export async function handlePaypalCheckout(req: Request, res: Response) {
     });
   }
 
+  // Throws EnvError (-> 500 via the global error handler) when APP_URL is unset.
+  const appUrl = getAppUrl();
+
   try {
     const { amount = 49, planName = "Pro", mode = "one_time" } = req.body;
-    const appUrl = process.env.VITE_APP_URL || "http://localhost:5173";
 
     // Get PayPal access token
     const tokenRes = await fetch(

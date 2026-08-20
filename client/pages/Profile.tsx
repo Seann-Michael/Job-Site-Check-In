@@ -11,6 +11,7 @@ import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
+import { apiFetch } from "@/lib/api";
 
 export default function Profile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,10 +59,12 @@ export default function Profile() {
             .from("users")
             .select("email, name, first_name, last_name, phone, avatar_url, role")
             .eq("id", uid)
-            .single();
+            .maybeSingle();
 
           if (error) throw error;
-          if (data) {
+          if (!data) {
+            setLoadError("Your account profile could not be loaded. Please contact support.");
+          } else {
             const nameParts = (data.name || "").split(" ");
             setProfileData({
               firstName: data.first_name || nameParts[0] || "",
@@ -199,26 +202,15 @@ export default function Profile() {
 
     setIsChangingPassword(true);
     try {
-      // Try Supabase auth password update
-      const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword,
+      // Server verifies the current password before updating (bearer token
+      // is attached by apiFetch).
+      await apiFetch("/api/auth/change-password", {
+        method: "POST",
+        body: {
+          oldPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        },
       });
-
-      if (error) {
-        // Fall back to custom API endpoint
-        const res = await fetch("/api/auth/change-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            currentPassword: passwordData.currentPassword,
-            newPassword: passwordData.newPassword,
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.message || "Failed to change password");
-        }
-      }
 
       toast.success("Password changed successfully!");
       setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });

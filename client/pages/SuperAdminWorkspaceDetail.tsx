@@ -45,7 +45,6 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
-  CheckSquare,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -184,7 +183,6 @@ export default function SuperAdminWorkspaceDetail() {
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [workspaceUsers, setWorkspaceUsers] = useState<Owner[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
   const [billingRecords, setBillingRecords] = useState<any[]>([]);
   const [planData, setPlanData] = useState<any | null>(null);
   const [notes, setNotes] = useState<any[]>([]);
@@ -205,8 +203,9 @@ export default function SuperAdminWorkspaceDetail() {
         .from("businesses")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
       if (bizErr) throw bizErr;
+      if (!biz) throw new Error("Workspace not found.");
       setWorkspace(biz as WorkspaceDetail);
 
       // 2. Owner
@@ -215,8 +214,8 @@ export default function SuperAdminWorkspaceDetail() {
           .from("users")
           .select("id, name, email, role, sub_account_id, last_login, email_verified, is_2fa_enabled, created_at")
           .eq("id", biz.owner_id)
-          .single();
-        setOwner(ownerData as Owner);
+          .maybeSingle();
+        setOwner((ownerData as Owner | null) ?? null);
       }
 
       // 3. Stats — parallel
@@ -271,23 +270,24 @@ export default function SuperAdminWorkspaceDetail() {
 
       // 4. Support tickets matched by owner email or business name
       if (biz.email || biz.name) {
+        // PostgREST `.or()` filters are comma/paren delimited, so user-supplied
+        // values must be quoted and have embedded quotes/wildcards escaped.
+        const esc = (v: string) =>
+          v
+            .replace(/\\/g, "\\\\")
+            .replace(/"/g, '\\"')
+            .replace(/[%_]/g, "\\$&");
+        const clauses: string[] = [];
+        if (biz.email) clauses.push(`submitted_by.ilike."%${esc(biz.email)}%"`);
+        if (biz.name) clauses.push(`organization.ilike."%${esc(biz.name)}%"`);
         const { data: ticketData } = await supabaseClient
           .from("support_tickets")
           .select("id, ticket_number, title, status, priority, submitted_by, created_at, updated_at")
-          .or(`submitted_by.ilike.%${biz.email ?? ""}%,organization.ilike.%${biz.name ?? ""}%`)
+          .or(clauses.join(","))
           .order("created_at", { ascending: false })
           .limit(10);
         setTickets(ticketData ?? []);
       }
-
-      // 4b. Tasks
-      const { data: tasksData } = await supabaseClient
-        .from("tasks")
-        .select("id, title, status, priority, due_date, assigned_to, created_at")
-        .eq("business_id", id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      setTasks(tasksData ?? []);
 
       // 4c. Billing records
       const { data: billingData } = await supabaseClient
@@ -306,7 +306,7 @@ export default function SuperAdminWorkspaceDetail() {
           .select("*")
           .ilike("name", planName)
           .limit(1)
-          .single();
+          .maybeSingle();
         setPlanData(planRow ?? null);
       }
 
@@ -454,7 +454,6 @@ export default function SuperAdminWorkspaceDetail() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="support">Support Tickets</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -1098,57 +1097,6 @@ export default function SuperAdminWorkspaceDetail() {
                                 <Badge variant={tStatus[t.status] ?? "outline"} className="text-xs capitalize">{(t.status ?? "—").replace("-", " ")}</Badge>
                               </td>
                               <td className="px-5 py-3 text-xs text-muted-foreground">{fmtDate(t.created_at)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tasks */}
-          <TabsContent value="tasks" className="space-y-5 mt-0">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 text-muted-foreground" /> Tasks
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {tasks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No tasks found for this workspace</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/40">
-                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
-                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Priority</th>
-                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Due Date</th>
-                          <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Created</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {tasks.map((task) => {
-                          const tPriority: Record<string, "default" | "secondary" | "destructive" | "outline"> = { urgent: "destructive", high: "default", medium: "outline", normal: "outline", low: "secondary" };
-                          const tStatus: Record<string, "default" | "secondary" | "destructive" | "outline"> = { completed: "secondary", done: "secondary", "in-progress": "default", in_progress: "default", open: "outline", pending: "outline", cancelled: "destructive" };
-                          return (
-                            <tr key={task.id} className="hover:bg-muted/30 transition-colors">
-                              <td className="px-5 py-3">
-                                <p className="font-medium truncate max-w-[280px]">{task.title ?? "Untitled"}</p>
-                              </td>
-                              <td className="px-5 py-3">
-                                {task.priority ? <Badge variant={tPriority[task.priority] ?? "outline"} className="text-xs capitalize">{task.priority}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
-                              </td>
-                              <td className="px-5 py-3">
-                                {task.status ? <Badge variant={tStatus[task.status] ?? "outline"} className="text-xs capitalize">{task.status.replace(/_/g, " ")}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
-                              </td>
-                              <td className="px-5 py-3 text-xs text-muted-foreground">{task.due_date ? fmtDate(task.due_date) : "—"}</td>
-                              <td className="px-5 py-3 text-xs text-muted-foreground">{fmtDate(task.created_at)}</td>
                             </tr>
                           );
                         })}

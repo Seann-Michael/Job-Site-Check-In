@@ -303,16 +303,22 @@ export default function KnowledgeBase() {
       toast.error("Please fill in subject and description");
       return;
     }
+    const submittedBy = getCurrentUser()?.email;
+    if (!submittedBy) {
+      toast.error("Could not identify your account. Please log in again.");
+      return;
+    }
     setTicketSaving(true);
     try {
+      // RLS requires submitted_by = auth.email() and only allows these columns.
       const { error } = await supabaseClient.from("support_tickets").insert({
         title: newTicket.title.trim(),
         description: newTicket.description.trim(),
         category: newTicket.category,
         priority: newTicket.priority,
         status: "open",
-        submitted_by: currentUser?.email ?? "anonymous",
-        user_type: currentUser?.role ?? "admin",
+        submitted_by: submittedBy,
+        user_type: currentUser?.role ?? "business_owner",
       });
       if (error) throw error;
       toast.success("Support ticket created! Our team will be in touch soon.");
