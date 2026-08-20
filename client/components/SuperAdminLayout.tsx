@@ -13,6 +13,7 @@ import {
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { HeaderSearch } from "@/components/SmartSearch";
+import { CompanySelector } from "@/components/CompanySelector";
 import {
   Shield,
   BarChart3,
@@ -347,6 +348,11 @@ export function SuperAdminLayout({
                 <Shield className="h-3 w-3 mr-1" />
                 Super Administrator
               </Badge>
+
+              {/* Account switcher: pick any business and jump into its admin view */}
+              <div className="hidden md:block w-64">
+                <CompanySelector compact />
+              </div>
 
               {/* Breadcrumbs */}
               <div className="hidden lg:block">

@@ -24,6 +24,8 @@ import {
 
 interface CompanySelectorProps {
   collapsed?: boolean;
+  /** Header variant: no label/padding, single-line trigger. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -39,7 +41,7 @@ function announceBusinessName(name: string) {
  * - Super admins: a searchable combobox over every business (name + account id),
  *   since a super admin has full access to all accounts.
  */
-export function CompanySelector({ collapsed = false, className }: CompanySelectorProps) {
+export function CompanySelector({ collapsed = false, compact = false, className }: CompanySelectorProps) {
   const navigate = useNavigate();
   const [wsState, setWsState] = useState<WorkspaceState>(() => workspaceService.getState());
   const [isOpen, setIsOpen] = useState(false);
@@ -95,11 +97,13 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
   const canSwitch = isSuperAdmin ? companies.length >= 1 : companies.length > 1;
 
   return (
-    <div className={cn("p-4 border-b space-y-3", className)}>
+    <div className={cn(compact ? "" : "p-4 border-b space-y-3", className)}>
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          {isSuperAdmin ? "Account" : "Active Company"}
-        </div>
+        {!compact && (
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {isSuperAdmin ? "Account" : "Active Company"}
+          </div>
+        )}
 
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
@@ -108,14 +112,14 @@ export function CompanySelector({ collapsed = false, className }: CompanySelecto
               role="combobox"
               aria-expanded={isOpen}
               disabled={!canSwitch}
-              className="w-full justify-between h-auto p-3"
+              className={cn("w-full justify-between", compact ? "h-9 px-3" : "h-auto p-3")}
             >
               <div className="flex items-center justify-between w-full">
                 <div className="flex-1 text-left min-w-0">
                   <div className="font-medium text-sm truncate">
-                    {selectedCompany?.name || "Select Company"}
+                    {selectedCompany?.name || (isSuperAdmin ? "Open an account…" : "Select Company")}
                   </div>
-                  {isSuperAdmin && selectedCompany?.accountId && (
+                  {!compact && isSuperAdmin && selectedCompany?.accountId && (
                     <div className="text-xs text-muted-foreground font-mono truncate">
                       {selectedCompany.accountId}
                     </div>
