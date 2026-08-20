@@ -479,7 +479,7 @@ export function UserManagementSystem({
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label={`Remove ${m.name || m.email}`}
+                        aria-label={`Remove access for ${m.name || m.email}`}
                         disabled={savingId === m.id}
                         onClick={() => setRemoveTarget(m)}
                       >
@@ -587,10 +587,12 @@ export function UserManagementSystem({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove team member</AlertDialogTitle>
+            <AlertDialogTitle>Remove access</AlertDialogTitle>
             <AlertDialogDescription>
               {removeTarget?.name || removeTarget?.email} will immediately lose
-              access to this business. You can invite them again later.
+              access to this business. Their account is not deleted, and every
+              job, photo, document, and note they added stays in your workspace.
+              You can invite them again later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

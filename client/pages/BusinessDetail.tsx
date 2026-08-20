@@ -339,19 +339,6 @@ export default function BusinessDetail() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      const { error } = await supabaseClient
-        .from("users")
-        .delete()
-        .eq("id", userId);
-      if (error) throw error;
-      setUsers((prev) => prev.filter((user) => user.id !== userId));
-      toast.success("User removed successfully");
-    } catch (err: any) {
-      toast.error("Failed to remove user: " + (err?.message ?? "Unknown error"));
-    }
-  };
 
   /**
    * Super admins have full access to every account: switch the workspace to
@@ -1044,13 +1031,6 @@ export default function BusinessDetail() {
                         >
                           <Key className="h-3 w-3" />
                           Credentials
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteUser(user.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
