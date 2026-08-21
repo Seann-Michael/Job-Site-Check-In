@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { workspaceService } from "@/lib/workspaceService";
 import { supabase } from "@/lib/dataService";
+import { apiFetch } from "@/lib/api";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -475,10 +476,14 @@ export default function Settings() {
     businessLogo: string;
   }>(null);
 
-  const handleConnectGoogle = () => {
-    const authUrl = `/api/oauth/google_my_business/authorize?workspace_id=${encodeURIComponent(settings.subAccountId || "")}`;
+  const handleConnectGoogle = async () => {
+    // Open the popup synchronously (a click gesture) so it isn't blocked, then
+    // navigate it to Google once /start returns the consent URL. The popup
+    // cannot carry the Authorization header, so the authenticated request must
+    // happen here via apiFetch — NOT by opening the /authorize endpoint
+    // directly (that requires a Bearer token and 401s on a plain navigation).
     const popup = window.open(
-      authUrl,
+      "",
       "google_oauth",
       "width=540,height=660,scrollbars=yes,resizable=yes,left=" +
         Math.round(window.screen.width / 2 - 270) +
@@ -492,6 +497,22 @@ export default function Settings() {
     }
 
     setIsConnectingGoogle(true);
+
+    try {
+      const { authorizeUrl } = await apiFetch<{ authorizeUrl: string }>(
+        "/api/oauth/google_my_business/start",
+        {
+          method: "POST",
+          body: JSON.stringify({ workspace_id: settings.subAccountId || undefined }),
+        },
+      );
+      popup.location.href = authorizeUrl;
+    } catch (err) {
+      popup.close();
+      setIsConnectingGoogle(false);
+      toast.error("Couldn't start the Google connection. Please try again.");
+      return;
+    }
 
     const handler = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
