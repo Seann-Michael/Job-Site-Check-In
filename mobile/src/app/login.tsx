@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -16,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card } from '@/components/ui/basics';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { notify } from '@/lib/format';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
 /** Brand hero — a solid primary block with layered translucent circles (no
@@ -46,28 +47,80 @@ export default function LoginScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn, signInDemo, isSupabaseConfigured } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signInDemo, isSupabaseConfigured } = useAuth();
 
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
+  const isSignup = mode === 'signup';
 
   const inputStyle = [
     styles.input,
     { backgroundColor: colors.input, borderColor: colors.border, color: colors.text },
   ];
 
-  const handleSignIn = async () => {
+  const switchMode = () => {
     setError(null);
+    setNotice(null);
+    setMode((m) => (m === 'signin' ? 'signup' : 'signin'));
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    setNotice(null);
     setSubmitting(true);
-    const result = await signIn(email.trim(), password);
+    const result = isSignup
+      ? await signUp(email.trim(), password, name)
+      : await signIn(email.trim(), password);
     setSubmitting(false);
     if (result.error) {
       setError(result.error);
       return;
     }
+    if ('needsConfirmation' in result && result.needsConfirmation) {
+      setNotice('Check your email to confirm your account, then sign in.');
+      setMode('signin');
+      return;
+    }
     router.replace('/');
+  };
+
+  const handleGoogle = async () => {
+    setError(null);
+    setNotice(null);
+    setGoogleSubmitting(true);
+    const result = await signInWithGoogle();
+    setGoogleSubmitting(false);
+    if (result.error) {
+      // A user who backs out of the Google sheet isn't an error to shout about.
+      if (result.error !== 'cancelled') setError(result.error);
+      return;
+    }
+    router.replace('/');
+  };
+
+  const handleForgotPassword = async () => {
+    const target = email.trim();
+    if (!target) {
+      setError('Enter your email above first, then tap Forgot password.');
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: Linking.createURL('auth-callback'),
+    });
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+    setNotice('Password reset email sent — check your inbox.');
   };
 
   const handleDemo = () => {
@@ -89,13 +142,31 @@ export default function LoginScreen() {
 
         <View style={styles.body}>
           <View style={{ gap: 4 }}>
-            <Text style={[Typography.title, { color: colors.text }]}>Sign in</Text>
+            <Text style={[Typography.title, { color: colors.text }]}>
+              {isSignup ? 'Create account' : 'Sign in'}
+            </Text>
             <Text style={[Typography.body, { color: colors.textSecondary }]}>
-              Welcome back. Enter your details to continue.
+              {isSignup
+                ? 'Set up your account to manage jobs, reviews and your Google profile.'
+                : 'Welcome back. Enter your details to continue.'}
             </Text>
           </View>
 
           <View style={styles.form}>
+            {isSignup ? (
+              <View style={styles.field}>
+                <Text style={[Typography.label, { color: colors.textSecondary }]}>Full name</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Your name"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  style={inputStyle}
+                />
+              </View>
+            ) : null}
             <View style={styles.field}>
               <Text style={[Typography.label, { color: colors.textSecondary }]}>Email</Text>
               <TextInput
@@ -130,19 +201,30 @@ export default function LoginScreen() {
               </View>
             ) : null}
 
-            <Pressable
-              onPress={() =>
-                notify(
-                  'Reset password',
-                  'Password reset uses the same Supabase flow as the web app — it arrives with the auth milestone.',
-                )
-              }
-              hitSlop={8}
-              style={({ pressed }) => [{ alignSelf: 'flex-end' }, pressed && { opacity: 0.6 }]}>
-              <Text style={[Typography.label, { color: colors.primary }]}>Forgot password?</Text>
-            </Pressable>
+            {notice ? (
+              <View style={[styles.errorBox, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                <Text style={[Typography.caption, { color: colors.primary, flex: 1 }]}>
+                  {notice}
+                </Text>
+              </View>
+            ) : null}
 
-            <Button label="Sign in" onPress={handleSignIn} loading={submitting} fullWidth />
+            {!isSignup ? (
+              <Pressable
+                onPress={handleForgotPassword}
+                hitSlop={8}
+                style={({ pressed }) => [{ alignSelf: 'flex-end' }, pressed && { opacity: 0.6 }]}>
+                <Text style={[Typography.label, { color: colors.primary }]}>Forgot password?</Text>
+              </Pressable>
+            ) : null}
+
+            <Button
+              label={isSignup ? 'Create account' : 'Sign in'}
+              onPress={handleSubmit}
+              loading={submitting}
+              fullWidth
+            />
 
             <View style={styles.dividerRow}>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -151,17 +233,25 @@ export default function LoginScreen() {
             </View>
 
             <Button
-              label="Continue with Google"
+              label={isSignup ? 'Sign up with Google' : 'Continue with Google'}
               variant="secondary"
               icon="logo-google"
               fullWidth
-              onPress={() =>
-                notify(
-                  'Google sign-in',
-                  'Google OAuth arrives with the auth milestone — it reuses the same Supabase provider as the web app.',
-                )
-              }
+              loading={googleSubmitting}
+              onPress={handleGoogle}
             />
+
+            <Pressable
+              onPress={switchMode}
+              hitSlop={8}
+              style={({ pressed }) => [{ alignSelf: 'center' }, pressed && { opacity: 0.6 }]}>
+              <Text style={[Typography.body, { color: colors.textSecondary }]}>
+                {isSignup ? 'Already have an account? ' : "Don't have an account? "}
+                <Text style={[Typography.bodyStrong, { color: colors.primary }]}>
+                  {isSignup ? 'Sign in' : 'Sign up'}
+                </Text>
+              </Text>
+            </Pressable>
           </View>
 
           {!isSupabaseConfigured ? (

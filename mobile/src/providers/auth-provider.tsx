@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import React, {
   createContext,
   useCallback,
@@ -56,6 +58,12 @@ interface AuthContextValue {
   initializing: boolean;
   isSupabaseConfigured: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+  ) => Promise<{ error?: string; needsConfirmation?: boolean }>;
+  signInWithGoogle: () => Promise<{ error?: string }>;
   signInDemo: () => void;
   signOut: () => Promise<void>;
   updateName: (firstName: string, lastName: string) => Promise<{ error?: string }>;
@@ -213,6 +221,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {};
   }, []);
 
+  const signUp = useCallback(async (email: string, password: string, name: string) => {
+    if (!isSupabaseConfigured) {
+      setUser(DEMO_USER);
+      return {};
+    }
+    const trimmedName = name.trim();
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      // `handle_new_auth_user` reads name from raw_user_meta_data on insert to
+      // seed the public.users profile — same shape the web signup sends.
+      options: trimmedName ? { data: { name: trimmedName } } : undefined,
+    });
+    if (error) return { error: error.message };
+    // With email confirmation on, signUp creates the user but no session — the
+    // caller shows a "check your email" message instead of navigating in.
+    if (!data.session) return { needsConfirmation: true };
+    return {};
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setUser(DEMO_USER);
+      return {};
+    }
+    // Native OAuth: Supabase builds the Google consent URL, we open it in an
+    // in-app browser, and Google → Supabase redirects back to this app's deep
+    // link with an authorization code we exchange for a session. `redirectTo`
+    // must be on Supabase Auth's redirect allow-list.
+    const redirectTo = Linking.createURL('auth-callback');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+    if (error) return { error: error.message };
+    if (!data?.url) return { error: 'Could not start Google sign-in.' };
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      return { error: 'cancelled' };
+    }
+    if (result.type !== 'success' || !result.url) {
+      return { error: 'Google sign-in did not complete.' };
+    }
+    const { queryParams } = Linking.parse(result.url);
+    const code = typeof queryParams?.code === 'string' ? queryParams.code : undefined;
+    const oauthError =
+      typeof queryParams?.error_description === 'string'
+        ? queryParams.error_description
+        : typeof queryParams?.error === 'string'
+          ? queryParams.error
+          : undefined;
+    if (oauthError) return { error: oauthError };
+    if (!code) return { error: 'Google sign-in did not return an authorization code.' };
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) return { error: exchangeError.message };
+    // onAuthStateChange picks up the new session and populates the user.
+    return {};
+  }, []);
+
   const signInDemo = useCallback(() => {
     setUser(DEMO_USER);
   }, []);
@@ -275,12 +347,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initializing,
       isSupabaseConfigured,
       signIn,
+      signUp,
+      signInWithGoogle,
       signInDemo,
       signOut,
       updateName,
       changePassword,
     }),
-    [user, initializing, signIn, signInDemo, signOut, updateName, changePassword],
+    [
+      user,
+      initializing,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signInDemo,
+      signOut,
+      updateName,
+      changePassword,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -47,14 +47,20 @@
           "locationWhenInUsePermission": "Your location is attached to job photos so they count toward local SEO."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "//": "RevenueCat SDK keys. These Test Store (sandbox) keys are public and safe to ship; override in production via EXPO_PUBLIC_REVENUECAT_IOS_KEY / _ANDROID_KEY once real App Store / Play Store apps are connected.",
+      "//backend": "Same Supabase project + Express API as the web app. URL and anon key are public (they ship in the web bundle too). EXPO_PUBLIC_* env vars override these at build time; without them the app uses these values so it connects to the real backend instead of demo mode.",
+      "supabaseUrl": "https://qfhbusqupidiwlrzkgqc.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmaGJ1c3F1cGlkaXdscnprZ3FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1ODk5MDcsImV4cCI6MjA3MDE2NTkwN30.kbZCQXEQk93QknZfHR0eZ3d-paEXho5YHOGlCUxmNUw",
+      "apiBaseUrl": "https://app.mylocalseoranker.com",
+      "appUrl": "https://app.mylocalseoranker.com",
+      "//revenuecat": "RevenueCat SDK keys. These Test Store (sandbox) keys are public and safe to ship; override in production via EXPO_PUBLIC_REVENUECAT_IOS_KEY / _ANDROID_KEY once real App Store / Play Store apps are connected.",
       "revenuecatIosKey": "test_mANceDqkjcyXJdIdFUInPDUvrUo",
       "revenuecatAndroidKey": "test_mANceDqkjcyXJdIdFUInPDUvrUo",
       "revenuecatEntitlement": "Local SEO Ranker Pro"
