@@ -24,6 +24,7 @@ import { Screen, ScreenHeader, Section } from '@/components/ui/screen';
 import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dataErrors, fetchJobs } from '@/lib/data';
+import { fetchGmbData } from '@/lib/gmb';
 import { jobMeta } from '@/lib/job-meta';
 import { syncJobReminders } from '@/lib/notifications';
 import { useData } from '@/hooks/use-data';
@@ -40,15 +41,6 @@ const FILTERS = [
   { value: 'starred', label: 'Starred' },
   { value: 'archived', label: 'Archived' },
 ];
-
-/**
- * Placeholder GMB figures for the owner dashboard. Clearly-plausible values for
- * this UI pass — the real numbers come from fetchGmbData once the home KPIs are
- * wired to it. The business NAME always comes from the workspace hook, never a
- * hardcoded string.
- * TODO(data): source these from lib/gmb.ts fetchGmbData.
- */
-const GMB_PLACEHOLDER = { score: 78, rating: 4.8 };
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -71,6 +63,11 @@ export default function HomeScreen() {
   const { business } = useWorkspace();
   const { mode, canWrite } = useRole();
   const { data: jobs, loading, refreshing, refresh } = useData(fetchJobs);
+  // Real Google Business Profile figures for the owner KPIs. `gmb` is non-null
+  // only when this workspace actually has a connected profile — otherwise the
+  // score/rating tiles show an em-dash rather than an invented number.
+  const { data: gmbData } = useData(fetchGmbData);
+  const gmb = gmbData && gmbData.mode === 'connected' ? gmbData : null;
   useJobsRefresh(refresh);
   React.useEffect(() => workspace.subscribe(refresh), [refresh]);
   // Tells "no jobs match" apart from "the jobs query failed" (empty either way).
@@ -203,15 +200,18 @@ export default function HomeScreen() {
               <StatCard
                 icon="pulse"
                 tone="primary"
-                value={String(GMB_PLACEHOLDER.score)}
+                value={gmb ? String(gmb.profile.overall_score) : '—'}
                 label="GMB score"
-                delta="+6"
                 onPress={() => router.push('/gmb')}
               />
               <StatCard
                 icon="star"
                 tone="warning"
-                value={GMB_PLACEHOLDER.rating.toFixed(1)}
+                value={
+                  gmb && typeof gmb.profile.rating === 'number'
+                    ? gmb.profile.rating.toFixed(1)
+                    : '—'
+                }
                 label="Avg rating"
                 onPress={() => router.push('/gmb-reviews')}
               />

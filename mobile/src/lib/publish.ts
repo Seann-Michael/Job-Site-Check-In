@@ -771,8 +771,13 @@ async function sanitizePhotosForPublish(
       });
       const body = await readLocalBytes(clean.uri);
       const key = `published/${jobId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      // Published copies are handed to the web app / GoHighLevel / Google, whose
+      // servers fetch them without a Supabase session — so they must live in the
+      // PUBLIC `public-assets` bucket, not the private `media` bucket. The
+      // `published/<jobId>/…` key keeps the owned-job second segment the
+      // path-scoped storage RLS requires.
       const { error } = await supabase.storage
-        .from('media')
+        .from('public-assets')
         .upload(key, body, { contentType: 'image/jpeg', upsert: false });
       if (error) {
         skipped += 1;
@@ -780,7 +785,7 @@ async function sanitizePhotosForPublish(
       }
       const {
         data: { publicUrl },
-      } = supabase.storage.from('media').getPublicUrl(key);
+      } = supabase.storage.from('public-assets').getPublicUrl(key);
       urls.push(publicUrl);
       keys.push(key);
     } catch {
@@ -808,7 +813,9 @@ async function sanitizePhotosForPublish(
 async function discardUploadedPhotos(keys: string[]): Promise<void> {
   if (keys.length === 0 || !isSupabaseConfigured) return;
   try {
-    await supabase.storage.from('media').remove(keys);
+    // These are the published copies uploaded above, which now live in the
+    // public `public-assets` bucket.
+    await supabase.storage.from('public-assets').remove(keys);
   } catch {
     // Swallowed on purpose — see above.
   }

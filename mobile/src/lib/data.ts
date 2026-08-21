@@ -38,6 +38,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEMO_JOBS, DEMO_MEDIA, DEMO_REVIEW_REQUESTS } from '@/lib/demo-data';
 import { jobsStore } from '@/lib/jobs-store';
 import { getMediaTagOverrides } from '@/lib/media-tags';
+import { signMediaItems } from '@/lib/media-urls';
 import { mediaStore } from '@/lib/media-store';
 import { shareLinks } from '@/lib/share-links';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -1068,7 +1069,14 @@ function mapMediaRow(row: Row): MediaItem {
 
 async function applyTagOverrides<T extends MediaItem>(items: T[]): Promise<T[]> {
   const overrides = await getMediaTagOverrides();
-  return items.map((item) => (overrides[item.id] ? { ...item, tags: overrides[item.id] } : item));
+  const tagged = items.map((item) =>
+    overrides[item.id] ? { ...item, tags: overrides[item.id] } : item,
+  );
+  // The `media` bucket is private: server rows carry object keys / legacy
+  // public URLs that no longer resolve. Resolve them to short-lived signed URLs
+  // in one batch here — every media list flows through this finalizer, so all
+  // render sites get working URLs. Local/pending captures pass through.
+  return signMediaItems(tagged);
 }
 
 /**

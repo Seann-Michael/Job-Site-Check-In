@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
+import { clearSignedMediaUrlCache } from '@/lib/media-urls';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 /**
@@ -220,6 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
+    // Drop any signed media URLs cached for the account that is leaving.
+    clearSignedMediaUrlCache();
     setUser(null);
   }, []);
 

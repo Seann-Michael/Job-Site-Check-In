@@ -124,16 +124,20 @@ export async function pickLogo(businessId: string): Promise<LogoPickResult> {
   let syncError: string | undefined;
   if (isSupabaseConfigured && !businessId.startsWith('demo') && asset.base64) {
     try {
-      const path = `business-logos/${businessId}.${ext}`;
+      // Branding lives in the PUBLIC `public-assets` bucket (the web dashboard
+      // and the review-gate read it by plain URL). The object key's second
+      // segment must be the owned business id for the path-scoped storage RLS
+      // to allow the write — matches the web app's `business-logos/<id>/logo.*`.
+      const path = `business-logos/${businessId}/logo.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from('media')
+        .from('public-assets')
         .upload(path, decode(asset.base64), { contentType: 'image/png', upsert: true });
       if (uploadError) {
         syncError = uploadError.message;
       } else {
         const {
           data: { publicUrl },
-        } = supabase.storage.from('media').getPublicUrl(path);
+        } = supabase.storage.from('public-assets').getPublicUrl(path);
         // `?v=` busts caches on other devices — the path itself never changes.
         const url = `${publicUrl}?v=${Date.now()}`;
         // The web app keeps the logo in the settings JSONB, so merge that one
