@@ -140,6 +140,169 @@ export async function handleGoogleAuthorize(req: Request, res: Response) {
 }
 
 /**
+ * List the Google Business Profile accounts + their locations for an access
+ * token. Returns the flattened locations plus any per-call error strings.
+ * Google returns 403 / PERMISSION_DENIED (or a 0 quota) on every Business
+ * Profile endpoint until the Cloud project is granted API access, so an empty
+ * list with a populated `debugErrors` usually means "access not approved yet",
+ * not "this Google account manages no listings".
+ */
+async function fetchGmbLocations(accessToken: string): Promise<{ locations: any[]; debugErrors: string[] }> {
+  const authHeader = { Authorization: `Bearer ${accessToken}` };
+  const locations: any[] = [];
+  const debugErrors: string[] = [];
+  let accounts: any[] = [];
+  try {
+    const r = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", { headers: authHeader });
+    const d = (await r.json()) as any;
+    if (d.error) debugErrors.push(`Accounts API: ${d.error.status || r.status} — ${d.error.message || "error"}`);
+    else accounts = d.accounts || [];
+  } catch {
+    debugErrors.push("Accounts fetch failed");
+  }
+
+  for (const account of accounts) {
+    let got = false;
+    try {
+      const r = await fetch(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title,storefrontAddress,phoneNumbers`,
+        { headers: authHeader },
+      );
+      const d = (await r.json()) as any;
+      if (d.error) debugErrors.push(`Locations API (${account.name}): ${d.error.status || r.status} — ${d.error.message || "error"}`);
+      else if (d.locations?.length) {
+        for (const loc of d.locations) {
+          locations.push({
+            name: loc.name,
+            title: loc.title || "",
+            address: loc.storefrontAddress
+              ? [loc.storefrontAddress.addressLines?.[0], loc.storefrontAddress.locality, loc.storefrontAddress.administrativeArea].filter(Boolean).join(", ")
+              : "",
+            phone: loc.phoneNumbers?.primaryPhone || "",
+            accountName: account.name,
+          });
+        }
+        got = true;
+      }
+    } catch {
+      debugErrors.push(`Locations fetch failed (${account.name})`);
+    }
+    if (got) continue;
+    try {
+      const r = await fetch(`https://mybusiness.googleapis.com/v4/${account.name}/locations`, { headers: authHeader });
+      const d = (await r.json()) as any;
+      if (d.locations?.length) {
+        for (const loc of d.locations) {
+          locations.push({
+            name: loc.name,
+            title: loc.locationName || loc.name,
+            address: loc.address ? [loc.address.addressLines?.[0], loc.address.locality, loc.address.administrativeArea].filter(Boolean).join(", ") : "",
+            phone: loc.primaryPhone || "",
+            accountName: account.name,
+          });
+        }
+      } else if (d.error) {
+        debugErrors.push(`Legacy API (${account.name}): ${d.error.status || r.status} — ${d.error.message || "error"}`);
+      }
+    } catch {
+      debugErrors.push(`Legacy locations fetch failed (${account.name})`);
+    }
+  }
+  return { locations, debugErrors };
+}
+
+/** Exchange a refresh token for a fresh access token. Returns null on failure. */
+async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: string | null } | null> {
+  try {
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: clientId(), client_secret: clientSecret(), refresh_token: refreshToken, grant_type: "refresh_token" }),
+    });
+    const d = (await r.json()) as any;
+    if (!r.ok || d.error || !d.access_token) return null;
+    const expiresAt = d.expires_in ? new Date(Date.now() + Number(d.expires_in) * 1000).toISOString() : null;
+    return { accessToken: d.access_token, expiresAt };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GET /api/oauth/google_my_business/connection?workspace_id=  (auth)
+ * Returns the persisted Google connection for the caller's workspace so the UI
+ * can render connected state + the location picker on load — not only from the
+ * one-shot popup postMessage (which is lost on any refresh). Re-probes Google
+ * for locations and returns `probeErrors` so the UI can explain an empty list
+ * (typically the Business Profile API access gate).
+ */
+export async function handleGoogleConnection(req: Request, res: Response) {
+  const profile = req.profile;
+  if (!req.user?.id || !profile) return res.status(401).json({ error: "Authentication required." });
+
+  const rawWorkspace = req.query.workspace_id as unknown;
+  const requested = typeof rawWorkspace === "string" && rawWorkspace ? rawWorkspace.slice(0, 128) : "";
+  const ownWorkspace = profile.accountId || "";
+  let workspaceId = ownWorkspace;
+  if (requested && requested !== ownWorkspace) {
+    if (!canWriteBusiness(req, requested)) return res.status(403).json({ error: "You do not have access to this workspace." });
+    workspaceId = requested;
+  }
+  if (!workspaceId) return res.json({ connected: false, locations: [] });
+
+  const db: any = getSupabaseClient();
+  if (!db) return res.status(503).json({ error: "supabase_not_configured" });
+
+  const { data: rows, error } = await db
+    .from("google_oauth_tokens")
+    .select("google_account_id, email, access_token, refresh_token, expires_at, locations, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("updated_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  if (!rows || rows.length === 0) return res.json({ connected: false, locations: [] });
+
+  const primary = rows[0];
+  let accessToken = primary.access_token as string;
+  const exp = primary.expires_at ? new Date(primary.expires_at).getTime() : 0;
+  if ((!exp || exp - Date.now() < 120000) && primary.refresh_token) {
+    const refreshed = await refreshAccessToken(primary.refresh_token);
+    if (refreshed) {
+      accessToken = refreshed.accessToken;
+      await db
+        .from("google_oauth_tokens")
+        .update({ access_token: accessToken, expires_at: refreshed.expiresAt, updated_at: new Date().toISOString() })
+        .eq("workspace_id", workspaceId)
+        .eq("google_account_id", primary.google_account_id);
+    }
+  }
+
+  let locations = Array.isArray(primary.locations) ? primary.locations : [];
+  let probeErrors: string[] = [];
+  if (accessToken) {
+    const probe = await fetchGmbLocations(accessToken);
+    probeErrors = probe.debugErrors;
+    if (probe.locations.length) {
+      locations = probe.locations;
+      await db
+        .from("google_oauth_tokens")
+        .update({ locations, updated_at: new Date().toISOString() })
+        .eq("workspace_id", workspaceId)
+        .eq("google_account_id", primary.google_account_id);
+    }
+  }
+
+  return res.json({
+    connected: true,
+    email: primary.email,
+    googleAccountId: primary.google_account_id,
+    expiresAt: primary.expires_at,
+    connectionCount: rows.length,
+    locations,
+    probeErrors,
+  });
+}
+
+/**
  * GET /api/oauth/google_my_business/callback  (public; protected by state nonce)
  * Exchanges the code for tokens, stores them server-side in
  * google_oauth_tokens, then posts a summary (email, Google account id,

@@ -30,7 +30,7 @@ import {
 } from "./routes/workflows";
 import { handleResolveUrl } from "./routes/resolveUrl";
 import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
-import { handleGoogleAuthorize, handleGoogleCallback, handleGoogleStart } from "./routes/googleOAuth";
+import { handleGoogleAuthorize, handleGoogleCallback, handleGoogleConnection, handleGoogleStart } from "./routes/googleOAuth";
 import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
 import {
   handleStripeCheckout,
@@ -233,6 +233,7 @@ export function createServer(options: CreateServerOptions = {}) {
   app.post("/api/oauth/google_my_business/start", requireAuth, requireWrite, handleGoogleStart);
   app.get("/api/oauth/google_my_business/authorize", requireAuth, requireWrite, handleGoogleAuthorize);
   app.get("/api/oauth/google_my_business/callback", handleGoogleCallback);
+  app.get("/api/oauth/google_my_business/connection", requireAuth, handleGoogleConnection);
   // Legacy aliases
   app.get("/api/auth/google/authorize", requireAuth, requireWrite, handleGoogleAuthorize);
   app.get("/api/auth/google/callback", handleGoogleCallback);

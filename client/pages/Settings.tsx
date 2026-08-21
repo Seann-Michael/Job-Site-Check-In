@@ -476,6 +476,44 @@ export default function Settings() {
     businessLogo: string;
   }>(null);
 
+  // Load the persisted Google connection from the server (source of truth =
+  // google_oauth_tokens) so connected state + the location picker render on
+  // page load, not only from the one-shot popup message. Also surfaces the
+  // Google API error when no locations came back (e.g. Business Profile API
+  // access not approved yet).
+  const loadGoogleConnection = async (workspaceId?: string) => {
+    const ws = workspaceId || settings.subAccountId;
+    try {
+      const conn = await apiFetch<{
+        connected: boolean;
+        email?: string;
+        locations?: GmbAccount[];
+        probeErrors?: string[];
+      }>(
+        `/api/oauth/google_my_business/connection${ws ? `?workspace_id=${encodeURIComponent(ws)}` : ""}`,
+      );
+      if (!conn?.connected) return;
+      const locs = conn.locations || [];
+      updateSetting("googleMyBusinessConnected", true);
+      if (conn.email) updateSetting("googleOAuthEmail", conn.email);
+      updateSetting("gmbAccounts", locs);
+      updateSetting("gmbDebugErrors", conn.probeErrors || []);
+      setSettings((prev) => {
+        if (locs.length === 1 && !prev.selectedGmbAccountId) {
+          const s = locs[0] as { name?: string; title?: string; accountName?: string };
+          return {
+            ...prev,
+            selectedGmbAccountId: s.name || "",
+            selectedGmbAccountName: s.title || s.accountName || s.name || "",
+          };
+        }
+        return prev;
+      });
+    } catch {
+      /* connection status is best-effort — leave UI as-is on failure */
+    }
+  };
+
   const handleConnectGoogle = async () => {
     // Open the popup synchronously (a click gesture) so it isn't blocked, then
     // navigate it to Google once /start returns the consent URL. The popup
@@ -554,6 +592,10 @@ export default function Settings() {
         clearInterval(pollClosed);
         window.removeEventListener("message", handler);
         setIsConnectingGoogle(false);
+        // The popup may close without a postMessage reaching us (opener lost,
+        // origin edge cases). Re-load the connection from the server so the UI
+        // reflects a successful connect regardless.
+        void loadGoogleConnection();
       }
     }, 800);
   };
@@ -676,6 +718,9 @@ export default function Settings() {
         // ever written from a successful server load or save.
         localStorage.setItem("business_settings", JSON.stringify(loadedSettings));
         localStorage.setItem("business_name", loadedSettings.businessName || "");
+        // Reflect the real Google connection from the server (not the settings
+        // blob), so connected state + locations show on load.
+        void loadGoogleConnection(loadedSettings.subAccountId);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         setLoadError(msg);
