@@ -29,10 +29,25 @@ export async function handleStripeCheckout(req: Request, res: Response) {
       });
     }
 
-    const { mode = "subscription", priceId, amount = 4900, planName = "Pro", email, businessId } = req.body;
+    // SECURITY: the price MUST come from a real Stripe Price (created in the
+    // Stripe dashboard / server), never from a client-supplied amount. The
+    // previous version built an ad-hoc price from req.body.amount, which let
+    // the browser choose its own price (e.g. pay $1 for "Pro"). We now require
+    // a Stripe priceId and ignore any amount sent in the request body.
+    const { mode = "subscription", priceId, planName = "Pro", email, businessId } = req.body;
 
-    let sessionParams: any = {
+    if (!priceId || typeof priceId !== "string") {
+      return res.status(400).json({
+        error: "price_id_required",
+        message:
+          "A server-configured Stripe price is required. Client-supplied amounts are not accepted; configure your plan prices in Stripe and pass a priceId (or use the /api/billing module).",
+      });
+    }
+
+    const sessionParams: any = {
       payment_method_types: ["card"],
+      mode: mode === "payment" ? "payment" : "subscription",
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl}/admin/payments?success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/admin/payments?cancelled=1`,
       // business_id lets the success-redirect confirm step record the plan on
@@ -42,35 +57,6 @@ export async function handleStripeCheckout(req: Request, res: Response) {
 
     if (email) {
       sessionParams.customer_email = email;
-    }
-
-    if (mode === "subscription" && priceId) {
-      // Use an existing Stripe Price ID
-      sessionParams.mode = "subscription";
-      sessionParams.line_items = [{ price: priceId, quantity: 1 }];
-    } else if (mode === "subscription") {
-      // Create an ad-hoc recurring price
-      sessionParams.mode = "subscription";
-      sessionParams.line_items = [{
-        price_data: {
-          currency: "usd",
-          recurring: { interval: "month" },
-          product_data: { name: planName },
-          unit_amount: Math.round(amount * 100), // convert dollars to cents
-        },
-        quantity: 1,
-      }];
-    } else {
-      // One-time payment
-      sessionParams.mode = "payment";
-      sessionParams.line_items = [{
-        price_data: {
-          currency: "usd",
-          product_data: { name: planName },
-          unit_amount: Math.round(amount * 100),
-        },
-        quantity: 1,
-      }];
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
