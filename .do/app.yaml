@@ -131,10 +131,10 @@ services:
       - key: STRIPE_WEBHOOK_SECRET
         scope: RUN_TIME
         type: SECRET
-      - key: PAYPAL_CLIENT_ID
+      - key: REVENUECAT_WEBHOOK_AUTH
         scope: RUN_TIME
         type: SECRET
-      - key: PAYPAL_CLIENT_SECRET
+      - key: REVENUECAT_API_KEY
         scope: RUN_TIME
         type: SECRET
 

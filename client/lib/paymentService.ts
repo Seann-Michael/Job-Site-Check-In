@@ -1,5 +1,5 @@
 export interface CheckoutRequest {
-  provider: "stripe" | "paypal";
+  provider: "stripe";
   mode: "one_time" | "subscription";
   amount: number;
   /** Plan label recorded on the business once the payment is confirmed. */

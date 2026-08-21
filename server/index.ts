@@ -35,13 +35,13 @@ import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
 import {
   handleStripeCheckout,
   handleStripeConfirm,
-  handlePaypalCheckout,
   handlePaymentStatus,
 } from "./routes/payments";
 import { handleLogout, handleChangePassword } from "./routes/authApi";
 import { handleAIReviewResponse } from "./routes/aiReview";
 import { teamRouter, adminStaffRouter } from "./routes/team";
 import { billingRouter, handleStripeWebhook } from "./routes/billing";
+import { handleRevenueCatWebhook } from "./routes/revenuecat";
 import { emailRouter } from "./routes/email";
 import { automationRouter } from "./routes/automation";
 import { gbpRouter } from "./routes/gbp";
@@ -244,7 +244,6 @@ export function createServer(options: CreateServerOptions = {}) {
   // Payments (auth deferred to a later step)
   app.get("/api/payments/status", handlePaymentStatus);
   app.post("/api/create-checkout-stripe", handleStripeCheckout);
-  app.post("/api/create-checkout-paypal", handlePaypalCheckout);
   app.post("/api/payments/confirm", handleStripeConfirm);
 
   // Billing module (plans, subscriptions, invoices, revenue). The router
@@ -253,6 +252,9 @@ export function createServer(options: CreateServerOptions = {}) {
   // Stripe webhook — raw body parser for this path is mounted above; the
   // handler verifies the signature and no-ops cleanly when Stripe is dormant.
   app.post("/api/webhooks/stripe", handleStripeWebhook);
+  // RevenueCat (App Store + Google Play IAP). Plain JSON; auth via a shared
+  // Authorization header checked inside the handler. Dormant until configured.
+  app.post("/api/webhooks/revenuecat", handleRevenueCatWebhook);
 
   // Auth API. Login + password reset happen client-side directly against
   // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.

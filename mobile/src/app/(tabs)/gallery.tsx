@@ -64,6 +64,7 @@ import { workspace } from '@/lib/workspace';
 import { useData } from '@/hooks/use-data';
 import { useJobsRefresh } from '@/hooks/use-jobs-refresh';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
+import { useRole } from '@/hooks/use-role';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { useAuth } from '@/providers/auth-provider';
 import type { Job, MediaItem } from '@/lib/types';
@@ -333,6 +334,7 @@ export default function GalleryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { user } = useAuth();
+  const { canWrite, isViewer } = useRole();
   const { business } = useWorkspace();
   const { data: feed, loading, refreshing, refresh } = useData(loadFeed);
   useMediaRefresh(refresh);
@@ -639,7 +641,7 @@ export default function GalleryScreen() {
                   : 'Every checklist item on your recent jobs is done.'
               }
             />
-            {taskScope === 'mine' ? (
+            {taskScope === 'mine' && canWrite ? (
               <Button
                 label="Hand out checklist items"
                 icon="person-add-outline"
@@ -661,7 +663,10 @@ export default function GalleryScreen() {
                     gap: Spacing.md,
                     padding: Spacing.md,
                   }}>
-                  <Pressable onPress={() => void toggleTask(entry.job.id, task.id)} hitSlop={10}>
+                  <Pressable
+                    onPress={() => canWrite && void toggleTask(entry.job.id, task.id)}
+                    disabled={!canWrite}
+                    hitSlop={10}>
                     <Ionicons name="ellipse-outline" size={22} color={colors.textMuted} />
                   </Pressable>
                   <Pressable style={{ flex: 1, gap: 2 }} onPress={() => openJob(entry.job.id)}>
@@ -831,6 +836,7 @@ export default function GalleryScreen() {
       <ScreenHeader
         title="Feed"
         subtitle={subtitle()}
+        readOnly={isViewer}
         actions={[{ icon: 'business-outline', onPress: showCompany }]}
       />
       <TabStrip value={tab} onChange={setTab} />
@@ -850,14 +856,22 @@ export default function GalleryScreen() {
         initialIndex={viewerIndex ?? 0}
         visible={viewerIndex !== null && viewerIndex < viewerItems.length}
         onClose={() => setViewerIndex(null)}
-        onLogoSticker={(item) => {
-          setViewerIndex(null);
-          router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
-        }}
-        onAnnotate={(item) => {
-          setViewerIndex(null);
-          router.push({ pathname: '/annotate', params: { mediaId: item.id } });
-        }}
+        onLogoSticker={
+          canWrite
+            ? (item) => {
+                setViewerIndex(null);
+                router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
+              }
+            : undefined
+        }
+        onAnnotate={
+          canWrite
+            ? (item) => {
+                setViewerIndex(null);
+                router.push({ pathname: '/annotate', params: { mediaId: item.id } });
+              }
+            : undefined
+        }
       />
     </Screen>
   );

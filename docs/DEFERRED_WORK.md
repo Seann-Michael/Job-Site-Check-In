@@ -22,7 +22,7 @@ configured in Supabase Auth (client id/secret, redirect
 `https://<project>.supabase.co/auth/v1/callback`) and in Google Cloud, then
 `VITE_GOOGLE_AUTH_ENABLED=true` at build time shows the button.
 
-## 2. Payments (Stripe / PayPal) - `server/routes/payments.ts`
+## 2. Payments (Stripe) - `server/routes/payments.ts`
 
 Not production-ready; keep the Payments UI hidden or labelled "coming soon".
 
@@ -36,9 +36,6 @@ Not production-ready; keep the Payments UI hidden or labelled "coming soon".
   `stripe.webhooks.constructEvent` and `STRIPE_WEBHOOK_SECRET`.
 - The plan is granted by a client-triggered `/confirm` call after redirect;
   it should be granted by the webhook instead.
-- PayPal is hardcoded to `api-m.sandbox.paypal.com`, never captures the order,
-  and has no webhook. Needs a live/sandbox switch, capture on approval, and
-  `PAYMENT.CAPTURE.COMPLETED` handling with signature verification.
 
 ## 3. Twilio webhook signature
 

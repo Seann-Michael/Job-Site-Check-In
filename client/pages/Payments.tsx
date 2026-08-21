@@ -68,16 +68,15 @@ const PLANS = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Payments() {
-  const [provider, setProvider] = useState<"stripe" | "paypal">("stripe");
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [providerStatus, setProviderStatus] = useState<{ stripe: boolean; paypal: boolean } | null>(null);
+  const [providerStatus, setProviderStatus] = useState<{ stripe: boolean } | null>(null);
 
   useEffect(() => {
     fetch("/api/payments/status")
       .then((r) => r.json())
       .then((data) => setProviderStatus(data))
-      .catch(() => setProviderStatus({ stripe: false, paypal: false }));
+      .catch(() => setProviderStatus({ stripe: false }));
   }, []);
 
   // Stripe redirects back here with ?success=1&session_id=... — confirm the
@@ -113,12 +112,9 @@ export default function Payments() {
   }, []);
 
   const handleCheckout = async (plan: (typeof PLANS)[0]) => {
-    const selectedProvider = provider;
-    if (providerStatus && !providerStatus[selectedProvider]) {
+    if (providerStatus && !providerStatus.stripe) {
       toast.error(
-        selectedProvider === "stripe"
-          ? "Stripe is not configured yet. Add your STRIPE_SECRET_KEY in Settings → Environment."
-          : "PayPal is not configured yet. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in Settings → Environment.",
+        "Stripe is not configured yet. Add your STRIPE_SECRET_KEY in Settings → Environment.",
         { duration: 6000 }
       );
       return;
@@ -141,8 +137,7 @@ export default function Payments() {
         }
       }
 
-      const endpoint = `/api/create-checkout-${selectedProvider}`;
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/create-checkout-stripe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -170,7 +165,7 @@ export default function Payments() {
     }
   };
 
-  const anyConfigured = providerStatus?.stripe || providerStatus?.paypal;
+  const anyConfigured = providerStatus?.stripe;
 
   return (
     <AppLayout>
@@ -188,40 +183,17 @@ export default function Payments() {
           <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
             <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-yellow-800">Payment providers not configured</p>
+              <p className="font-medium text-yellow-800">Payments not configured</p>
               <p className="text-sm text-yellow-700 mt-1">
-                Add your <strong>STRIPE_SECRET_KEY</strong> (and optionally <strong>PAYPAL_CLIENT_ID</strong> +{" "}
-                <strong>PAYPAL_CLIENT_SECRET</strong>) as environment variables to enable real payments.
+                Add your <strong>STRIPE_SECRET_KEY</strong> as an environment variable to enable real payments.
                 Until then, checkout buttons will show a warning.
               </p>
             </div>
           </div>
         )}
 
-        {/* Provider toggle */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-2 rounded-lg border p-1">
-            <button
-              onClick={() => setProvider("stripe")}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                provider === "stripe" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CreditCard className="h-4 w-4" />
-              Stripe
-              {providerStatus?.stripe && <span className="inline-block h-2 w-2 rounded-full bg-green-400" />}
-            </button>
-            <button
-              onClick={() => setProvider("paypal")}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                provider === "paypal" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              PayPal
-              {providerStatus?.paypal && <span className="inline-block h-2 w-2 rounded-full bg-green-400" />}
-            </button>
-          </div>
-
+        {/* Billing cycle toggle */}
+        <div className="flex items-center justify-end flex-wrap gap-4">
           <div className="flex items-center gap-2 rounded-lg border p-1">
             <button
               onClick={() => setBilling("monthly")}
@@ -319,16 +291,13 @@ export default function Payments() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              Payments are processed securely through{" "}
-              <strong>{provider === "stripe" ? "Stripe" : "PayPal"}</strong>.
+              Payments are processed securely through <strong>Stripe</strong>.
               You will be redirected to a hosted checkout page to complete your purchase.
             </p>
             {!anyConfigured && (
               <p>
-                To enable live payments, add your API keys as environment variables:{" "}
-                <code className="bg-muted px-1 rounded text-xs">STRIPE_SECRET_KEY</code> for Stripe or{" "}
-                <code className="bg-muted px-1 rounded text-xs">PAYPAL_CLIENT_ID</code> +{" "}
-                <code className="bg-muted px-1 rounded text-xs">PAYPAL_CLIENT_SECRET</code> for PayPal.
+                To enable live payments, add your Stripe key as an environment variable:{" "}
+                <code className="bg-muted px-1 rounded text-xs">STRIPE_SECRET_KEY</code>.
               </p>
             )}
             <p>All plans include a 14-day free trial. Cancel any time.</p>

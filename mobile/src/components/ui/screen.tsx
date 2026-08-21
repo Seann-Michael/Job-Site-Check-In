@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/basics';
-import { Spacing } from '@/constants/theme';
+import { Avatar, ReadOnlyPill } from '@/components/ui/basics';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function Screen({
@@ -34,6 +34,7 @@ export function Screen({
   const scroll = (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       refreshControl={
         onRefresh ? (
@@ -48,8 +49,7 @@ export function Screen({
     </ScrollView>
   );
   return (
-    <View
-      style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {avoidKeyboard ? (
         <KeyboardAvoidingView
           style={styles.root}
@@ -68,44 +68,75 @@ interface HeaderAction {
   onPress: () => void;
 }
 
+/** Soft circular icon button used in the header (44pt touch target). */
+function HeaderButton({ action }: { action: HeaderAction }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={action.onPress}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.headerButton,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        pressed && { backgroundColor: colors.cardPressed, transform: [{ scale: 0.96 }] },
+      ]}>
+      <Ionicons name={action.icon} size={20} color={colors.text} />
+    </Pressable>
+  );
+}
+
 export function ScreenHeader({
   title,
   subtitle,
+  eyebrow,
   avatarName,
   action,
   actions,
+  compact = false,
+  readOnly = false,
 }: {
   title: string;
   subtitle?: string;
+  /** Small uppercase line above the title (e.g. a business name chip). */
+  eyebrow?: string;
   avatarName?: string;
   action?: HeaderAction;
   actions?: HeaderAction[];
+  /** Smaller title + tighter spacing. */
+  compact?: boolean;
+  /** Show the "Read-only" pill (viewer role). */
+  readOnly?: boolean;
 }) {
   const { colors } = useTheme();
   const allActions = actions ?? (action ? [action] : []);
   return (
-    <View style={[styles.header, { paddingTop: Spacing.md }]}>
+    <View style={styles.header}>
       <View style={styles.headerText}>
-        {subtitle ? (
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
+        {eyebrow ? (
+          <View style={[styles.chip, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="business" size={12} color={colors.primaryStrong} />
+            <Text style={[Typography.caption, { color: colors.primaryStrong }]} numberOfLines={1}>
+              {eyebrow}
+            </Text>
+          </View>
         ) : null}
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[compact ? Typography.h1 : Typography.title, { color: colors.text }]}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={[Typography.body, { color: colors.textSecondary }]}>{subtitle}</Text>
+        ) : null}
+        {readOnly ? (
+          <View style={{ flexDirection: 'row', marginTop: 4 }}>
+            <ReadOnlyPill />
+          </View>
+        ) : null}
       </View>
       <View style={styles.headerRight}>
         {allActions.map((item) => (
-          <Pressable
-            key={item.icon}
-            onPress={item.onPress}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.headerAction,
-              { backgroundColor: colors.card, borderColor: colors.border },
-              pressed && { backgroundColor: colors.cardPressed },
-            ]}>
-            <Ionicons name={item.icon} size={19} color={colors.textSecondary} />
-          </Pressable>
+          <HeaderButton key={item.icon} action={item} />
         ))}
-        {avatarName ? <Avatar name={avatarName} size={38} /> : null}
+        {avatarName ? <Avatar name={avatarName} size={44} /> : null}
       </View>
     </View>
   );
@@ -124,30 +155,28 @@ export function DetailHeader({
   const router = useRouter();
   const allActions = actions ?? (action ? [action] : []);
   return (
-    <View style={[styles.detailHeader, { paddingTop: Spacing.sm }]}>
+    <View style={styles.detailHeader}>
       <Pressable
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-        hitSlop={10}
-        style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
-        <Ionicons name="chevron-back" size={26} color={colors.text} />
+        hitSlop={6}
+        style={({ pressed }) => [
+          styles.headerButton,
+          { backgroundColor: colors.card, borderColor: colors.border },
+          pressed && { backgroundColor: colors.cardPressed },
+        ]}>
+        <Ionicons name="chevron-back" size={22} color={colors.text} />
       </Pressable>
       <Text style={[styles.detailTitle, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
       {allActions.length > 0 ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
           {allActions.map((item) => (
-            <Pressable
-              key={item.icon}
-              onPress={item.onPress}
-              hitSlop={10}
-              style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
-              <Ionicons name={item.icon} size={22} color={colors.text} />
-            </Pressable>
+            <HeaderButton key={item.icon} action={item} />
           ))}
         </View>
       ) : (
-        <View style={{ width: 26 }} />
+        <View style={{ width: 44 }} />
       )}
     </View>
   );
@@ -155,10 +184,13 @@ export function DetailHeader({
 
 export function Section({
   title,
+  eyebrow,
   children,
   action,
 }: {
   title: string;
+  /** Optional uppercase eyebrow rendered above the title. */
+  eyebrow?: string;
   children: React.ReactNode;
   action?: React.ReactNode;
 }) {
@@ -166,7 +198,14 @@ export function Section({
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+        <View style={{ gap: 3 }}>
+          {eyebrow ? (
+            <Text style={[Typography.eyebrow, { color: colors.textMuted }]}>
+              {eyebrow.toUpperCase()}
+            </Text>
+          ) : null}
+          <Text style={[Typography.h1, { color: colors.text }]}>{title}</Text>
+        </View>
         {action}
       </View>
       {children}
@@ -179,65 +218,67 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    // Clears the 56px floating action button plus its 20px bottom offset
-    paddingBottom: 104,
-    gap: Spacing.lg,
+    paddingHorizontal: Spacing.screen,
+    // Clears the 56px floating action button plus its bottom offset.
+    paddingBottom: 108,
+    gap: Spacing.xl,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.xs,
   },
   headerText: {
-    gap: 2,
+    flex: 1,
+    gap: 6,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    maxWidth: '100%',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    paddingTop: 2,
   },
-  headerAction: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
   },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
   },
   detailTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 17,
-    fontWeight: '700',
+    ...Typography.h2,
   },
   section: {
-    gap: Spacing.sm + 2,
+    gap: Spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    gap: Spacing.md,
   },
 });

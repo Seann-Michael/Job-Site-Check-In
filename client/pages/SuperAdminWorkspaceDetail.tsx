@@ -769,9 +769,7 @@ export default function SuperAdminWorkspaceDetail() {
               const billingStatus = meta.billing_status ?? meta.subscription_status ?? workspace.status ?? null;
               const stripeCustomerId = meta.stripe_customer_id ?? meta.stripe_id ?? null;
               const stripeSubId = meta.stripe_subscription_id ?? meta.stripe_sub_id ?? null;
-              const paypalCustomerId = meta.paypal_customer_id ?? meta.paypal_payer_id ?? null;
-              const paypalSubId = meta.paypal_subscription_id ?? meta.paypal_agreement_id ?? null;
-              const primaryProvider = meta.primary_payment_provider ?? meta.payment_provider ?? (stripeCustomerId ? "stripe" : paypalCustomerId ? "paypal" : null);
+              const primaryProvider = meta.primary_payment_provider ?? meta.payment_provider ?? (stripeCustomerId ? "stripe" : null);
               const promoCode = meta.promo_code ?? meta.discount_code ?? null;
               const discountAmount = meta.discount ?? meta.discount_amount ?? null;
               const outstandingBalance = meta.outstanding_balance ?? meta.balance_due ?? null;
@@ -861,21 +859,20 @@ export default function SuperAdminWorkspaceDetail() {
                       </CardContent>
                     </Card>
 
-                    {/* Payment Providers */}
+                    {/* Payment Provider */}
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
-                          <LinkIcon className="h-4 w-4 text-muted-foreground" /> Payment Providers
+                          <LinkIcon className="h-4 w-4 text-muted-foreground" /> Payment Provider
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-0">
                         {/* Stripe */}
-                        <div className="px-5 py-4 border-b">
+                        <div className="px-5 py-4">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <div className="flex h-7 w-7 items-center justify-center rounded bg-[#635bff] text-white text-xs font-bold">S</div>
                               <span className="text-sm font-medium">Stripe</span>
-                              <Badge variant="default" className="text-[10px] px-1.5 py-0">Primary</Badge>
                             </div>
                             <Badge variant={stripeCustomerId ? "default" : "secondary"} className="text-xs">
                               {stripeCustomerId ? "Connected" : "Not connected"}
@@ -903,36 +900,6 @@ export default function SuperAdminWorkspaceDetail() {
                           )}
                           {!stripeCustomerId && (
                             <p className="text-xs text-muted-foreground ml-9">No Stripe account linked to this workspace</p>
-                          )}
-                        </div>
-                        {/* PayPal */}
-                        <div className="px-5 py-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 items-center justify-center rounded bg-[#003087] text-white text-[10px] font-bold">PP</div>
-                              <span className="text-sm font-medium">PayPal</span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Backup</Badge>
-                            </div>
-                            <Badge variant={paypalCustomerId ? "default" : "secondary"} className="text-xs">
-                              {paypalCustomerId ? "Connected" : "Not connected"}
-                            </Badge>
-                          </div>
-                          {paypalCustomerId && (
-                            <div className="space-y-1 ml-9">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground w-28">Payer ID</span>
-                                <span className="text-xs font-mono">{paypalCustomerId}</span>
-                              </div>
-                              {paypalSubId && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground w-28">Agreement</span>
-                                  <span className="text-xs font-mono">{paypalSubId}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {!paypalCustomerId && (
-                            <p className="text-xs text-muted-foreground ml-9">No PayPal account linked to this workspace</p>
                           )}
                         </div>
                       </CardContent>
@@ -1022,8 +989,7 @@ export default function SuperAdminWorkspaceDetail() {
                                     <td className="px-5 py-3">
                                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium capitalize`}>
                                         <span className={`h-2 w-2 rounded-full ${
-                                          rec.payment_provider === "stripe" ? "bg-[#635bff]" :
-                                          rec.payment_provider === "paypal" ? "bg-[#003087]" : "bg-muted-foreground"
+                                          rec.payment_provider === "stripe" ? "bg-[#635bff]" : "bg-muted-foreground"
                                         }`} />
                                         {rec.payment_provider ?? "—"}
                                       </span>

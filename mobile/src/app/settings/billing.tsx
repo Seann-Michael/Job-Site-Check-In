@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
+import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
@@ -9,6 +10,13 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { notify } from '@/lib/format';
+import {
+  getCurrentOffering,
+  purchase,
+  purchasesAvailable,
+  restorePurchases,
+  setPurchaseBusiness,
+} from '@/lib/purchases';
 import { useAuth } from '@/providers/auth-provider';
 
 const APP_URL = process.env.EXPO_PUBLIC_APP_URL ?? '';
@@ -25,9 +33,55 @@ export default function BillingSettingsScreen() {
   const { user, initializing } = useAuth();
   const { business } = useWorkspace();
 
+  // In-app purchases (App Store / Google Play) via RevenueCat. Only live in a
+  // real build with a configured key — no-ops in Expo Go / web (see purchases.ts).
+  const iapReady = purchasesAvailable();
+  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
+  const [buying, setBuying] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!iapReady) return;
+    let cancelled = false;
+    if (business?.id) void setPurchaseBusiness(business.id);
+    void getCurrentOffering().then((o) => {
+      if (!cancelled) setOffering(o);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [iapReady, business?.id]);
+
   if (!initializing && !user) {
     return <Redirect href="/login" />;
   }
+
+  const buy = async (pkg: PurchasesPackage) => {
+    setBuying(pkg.identifier);
+    try {
+      const info = await purchase(pkg);
+      if (info && Object.keys(info.entitlements.active).length > 0) {
+        notify('Subscription active', 'Thanks! Your plan is now active on this account.');
+      }
+    } catch (err) {
+      const e = err as { userCancelled?: boolean; message?: string };
+      if (!e?.userCancelled) {
+        notify('Purchase failed', e?.message ?? 'The purchase could not be completed.');
+      }
+    } finally {
+      setBuying(null);
+    }
+  };
+
+  const restore = async () => {
+    const info = await restorePurchases();
+    const active = info ? Object.keys(info.entitlements.active).length > 0 : false;
+    notify(
+      active ? 'Purchases restored' : 'Nothing to restore',
+      active
+        ? 'Your subscription has been restored on this device.'
+        : 'No active subscription was found for this store account.',
+    );
+  };
 
   const manageBilling = () => {
     if (APP_URL) {
@@ -79,6 +133,37 @@ export default function BillingSettingsScreen() {
         <Button label="Manage billing" icon="open-outline" variant="secondary" onPress={manageBilling} />
       </Card>
 
+      {iapReady && offering && offering.availablePackages.length > 0 ? (
+        <Section title="Upgrade in app">
+          <Card style={{ gap: Spacing.md }}>
+            {offering.availablePackages.map((pkg) => (
+              <View key={pkg.identifier} style={styles.pkgRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                    {pkg.product.title}
+                  </Text>
+                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                    {pkg.product.priceString}
+                    {pkg.product.subscriptionPeriod ? ` / ${pkg.product.subscriptionPeriod}` : ''}
+                  </Text>
+                </View>
+                <Button
+                  label={buying === pkg.identifier ? 'Working…' : 'Subscribe'}
+                  onPress={() => buy(pkg)}
+                  disabled={buying !== null}
+                />
+              </View>
+            ))}
+            <Button
+              label="Restore purchases"
+              icon="refresh-outline"
+              variant="secondary"
+              onPress={restore}
+            />
+          </Card>
+        </Section>
+      ) : null}
+
       <Section title="Invoice history">
         <Card style={{ padding: 0 }}>
           {DEMO_INVOICES.map((invoice, index) => (
@@ -104,7 +189,7 @@ export default function BillingSettingsScreen() {
 
       <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
         Demo billing data — plan changes, payment methods, and real invoices live in the web
-        dashboard (Stripe/PayPal).
+        dashboard (Stripe).
       </Text>
     </Screen>
   );
@@ -144,5 +229,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  pkgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
 });

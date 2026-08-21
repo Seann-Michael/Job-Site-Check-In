@@ -52,6 +52,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "//": "RevenueCat SDK keys. These Test Store (sandbox) keys are public and safe to ship; override in production via EXPO_PUBLIC_REVENUECAT_IOS_KEY / _ANDROID_KEY once real App Store / Play Store apps are connected.",
+      "revenuecatIosKey": "test_mANceDqkjcyXJdIdFUInPDUvrUo",
+      "revenuecatAndroidKey": "test_mANceDqkjcyXJdIdFUInPDUvrUo",
+      "revenuecatEntitlement": "Local SEO Ranker Pro"
     }
   }
 }

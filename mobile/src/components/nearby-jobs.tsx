@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/components/ui/basics';
-import { Radius, Spacing } from '@/constants/theme';
+import { cardShadow, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getLocationFix, type GeoFix } from '@/lib/media-capture';
 import type { Job } from '@/lib/types';
@@ -35,7 +35,7 @@ function formatMiles(miles: number): string {
  * location is unavailable or nothing is in range.
  */
 export function NearbyJobs({ jobs }: { jobs: Job[] }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const [fix, setFix] = useState<GeoFix | undefined>();
 
@@ -73,8 +73,8 @@ export function NearbyJobs({ jobs }: { jobs: Job[] }) {
   return (
     <View style={{ gap: Spacing.sm }}>
       <View style={styles.titleRow}>
-        <Ionicons name="location" size={15} color={colors.primary} />
-        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Nearby jobs</Text>
+        <Ionicons name="location" size={16} color={colors.primary} />
+        <Text style={[Typography.h1, { color: colors.text }]}>Nearby jobs</Text>
       </View>
       <ScrollView
         horizontal
@@ -87,21 +87,22 @@ export function NearbyJobs({ jobs }: { jobs: Job[] }) {
             onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })}
             style={({ pressed }) => [
               styles.card,
+              cardShadow,
               {
                 backgroundColor: pressed ? colors.cardPressed : colors.card,
-                borderColor: colors.border,
+                borderColor: isDark ? colors.border : 'transparent',
+                borderWidth: isDark ? StyleSheet.hairlineWidth : 0,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
               },
             ]}>
             <View style={styles.cardTop}>
               <Badge label={formatMiles(miles)} tone="primary" />
               <Ionicons name="navigate-outline" size={14} color={colors.textMuted} />
             </View>
-            <Text
-              numberOfLines={1}
-              style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+            <Text style={[Typography.bodyStrong, { color: colors.text }]} numberOfLines={1}>
               {job.title}
             </Text>
-            <Text numberOfLines={1} style={{ fontSize: 12, color: colors.textSecondary }}>
+            <Text style={[Typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
               {[job.address, job.city].filter(Boolean).join(', ') || job.client_name}
             </Text>
           </Pressable>
@@ -118,11 +119,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   card: {
-    width: 200,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    gap: 5,
+    width: 210,
+    borderRadius: Radius.card,
+    padding: Spacing.lg,
+    gap: 6,
   },
   cardTop: {
     flexDirection: 'row',

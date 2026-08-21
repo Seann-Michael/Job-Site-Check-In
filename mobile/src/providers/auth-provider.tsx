@@ -9,7 +9,15 @@ import React, {
   useState,
 } from 'react';
 
+import { configurePurchases, logOutPurchases } from '@/lib/purchases';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+
+/**
+ * Backend roles as they appear on the Supabase user / membership row. The web
+ * app uses these exact strings; the mobile UI collapses them into three modes
+ * in hooks/use-role.ts.
+ */
+export type UserRole = 'super_admin' | 'business_owner' | 'staff' | 'viewer';
 
 export interface AuthUser {
   id: string;
@@ -23,6 +31,23 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   isDemo: boolean;
+  /**
+   * Access role. TODO(backend): populate from the membership/user row once the
+   * auth milestone wires roles through. Until then it reads from
+   * `user_metadata.role` when present and otherwise defaults to 'business_owner'
+   * (see userFromSession / DEMO_USER), so the role-aware UI has something real
+   * to branch on today.
+   */
+  role: UserRole;
+}
+
+/** The safe default while roles aren't wired through the backend yet. */
+const DEFAULT_ROLE: UserRole = 'business_owner';
+
+const KNOWN_ROLES: UserRole[] = ['super_admin', 'business_owner', 'staff', 'viewer'];
+
+function coerceRole(value: unknown): UserRole {
+  return KNOWN_ROLES.includes(value as UserRole) ? (value as UserRole) : DEFAULT_ROLE;
 }
 
 interface AuthContextValue {
@@ -47,6 +72,7 @@ const DEMO_USER: AuthUser = {
   firstName: 'Alex',
   lastName: 'Morgan',
   isDemo: true,
+  role: DEFAULT_ROLE,
 };
 
 /** The one place `name` is composed, so first/last stay the source of truth. */
@@ -82,6 +108,9 @@ function userFromSession(session: Session | null): AuthUser | null {
     firstName,
     lastName,
     isDemo: false,
+    // TODO(backend): the auth milestone should source this from the membership
+    // row, not user_metadata. Read it opportunistically until then.
+    role: coerceRole(meta['role']),
   };
 }
 
@@ -161,6 +190,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.subscription.unsubscribe();
     };
   }, []);
+
+  // Bind RevenueCat (in-app purchases) to the signed-in user so App Store /
+  // Play Store purchases are attributed to this account. All calls no-op in
+  // Expo Go / web / when no RevenueCat key is set (see lib/purchases.ts).
+  useEffect(() => {
+    if (user && !user.isDemo) {
+      void configurePurchases(user.id);
+    } else if (!user) {
+      void logOutPurchases();
+    }
+  }, [user?.id, user?.isDemo]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {

@@ -144,7 +144,7 @@ on public-read tables and the RPCs. The four summary views were switched to
 - Google OAuth sign-in (configure the provider in Supabase Auth; the GBP
   connect flow and `google_oauth_tokens` / `oauth_states` tables already exist).
 - MFA (removed the fake endpoints; real TOTP via `auth.mfa` is a follow-up).
-- Payments (Stripe/PayPal) and Twilio webhook signature verification.
+- Payments (Stripe) and Twilio webhook signature verification.
 - Supabase project config: enable leaked-password protection; apply the pending
   Postgres security patch (both flagged by the Supabase linter).
 

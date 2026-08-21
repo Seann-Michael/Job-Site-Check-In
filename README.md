@@ -12,7 +12,7 @@ rank checks and automation workflows.
 - **Data/Auth/Storage**: Supabase (Postgres, Auth, Storage). Migrations live in
   `supabase/migrations/`
 - **Integrations**: Google Maps/Places, Google Business Profile OAuth, OpenAI,
-  DataForSEO, Stripe, PayPal, Twilio
+  DataForSEO, Stripe, Twilio
 - **Mobile**: Expo app in `mobile/` (separate package, not part of this build)
 
 ## Setup
@@ -36,7 +36,7 @@ All variables are listed with comments in [`.env.example`](.env.example).
 | Client (public, inlined at build) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GOOGLE_MAPS_API_KEY`, `VITE_VAPID_PUBLIC_KEY`, `VITE_SENTRY_DSN`, `VITE_API_URL`                                                                                                                            |
 | Server (required)                 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                                                                                                                                                                                                      |
 | Server (strongly recommended)     | `APP_URL` - required for Google OAuth redirects and outbound webhooks; `CORS_ORIGINS` defaults to it                                                                                                                                                              |
-| Server (optional)                 | `CORS_ORIGINS`, `SENTRY_DSN`, `LOG_LEVEL`, `PORT`, `GOOGLE_MAPS_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID/SECRET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `DATAFORSEO_USERNAME/PASSWORD`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID/SECRET`, `TWILIO_*` |
+| Server (optional)                 | `CORS_ORIGINS`, `SENTRY_DSN`, `LOG_LEVEL`, `PORT`, `GOOGLE_MAPS_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID/SECRET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `DATAFORSEO_USERNAME/PASSWORD`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_*` |
 
 Never put the service-role key in a `VITE_` variable; it would ship to browsers.
 

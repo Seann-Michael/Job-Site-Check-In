@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Card, IconTile, type IconName, type Tone } from '@/components/ui/basics';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, JOB_STATUS_LABELS } from '@/lib/format';
 import { formatJobValue, jobMeta } from '@/lib/job-meta';
@@ -100,11 +100,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...Typography.h2,
   },
   meta: {
-    fontSize: 13,
+    ...Typography.caption,
+    fontWeight: '500',
   },
   bottomRow: {
     flexDirection: 'row',
@@ -120,7 +120,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   metaText: {
-    fontSize: 12.5,
+    ...Typography.caption,
+    fontWeight: '500',
   },
   chevron: {
     marginLeft: 'auto',

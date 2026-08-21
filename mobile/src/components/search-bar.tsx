@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function SearchBar({
@@ -14,14 +14,18 @@ export function SearchBar({
   onChangeText: (text: string) => void;
   placeholder: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.card, borderColor: colors.border },
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderWidth: isDark ? StyleSheet.hairlineWidth : 0,
+        },
       ]}>
-      <Ionicons name="search" size={17} color={colors.textMuted} />
+      <Ionicons name="search" size={18} color={colors.textMuted} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -31,6 +35,15 @@ export function SearchBar({
         autoCapitalize="none"
         autoCorrect={false}
       />
+      {value.length > 0 ? (
+        <Ionicons
+          name="close-circle"
+          size={18}
+          color={colors.textMuted}
+          onPress={() => onChangeText('')}
+          suppressHighlighting
+        />
+      ) : null}
     </View>
   );
 }
@@ -40,14 +53,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.md,
-    height: 44,
+    borderRadius: Radius.input,
+    paddingHorizontal: Spacing.md + 2,
+    height: 48,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    ...Typography.body,
     paddingVertical: 0,
   },
 });

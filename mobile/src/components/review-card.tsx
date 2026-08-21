@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar, Badge, Card, type Tone } from '@/components/ui/basics';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { REVIEW_STATUS_LABELS, timeAgo } from '@/lib/format';
 import type { ReviewRequest, ReviewRequestStatus } from '@/lib/types';
@@ -16,7 +16,7 @@ export const REVIEW_STATUS_TONES: Record<ReviewRequestStatus, Tone> = {
   scheduled: 'neutral',
 };
 
-function Stars({ rating }: { rating: number }) {
+function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
   const { colors } = useTheme();
   return (
     <View style={styles.stars}>
@@ -24,7 +24,7 @@ function Stars({ rating }: { rating: number }) {
         <Ionicons
           key={slot}
           name={slot <= rating ? 'star' : 'star-outline'}
-          size={13}
+          size={size}
           color={slot <= rating ? colors.star : colors.textMuted}
         />
       ))}
@@ -32,17 +32,24 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function ReviewCard({ request }: { request: ReviewRequest }) {
+export function ReviewCard({
+  request,
+  onReply,
+}: {
+  request: ReviewRequest;
+  /** When provided, renders a Reply affordance. Callers hide it for viewer role. */
+  onReply?: () => void;
+}) {
   const { colors } = useTheme();
   return (
-    <Card>
+    <Card style={{ gap: Spacing.md }}>
       <View style={styles.row}>
-        <Avatar name={request.customer_name} size={40} />
+        <Avatar name={request.customer_name} size={44} />
         <View style={styles.info}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+          <Text style={[Typography.bodyStrong, { color: colors.text }]} numberOfLines={1}>
             {request.customer_name}
           </Text>
-          <Text style={[styles.job, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text style={[Typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
             {request.job_title}
           </Text>
           <View style={styles.contactRow}>
@@ -51,7 +58,7 @@ export function ReviewCard({ request }: { request: ReviewRequest }) {
               size={12}
               color={colors.textMuted}
             />
-            <Text style={[styles.contact, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[Typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
               {request.contact}
             </Text>
           </View>
@@ -64,13 +71,25 @@ export function ReviewCard({ request }: { request: ReviewRequest }) {
           {typeof request.rating === 'number' ? (
             <Stars rating={request.rating} />
           ) : (
-            <Text style={[styles.time, { color: colors.textMuted }]}>
+            <Text style={[Typography.caption, { color: colors.textMuted }]}>
               {request.status === 'scheduled' ? 'for ' : ''}
               {timeAgo(request.sent_at)}
             </Text>
           )}
         </View>
       </View>
+      {onReply ? (
+        <Pressable
+          onPress={onReply}
+          style={({ pressed }) => [
+            styles.reply,
+            { backgroundColor: colors.primarySoft },
+            pressed && { opacity: 0.8 },
+          ]}>
+          <Ionicons name="arrow-undo-outline" size={15} color={colors.primary} />
+          <Text style={[Typography.label, { color: colors.primary }]}>Reply</Text>
+        </Pressable>
+      ) : null}
     </Card>
   );
 }
@@ -82,14 +101,7 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    gap: 2,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  job: {
-    fontSize: 13,
+    gap: 3,
   },
   contactRow: {
     flexDirection: 'row',
@@ -97,18 +109,20 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 2,
   },
-  contact: {
-    fontSize: 12,
-  },
   right: {
     alignItems: 'flex-end',
     gap: 6,
   },
-  time: {
-    fontSize: 11.5,
-  },
   stars: {
     flexDirection: 'row',
     gap: 1,
+  },
+  reply: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: Radius.button,
+    paddingVertical: 10,
   },
 });

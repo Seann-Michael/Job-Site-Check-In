@@ -5,7 +5,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 
 import { Badge, Button, Card, IconTile, type IconName, type Tone } from '@/components/ui/basics';
 import { Screen, ScreenHeader, Section } from '@/components/ui/screen';
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
+import { useRole } from '@/hooks/use-role';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { notify } from '@/lib/format';
@@ -93,55 +94,73 @@ function ProfileCard({
 }) {
   const { colors } = useTheme();
   const scoreColor = score >= 80 ? colors.success : score >= 60 ? colors.warning : colors.danger;
+  const scoreTone: Tone = score >= 80 ? 'success' : score >= 60 ? 'warning' : 'danger';
   return (
-    <Card style={{ gap: Spacing.md }}>
+    <Card style={{ gap: Spacing.lg }}>
       <View style={styles.profileRow}>
-        <IconTile icon="storefront-outline" size={44} />
+        <IconTile icon="storefront" size={46} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[styles.businessName, { color: colors.text }]}>{name}</Text>
-          <Text style={{ fontSize: 13, color: colors.textSecondary }} numberOfLines={1}>
+          <Text style={[Typography.h2, { color: colors.text }]} numberOfLines={1}>
+            {name}
+          </Text>
+          <Text style={[Typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
             {category}
           </Text>
         </View>
         <Badge label={badge.label} tone={badge.tone} />
       </View>
+
+      {/* Bold score block + completeness bar. */}
+      <View style={[styles.scoreBlock, { backgroundColor: colors.cardPressed }]}>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text style={[Typography.eyebrow, { color: colors.textMuted }]}>PROFILE SCORE</Text>
+          <View style={[styles.scoreTrack, { backgroundColor: colors.border }]}>
+            <View
+              style={[
+                styles.scoreFill,
+                { backgroundColor: scoreColor, width: `${Math.min(100, Math.max(0, score))}%` },
+              ]}
+            />
+          </View>
+          <Text style={[Typography.caption, { color: colors.textSecondary }]}>
+            {score >= 80 ? 'Looking strong' : score >= 60 ? 'A few gaps to close' : 'Needs attention'}
+          </Text>
+        </View>
+        <View style={styles.scoreNumberWrap}>
+          <Text style={[Typography.display, { color: scoreColor }]}>{score}</Text>
+          <Text style={[Typography.caption, { color: colors.textMuted }]}>/ 100</Text>
+        </View>
+      </View>
+
       <View style={styles.metricsRow}>
         <View style={styles.metric}>
           <View style={styles.metricValueRow}>
-            <Ionicons name="star" size={14} color={colors.star} />
-            <Text style={[styles.metricValue, { color: colors.text }]}>
+            <Ionicons name="star" size={15} color={colors.star} />
+            <Text style={[Typography.h1, { color: colors.text }]}>
               {rating != null ? rating.toFixed(1) : '—'}
             </Text>
           </View>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+          <Text style={[Typography.caption, { color: colors.textSecondary }]}>
             {reviewCount} reviews
           </Text>
         </View>
         <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: colors.text }]}>{photoCount}</Text>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>photos</Text>
+          <Text style={[Typography.h1, { color: colors.text }]}>{photoCount}</Text>
+          <Text style={[Typography.caption, { color: colors.textSecondary }]}>photos</Text>
         </View>
         <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: scoreColor }]}>{score}</Text>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>profile score</Text>
+          <Badge label={score >= 80 ? 'Healthy' : 'Improve'} tone={scoreTone} />
         </View>
       </View>
-      <View style={[styles.scoreTrack, { backgroundColor: colors.cardPressed }]}>
-        <View
-          style={[
-            styles.scoreFill,
-            { backgroundColor: scoreColor, width: `${Math.min(100, Math.max(0, score))}%` },
-          ]}
-        />
-      </View>
+
       {onScan ? (
         <Button
-          label={scanning ? 'Scanning...' : 'Scan profile'}
-          icon="refresh"
-          variant="secondary"
+          label={scanning ? 'Syncing…' : 'Sync from Google'}
+          icon="sync"
           loading={scanning}
+          fullWidth
           onPress={onScan}
         />
       ) : null}
@@ -265,6 +284,7 @@ function RecentPosts() {
 
 export default function GmbScreen() {
   const { colors } = useTheme();
+  const { isViewer, canWrite } = useRole();
   const { data, loading, refreshing, refresh } = useData(fetchGmbData);
 
   const [scanning, setScanning] = useState(false);
@@ -320,7 +340,7 @@ export default function GmbScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <ScreenHeader title="GMB Profile" subtitle="Google Business Profile" />
+      <ScreenHeader title="GMB Profile" subtitle="Google Business Profile" readOnly={isViewer} />
 
       {loading || !data ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
@@ -386,7 +406,7 @@ export default function GmbScreen() {
                 ? 'Search your business name...'
                 : 'Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to search'
             }
-            editable={isPlacesConfigured && !connecting}
+            editable={isPlacesConfigured && !connecting && canWrite}
             placeholderTextColor={colors.textMuted}
             style={[
               styles.searchInput,
@@ -427,7 +447,7 @@ export default function GmbScreen() {
             photoCount={data.profile.photos?.length ?? 0}
             score={data.profile.overall_score}
             badge={{ label: 'Connected', tone: 'success' }}
-            onScan={isPlacesConfigured ? handleScan : undefined}
+            onScan={isPlacesConfigured && canWrite ? handleScan : undefined}
             scanning={scanning}
           />
           <Section title="Manage">
@@ -470,6 +490,16 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  scoreBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+  },
+  scoreNumberWrap: {
+    alignItems: 'center',
   },
   metricsRow: {
     flexDirection: 'row',

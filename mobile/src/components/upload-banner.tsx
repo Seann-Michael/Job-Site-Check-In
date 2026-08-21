@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.button,
+    paddingHorizontal: Spacing.md + 2,
+    paddingVertical: Spacing.md,
   },
   text: {
     flex: 1,

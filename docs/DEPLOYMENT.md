@@ -76,7 +76,6 @@ Set these in the dashboard (App -> Settings -> `web` -> Environment Variables).
 | `DATAFORSEO_USERNAME`, `DATAFORSEO_PASSWORD`            | SECRET |                                                                                                         |
 | `DATAFORSEO_DAILY_LIMIT`                                | value  | per-user daily quota (default 200)                                                                      |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`            | SECRET | payments are not live; see DEFERRED_WORK.md                                                             |
-| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`              | SECRET | payments are not live; see DEFERRED_WORK.md                                                             |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | SECRET |                                                                                                |
 
 `server/lib/env.ts` refuses to boot without the two Supabase vars and logs

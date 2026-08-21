@@ -14,9 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
 import { ReviewCard } from '@/components/review-card';
-import { Button, Card, EmptyState, IconTile, Segmented, StatTile } from '@/components/ui/basics';
+import { Button, Card, EmptyState, IconTile, KpiRow, Segmented, StatCard } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
+import { useRole } from '@/hooks/use-role';
 import { useTheme } from '@/hooks/use-theme';
 import { dataErrors, fetchJobs, fetchReviewRequests } from '@/lib/data';
 import { JOB_STATUS_LABELS } from '@/lib/format';
@@ -38,6 +39,7 @@ export default function ReviewsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isViewer } = useRole();
   const { data: requests, loading, refreshing, refresh } = useData(fetchReviewRequests);
   const [tab, setTab] = useState('current');
   // Tells "no requests in this stage" apart from "the review query failed".
@@ -104,12 +106,17 @@ export default function ReviewsScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Screen refreshing={refreshing} onRefresh={refresh}>
-        <ScreenHeader title="Reviews" subtitle="Request pipeline" />
-        <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-          <StatTile value={String(stats.total)} label="Requests" tone="primary" />
-          <StatTile value={String(stats.completed)} label="Completed" tone="success" />
-          <StatTile value={stats.avg} label="Avg rating" tone="warning" />
-        </View>
+        <ScreenHeader title="Reviews" subtitle="Request pipeline" readOnly={isViewer} />
+        <KpiRow>
+          <StatCard icon="star" tone="warning" value={stats.avg} label="Avg rating" />
+          <StatCard icon="paper-plane" tone="primary" value={String(stats.total)} label="Requests" />
+          <StatCard
+            icon="checkmark-done"
+            tone="success"
+            value={String(stats.completed)}
+            label="Completed"
+          />
+        </KpiRow>
 
         {/*
           The FAB used to be a paper plane onto a flow that told people a
@@ -118,11 +125,11 @@ export default function ReviewsScreen() {
         */}
         <Card style={{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md }}>
           <IconTile icon="qr-code-outline" tone="primary" />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 14.5, fontWeight: '700', color: colors.text }}>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={[Typography.bodyStrong, { color: colors.text }]}>
               Best on the spot: a QR code
             </Text>
-            <Text style={{ fontSize: 13, lineHeight: 19, color: colors.textSecondary }}>
+            <Text style={[Typography.body, { color: colors.textSecondary }]}>
               {REVIEW_DELIVERY_NOTE}
             </Text>
           </View>
@@ -252,8 +259,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
+    borderTopLeftRadius: Radius.sheet + 6,
+    borderTopRightRadius: Radius.sheet + 6,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     gap: Spacing.sm,
@@ -288,14 +295,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.button,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
   },
   cancel: {
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.button,
     paddingVertical: Spacing.md,
     marginTop: Spacing.xs,
   },

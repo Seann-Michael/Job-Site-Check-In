@@ -6,7 +6,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SearchBar } from '@/components/search-bar';
 import { Avatar, Button, Card, EmptyState, IconTile } from '@/components/ui/basics';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
+import { useRole } from '@/hooks/use-role';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
 import { clientDisplayName, fetchClients } from '@/lib/clients';
@@ -19,6 +20,7 @@ import { useAuth } from '@/providers/auth-provider';
 export default function ClientsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { canWrite, isViewer } = useRole();
   const { user, initializing } = useAuth();
   const { data: clients, loading, refreshing, refresh } = useData(fetchClients);
   React.useEffect(() => clientsStore.subscribe(refresh), [refresh]);
@@ -88,7 +90,12 @@ export default function ClientsScreen() {
       <ScreenHeader
         title="Clients"
         subtitle="Everyone you've worked with"
-        actions={[{ icon: 'person-add-outline', onPress: () => router.push('/client/edit') }]}
+        readOnly={isViewer}
+        actions={
+          canWrite
+            ? [{ icon: 'person-add-outline', onPress: () => router.push('/client/edit') }]
+            : []
+        }
       />
       <SearchBar value={query} onChangeText={setQuery} placeholder="Search clients..." />
       {/* A banner, not a replacement. Both channels are process-global and are
@@ -141,27 +148,27 @@ export default function ClientsScreen() {
             <View style={styles.row}>
               {/* Same label and initials the detail screen uses, so a client
                   cannot appear under two different names in one session. */}
-              <Avatar name={clientDisplayName(client)} size={42} />
+              <Avatar name={clientDisplayName(client)} size={46} />
               <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                <Text style={[Typography.bodyStrong, { color: colors.text }]} numberOfLines={1}>
                   {clientDisplayName(client)}
                 </Text>
                 {client.business_name && client.business_name !== clientDisplayName(client) ? (
-                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
+                  <Text style={[Typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
                     {client.business_name}
                   </Text>
                 ) : null}
-                <Text style={{ fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
+                <Text style={[Typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
                   {[client.phone, client.email].filter(Boolean).join(' · ') || 'No contact info'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text }}>
+                <Text style={[Typography.label, { color: colors.text }]}>
                   {client.jobs_count} {client.jobs_count === 1 ? 'job' : 'jobs'}
                 </Text>
                 {client.last_job_at ? (
-                  <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
-                    last {formatDate(client.last_job_at)}
+                  <Text style={[Typography.caption, { color: colors.textMuted }]}>
+                    {formatDate(client.last_job_at)}
                   </Text>
                 ) : null}
               </View>

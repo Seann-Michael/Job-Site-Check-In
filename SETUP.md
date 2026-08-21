@@ -4,7 +4,7 @@
 
 - Node 20.19+ (22 works; see `engines` in `package.json`)
 - A Supabase project (free tier is fine)
-- Optional: Google Maps API key, OpenAI key, DataForSEO, Stripe/PayPal, Twilio
+- Optional: Google Maps API key, OpenAI key, DataForSEO, Stripe, Twilio
 
 ## 1. Install
 
