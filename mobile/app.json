@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.localseoranker.app"
+      "bundleIdentifier": "com.localseoranker.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.localseoranker.app",
@@ -63,7 +66,10 @@
       "//revenuecat": "RevenueCat SDK keys. These Test Store (sandbox) keys are public and safe to ship; override in production via EXPO_PUBLIC_REVENUECAT_IOS_KEY / _ANDROID_KEY once real App Store / Play Store apps are connected.",
       "revenuecatIosKey": "test_mANceDqkjcyXJdIdFUInPDUvrUo",
       "revenuecatAndroidKey": "test_mANceDqkjcyXJdIdFUInPDUvrUo",
-      "revenuecatEntitlement": "Local SEO Ranker Pro"
+      "revenuecatEntitlement": "Local SEO Ranker Pro",
+      "eas": {
+        "projectId": "a1f5d43d-e857-422e-9cdc-74cb68ac27aa"
+      }
     }
   }
 }
