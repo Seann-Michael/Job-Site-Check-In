@@ -7,6 +7,7 @@ import { StampHost } from '@/components/stamp-host';
 import { useTheme } from '@/hooks/use-theme';
 import { notify } from '@/lib/format';
 import { recoverPendingCapture } from '@/lib/media-capture';
+import { initNotifications } from '@/lib/notifications';
 import { uploadQueue } from '@/lib/upload-queue';
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemePreferenceProvider } from '@/providers/theme-preference';
@@ -15,6 +16,9 @@ function RootNavigator() {
   const { colors, isDark } = useTheme();
 
   useEffect(() => {
+    // Set up notification handler now that the native layer is ready.
+    initNotifications();
+
     // Android: finish saving a photo if the OS killed the app mid-capture.
     recoverPendingCapture().then((result) => {
       if (result?.item) {

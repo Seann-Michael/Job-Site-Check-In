@@ -13,14 +13,23 @@ import type { Job } from '@/lib/types';
 
 const PREFS_KEY = 'lsr-notification-prefs-v1';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+/**
+ * Must be called once from the root layout's useEffect (not at module level)
+ * so the native UNUserNotificationCenter delegate is set up before any handler
+ * is registered. Calling it at module level causes an iOS crash when the
+ * expo-notifications native layer hasn't initialised yet.
+ */
+export function initNotifications(): void {
+  if (Platform.OS === 'web') return;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 async function jobRemindersEnabled(): Promise<boolean> {
   try {
