@@ -25,7 +25,6 @@ import {
   Database,
   Mail,
   Lock,
-  AlertTriangle,
   Globe,
   Zap,
   User,
@@ -74,7 +73,6 @@ export default function AppPages() {
         { name: "Job Detail", path: "/job/:id", description: "Photos, documents, tasks and activity for one job", icon: FileText },
         { name: "Gallery", path: "/admin/gallery", description: "Photo and video gallery across all jobs", icon: Camera },
         { name: "Public Job Page", path: "/public/job/:id", description: "Shareable public view of a job", icon: Globe },
-        { name: "Public Gallery", path: "/g/:token", description: "Shareable gallery link", icon: Camera },
       ],
     },
     {
@@ -110,7 +108,6 @@ export default function AppPages() {
         { name: "Profile", path: "/admin/profile", description: "Your user profile", icon: User },
         { name: "Settings", path: "/admin/settings", description: "Business settings", icon: Settings },
         { name: "Payments", path: "/admin/payments", description: "Billing and payments", icon: CreditCard },
-        { name: "Crash Logs", path: "/admin/crash-logs", description: "Client-side error reports", icon: AlertTriangle },
         { name: "App Pages", path: "/admin/app-pages", description: "This directory", icon: Layers },
       ],
     },

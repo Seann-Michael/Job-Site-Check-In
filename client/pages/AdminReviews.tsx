@@ -148,7 +148,7 @@ function ReviewDataTable({
     ? "No active review requests."
     : tab === "past"
     ? "No past requests yet."
-    : "No scheduled requests.";
+    : "No requests waiting to be sent.";
 
   const from = totalFiltered === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, totalFiltered);
@@ -201,7 +201,7 @@ function ReviewDataTable({
                     className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 hidden lg:table-cell cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                     onClick={() => onSort("sentAt")}
                   >
-                    {tab === "scheduled" ? "Scheduled For" : "Sent Date"}{" "}
+                    {tab === "scheduled" ? "Created" : "Sent Date"}{" "}
                     <SortIcon field="sentAt" />
                   </th>
                   {tab === "current" && (
@@ -528,14 +528,47 @@ export default function AdminReviews() {
   };
 
   useEffect(() => {
+    // loadReviewData awaits workspace init itself, so the cold-load call below
+    // runs scoped once init lands. The subscription re-runs the load whenever
+    // the active business changes afterwards (e.g. company switcher) — without
+    // it a multi-location customer keeps seeing the business they started on.
     loadReviewData();
+    let lastBusinessId: string | null | undefined;
+    const unsubscribe = workspaceService.subscribe((state) => {
+      if (
+        lastBusinessId !== undefined &&
+        state.currentBusinessId !== lastBusinessId
+      ) {
+        loadReviewData();
+      }
+      lastBusinessId = state.currentBusinessId;
+    });
+    return unsubscribe;
   }, []);
 
   const loadReviewData = async () => {
+    // Scope every read to the active business. RLS keeps these in-tenant, but
+    // a customer with several locations would otherwise see them merged with
+    // no indication, and a super admin would see the whole platform.
+    const { currentBusinessId: businessId } = await workspaceService.whenReady();
+    if (!businessId) {
+      // Fail closed: no workspace means no tenant to scope to.
+      setReviewRequests([]);
+      setStats({
+        totalRequests: 0,
+        completionRate: 0,
+        averageRating: 0,
+        googleRedirects: 0,
+        sentThisMonth: 0,
+      });
+      return;
+    }
+
     // Load completed reviews from Supabase
     const { data: supabaseReviews } = await supabase
       .from("reviews")
       .select("id, business_id, platform, rating, title, text, author, date, metadata, created_at")
+      .eq("business_id", businessId)
       .order("date", { ascending: false });
 
     // Map Supabase reviews to ReviewRequest shape. The review gate records its
@@ -568,6 +601,7 @@ export default function AdminReviews() {
     const { data: pendingRows } = await supabase
       .from("review_requests")
       .select("*")
+      .eq("business_id", businessId)
       .order("created_at", { ascending: false });
 
     const pendingReviews: ReviewRequest[] = (pendingRows ?? [])
@@ -634,14 +668,16 @@ export default function AdminReviews() {
     let requestId = isExistingRequest ? activeRequest.id : null;
 
     if (isExistingRequest) {
-      // Persist the send so the row leaves Scheduled/Expired on every client
-      if (
-        activeRequest.status === "scheduled" ||
-        activeRequest.status === "expired"
-      ) {
+      // Re-queue an expired row so it leaves Past on every client. It does NOT
+      // become "sent": handing the message to the operator's messaging app is
+      // not a delivery this app can confirm.
+      if (activeRequest.status === "expired") {
         const { error } = await supabase
           .from("review_requests")
-          .update({ status: "sent", sent_at: new Date().toISOString() })
+          .update({
+            status: "scheduled",
+            scheduled_for: new Date().toISOString(),
+          })
           .eq("id", activeRequest.id);
         if (error) {
           toast.error(`Could not update the review request: ${error.message}`);
@@ -663,14 +699,20 @@ export default function AdminReviews() {
         );
         return;
       }
+      // Status is "scheduled", not "sent": all this flow does is hand the
+      // message to the operator's own SMS/mail app (a no-op on desktop).
+      // Nothing here can confirm a delivery, so the row must not claim one —
+      // "sent" is reserved for requests an actual sender (e.g. the Twilio
+      // route) delivered. The CHECK constraint allows only
+      // sent/viewed/scheduled/expired, and "scheduled" is the honest one.
       const { data, error } = await supabase
         .from("review_requests")
         .insert({
           customer_name: details.customerName,
           customer_phone: details.customerPhone,
           project_name: details.projectName || "Project",
-          status: "sent",
-          sent_at: new Date().toISOString(),
+          status: "scheduled",
+          scheduled_for: new Date().toISOString(),
           business_id: currentBusinessId,
         })
         .select("id")
@@ -705,9 +747,10 @@ export default function AdminReviews() {
     }
 
     // Honest wording: this opens the operator's own messaging app — nothing is
-    // delivered until they hit send there.
+    // delivered until they hit send there, so the request is listed under
+    // "Scheduled" rather than as sent.
     toast.success(
-      "Request saved — finish sending the message in the app that just opened",
+      "Request saved under Scheduled — finish sending the message in the app that just opened",
     );
     setShowReviewRequest(false);
     setActiveRequest(null);
@@ -804,7 +847,8 @@ export default function AdminReviews() {
       case "expired":
         return <Badge variant="destructive">Expired</Badge>;
       case "scheduled":
-        return <Badge className="bg-sky-500">Scheduled</Badge>;
+        // Queued, not delivered — the app has no proof anything was sent.
+        return <Badge className="bg-sky-500">Not sent yet</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

@@ -55,6 +55,13 @@ export default function Onboarding() {
     category: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * Persistent failure message for the whole signup flow. A toast is not
+   * enough here: this is the only screen the user can get past, and
+   * ProtectedRoute sends them straight back to it, so the reason it failed has
+   * to stay on the page.
+   */
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const update = (field: keyof typeof form, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -79,6 +86,7 @@ export default function Onboarding() {
     }
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       // owner_id and account_id are set server-side (owner_id in createBusiness,
       // account_id by a DB trigger) — do NOT send account_id here.
@@ -102,10 +110,9 @@ export default function Onboarding() {
       toast.success("Business created! Welcome aboard.");
       navigate("/admin/jobs", { replace: true });
     } catch (err) {
-      toast.error(
-        "Could not create your business: " +
-          (err instanceof Error ? err.message : "Unknown error"),
-      );
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setSubmitError(message);
+      toast.error("Could not create your business: " + message);
     } finally {
       setSubmitting(false);
     }
@@ -187,6 +194,7 @@ export default function Onboarding() {
                 <div className="space-y-1.5">
                   <Label htmlFor="state">State</Label>
                   <USStatesSelect
+                    id="state"
                     value={form.state}
                     onValueChange={(value) => update("state", value)}
                     placeholder="State"
@@ -221,12 +229,34 @@ export default function Onboarding() {
                 </Select>
               </div>
 
+              {submitError && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+                >
+                  <p className="font-medium text-destructive">
+                    We couldn't create your business
+                  </p>
+                  <p className="mt-1 text-muted-foreground break-words">
+                    {submitError}
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    Nothing was saved. Check the details above and try again — if
+                    this keeps happening, send this message to support.
+                  </p>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-11 font-semibold"
                 disabled={submitting}
               >
-                {submitting ? "Creating…" : "Create Business"}
+                {submitting
+                  ? "Creating…"
+                  : submitError
+                    ? "Try again"
+                    : "Create Business"}
               </Button>
             </form>
 

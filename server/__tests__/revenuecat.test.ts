@@ -9,6 +9,7 @@ import request from "supertest";
 const WEBHOOK_AUTH = "rc_test_secret_header";
 const BIZ = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const PLAN = "11111111-1111-4111-8111-111111111111";
+const PLAY_ONLY_PLAN = "22222222-2222-4222-8222-222222222222";
 const USER = "owner-id";
 
 const state = {
@@ -19,13 +20,20 @@ const state = {
 };
 function reset() {
   state.businesses = [{ id: BIZ, owner_id: USER, name: "Biz", created_at: "2026-01-01T00:00:00Z" }];
-  state.plans = [{ id: PLAN, name: "Pro", apple_product_id: "pro_monthly", google_product_id: "pro_monthly", revenuecat_entitlement_id: "pro" }];
+  state.plans = [
+    { id: PLAN, name: "Pro", apple_product_id: "pro_monthly", google_product_id: "pro_monthly", revenuecat_entitlement_id: "pro" },
+    { id: PLAY_ONLY_PLAN, name: "Play Only", apple_product_id: null, google_product_id: "play_only_monthly", revenuecat_entitlement_id: "play" },
+  ];
   state.subscriptions = [];
   state.billing_records = [];
+  orFilterCalls.length = 0;
 }
 function tableFor(name: string): any[] {
   return (state as any)[name] ?? [];
 }
+
+/** Every raw PostgREST `.or()` filter string the handler built. */
+export const orFilterCalls: string[] = [];
 
 function query(table: string) {
   const filters: Record<string, any> = {};
@@ -59,6 +67,7 @@ function query(table: string) {
     limit: () => api,
     eq: (c: string, v: any) => ((filters[c] = v), api),
     or: (expr: string) => {
+      orFilterCalls.push(expr);
       expr.split(",").forEach((clause) => {
         const [col, opName, val] = clause.split(".");
         if (opName === "eq") orClauses.push([col, val]);
@@ -151,6 +160,38 @@ describe("RevenueCat webhook", () => {
       event: { type: "EXPIRATION", app_user_id: USER, product_id: "pro_monthly", store: "APP_STORE", transaction_id: "txn_3" },
     });
     expect(state.subscriptions[0].status).toBe("canceled");
+  });
+
+  it("matches a product id that only exists on google_product_id", async () => {
+    const res = await request(app).post(url).set("Authorization", WEBHOOK_AUTH).send({
+      event: { type: "INITIAL_PURCHASE", app_user_id: USER, product_id: "play_only_monthly", store: "PLAY_STORE", transaction_id: "txn_play" },
+    });
+    expect(res.status).toBe(200);
+    expect(state.subscriptions[0].plan_id).toBe(PLAY_ONLY_PLAN);
+  });
+
+  it("does not let a crafted product_id rewrite the plan lookup filter", async () => {
+    // Previously the lookup was
+    //   .or(`apple_product_id.eq.${productId},google_product_id.eq.${productId}`)
+    // so a webhook-supplied value containing PostgREST filter syntax could
+    // widen the filter and match an arbitrary plan row.
+    const injections = [
+      "nope,apple_product_id.not.is.null",
+      "nope,id.eq." + PLAN,
+      "nope),or(apple_product_id.not.is.null",
+      "nope,revenuecat_entitlement_id.like.*",
+    ];
+    for (const productId of injections) {
+      reset();
+      const res = await request(app).post(url).set("Authorization", WEBHOOK_AUTH).send({
+        event: { type: "INITIAL_PURCHASE", app_user_id: USER, product_id: productId, store: "APP_STORE", transaction_id: "txn_inj" },
+      });
+      expect(res.status, productId).toBe(200);
+      // No raw filter expression is ever built from webhook input...
+      expect(orFilterCalls, productId).toHaveLength(0);
+      // ...and the crafted value matches nothing.
+      expect(state.subscriptions[0].plan_id, productId).toBeNull();
+    }
   });
 
   it("acknowledges but does not apply when no business matches", async () => {

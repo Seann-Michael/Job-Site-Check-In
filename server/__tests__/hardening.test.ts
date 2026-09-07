@@ -309,6 +309,29 @@ describe("POST /api/workflows/webhook/:id timestamp replay protection", () => {
     expect(res.status).toBe(200);
     expect(res.body.executionId).toBe("exec-1");
   });
+
+  it("409s on a replay of an accepted request (same signature, inside the window)", async () => {
+    // A distinct body so this signature is unique to this test.
+    const replayBody = JSON.stringify({ hello: "replay" });
+    const { signature, timestamp } = signWithTimestamp(WEBHOOK_SECRET, replayBody);
+    const send = () =>
+      request(app)
+        .post("/api/workflows/webhook/wf-1")
+        .set("Content-Type", "application/json")
+        .set({ "x-webhook-signature": signature, "x-webhook-timestamp": timestamp })
+        .send(replayBody);
+
+    const first = await send();
+    expect(first.status).toBe(200);
+    expect(first.body.executionId).toBe("exec-1");
+
+    const replay = await send();
+    expect(replay.status).toBe(409);
+    expect(replay.body.error).toMatch(/already been processed/i);
+
+    // A third attempt is still refused.
+    expect((await send()).status).toBe(409);
+  });
 });
 
 // ── (e) canWrite on media ─────────────────────────────────────────────────────

@@ -48,7 +48,6 @@ import {
   Plus,
   MessageSquare,
   Clock,
-  AlertTriangle,
   CheckCircle,
   MoreVertical,
   Eye,
@@ -56,7 +55,6 @@ import {
   Paperclip,
   Activity,
   FileText,
-  Download,
   RefreshCw,
   Users,
 } from "lucide-react";
@@ -66,7 +64,6 @@ import { isAgencyAdmin, isSuperAdmin, getCurrentUser } from "@/lib/auth";
 import { ArrowUpDown } from "lucide-react";
 import { supabase } from "@/lib/dataService";
 import { Link } from "react-router-dom";
-import { downloadCsv } from "@/lib/dataExport";
 
 interface SupportTicket {
   id: string;
@@ -90,27 +87,10 @@ interface TicketResponse {
   isStaff: boolean;
 }
 
-interface CrashLogRow {
-  id: string;
-  timestamp: string;
-  severity: string;
-  component: string;
-  message: string;
-  stack: string | null;
-  user_id: string | null;
-  url: string;
-  count: number;
-  resolved: boolean;
-}
 
 export default function Support() {
   const { toast } = useToast();
   const [ticketsLoading, setTicketsLoading] = useState(true);
-  const [crashLogs, setCrashLogs] = useState<CrashLogRow[]>([]);
-  const [crashLoading, setCrashLoading] = useState(true);
-  const [crashError, setCrashError] = useState<string | null>(null);
-  const [crashSeverity, setCrashSeverity] = useState("all");
-  const [crashSearch, setCrashSearch] = useState("");
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [sortField, setSortField] = useState<string>("createdDate");
@@ -143,61 +123,8 @@ export default function Support() {
 
   useEffect(() => {
     loadTickets();
-    loadCrashLogs();
   }, []);
 
-  const loadCrashLogs = async () => {
-    setCrashLoading(true);
-    setCrashError(null);
-    try {
-      let query = supabase
-        .from("crash_logs")
-        .select("id, timestamp, severity, component, message, stack, user_id, url, count, resolved")
-        .order("timestamp", { ascending: false })
-        .limit(200);
-      if (!isSuperAdmin()) {
-        const user = getCurrentUser();
-        if (!user?.id) {
-          setCrashLogs([]);
-          return;
-        }
-        query = query.eq("user_id", String(user.id));
-      }
-      const { data, error } = await query;
-      if (error) throw error;
-      setCrashLogs((data ?? []) as CrashLogRow[]);
-    } catch (err: any) {
-      setCrashError(err?.message ?? "Failed to load error reports");
-    } finally {
-      setCrashLoading(false);
-    }
-  };
-
-  const filteredCrashLogs = crashLogs.filter((log) => {
-    if (crashSeverity !== "all" && log.severity !== crashSeverity) return false;
-    const q = crashSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      (log.message ?? "").toLowerCase().includes(q) ||
-      (log.component ?? "").toLowerCase().includes(q)
-    );
-  });
-
-  const exportCrashLogs = () => {
-    downloadCsv(
-      "error-reports",
-      filteredCrashLogs.map((l) => ({
-        timestamp: l.timestamp,
-        severity: l.severity,
-        component: l.component,
-        message: l.message,
-        url: l.url,
-        count: l.count,
-        resolved: l.resolved ? "yes" : "no",
-        stack: l.stack ?? "",
-      })),
-    );
-  };
 
   const getCurrentUserRole = () => {
     if (isSuperAdmin()) return "super-admin";
@@ -509,18 +436,6 @@ export default function Support() {
           </div>
           <div className="flex gap-2">
             <Button
-              variant="outline"
-              onClick={() => {
-                document.getElementById("crash-logs-section")?.scrollIntoView({
-                  behavior: "smooth",
-                });
-              }}
-              className="gap-2"
-            >
-              <AlertTriangle className="h-4 w-4" />
-              View Error Logs
-            </Button>
-            <Button
               onClick={() => setShowCreateForm(true)}
               className="gap-2"
               disabled={showCreateForm}
@@ -532,30 +447,7 @@ export default function Support() {
         </div>
 
         {/* Quick Access Dashboard */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => {
-              document.getElementById("crash-logs-section")?.scrollIntoView({
-                behavior: "smooth",
-              });
-            }}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <div className="font-semibold text-red-800">7 Critical</div>
-                  <div className="text-sm text-muted-foreground">
-                    Crash Reports
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="grid gap-4 md:grid-cols-3">
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -647,7 +539,7 @@ export default function Support() {
                       setFormData((prev) => ({ ...prev, category: value }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -672,7 +564,7 @@ export default function Support() {
                     }))
                   }
                 >
-                  <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectTrigger id="priority" className="w-full md:w-[200px]">
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -866,138 +758,6 @@ export default function Support() {
           </CardContent>
         </Card>
 
-        {/* Error Reports (crash_logs) */}
-        <Card id="crash-logs-section">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Recent Error Reports
-              </div>
-              <div className="flex gap-2">
-                <Select value={crashSeverity} onValueChange={setCrashSeverity}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by severity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All severities</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="error">Error</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
-                    <SelectItem value="info">Info</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadCrashLogs}
-                  disabled={crashLoading}
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 mr-2 ${crashLoading ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportCrashLogs}
-                  disabled={filteredCrashLogs.length === 0}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
-                </Button>
-              </div>
-            </CardTitle>
-            <CardDescription>
-              {isSuperAdmin()
-                ? "Errors reported by the app across all accounts."
-                : "Errors reported by the app while you were signed in."}{" "}
-              <Link to="/admin/crash-logs" className="text-primary hover:underline">
-                Open full crash log
-              </Link>
-            </CardDescription>
-            <div className="mt-4">
-              <Input
-                placeholder="Search messages or components…"
-                value={crashSearch}
-                onChange={(e) => setCrashSearch(e.target.value)}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {crashError && (
-              <div className="mb-4 flex items-center gap-2 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                <AlertTriangle className="h-4 w-4" /> {crashError}
-              </div>
-            )}
-            {crashLoading ? (
-              <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-                <RefreshCw className="h-4 w-4 animate-spin" /> Loading error reports…
-              </div>
-            ) : filteredCrashLogs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                <p>No error reports{crashLogs.length > 0 ? " match your filters" : ""}.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredCrashLogs.slice(0, 25).map((log) => {
-                  const tone =
-                    log.severity === "critical" || log.severity === "error"
-                      ? "border-red-200 bg-red-50 text-red-800"
-                      : log.severity === "warning"
-                        ? "border-yellow-200 bg-yellow-50 text-yellow-800"
-                        : "border-blue-200 bg-blue-50 text-blue-800";
-                  return (
-                    <div key={log.id} className={`p-3 border rounded-lg ${tone}`}>
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <AlertTriangle className="h-4 w-4 shrink-0" />
-                          <span className="font-medium truncate">
-                            {log.component || "Unknown component"}
-                          </span>
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {log.severity}
-                          </Badge>
-                          {log.resolved && (
-                            <Badge variant="secondary" className="text-xs">
-                              Resolved
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-xs whitespace-nowrap">
-                          {new Date(log.timestamp).toLocaleString()}
-                          {log.count > 1 ? ` · ×${log.count}` : ""}
-                        </span>
-                      </div>
-                      <div className="text-sm break-words">{log.message}</div>
-                      {log.stack && (
-                        <details className="mt-2">
-                          <summary className="text-xs cursor-pointer">Stack trace</summary>
-                          <pre className="text-xs font-mono bg-white/60 p-2 rounded mt-1 overflow-x-auto whitespace-pre-wrap">
-                            {log.stack}
-                          </pre>
-                        </details>
-                      )}
-                      {log.url && (
-                        <div className="text-xs mt-1 truncate opacity-80">{log.url}</div>
-                      )}
-                    </div>
-                  );
-                })}
-                {filteredCrashLogs.length > 25 && (
-                  <p className="text-xs text-muted-foreground text-center pt-2">
-                    Showing 25 of {filteredCrashLogs.length}.{" "}
-                    <Link to="/admin/crash-logs" className="text-primary hover:underline">
-                      View all
-                    </Link>
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Quick Help Section */}
         <div className="grid gap-4 md:grid-cols-2">

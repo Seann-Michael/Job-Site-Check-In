@@ -541,7 +541,10 @@ export default function Settings() {
         "/api/oauth/google_my_business/start",
         {
           method: "POST",
-          body: JSON.stringify({ workspace_id: settings.subAccountId || undefined }),
+          // Pass the object, not a JSON string: apiFetch only sets
+          // Content-Type: application/json for object bodies, and without that
+          // header express.json() skips the body and workspace_id never arrives.
+          body: { workspace_id: settings.subAccountId || undefined },
         },
       );
       popup.location.href = authorizeUrl;

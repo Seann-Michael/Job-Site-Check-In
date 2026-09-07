@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   ThumbsUp,
-  ThumbsDown,
   MessageSquare,
   ArrowLeft,
   Calendar,
@@ -71,13 +70,24 @@ export default function IdeaDetail() {
     setLoading(true);
     try {
       // Load idea and comments in parallel
-      const [ideaRes, commentsRes] = await Promise.all([
+      const userId = currentUser?.id ?? "";
+      const [ideaRes, commentsRes, voteRes] = await Promise.all([
         supabaseClient.from("ideas").select("*").eq("id", id).maybeSingle(),
         supabaseClient
           .from("idea_comments")
           .select("*")
           .eq("idea_id", id)
           .order("created_at", { ascending: true }),
+        // RLS on idea_votes is `user_id = auth.uid()::text`, so this is the
+        // only vote row the client can read — and the only key it can use.
+        userId
+          ? supabaseClient
+              .from("idea_votes")
+              .select("id")
+              .eq("idea_id", id)
+              .eq("user_id", userId)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null } as any),
       ]);
 
       if (ideaRes.error || !ideaRes.data) {
@@ -101,15 +111,18 @@ export default function IdeaDetail() {
         isAdmin: c.is_admin ?? false,
       }));
 
+      const hasVoted = Boolean(voteRes?.data);
       setIdea({
         id: data.id,
         title: data.title,
         description: data.description,
         category: data.category,
         status: statusMap[data.status] ?? "submitted",
-        upvotes: data.upvotes ?? 0,
+        // The stored aggregate plus this user's own vote — the vote itself is
+        // never written back to `ideas` (only super admins may update it).
+        upvotes: (data.upvotes ?? 0) + (hasVoted ? 1 : 0),
         downvotes: data.downvotes ?? 0,
-        userVote: null,
+        userVote: hasVoted ? "up" : null,
         author: data.author_name,
         createdAt: data.created_at,
         comments,
@@ -122,42 +135,55 @@ export default function IdeaDetail() {
     }
   };
 
-  const handleVote = async (voteType: "up" | "down") => {
+  const handleVote = async () => {
     if (!idea) return;
 
-    let newUpvotes = idea.upvotes;
-    let newDownvotes = idea.downvotes;
-    let newUserVote: "up" | "down" | null = voteType;
-
-    if (idea.userVote === "up") newUpvotes--;
-    else if (idea.userVote === "down") newDownvotes--;
-
-    if (idea.userVote === voteType) {
-      newUserVote = null;
-    } else {
-      if (voteType === "up") newUpvotes++;
-      else newDownvotes++;
+    const userId = currentUser?.id || "";
+    if (!userId) {
+      toast.error("You must be logged in to vote");
+      return;
     }
 
-    // Optimistic UI update
-    setIdea({ ...idea, upvotes: newUpvotes, downvotes: newDownvotes, userVote: newUserVote });
+    const wasVoted = idea.userVote === "up";
+    const newUserVote: "up" | null = wasVoted ? null : "up";
+
+    // Optimistic UI update. `ideas.upvotes` is deliberately NOT written: only
+    // super admins may update that table, so the write failed silently and the
+    // vote appeared to work while nothing was stored.
+    setIdea({
+      ...idea,
+      upvotes: idea.upvotes + (wasVoted ? -1 : 1),
+      userVote: newUserVote,
+    });
 
     try {
-      const userEmail = currentUser?.email || "";
-
-      await supabaseClient.from("ideas").update({ upvotes: newUpvotes, downvotes: newDownvotes }).eq("id", idea.id);
-
-      if (userEmail) {
-        if (newUserVote === null) {
-          await supabaseClient.from("idea_votes").delete().eq("idea_id", idea.id).eq("user_email", userEmail);
-        } else {
-          await supabaseClient.from("idea_votes").upsert({ idea_id: idea.id, user_email: userEmail }, { onConflict: "idea_id,user_email" });
-        }
+      if (wasVoted) {
+        const { error } = await supabaseClient
+          .from("idea_votes")
+          .delete()
+          .eq("idea_id", idea.id)
+          .eq("user_id", userId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseClient.from("idea_votes").insert({
+          idea_id: idea.id,
+          // Required by RLS: WITH CHECK (user_id = auth.uid()::text).
+          user_id: userId,
+          user_email: currentUser?.email || "",
+        });
+        // 23505 = unique violation: the vote is already recorded.
+        if (error && error.code !== "23505") throw error;
       }
-      toast.success("Vote recorded!");
-    } catch (err) {
+      toast.success(newUserVote ? "Vote recorded!" : "Vote removed");
+    } catch (err: any) {
+      // Roll the optimistic update back — nothing was stored.
+      setIdea((prev) =>
+        prev
+          ? { ...prev, upvotes: idea.upvotes, userVote: idea.userVote }
+          : prev,
+      );
       console.error("Vote failed:", err);
-      toast.error("Failed to record vote");
+      toast.error("Failed to record vote: " + (err?.message ?? "Unknown error"));
     }
   };
 
@@ -344,24 +370,16 @@ export default function IdeaDetail() {
                 <div className="flex items-center gap-2">
                   <Button
                     variant={idea.userVote === "up" ? "default" : "outline"}
-                    onClick={() => handleVote("up")}
+                    onClick={handleVote}
                     className="flex items-center gap-2"
                     size="sm"
                   >
                     <ThumbsUp className="h-4 w-4" />
                     {idea.upvotes}
                   </Button>
-                  <Button
-                    variant={
-                      idea.userVote === "down" ? "destructive" : "outline"
-                    }
-                    onClick={() => handleVote("down")}
-                    className="flex items-center gap-2"
-                    size="sm"
-                  >
-                    <ThumbsDown className="h-4 w-4" />
-                    {idea.downvotes}
-                  </Button>
+                  {/* No downvote button: `idea_votes` records upvotes only and
+                      `ideas.downvotes` is super-admin-writable, so a downvote
+                      had nowhere to be stored and silently did nothing. */}
                 </div>
               </div>
             </div>

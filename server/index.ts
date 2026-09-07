@@ -29,7 +29,7 @@ import {
   handleGetWebhookDeliveries,
 } from "./routes/workflows";
 import { handleResolveUrl } from "./routes/resolveUrl";
-import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
+import { handleGooglePlaceLookup, placeLookupLimiter } from "./routes/googlePlaceLookup";
 import { handleGoogleAuthorize, handleGoogleCallback, handleGoogleConnection, handleGoogleStart } from "./routes/googleOAuth";
 import { handleGetRssFeed, handleAddRssItem } from "./routes/rss";
 import {
@@ -147,8 +147,10 @@ export function createServer(options: CreateServerOptions = {}) {
   app.get("/api/health", health);
 
   // ── Rate limiting ───────────────────────────────────────────────────────
-  // Mounted BEFORE the body parsers so over-limit requests are rejected
-  // without buffering their bodies.
+  // The global + auth limiters are mounted BEFORE the body parsers so
+  // over-limit requests are rejected without buffering their bodies. The
+  // per-user limiters (AI, media upload, place lookup, GBP writes, SMS) have to
+  // run after requireAuth to see req.user, so they are attached at their routes.
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 300,
@@ -157,17 +159,31 @@ export function createServer(options: CreateServerOptions = {}) {
     skip: (req) => req.path === "/health" || req.path === "/api/health",
     message: { error: "Too many requests, please try again later" },
   });
-  const strictLimiter = rateLimit({
+  // /api/auth is genuinely pre-auth (logout, password change entry points), so
+  // it stays keyed by IP.
+  const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,
     standardHeaders: "draft-7",
     legacyHeaders: false,
     message: { error: "Too many requests, please try again later" },
   });
+  // Billed OpenAI calls. Keyed by the authenticated user, NOT by IP: an IP key
+  // bounds spend by IP diversity rather than by account, so a single account
+  // behind many addresses could burn unlimited credit. Must be mounted AFTER
+  // requireAuth so req.user is populated.
+  const aiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user?.id || req.ip || "anonymous",
+    // Keyed by user id, so the IPv6-subnet keyGenerator validation does not apply.
+    validate: { keyGeneratorIpFallback: false },
+    message: { error: "Too many requests, please try again later" },
+  });
   app.use(globalLimiter);
-  app.use("/api/ai", strictLimiter);
-  app.use("/api/ai-review-response", strictLimiter);
-  app.use("/api/auth", strictLimiter);
+  app.use("/api/auth", authLimiter);
 
   // ── Body parsing ────────────────────────────────────────────────────────
   // Stripe webhooks need the raw body for signature verification. The raw
@@ -189,7 +205,18 @@ export function createServer(options: CreateServerOptions = {}) {
       },
     }),
   );
-  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+  app.use(
+    express.urlencoded({
+      extended: true,
+      limit: "1mb",
+      // Twilio signs the exact form-encoded body it posted; keep the raw bytes
+      // so the signature is checked against those params, not the parser's
+      // expansion of them.
+      verify: (req: Request, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
 
   // ── Routes ──────────────────────────────────────────────────────────────
 
@@ -202,12 +229,17 @@ export function createServer(options: CreateServerOptions = {}) {
   // bucket, and /api/public/media/:publicId/:filename redirects.
   app.use("/api/public", publicContentRouter);
 
-  // AI
-  app.use("/api/ai", requireAuth, aiRouter);
-  app.post("/api/ai-review-response", requireAuth, handleAIReviewResponse);
+  // AI — the per-user OpenAI limiter sits after requireAuth so it can key on
+  // the account rather than the client address.
+  app.use("/api/ai", requireAuth, aiLimiter, aiRouter);
+  app.post("/api/ai-review-response", requireAuth, aiLimiter, handleAIReviewResponse);
 
-  // DataForSEO proxy
-  app.use("/api/dataforseo", requireAuth, dataForSEORouter);
+  // DataForSEO proxy. Every call here spends DataForSEO credit, so it needs a
+  // write role: `viewer` members are read-only and must not be able to bill the
+  // account. The router additionally enforces a per-user daily quota — that
+  // quota is an in-memory counter, so it is PER PROCESS and resets on every
+  // deploy/restart (see routes/dataforseo.ts).
+  app.use("/api/dataforseo", requireAuth, requireWrite, dataForSEORouter);
 
   // Twilio — sending SMS requires a signed-in user with a write role and is
   // limited to 30 sends/hour/user. The `test` endpoint makes an authenticated
@@ -223,7 +255,9 @@ export function createServer(options: CreateServerOptions = {}) {
 
   // Google Maps helpers
   app.get("/api/resolve-url", requireAuth, handleResolveUrl);
-  app.post("/api/google-place-lookup", requireAuth, handleGooglePlaceLookup);
+  // Each lookup fans out to up to three billed Google API calls (Place Details
+  // alone is ~$17/1000), so it carries its own per-user quota.
+  app.post("/api/google-place-lookup", requireAuth, placeLookupLimiter, handleGooglePlaceLookup);
 
   // Google Business Profile live API (reviews, posts, Q&A, insights, sync).
   // Router applies requireAuth itself; per-business access is enforced inside.
@@ -238,8 +272,10 @@ export function createServer(options: CreateServerOptions = {}) {
   app.get("/api/auth/google/authorize", requireAuth, requireWrite, handleGoogleAuthorize);
   app.get("/api/auth/google/callback", handleGoogleCallback);
 
-  // RSS
-  app.get("/api/rss/:workflowId", handleGetRssFeed);
+  // RSS. The read side used to be public and service-role: any workflow UUID
+  // returned that workflow's feed items to anyone. Both sides now require a
+  // session and the same ownership check.
+  app.get("/api/rss/:workflowId", requireAuth, handleGetRssFeed);
   app.post("/api/rss/:workflowId/items", requireAuth, requireWrite, handleAddRssItem);
 
   // Payments. All three require a session: the checkout route resolves the
@@ -311,7 +347,11 @@ export function createServer(options: CreateServerOptions = {}) {
       // No-op unless Sentry.init() ran (node-build.ts, only with SENTRY_DSN).
       Sentry.captureException(err, { extra: { requestId: (req as any).id, method: req.method, path: req.path } });
     }
-    res.status(status).json({ error: status >= 500 ? "Internal server error" : err?.message || "Request failed" });
+    // Never echo the thrown message: errors reaching this handler come from
+    // upstreams (Google, Stripe, PostgREST) and their messages carry internal
+    // resource names, SQL detail and host names. The real message is already
+    // logged above with the request id.
+    res.status(status).json({ error: status >= 500 ? "Internal server error" : "Request failed" });
   });
 
   return app;

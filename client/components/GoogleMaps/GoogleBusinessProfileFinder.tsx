@@ -28,6 +28,7 @@ import { loadGoogleMapsAPI, getGoogleMapsApiKey } from "@/lib/googleMaps";
 import { AddressAutocomplete } from "@/components/GoogleMaps/AddressAutocomplete";
 import { BusinessPlacesSearch } from "@/components/GoogleMaps/BusinessPlacesSearch";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
 interface BusinessProfile {
@@ -234,8 +235,11 @@ export const GoogleBusinessProfileFinder: React.FC<
 
       if (isShort) {
         try {
-          const r = await fetch(`/api/resolve-url?url=${encodeURIComponent(resolvedUrl)}`);
-          const d = await r.json();
+          // apiFetch, not raw fetch: /api/resolve-url is behind requireAuth,
+          // so a bare fetch always came back 401 and never expanded the link.
+          const d = await apiFetch<{ resolvedUrl?: string }>(
+            `/api/resolve-url?url=${encodeURIComponent(resolvedUrl)}`,
+          );
           resolvedUrl = d.resolvedUrl || resolvedUrl;
         } catch {
           // If resolution fails, fall through and try to extract name anyway

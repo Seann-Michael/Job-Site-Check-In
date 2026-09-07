@@ -1,6 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import crypto from "crypto";
-import { signPayload, signWithTimestamp, verifySignature, generateSecret, parseTimestamp } from "../lib/webhookSignature";
+import {
+  signPayload,
+  signWithTimestamp,
+  verifySignature,
+  generateSecret,
+  parseTimestamp,
+  claimSignature,
+  resetSeenSignatures,
+  DEFAULT_TIMESTAMP_TOLERANCE_SECONDS,
+} from "../lib/webhookSignature";
 
 describe("webhook HMAC (timestamped)", () => {
   const secret = generateSecret();
@@ -63,5 +72,57 @@ describe("webhook HMAC (timestamped)", () => {
     expect(verifySignature(secret, body, undefined, String(ts), { now }).ok).toBe(false);
     expect(verifySignature(undefined, body, sig, String(ts), { now }).ok).toBe(false);
     expect(verifySignature("", body, sig, String(ts), { now }).ok).toBe(false);
+  });
+});
+
+describe("replay protection (single-use signatures)", () => {
+  const secret = generateSecret();
+  const body = JSON.stringify({ replay: true });
+  const now = 1_800_000_000_000;
+  const ts = Math.floor(now / 1000);
+
+  beforeEach(() => resetSeenSignatures());
+
+  it("accepts a signature once and rejects the same one again", () => {
+    const sig = signPayload(secret, body, ts);
+    expect(verifySignature(secret, body, sig, String(ts), { now, replayScope: "wf-1" })).toEqual({ ok: true });
+    expect(verifySignature(secret, body, sig, String(ts), { now, replayScope: "wf-1" })).toEqual({
+      ok: false,
+      reason: "replayed",
+    });
+    // Still rejected later in the window.
+    expect(verifySignature(secret, body, sig, String(ts), { now: now + 200_000, replayScope: "wf-1" })).toEqual({
+      ok: false,
+      reason: "replayed",
+    });
+  });
+
+  it("scopes the store per workflow", () => {
+    const sig = signPayload(secret, body, ts);
+    expect(verifySignature(secret, body, sig, String(ts), { now, replayScope: "wf-1" }).ok).toBe(true);
+    expect(verifySignature(secret, body, sig, String(ts), { now, replayScope: "wf-2" }).ok).toBe(true);
+  });
+
+  it("does not apply the check when no scope is given", () => {
+    const sig = signPayload(secret, body, ts);
+    expect(verifySignature(secret, body, sig, String(ts), { now }).ok).toBe(true);
+    expect(verifySignature(secret, body, sig, String(ts), { now }).ok).toBe(true);
+  });
+
+  it("accepts a bare hex digest and its sha256= form as the same signature", () => {
+    const sig = signPayload(secret, body, ts);
+    const bare = sig.replace(/^sha256=/, "");
+    expect(verifySignature(secret, body, sig, String(ts), { now, replayScope: "wf-1" }).ok).toBe(true);
+    expect(verifySignature(secret, body, bare, String(ts), { now, replayScope: "wf-1" })).toEqual({
+      ok: false,
+      reason: "replayed",
+    });
+  });
+
+  it("forgets a signature once the tolerance window has passed", () => {
+    const ttlMs = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS * 1000;
+    expect(claimSignature("wf-1", "abc", { now })).toBe(true);
+    expect(claimSignature("wf-1", "abc", { now: now + ttlMs - 1 })).toBe(false);
+    expect(claimSignature("wf-1", "abc", { now: now + ttlMs + 1 })).toBe(true);
   });
 });

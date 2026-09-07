@@ -107,6 +107,11 @@ export default function AdminAddProject() {
     hasStreetView: false, // Track if Street View is available
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Photo uploads can fail after the job row is already created. Both bits of
+  // state below keep that failure on screen instead of navigating away from it.
+  const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
+  const [isRetryingPhotos, setIsRetryingPhotos] = useState(false);
   const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
 
   // Load user's businesses on component mount
@@ -303,8 +308,88 @@ export default function AdminAddProject() {
     }
   };
 
+  /**
+   * Uploads the staged photos to a job.
+   *
+   * Returns the real outcome — how many landed, why the others didn't, and the
+   * photos still waiting — so the caller can tell the user the truth rather
+   * than logging the errors to the console and claiming success.
+   */
+  const uploadPhotos = async (
+    projectId: string,
+  ): Promise<{ uploaded: number; failures: string[]; remaining: EnhancedPhoto[] }> => {
+    let uploaded = 0;
+    const failures: string[] = [];
+    const remaining: EnhancedPhoto[] = [];
+
+    for (const photo of photos) {
+      try {
+        if (!photo?.url || !photo?.enhancedFileName) {
+          throw new Error("photo file is missing");
+        }
+
+        // Convert URL to File object for upload
+        const response = await fetch(photo.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch photo: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const file = new File([blob], photo.enhancedFileName, { type: blob.type });
+
+        await dataService.uploadProjectPhoto(projectId, file, {
+          category: 'general',
+          description: photo.metadata?.description || '',
+          is_featured: false,
+          metadata: photo.metadata || {}
+        });
+        uploaded++;
+      } catch (error) {
+        console.error("Error uploading photo:", error);
+        failures.push(error instanceof Error ? error.message : "upload failed");
+        // Keep it staged so the user can retry just the ones that failed.
+        remaining.push(photo);
+      }
+    }
+
+    return { uploaded, failures, remaining };
+  };
+
+  const describePhotoFailure = (failed: number, total: number, reason: string) =>
+    `The job was created, but ${failed} of ${total} photo${total === 1 ? "" : "s"} could not be uploaded (${reason}). ` +
+    `The photos that failed are still attached below — retry the upload, or open the job without them.`;
+
+  const handleRetryPhotoUpload = async () => {
+    if (!createdProjectId || photos.length === 0) return;
+    setIsRetryingPhotos(true);
+    setPhotoUploadError(null);
+    const total = photos.length;
+    try {
+      const { uploaded, failures, remaining } = await uploadPhotos(createdProjectId);
+      if (uploaded > 0) {
+        toast.success(`Successfully uploaded ${uploaded} photo(s)`);
+      }
+      if (failures.length > 0) {
+        setPhotos(remaining);
+        setPhotoUploadError(describePhotoFailure(failures.length, total, failures[0]));
+        toast.error(`${failures.length} of ${total} photo(s) still failed to upload`);
+        return;
+      }
+      toast.success("All photos uploaded");
+      navigate(`/job/${createdProjectId}`);
+    } finally {
+      setIsRetryingPhotos(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (createdProjectId) {
+      // The job already exists — a second submit would duplicate it.
+      toast.error("This job was already created. Retry the photo upload or open the job.");
+      return;
+    }
 
     if (!formData.name || !formData.description) {
       toast.error("Please fill in the required fields");
@@ -368,41 +453,28 @@ export default function AdminAddProject() {
         throw new Error("Failed to create project - no project ID returned");
       }
 
-      // Upload photos if any (with enhanced error handling)
+      // Upload photos if any. Failures are reported honestly: a photo that
+      // never reached storage must not be papered over by a success toast.
       if (photos && photos.length > 0) {
         toast.info("Uploading photos...");
-        let uploadedCount = 0;
-        for (const photo of photos) {
-          try {
-            if (!photo?.url || !photo?.enhancedFileName) {
-              console.warn("Skipping invalid photo:", photo);
-              continue;
-            }
+        const total = photos.length;
+        const { uploaded, failures, remaining } = await uploadPhotos(project.id);
 
-            // Convert URL to File object for upload
-            const response = await fetch(photo.url);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch photo: ${response.statusText}`);
-            }
-
-            const blob = await response.blob();
-            const file = new File([blob], photo.enhancedFileName, { type: blob.type });
-
-            await dataService.uploadProjectPhoto(project.id, file, {
-              category: 'general',
-              description: photo.metadata?.description || '',
-              is_featured: false,
-              metadata: photo.metadata || {}
-            });
-            uploadedCount++;
-          } catch (error) {
-            console.error("Error uploading photo:", error);
-            // Continue with other photos even if one fails
-          }
+        if (uploaded > 0) {
+          toast.success(`Successfully uploaded ${uploaded} photo(s)`);
         }
 
-        if (uploadedCount > 0) {
-          toast.success(`Successfully uploaded ${uploadedCount} photo(s)`);
+        if (failures.length > 0) {
+          // The job itself exists, so keep it — but stay on this page with the
+          // failed photos still attached instead of navigating away claiming
+          // everything worked.
+          setPhotos(remaining);
+          setCreatedProjectId(project.id);
+          setPhotoUploadError(describePhotoFailure(failures.length, total, failures[0]));
+          toast.error(
+            `Job created, but ${failures.length} of ${total} photo(s) failed to upload`,
+          );
+          return;
         }
       }
 
@@ -667,6 +739,7 @@ export default function AdminAddProject() {
                 <div>
                   <Label htmlFor="state">State</Label>
                   <USStatesSelect
+                    id="state"
                     value={formData.state}
                     onValueChange={(value) => handleInputChange("state", value)}
                     placeholder="Select state"
@@ -719,6 +792,37 @@ export default function AdminAddProject() {
             </CardContent>
           </Card>
 
+          {/* Photo upload failure — the job exists, the photos don't */}
+          {photoUploadError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm"
+            >
+              <p className="font-medium text-destructive">Photos didn't upload</p>
+              <p className="mt-1 text-muted-foreground">{photoUploadError}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleRetryPhotoUpload}
+                  disabled={isRetryingPhotos || photos.length === 0}
+                >
+                  {isRetryingPhotos ? "Retrying…" : "Retry photo upload"}
+                </Button>
+                {createdProjectId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/job/${createdProjectId}`)}
+                  >
+                    Open job without these photos
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Submit Buttons */}
           <div className="flex gap-4 justify-end">
             <Link to="/admin/jobs">
@@ -729,8 +833,14 @@ export default function AdminAddProject() {
             </Link>
             <Button
               type="submit"
-              disabled={isSubmitting || !canWrite}
-              title={!canWrite ? "Read-only access" : undefined}
+              disabled={isSubmitting || !canWrite || createdProjectId !== null}
+              title={
+                !canWrite
+                  ? "Read-only access"
+                  : createdProjectId !== null
+                    ? "This job has already been created"
+                    : undefined
+              }
             >
               <Save className="mr-2 h-4 w-4" />
               {isSubmitting ? "Creating..." : "Create Job"}

@@ -4,6 +4,11 @@ import { getSupabaseClient } from "../supabaseClient";
 import { logger } from "../lib/logger";
 import { getEnv } from "../lib/env";
 import { canWriteBusiness } from "../middleware/requireAuth";
+import {
+  twilioParamsFromBody,
+  twilioParamsFromRawBody,
+  verifyTwilioSignature,
+} from "../lib/twilioSignature";
 
 const moduleLog = logger.child({ module: "twilio" });
 const reqLog = (req: Request) => (req.log ?? moduleLog).child({ module: "twilio" });
@@ -194,31 +199,102 @@ export const handleSendSMS = async (req: Request, res: Response) => {
   }
 };
 
+/** Twilio message SIDs are a two-letter prefix plus 32 hex characters. */
+export const TWILIO_SID_RE = /^[A-Z]{2}[0-9a-fA-F]{32}$/;
+
+/** Statuses Twilio sends on a message status callback. */
+const TWILIO_STATUSES = new Set([
+  "accepted",
+  "scheduled",
+  "queued",
+  "sending",
+  "sent",
+  "receiving",
+  "received",
+  "delivered",
+  "undelivered",
+  "failed",
+  "read",
+  "canceled",
+]);
+
+/**
+ * The URL Twilio signed. `TWILIO_WEBHOOK_URL` is authoritative when set;
+ * otherwise it is derived from `APP_URL` plus the request path. The Host
+ * header is never trusted — an attacker controls it and could otherwise pick
+ * the URL that goes into the HMAC.
+ */
+function twilioWebhookUrl(req: Request): string | null {
+  const configured = getEnv("TWILIO_WEBHOOK_URL");
+  if (configured) return configured;
+  const appUrl = getEnv("APP_URL");
+  if (!appUrl) return null;
+  return appUrl.replace(/\/+$/, "") + (req.originalUrl || req.url || "");
+}
+
 // Handle Twilio webhook for message status updates.
 //
-// NOTE: this endpoint is intentionally unauthenticated because Twilio calls it.
-// X-Twilio-Signature verification is deferred to the Twilio hardening step;
-// until then the handler only updates status columns for an existing SID.
+// This endpoint is unauthenticated in the session sense because Twilio calls
+// it; authenticity comes from the X-Twilio-Signature HMAC. When
+// TWILIO_AUTH_TOKEN is configured the request MUST carry a valid signature —
+// an absent or wrong signature is a 403 (fail closed). When the token is not
+// configured the endpoint behaves as before (dormant/unconfigured install) and
+// logs a warning on every call.
 export const handleTwilioWebhook = async (req: Request, res: Response) => {
   const log = reqLog(req);
   try {
-    const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = req.body ?? {};
+    const authToken = getEnv("TWILIO_AUTH_TOKEN");
+    if (authToken) {
+      const url = twilioWebhookUrl(req);
+      if (!url) {
+        log.error("Twilio webhook cannot be verified: neither TWILIO_WEBHOOK_URL nor APP_URL is set");
+        return res.status(403).send("Forbidden");
+      }
+      // Prefer the raw bytes so the signed params are exactly what Twilio
+      // sent, independent of how the urlencoded parser expands the body.
+      const params = req.rawBody
+        ? twilioParamsFromRawBody(req.rawBody)
+        : twilioParamsFromBody(req.body);
+      if (!verifyTwilioSignature(authToken, url, params, req.headers["x-twilio-signature"])) {
+        log.warn({ hasSignature: !!req.headers["x-twilio-signature"] }, "Twilio webhook signature rejected");
+        return res.status(403).send("Forbidden");
+      }
+    } else {
+      log.warn("TWILIO_AUTH_TOKEN is not set: inbound Twilio webhook accepted without signature verification");
+    }
 
-    log.info({
-      messageId: MessageSid,
-      status: MessageStatus,
-      errorCode: ErrorCode,
-    }, "Twilio webhook received");
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rawSid = body.MessageSid;
+    const MessageSid = typeof rawSid === "string" ? rawSid : "";
+
+    // Nothing to key the update on — acknowledge and no-op.
+    if (!MessageSid) {
+      log.info("Twilio webhook received without a MessageSid");
+      return res.status(200).send("OK");
+    }
+    if (!TWILIO_SID_RE.test(MessageSid)) {
+      log.warn("Twilio webhook received with a malformed MessageSid");
+      return res.status(400).send("Invalid MessageSid");
+    }
+
+    const rawStatus = typeof body.MessageStatus === "string" ? body.MessageStatus.toLowerCase() : "";
+    const status = TWILIO_STATUSES.has(rawStatus) ? rawStatus : "unknown";
+    const rawErrorCode = typeof body.ErrorCode === "string" ? body.ErrorCode.trim() : "";
+    const errorCode = /^\d{1,10}$/.test(rawErrorCode) ? rawErrorCode : null;
+    const errorMessage =
+      typeof body.ErrorMessage === "string" && body.ErrorMessage ? body.ErrorMessage.slice(0, 500) : null;
+
+    log.info({ messageId: MessageSid, status, errorCode }, "Twilio webhook received");
 
     // Update message status in Supabase
     const db = getSupabaseClient();
-    if (db && MessageSid) {
+    if (db) {
       await db
         .from("sms_logs")
         .update({
-          status: MessageStatus ?? "unknown",
-          error_code: ErrorCode ?? null,
-          error_message: ErrorMessage ?? null,
+          status,
+          error_code: errorCode,
+          error_message: errorMessage,
           updated_at: new Date().toISOString(),
         })
         .eq("twilio_sid", MessageSid)

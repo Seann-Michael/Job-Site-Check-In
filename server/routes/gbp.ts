@@ -14,8 +14,9 @@
  *   POST /api/gbp/:businessId/sync                      pull + upsert into app tables (write)
  *
  * HONEST APPROVAL GATE: when Google returns 403 (Business Profile API not
- * approved for the Cloud project) we surface `approved:false` with Google's own
- * message and NEVER fabricate data.
+ * approved for the Cloud project) we surface `approved:false` and NEVER
+ * fabricate data. Google's own message is logged, not returned: it names
+ * `accounts/…/locations/…` resources and other project internals.
  */
 import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
@@ -68,6 +69,8 @@ function sendGbpError(req: Request, res: Response, err: unknown): boolean {
     return true;
   }
   if (err instanceof GbpError) {
+    // GbpError messages are constructed by lib/gbp and never copied from
+    // Google's response body, so they are safe to return; the status is clamped.
     res.status(err.status >= 400 && err.status < 600 ? err.status : 502).json({ error: err.message });
     return true;
   }
@@ -169,6 +172,13 @@ async function handleReply(req: Request, res: Response) {
   const reviewId = req.params.reviewId;
   const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
   if (!reviewId) return res.status(400).json({ error: "Missing review id" });
+  // Express decodes `%2F` in a route param, so `accounts%2FX%2Flocations%2FY%2Freviews%2FZ`
+  // arrives here as a full resource path. Accepting it would let the caller
+  // reply on a listing outside the business guardBusiness just authorised, so
+  // the id must be a single path segment.
+  if (reviewId.includes("/") || reviewId.length > 256) {
+    return res.status(400).json({ error: "Invalid review id" });
+  }
   if (!comment) return res.status(400).json({ error: "A reply comment is required" });
   if (comment.length > 4096) return res.status(400).json({ error: "Reply is too long" });
   try {

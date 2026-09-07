@@ -29,6 +29,14 @@ export interface AuthProfile {
    * Keyed by business id; only businesses in `businessIds` are present.
    */
   memberRoles: Record<string, BusinessRole>;
+  /**
+   * Subset of `businessIds` whose businesses.status is not 'active'. These stay
+   * READABLE (a suspended tenant must still be able to see their data and reach
+   * billing to reactivate) but canWriteBusiness() refuses them, mirroring the
+   * database, where can_write_business() requires status = 'active'.
+   * Suspension used to be enforced only in the browser.
+   */
+  suspendedBusinessIds: string[];
   /** True for role super_admin: full admin access to every business. */
   isSuperAdmin: boolean;
 }
@@ -72,7 +80,7 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
 
     const [{ data: row }, { data: businesses }, { data: memberships }] = await Promise.all([
       db.from("users").select("id, email, role, sub_account_id").eq("id", user.id).maybeSingle(),
-      db.from("businesses").select("id").eq("owner_id", user.id),
+      db.from("businesses").select("id, status").eq("owner_id", user.id),
       db.from("business_members").select("business_id, role").eq("user_id", user.id),
     ]);
 
@@ -88,9 +96,41 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
     for (const m of ((memberships as any[]) || [])) {
       if (m?.business_id && (m.role === "staff" || m.role === "viewer")) memberRoles[m.business_id] = m.role;
     }
+    const ownedStatus: Record<string, string | null> = {};
     for (const b of ((businesses as any[]) || [])) {
-      if (b?.id) memberRoles[b.id] = "owner";
+      if (b?.id) {
+        memberRoles[b.id] = "owner";
+        ownedStatus[b.id] = b.status ?? null;
+      }
     }
+
+    // Businesses a member belongs to are not covered by the owner query above,
+    // so look their status up too — a staff member of a suspended business must
+    // be write-blocked exactly like its owner.
+    const memberOnlyIds = Object.keys(memberRoles).filter((id) => !(id in ownedStatus));
+    if (memberOnlyIds.length) {
+      // Secondary lookup: never let it fail the whole authentication. A status
+      // we could not read is treated as "not suspended" (see the filter below).
+      try {
+        const { data: memberBiz } = await db
+          .from("businesses")
+          .select("id, status")
+          .in("id", memberOnlyIds);
+        for (const b of ((memberBiz as any[]) || [])) {
+          if (b?.id) ownedStatus[b.id] = b.status ?? null;
+        }
+      } catch (err) {
+        logger.warn({ err }, "requireAuth: member business status lookup failed");
+      }
+    }
+
+    // Only a KNOWN non-active status suspends. businesses.status is NOT NULL in
+    // the schema, so a missing value means "we could not read it", and failing
+    // closed there would lock out every tenant on a transient read error.
+    const suspendedBusinessIds = Object.keys(memberRoles).filter(
+      (id) => ownedStatus[id] != null && ownedStatus[id] !== "active",
+    );
+
     req.profile = {
       id: user.id,
       email: (row as any)?.email ?? user.email,
@@ -98,6 +138,7 @@ export const requireAuth: RequestHandler = async (req: Request, res: Response, n
       accountId: (row as any)?.sub_account_id ?? null,
       businessIds: Object.keys(memberRoles),
       memberRoles,
+      suspendedBusinessIds,
       isSuperAdmin: normalizeRole(role) === "superadmin",
     };
     return next();
@@ -158,6 +199,11 @@ export function canAccessBusiness(req: Request, businessId: string | null | unde
 export function canWriteBusiness(req: Request, businessId: string | null | undefined): boolean {
   if (!businessId) return false;
   if (isSuperAdmin(req)) return true;
+  // A suspended business is read-only for its own tenant. The database enforces
+  // the same rule in can_write_business(), so a direct PostgREST write is
+  // refused too; this keeps the API layer consistent rather than letting it
+  // through to a 42501 from Postgres.
+  if (req.profile?.suspendedBusinessIds?.includes(businessId)) return false;
   const r = req.profile?.memberRoles?.[businessId];
   return r === "owner" || r === "staff";
 }

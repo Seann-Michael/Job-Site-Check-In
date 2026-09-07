@@ -1,4 +1,38 @@
-# supabase/migrations_pending — NOT applied, do not `db push` from here
+# supabase/migrations_pending — SUPERSEDED, do not apply
+
+> ## ⚠️ SUPERSEDED — 2026-09-07
+>
+> **Do not apply the W0 series.** The premises this directory was written on are
+> no longer true, and the audit of 2026-09-07 verified that against the live
+> database:
+>
+> | This README says | Live reality (2026-09-07) |
+> |---|---|
+> | "`auth.users` has 0 rows" | 12 rows |
+> | "the shipped web client still writes as `anon`" | `anon` has **zero** write grants on every table; `select count(*) from businesses` as `anon` is `42501 permission denied` |
+> | W0/10 "closes anon reads on `jobs`/`businesses`/`review_requests`" | already closed |
+>
+> What actually shipped instead is the `businesses` / `business_members`
+> tenancy model in `supabase/migrations/20260820008000_business_memberships.sql`,
+> enforced by `can_read_business()` / `can_write_business()` and proven by the
+> isolation tests. The W0 series builds a **parallel, competing** model
+> (`companies`, `company_members`, `current_company_ids()`, `company_id` on 21
+> tables). Applying W0/10 would layer a second RLS regime on top of the working
+> one; W0/03 drops and rebuilds the `projects` view the web client reads; W0/04
+> drops `job_tasks`, which the mobile app now uses.
+>
+> - `20260727000000_lock_down_anon_role_and_media_bucket.sql` — **obsolete**,
+>   its job was done by `20260820002000_rls_lockdown.sql` and
+>   `20260820006000_private_media_bucket.sql`. Re-running it is a no-op.
+> - `w0_02` (clients name split) and `w0_07` (job_media attribution) are the
+>   only two still independently useful and low-risk. Cherry-pick those if
+>   wanted; leave the rest.
+>
+> Everything below this line is the original 2026-07 text, kept as history. Read
+> it as a record of a plan that was overtaken, not as instructions.
+
+---
+
 
 Everything in this directory is **deliberately outside** `supabase/migrations/`
 so that `supabase db push` cannot pick it up. None of it has been applied to the

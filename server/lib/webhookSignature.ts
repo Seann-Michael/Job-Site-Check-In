@@ -38,14 +38,59 @@ export function signWithTimestamp(secret: string, rawBody: string | Buffer, now 
   return { signature: signPayload(secret, rawBody, ts), timestamp: String(ts) };
 }
 
-export type VerifyFailure = "missing" | "bad_timestamp" | "stale" | "bad_signature";
+export type VerifyFailure = "missing" | "bad_timestamp" | "stale" | "bad_signature" | "replayed";
+
+/**
+ * Seen-signature store for replay protection.
+ *
+ * A correctly signed request stays valid for the whole tolerance window, so a
+ * captured one can be re-sent within it and every action runs again (duplicate
+ * jobs, duplicate RSS items, repeated outbound deliveries). Each accepted
+ * signature is therefore recorded for exactly the tolerance window — past that
+ * the timestamp check rejects it anyway, so nothing needs to be kept longer.
+ *
+ * CAVEAT: this Map is PER PROCESS. With more than one instance behind the load
+ * balancer each has its own view and a replay can be routed to a different
+ * instance; a restart clears it. Move to Redis/Postgres (an insert on a unique
+ * `(scope, signature)` key with a TTL) before scaling past one instance.
+ */
+const seenSignatures = new Map<string, number>();
+const MAX_SEEN = 20_000;
+
+function pruneSeen(now: number): void {
+  for (const [k, expiresAt] of seenSignatures) if (expiresAt <= now) seenSignatures.delete(k);
+}
+
+/**
+ * Record a verified signature and report whether it is the first time we have
+ * seen it. Returns false for a replay.
+ */
+export function claimSignature(
+  scope: string,
+  signature: string,
+  opts: { toleranceSeconds?: number; now?: number } = {},
+): boolean {
+  const now = opts.now ?? Date.now();
+  const ttlMs = (opts.toleranceSeconds ?? DEFAULT_TIMESTAMP_TOLERANCE_SECONDS) * 1000;
+  if (seenSignatures.size >= MAX_SEEN) pruneSeen(now);
+  const key = `${scope}\u0000${signature}`;
+  const expiresAt = seenSignatures.get(key);
+  if (expiresAt !== undefined && expiresAt > now) return false;
+  seenSignatures.set(key, now + ttlMs);
+  return true;
+}
+
+/** Test hook: forget every recorded signature. */
+export function resetSeenSignatures(): void {
+  seenSignatures.clear();
+}
 
 export function verifySignature(
   secret: string | undefined | null,
   rawBody: string | Buffer | undefined,
   header: string | undefined | null,
   timestampHeader: string | number | undefined | null,
-  opts: { toleranceSeconds?: number; now?: number } = {},
+  opts: { toleranceSeconds?: number; now?: number; replayScope?: string } = {},
 ): { ok: true } | { ok: false; reason: VerifyFailure } {
   if (!secret || !header || rawBody === undefined) return { ok: false, reason: "missing" };
   const ts = parseTimestamp(timestampHeader);
@@ -60,6 +105,13 @@ export function verifySignature(
   const a = Buffer.from(provided, "hex");
   const b = Buffer.from(expected, "hex");
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false, reason: "bad_signature" };
+
+  // Single-use within the tolerance window (only when the caller opts in with
+  // a scope, so the check is not applied to plain signature verification).
+  if (opts.replayScope !== undefined) {
+    const fresh = claimSignature(opts.replayScope, provided, { toleranceSeconds: tolerance, now: opts.now });
+    if (!fresh) return { ok: false, reason: "replayed" };
+  }
   return { ok: true };
 }
 

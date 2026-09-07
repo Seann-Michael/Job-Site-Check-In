@@ -210,6 +210,10 @@ export async function handleWorkflowWebhook(req: Request, res: Response) {
       rawBody,
       typeof signature === "string" ? signature : undefined,
       typeof timestamp === "string" ? timestamp : undefined,
+      // Single-use per workflow: a captured request stays validly signed for
+      // the whole tolerance window, and re-sending it would re-run every action
+      // (duplicate executions, duplicate RSS items, repeated deliveries).
+      { replayScope: workflowId },
     );
     if ("reason" in verdict) {
       if (verdict.reason === "bad_timestamp") {
@@ -217,6 +221,10 @@ export async function handleWorkflowWebhook(req: Request, res: Response) {
       }
       if (verdict.reason === "stale") {
         return res.status(401).json({ error: "Webhook timestamp outside the allowed window" });
+      }
+      if (verdict.reason === "replayed") {
+        log.warn({ workflowId }, "workflow webhook replay rejected");
+        return res.status(409).json({ error: "Webhook request has already been processed" });
       }
       return res.status(401).json({ error: "Invalid webhook signature" });
     }

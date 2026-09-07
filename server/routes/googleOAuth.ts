@@ -258,7 +258,11 @@ export async function handleGoogleConnection(req: Request, res: Response) {
     .select("google_account_id, email, access_token, refresh_token, expires_at, locations, updated_at")
     .eq("workspace_id", workspaceId)
     .order("updated_at", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  // Tenant-facing endpoint: log the PostgREST error, return a generic message.
+  if (error) {
+    log.error({ err: error, workspaceId }, "google_oauth_tokens query failed");
+    return res.status(500).json({ error: "Could not load the Google connection." });
+  }
   if (!rows || rows.length === 0) return res.json({ connected: false, locations: [] });
 
   const primary = rows[0];

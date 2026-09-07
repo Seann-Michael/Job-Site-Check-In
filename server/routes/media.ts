@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from "express";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import path from "path";
 import { getSupabaseClient } from "../supabaseClient";
@@ -269,6 +270,23 @@ export const handleMediaList: RequestHandler = async (req, res) => {
 
 // ── Router ───────────────────────────────────────────────────────────────────
 
+/**
+ * Per-user upload quota: 60 uploads/hour/user. Each accepted upload is up to
+ * 25MB of storage + bandwidth, and the only other bound is the global
+ * 300/15min IP limiter, which an authenticated account can sidestep by
+ * changing address. Mounted after requireAuth so req.user is populated.
+ */
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip || "anonymous",
+  // Keyed by user id, so the IPv6-subnet keyGenerator validation does not apply.
+  validate: { keyGeneratorIpFallback: false },
+  message: { error: "Too many uploads, please try again later" },
+});
+
 /** Authenticated media API, mount at /api/media */
 export const mediaRouter = Router();
 mediaRouter.use(requireAuth);
@@ -276,6 +294,7 @@ mediaRouter.get("/", handleMediaList);
 mediaRouter.post(
   "/upload",
   requireWrite,
+  uploadLimiter,
   (req, res, next) =>
     upload.single("file")(req, res, (err: any) => {
       if (!err) return next();
