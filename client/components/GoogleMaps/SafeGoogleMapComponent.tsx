@@ -106,7 +106,16 @@ export const SafeGoogleMapComponent: React.FC<SafeGoogleMapComponentProps> = (pr
       return <MapFallback />;
     }
 
-    const embedUrl = `https://www.google.com/maps/embed/v1/view?key=REDACTED_GOOGLE_MAPS_API_KEY&center=${lat},${lng}&zoom=${props.zoom || 14}`;
+    // The key comes from the referrer-restricted browser key, never a literal.
+    // A hardcoded key used to live here; because this repo is public, it was
+    // world-readable and had to be rotated. Without the env var we fall back to
+    // the static card rather than calling Google with no key.
+    const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!mapsKey) {
+      return <MapFallback />;
+    }
+
+    const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${encodeURIComponent(mapsKey)}&center=${lat},${lng}&zoom=${props.zoom || 14}`;
 
     return (
       <div className="w-full" style={{ height }}>

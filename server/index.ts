@@ -242,10 +242,14 @@ export function createServer(options: CreateServerOptions = {}) {
   app.get("/api/rss/:workflowId", handleGetRssFeed);
   app.post("/api/rss/:workflowId/items", requireAuth, requireWrite, handleAddRssItem);
 
-  // Payments (auth deferred to a later step)
-  app.get("/api/payments/status", handlePaymentStatus);
-  app.post("/api/create-checkout-stripe", handleStripeCheckout);
-  app.post("/api/payments/confirm", handleStripeConfirm);
+  // Payments. All three require a session: the checkout route resolves the
+  // plan from the `plans` table and the business from the caller's access set,
+  // and the confirm route refuses a session whose business the caller cannot
+  // write. Previously these were unauthenticated, which let anyone record an
+  // arbitrary plan name against any business id.
+  app.get("/api/payments/status", requireAuth, handlePaymentStatus);
+  app.post("/api/create-checkout-stripe", requireAuth, requireWrite, handleStripeCheckout);
+  app.post("/api/payments/confirm", requireAuth, requireWrite, handleStripeConfirm);
 
   // Billing module (plans, subscriptions, invoices, revenue). The router
   // applies requireAuth itself; super-admin routes add requireRole inside.

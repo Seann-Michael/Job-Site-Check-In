@@ -75,10 +75,15 @@ function validateSmsInput(req: Request, to: unknown, message: unknown, businessI
   if (message.length > MAX_SMS_LENGTH) {
     return { status: 400, error: `Message must be at most ${MAX_SMS_LENGTH} characters` };
   }
-  if (businessId !== undefined && businessId !== null && businessId !== "") {
-    if (typeof businessId !== "string" || !canWriteBusiness(req, businessId)) {
-      return { status: 403, error: "You do not have access to this business" };
-    }
+  // businessId is REQUIRED. It used to be optional, which meant a caller could
+  // simply omit it and send SMS to any number in the world on the platform's
+  // Twilio account with no tenant scoping at all — requireWrite only checks the
+  // global users.role, which defaults to business_owner for every signup.
+  if (typeof businessId !== "string" || businessId === "") {
+    return { status: 400, error: "businessId is required" };
+  }
+  if (!canWriteBusiness(req, businessId)) {
+    return { status: 403, error: "You do not have access to this business" };
   }
   return null;
 }
