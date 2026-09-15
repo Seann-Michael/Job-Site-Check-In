@@ -20,7 +20,7 @@
     "production": {
       "ios": {
         "appleTeamId": "LD423Y7BP7",
-        "ascApiKeyPath": "/tmp/eas-creds/AuthKey_4MP3T3VDCR.p8",
+        "ascApiKeyPath": "/Users/aiserver/eas-creds/AuthKey_4MP3T3VDCR.p8",
         "ascApiKeyId": "4MP3T3VDCR",
         "ascApiKeyIssuerId": "9f3c308c-ef81-45cd-b0c4-d040d0b57f00",
         "ascAppId": "6808850238"
