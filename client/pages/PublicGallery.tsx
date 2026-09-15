@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Images, CalendarDays } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import supabaseClient from "@/lib/supabaseClient";
 
 interface SharedGallery {
   token: string;
@@ -27,37 +26,18 @@ export default function PublicGallery() {
     if (!token) return;
     const loadGallery = async () => {
       try {
-        // Token-argument RPC, NOT a table select.
-        //
-        // supabase/migrations/…w0_10… closes anon SELECT on shared_galleries.
-        // A `FOR SELECT TO anon` policy could not require the .eq("token", …)
-        // filter — PostgREST happily serves a bare select — so the anon key
-        // that ships in the app bundle could list every gallery of every
-        // tenant. A function argument cannot be omitted.
-        const { data: rows, error } = await supabaseClient.rpc(
-          "gallery_by_token",
-          { p_token: token },
-        );
-        const data = Array.isArray(rows) ? rows[0] : rows;
-
-        if (error) {
-          // The `gallery_by_token` RPC (and its `shared_galleries` table) is
-          // not yet in the applied migrations. Until it ships, every token
-          // resolves to the "no longer available" state below.
-          if (/function .*gallery_by_token.* does not exist|PGRST202/i.test(`${error.code ?? ""} ${error.message ?? ""}`)) {
-            console.warn("[PublicGallery] gallery_by_token RPC is not deployed; shared galleries are unavailable.");
-          } else {
-            console.warn("[PublicGallery] gallery lookup failed:", error.message);
-          }
-          return;
-        }
-
-        if (data) {
+        // The `media` bucket is private, so the server resolves the token
+        // (SECURITY DEFINER gallery_by_token RPC — never a table select the
+        // anon key could enumerate) and attaches short-lived signed URLs.
+        const res = await fetch(`/api/public/gallery/${encodeURIComponent(token)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.token) {
           setGallery({
             token: data.token,
             jobTitle: data.job_title ?? "Project photos",
             businessName: data.business_name ?? "",
-            photoUrls: Array.isArray(data.photo_urls) ? data.photo_urls : [],
+            photoUrls: Array.isArray(data.photos) ? data.photos : [],
             createdAt: data.created_at,
           });
         }

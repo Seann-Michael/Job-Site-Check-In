@@ -23,6 +23,8 @@
  * implying real teammates exist.
  */
 
+import { apiErrorMessage, apiFetch } from '@/lib/api';
+import { isApiConfigured } from '@/lib/config';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 /** Postgres "column does not exist" — how a missing column reaches the client. */
@@ -328,6 +330,74 @@ function demoRoster(
  * @param self the signed-in user (`useAuth().user`), so their own entry is real
  *   and marked `isYou`. A demo account is only merged into a demo roster.
  */
+interface ApiTeamUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+}
+interface ApiTeamMember extends ApiTeamUser {
+  userId: string;
+  role: 'staff' | 'viewer' | string;
+  status?: string;
+}
+
+const API_ROLE_LABELS: Record<string, string> = { staff: 'Staff', viewer: 'Viewer' };
+
+function apiUserToMember(u: ApiTeamUser, role: string, isYou = false): TeamMember {
+  const name = (u.name ?? '').trim() || (u.email ?? '').split('@')[0] || 'Team member';
+  return {
+    id: u.id,
+    name,
+    email: u.email ?? undefined,
+    role,
+    initials: initialsOf(name),
+    isYou,
+  };
+}
+
+/** GET /api/team/:businessId → members, or null when the API can't answer. */
+async function fetchTeamFromApi(businessId: string): Promise<TeamMember[] | null> {
+  if (!isApiConfigured) return null;
+  try {
+    const data = await apiFetch<{ owner: ApiTeamUser; members: ApiTeamMember[] }>(
+      `/api/team/${businessId}`,
+    );
+    if (!data || !data.owner) return null;
+    const out: TeamMember[] = [];
+    if (data.owner.id) out.push(apiUserToMember(data.owner, 'Owner'));
+    for (const m of data.members ?? []) {
+      const label = API_ROLE_LABELS[m.role] ?? m.role;
+      out.push(
+        apiUserToMember(
+          { id: m.userId, email: m.email, name: m.name },
+          m.status === 'invited' ? `${label} · invited` : label,
+        ),
+      );
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** POST /api/team/:businessId/invite — owner only. */
+export async function inviteTeamMember(
+  businessId: string,
+  email: string,
+  role: 'staff' | 'viewer',
+  name?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiFetch(`/api/team/${businessId}/invite`, {
+      method: 'POST',
+      body: { email: email.trim().toLowerCase(), role, ...(name?.trim() ? { name: name.trim() } : {}) },
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: apiErrorMessage(error, 'Could not add that teammate.') };
+  }
+}
+
 export async function fetchTeam(
   businessId?: string | null,
   self?: TeamSelf | null,
@@ -337,6 +407,19 @@ export async function fetchTeam(
   }
   if (!businessId || businessId.startsWith('demo')) {
     return demoRoster('This is the sample workspace, so these are sample teammates.', null, self);
+  }
+
+  // Preferred: the server's roster (owner + business_members with roles) —
+  // the same source the web dashboard's Team page reads.
+  const remote = await fetchTeamFromApi(businessId);
+  if (remote) {
+    return {
+      members: sortMembers(withSelf(remote, self?.isDemo ? null : self)),
+      source: 'remote',
+      isDemo: false,
+      demoReason: null,
+      error: null,
+    };
   }
 
   const { rows, error } = await fetchMemberRows(businessId);

@@ -39,26 +39,43 @@ function scriptJson(value: unknown): string {
     .replace(/\u2029/g, "\\u2029");
 }
 
-function popupPage(res: Response, status: number, message: unknown, payload: Record<string, unknown>, closeDelayMs = 0) {
+/** Deep link the mobile app listens for once the Google connection is stored. */
+const MOBILE_RETURN_URL = "localseoranker://gbp-connected";
+
+function popupPage(
+  res: Response,
+  status: number,
+  message: unknown,
+  payload: Record<string, unknown>,
+  closeDelayMs = 0,
+  mobileReturn = false,
+) {
+  const mobileLink = mobileReturn
+    ? `<p><a href="${MOBILE_RETURN_URL}" style="display:inline-block;margin-top:16px;padding:12px 20px;background:#0697E0;color:#fff;border-radius:10px;text-decoration:none;font-weight:600">Return to the app</a></p>`
+    : "";
   res
     .status(status)
     .type("html")
     .send(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Google connection</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Google connection</title></head>
 <body style="font-family:sans-serif;text-align:center;padding:40px">
-  <p>${escapeHtml(message)}</p>
+  <p>${escapeHtml(message)}</p>${mobileLink}
   <script>
     (function () {
       var msg = ${scriptJson(payload)};
       if (window.opener) { window.opener.postMessage(msg, window.location.origin); }
-      setTimeout(function () { window.close(); }, ${Number(closeDelayMs) || 0});
+      ${
+        mobileReturn
+          ? `window.location.href = ${scriptJson(MOBILE_RETURN_URL)};`
+          : `setTimeout(function () { window.close(); }, ${Number(closeDelayMs) || 0});`
+      }
     })();
   </script>
 </body></html>`);
 }
 
-const errorPage = (res: Response, status: number, msg: string, delay = 0) =>
-  popupPage(res, status, msg, { type: "oauth_error", platform: "google", error: msg }, delay);
+const errorPage = (res: Response, status: number, msg: string, delay = 0, mobileReturn = false) =>
+  popupPage(res, status, msg, { type: "oauth_error", platform: "google", error: msg }, delay, mobileReturn);
 
 async function buildAuthorizeUrl(req: Request): Promise<{ url?: string; error?: { status: number; message: string } }> {
   if (!clientId() || !clientSecret()) {
@@ -95,7 +112,8 @@ async function buildAuthorizeUrl(req: Request): Promise<{ url?: string; error?: 
   }
   let state: string;
   try {
-    state = await createOAuthState({ workspace_id: workspaceId, user_id: req.user.id });
+    const mobile = req.body?.mobile === true || req.body?.mobile === "1" || req.query.mobile === "1";
+    state = await createOAuthState({ workspace_id: workspaceId, user_id: req.user.id, ...(mobile ? { mobile: true } : {}) });
   } catch (err) {
     log.error({ err }, "Failed to create OAuth state");
     return { error: { status: 503, message: "Could not start Google sign-in. Please try again." } };
@@ -315,11 +333,12 @@ export async function handleGoogleCallback(req: Request, res: Response) {
   if (!stateData) {
     return errorPage(res, 400, "This sign-in link has expired or is invalid. Please try again.");
   }
+  const mobile = Boolean(stateData.mobile);
   if (error) {
     log.warn({ error }, "Google OAuth denied");
-    return errorPage(res, 400, "Google denied access.");
+    return errorPage(res, 400, "Google denied access.", 0, mobile);
   }
-  if (!code) return errorPage(res, 400, "No authorization code received.");
+  if (!code) return errorPage(res, 400, "No authorization code received.", 0, mobile);
 
   const workspaceId = stateData.workspace_id;
 
@@ -339,7 +358,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const tokens = (await tokenRes.json()) as any;
     if (!tokenRes.ok || tokens.error) {
       log.error({ status: tokenRes.status, error: tokens.error, description: tokens.error_description }, "Google token exchange failed");
-      return errorPage(res, 502, "Could not complete Google sign-in. Please try again.");
+      return errorPage(res, 502, "Could not complete Google sign-in. Please try again.", 0, mobile);
     }
 
     const authHeader = { Authorization: `Bearer ${tokens.access_token}` };
@@ -449,14 +468,21 @@ export async function handleGoogleCallback(req: Request, res: Response) {
       workspaceId,
     };
 
-    return popupPage(res, 200, "Connected. You can close this window.", {
-      type: "oauth_success",
-      platform: "google",
-      data: accountInfo,
-    });
+    return popupPage(
+      res,
+      200,
+      stateData.mobile ? "Connected. Returning to the app…" : "Connected. You can close this window.",
+      {
+        type: "oauth_success",
+        platform: "google",
+        data: accountInfo,
+      },
+      0,
+      Boolean(stateData.mobile),
+    );
   } catch (err) {
     log.error({ err }, "Google OAuth callback failed");
-    return errorPage(res, 502, "Connection failed. Please try again.");
+    return errorPage(res, 502, "Connection failed. Please try again.", 0, mobile);
   }
 }
 

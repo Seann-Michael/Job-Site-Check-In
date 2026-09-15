@@ -544,6 +544,78 @@ export async function createLocalPost(businessId: string, input: CreateLocalPost
   return mapLocalPost(data);
 }
 
+/** v4: update the summary of an existing local post. `postName` is the full
+ *  resource name (accounts/…/locations/…/localPosts/…) or a bare post id. */
+export async function updateLocalPost(businessId: string, postName: string, summary: string): Promise<GbpLocalPost> {
+  const tokens = await getTokensForBusiness(businessId);
+  if (!tokens) throw new GbpNotConnectedError();
+  const { v4Name } = await resolveLocation(businessId, tokens);
+  const full = postName.includes("/localPosts/") ? postName : `${v4Name}/localPosts/${postName.split("/").pop()}`;
+  const url = `${HOST_V4}/v4/${full}?updateMask=summary`;
+  const data = await gbpFetch(businessId, url, {
+    method: "PATCH",
+    body: JSON.stringify({ languageCode: "en-US", topicType: "STANDARD", summary }),
+  });
+  return mapLocalPost(data);
+}
+
+/** v4: delete a local post. */
+export async function deleteLocalPost(businessId: string, postName: string): Promise<void> {
+  const tokens = await getTokensForBusiness(businessId);
+  if (!tokens) throw new GbpNotConnectedError();
+  const { v4Name } = await resolveLocation(businessId, tokens);
+  const full = postName.includes("/localPosts/") ? postName : `${v4Name}/localPosts/${postName.split("/").pop()}`;
+  await gbpFetch(businessId, `${HOST_V4}/v4/${full}`, { method: "DELETE" });
+}
+
+export interface GbpLocationSummary {
+  name: string;
+  title: string;
+  phone: string | null;
+  website: string | null;
+  primaryCategory: string | null;
+  /** e.g. { MONDAY: "8:00 AM – 5:00 PM" } */
+  hours: Record<string, string>;
+  address: string | null;
+}
+
+function fmtClock(t: any): string {
+  if (!t || typeof t !== "object") return "";
+  const h = typeof t.hours === "number" ? t.hours : 0;
+  const m = typeof t.minutes === "number" ? t.minutes : 0;
+  const period = h >= 12 ? "PM" : "AM";
+  const display = h % 12 === 0 ? 12 : h % 12;
+  return `${display}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/** Business Information API, flattened to the shape the apps render. */
+export async function getLocationSummary(businessId: string): Promise<GbpLocationSummary> {
+  const loc = await getLocation(businessId);
+  const hours: Record<string, string> = {};
+  const periods: any[] = Array.isArray(loc?.regularHours?.periods) ? loc.regularHours.periods : [];
+  for (const p of periods) {
+    if (typeof p?.openDay !== "string") continue;
+    const open = fmtClock(p.openTime);
+    const close = fmtClock(p.closeTime);
+    hours[p.openDay] = open && close ? `${open} – ${close}` : "Open";
+  }
+  const addr = loc?.storefrontAddress;
+  const address = addr
+    ? [...(Array.isArray(addr.addressLines) ? addr.addressLines : []), addr.locality, addr.administrativeArea, addr.postalCode]
+        .filter(Boolean)
+        .join(", ")
+    : null;
+  return {
+    name: loc?.name || "",
+    title: loc?.title || "",
+    phone: loc?.phoneNumbers?.primaryPhone || null,
+    website: loc?.websiteUri || null,
+    primaryCategory: loc?.categories?.primaryCategory?.displayName || null,
+    hours,
+    address,
+  };
+}
+
 /** Q&A API: list questions (with the top answer) for the selected location. */
 export async function listQuestions(businessId: string): Promise<GbpQuestion[]> {
   const tokens = await getTokensForBusiness(businessId);

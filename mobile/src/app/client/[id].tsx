@@ -37,7 +37,8 @@ export default function ClientDetailScreen() {
 
   const call = () => {
     if (!client?.phone) {
-      notify('No phone number', 'Add a phone number for this client in the web dashboard.');
+      notify('No phone number', 'Tap the edit icon to add a phone number for this client.');
+      router.push({ pathname: '/client/edit', params: { id: id ?? '' } });
       return;
     }
     void Linking.openURL(`tel:${client.phone.replace(/[^\d+]/g, '')}`);
@@ -45,7 +46,8 @@ export default function ClientDetailScreen() {
 
   const email = () => {
     if (!client?.email) {
-      notify('No email', 'Add an email for this client in the web dashboard.');
+      notify('No email', 'Tap the edit icon to add an email for this client.');
+      router.push({ pathname: '/client/edit', params: { id: id ?? '' } });
       return;
     }
     void Linking.openURL(`mailto:${client.email}`);

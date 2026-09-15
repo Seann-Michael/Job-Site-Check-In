@@ -37,6 +37,9 @@ import {
   type GbpReview,
   type GbpQuestion,
   type GbpInsights,
+  updateLocalPost,
+  deleteLocalPost,
+  getLocationSummary,
 } from "../lib/gbp";
 
 const log = logger.child({ module: "gbp" });
@@ -209,14 +212,74 @@ async function handleCreatePost(req: Request, res: Response) {
           url: req.body.callToAction.url ? String(req.body.callToAction.url) : undefined,
         }
       : undefined;
+  // Optional photo: must be a publicly fetchable https URL (Google pulls it).
+  const rawMedia = Array.isArray(req.body?.media) ? req.body.media : [];
+  const media = rawMedia
+    .map((m: any) => (m && typeof m.sourceUrl === "string" ? m.sourceUrl.trim() : ""))
+    .filter((u: string) => /^https:\/\/[^\s]+$/i.test(u) && u.length <= 2048)
+    .slice(0, 1)
+    .map((sourceUrl: string) => ({ mediaFormat: "PHOTO", sourceUrl }));
   try {
-    const post = await createLocalPost(businessId, { summary, topicType, callToAction });
+    const post = await createLocalPost(businessId, {
+      summary,
+      topicType,
+      callToAction,
+      ...(media.length ? { media } : {}),
+    });
     await writeAudit(req, businessId, "create", "gbp_local_post", { topicType: topicType || "STANDARD" });
     res.json({ success: true, post });
   } catch (err) {
     if (sendGbpError(req, res, err)) return;
     reqLog(req).error({ err }, "gbp create post failed");
     res.status(502).json({ error: "Could not create the post." });
+  }
+}
+
+async function handleUpdatePost(req: Request, res: Response) {
+  const businessId = guardBusiness(req, res, true);
+  if (!businessId) return;
+  const postId = typeof req.params.postId === "string" ? req.params.postId : "";
+  const summary = typeof req.body?.summary === "string" ? req.body.summary.trim() : "";
+  if (!postId) return res.status(400).json({ error: "Missing post id" });
+  if (!summary) return res.status(400).json({ error: "Post summary is required" });
+  if (summary.length > 1500) return res.status(400).json({ error: "Post summary is too long" });
+  try {
+    const post = await updateLocalPost(businessId, postId, summary);
+    await writeAudit(req, businessId, "update", "gbp_local_post", { postId });
+    res.json({ success: true, post });
+  } catch (err) {
+    if (sendGbpError(req, res, err)) return;
+    reqLog(req).error({ err }, "gbp update post failed");
+    res.status(502).json({ error: "Could not update the post." });
+  }
+}
+
+async function handleDeletePost(req: Request, res: Response) {
+  const businessId = guardBusiness(req, res, true);
+  if (!businessId) return;
+  const postId = typeof req.params.postId === "string" ? req.params.postId : "";
+  if (!postId) return res.status(400).json({ error: "Missing post id" });
+  try {
+    await deleteLocalPost(businessId, postId);
+    await writeAudit(req, businessId, "update", "gbp_local_post_delete", { postId });
+    res.json({ success: true });
+  } catch (err) {
+    if (sendGbpError(req, res, err)) return;
+    reqLog(req).error({ err }, "gbp delete post failed");
+    res.status(502).json({ error: "Could not delete the post." });
+  }
+}
+
+async function handleLocation(req: Request, res: Response) {
+  const businessId = guardBusiness(req, res);
+  if (!businessId) return;
+  try {
+    const location = await getLocationSummary(businessId);
+    res.json({ location });
+  } catch (err) {
+    if (sendGbpError(req, res, err)) return;
+    reqLog(req).error({ err }, "gbp location failed");
+    res.status(502).json({ error: "Could not load the business profile." });
   }
 }
 
@@ -611,6 +674,9 @@ gbpRouter.get("/:businessId/reviews", handleReviews);
 gbpRouter.post("/:businessId/reviews/:reviewId/reply", writeLimiter, handleReply);
 gbpRouter.get("/:businessId/posts", handlePosts);
 gbpRouter.post("/:businessId/posts", writeLimiter, handleCreatePost);
+gbpRouter.patch("/:businessId/posts/:postId", writeLimiter, handleUpdatePost);
+gbpRouter.delete("/:businessId/posts/:postId", writeLimiter, handleDeletePost);
+gbpRouter.get("/:businessId/location", handleLocation);
 gbpRouter.get("/:businessId/questions", handleQuestions);
 gbpRouter.get("/:businessId/insights", handleInsights);
 gbpRouter.post("/:businessId/sync", writeLimiter, handleSync);

@@ -26,8 +26,7 @@ import {
   handleRegisterWebhook,
   handleGenerateWebhookUrl,
   handleWorkflowWebhook,
-  handleGetWebhookDeliveries,
-} from "./routes/workflows";
+  handleGetWebhookDeliveries, handleWorkflowTrigger, handleListWorkflows,} from "./routes/workflows";
 import { handleResolveUrl } from "./routes/resolveUrl";
 import { handleGooglePlaceLookup } from "./routes/googlePlaceLookup";
 import { handleGoogleAuthorize, handleGoogleCallback, handleGoogleConnection, handleGoogleStart } from "./routes/googleOAuth";
@@ -280,6 +279,8 @@ export function createServer(options: CreateServerOptions = {}) {
   app.post("/api/webhooks/register", requireAuth, requireWrite, handleRegisterWebhook);
   app.post("/api/workflows/webhook-url", requireAuth, requireWrite, handleGenerateWebhookUrl);
   app.post("/api/workflows/webhook/:workflowId", handleWorkflowWebhook); // public, HMAC-verified
+  app.get("/api/workflows", requireAuth, handleListWorkflows);
+  app.post("/api/workflows/:workflowId/trigger", requireAuth, requireWrite, handleWorkflowTrigger);
   app.get("/api/workflows/deliveries/:executionId", requireAuth, handleGetWebhookDeliveries);
 
   // ── 404 for unknown API routes ──────────────────────────────────────────

@@ -12,7 +12,12 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchClients } from '@/lib/clients';
 import { fetchJob } from '@/lib/data';
 import { notify } from '@/lib/format';
-import { REVIEW_DELIVERY_NOTE, reviewBaseUrl, sendReviewRequest } from '@/lib/review-requests';
+import {
+  REVIEW_DELIVERY_NOTE,
+  deliverReviewRequest,
+  reviewBaseUrl,
+  sendReviewRequest,
+} from '@/lib/review-requests';
 import { useAuth } from '@/providers/auth-provider';
 
 /**
@@ -116,15 +121,30 @@ export default function ReviewRequestScreen() {
       });
       return;
     }
-    // Recorded, NOT sent. The old copy here said the request was queued for
-    // delivery; nothing in this product sends one (lib/review-requests.ts), so
-    // the contractor was left waiting on a text that never went out.
-    notify(
-      'Recorded — nothing was sent',
-      result.scope === 'local'
-        ? `No ${channel === 'email' ? 'email' : 'text'} was sent: this app does not send messages, and in demo mode the request is only saved on this phone. It shows under Scheduled in the Reviews tab.`
-        : `No ${channel === 'email' ? 'email' : 'text'} was sent: this app records requests, it does not send them. It is filed under Scheduled in the Reviews tab and in the web dashboard, which is where someone sends it. If the customer is still with you, go back and hand them a QR code instead.`,
-    );
+    if (!result.id) {
+      notify('Could not record the request', 'The request was saved without an id.');
+      return;
+    }
+    // Deliver it: server SMS when Twilio is set up, otherwise the phone's own
+    // Messages / Mail app opens with the message ready to send.
+    const outcome = await deliverReviewRequest({
+      requestId: result.id,
+      scope: result.scope ?? 'remote',
+      channel: channel === 'email' ? 'email' : 'sms',
+      contact,
+      customerName: name,
+      businessName: business?.name ?? 'us',
+      businessId: result.businessId ?? null,
+    });
+    if (outcome.via === 'none') {
+      notify(
+        'Recorded, not sent',
+        `${outcome.error} The request is filed under Scheduled in the Reviews tab, where it can be sent from the web dashboard.`,
+      );
+    } else if (outcome.via === 'server') {
+      notify('Review request sent', `A text with the review link is on its way to ${name.trim() || 'the customer'}.`);
+    }
+    // 'composer': the Messages/Mail app is now open — no popup needed.
     router.back();
   };
 

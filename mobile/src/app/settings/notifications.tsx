@@ -95,8 +95,8 @@ export default function NotificationsSettingsScreen() {
         </Card>
       </Section>
       <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
-        Job updates schedule local &quot;job starts today&quot; reminders at 7:30 AM. Remote push
-        for reviews and GMB alerts arrives with the dev-build milestone.
+        Job updates schedule local &quot;job starts today&quot; reminders at 7:30 AM. Push alerts
+        for new reviews and Google updates are coming in a later release.
       </Text>
     </Screen>
   );

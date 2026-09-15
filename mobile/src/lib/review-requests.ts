@@ -41,13 +41,15 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking, Platform } from 'react-native';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { Job, ReviewRequest } from '@/lib/types';
+import { ApiError, apiFetch } from '@/lib/api';
+import { APP_URL, isApiConfigured } from '@/lib/config';
 import { workspace } from '@/lib/workspace';
 
 const STORAGE_KEY = 'lsr-review-requests-v1';
-const APP_URL = (process.env.EXPO_PUBLIC_APP_URL ?? '').trim();
 
 /**
  * One sentence, in one place, for every screen that offers to create a review
@@ -55,7 +57,7 @@ const APP_URL = (process.env.EXPO_PUBLIC_APP_URL ?? '').trim();
  * to change — not a dozen screens that each guessed.
  */
 export const REVIEW_DELIVERY_NOTE =
-  'The app records the request and can turn it into a QR code the customer scans on the spot. It does not text or email anyone — a recorded request waits under Scheduled until someone sends it from the web dashboard.';
+  'Hand the customer a QR code on the spot, or text / email them the review link. Texts go out through your account’s messaging number when one is set up; otherwise the app opens your Messages or Mail app with the message ready to send.';
 
 export interface SendReviewInput {
   customerName: string;
@@ -80,6 +82,8 @@ export interface SendReviewResult {
    * that show the link to a customer must say so.
    */
   businessLinked?: boolean;
+  /** The business the row was filed under (null in demo / unlinked). */
+  businessId?: string | null;
   error?: string;
 }
 
@@ -218,7 +222,7 @@ export async function sendReviewRequest(
       if (!id) {
         return { error: 'The request was saved but the server did not return its id.' };
       }
-      return { id, scope: 'remote', businessLinked };
+      return { id, scope: 'remote', businessLinked, businessId: businessLinked ? businessId : null };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Could not save the request.' };
     }
@@ -231,5 +235,131 @@ export async function sendReviewRequest(
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([record, ...existing])).catch(
     () => undefined,
   );
-  return { id: record.id, scope: 'local', businessLinked: false };
+  return { id: record.id, scope: 'local', businessLinked: false, businessId: null };
+}
+
+
+// ---------------------------------------------------------------------------
+// Delivery
+
+export type DeliveryOutcome =
+  /** Sent server-side (Twilio) — the customer already has it. */
+  | { via: 'server' }
+  /** The phone's own Messages / Mail app was opened with the message filled in. */
+  | { via: 'composer' }
+  | { via: 'none'; error: string };
+
+/** E.164-ish normalisation for US numbers; leaves other formats mostly alone. */
+export function normalizePhone(raw: string): string {
+  const digits = raw.replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return digits ? `+${digits}` : '';
+}
+
+export function reviewMessage(customerName: string, businessName: string, link: string): string {
+  const first = customerName.trim().split(' ')[0] || 'there';
+  return `Hi ${first}! Thank you for choosing ${businessName}. We'd love to hear about your experience. Please leave us a review: ${link}`;
+}
+
+function smsUrl(to: string, body: string): string {
+  // iOS wants `sms:<number>&body=`, Android `sms:<number>?body=`.
+  const sep = Platform.OS === 'ios' ? '&' : '?';
+  return `sms:${to}${sep}body=${encodeURIComponent(body)}`;
+}
+
+/**
+ * Actually get the review link to the customer. Tries the server's SMS
+ * sender first (same endpoint the web dashboard's "Send now" uses); when
+ * Twilio is not configured for this account, or the request fails, it opens
+ * the phone's own composer so the contractor can still send it in one tap.
+ * On success the row is marked 'sent' so the Reviews tab stops showing it
+ * as waiting.
+ */
+export async function deliverReviewRequest(input: {
+  requestId: string;
+  scope: 'remote' | 'local';
+  channel: 'sms' | 'email';
+  contact: string;
+  customerName: string;
+  businessName: string;
+  businessId: string | null;
+}): Promise<DeliveryOutcome> {
+  const link = reviewUrl(input.requestId);
+  if (!link || input.scope === 'local') {
+    return {
+      via: 'none',
+      error:
+        input.scope === 'local'
+          ? 'Demo requests only exist on this phone, so there is no live link to send.'
+          : 'This build has no web app address, so there is no review link to send.',
+    };
+  }
+  const body = reviewMessage(input.customerName, input.businessName, link);
+
+  const markSent = async () => {
+    if (!isSupabaseConfigured || input.scope !== 'remote') return;
+    try {
+      await supabase
+        .from('review_requests')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', input.requestId);
+    } catch {
+      // The message went out; the status is cosmetic.
+    }
+  };
+
+  if (input.channel === 'sms') {
+    const to = normalizePhone(input.contact);
+    if (!to) return { via: 'none', error: 'That phone number does not look valid.' };
+
+    if (isApiConfigured && input.businessId) {
+      try {
+        const result = await apiFetch<{ success?: boolean; error?: string }>(
+          '/api/twilio/review-request',
+          {
+            method: 'POST',
+            body: {
+              to,
+              businessName: input.businessName.slice(0, 120),
+              customerName: input.customerName.slice(0, 80),
+              reviewLink: link,
+              businessId: input.businessId,
+            },
+          },
+        );
+        if (result?.success) {
+          await markSent();
+          return { via: 'server' };
+        }
+      } catch (error) {
+        // 503 = Twilio not configured, 403 = no write access, anything else =
+        // transient. All of them fall through to the composer below.
+        if (!(error instanceof ApiError)) return { via: 'none', error: 'Could not reach the server.' };
+      }
+    }
+    try {
+      // The composer opening is not proof it was sent, so the row stays
+      // 'scheduled' and can still be sent from the dashboard.
+      await Linking.openURL(smsUrl(to, body));
+      return { via: 'composer' };
+    } catch {
+      return { via: 'none', error: 'This device cannot open the Messages app.' };
+    }
+  }
+
+  const email = input.contact.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { via: 'none', error: 'That email address does not look valid.' };
+  }
+  try {
+    const subject = `How did we do? — ${input.businessName}`;
+    await Linking.openURL(
+      `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+    );
+    return { via: 'composer' };
+  } catch {
+    return { via: 'none', error: 'This device cannot open the Mail app.' };
+  }
 }

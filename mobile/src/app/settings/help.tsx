@@ -7,10 +7,10 @@ import { Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { webUrl } from '@/lib/config';
 import { notify } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 
-const APP_URL = process.env.EXPO_PUBLIC_APP_URL ?? '';
 const SUPPORT_EMAIL = 'support@localseoranker.com';
 
 const FAQS = [
@@ -42,8 +42,9 @@ export default function HelpSettingsScreen() {
   }
 
   const openKnowledgeBase = () => {
-    if (APP_URL) {
-      void Linking.openURL(`${APP_URL.replace(/\/$/, '')}/help`);
+    const url = webUrl('/help');
+    if (url) {
+      void Linking.openURL(url);
     } else {
       notify(
         'Knowledge base',

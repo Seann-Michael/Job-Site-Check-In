@@ -221,50 +221,122 @@ export async function handleWorkflowWebhook(req: Request, res: Response) {
       return res.status(401).json({ error: "Invalid webhook signature" });
     }
 
-    const { data: execution, error: executionError } = await db
-      .from("workflow_executions")
-      .insert({
-        workflow_id: workflowId,
-        business_id: workflow.business_id,
-        trigger_data: payload,
-        status: "pending",
-      })
-      .select()
-      .single();
-
-    if (executionError) {
-      log.error({ err: executionError }, "Error creating execution");
-      return res.status(500).json({ error: "Failed to create execution" });
-    }
-
-    // Execute now and report what actually happened so callers can tell
-    // accepted-and-executed apart from accepted-but-steps-failed.
-    const run = await executeWorkflow(execution.id, workflow, payload);
-    const failedSteps = run.steps.filter((step) => step.status === "failed");
-
-    const requestedDestinations: string[] = Array.isArray(payload?.destinations)
-      ? payload.destinations.filter((d: unknown): d is string => typeof d === "string")
-      : [];
-    const results =
-      requestedDestinations.length > 0
-        ? requestedDestinations.map((destination) => destinationOutcome(destination, run.steps))
-        : undefined;
-
-    res.json({
-      success: run.status === "completed",
-      executionId: execution.id,
-      status: run.status,
-      steps: run.steps,
-      ...(results ? { results } : {}),
-      message:
-        run.status === "completed"
-          ? run.steps.length > 0
-            ? "Workflow executed successfully"
-            : "Workflow accepted, but it has no action steps; nothing was done"
-          : `Workflow ran, but ${failedSteps.length > 0 ? `${failedSteps.length} of ${run.steps.length} step${run.steps.length === 1 ? "" : "s"} failed` : "it failed"}${run.errorMessage ? `: ${run.errorMessage}` : ""}`,
-    });
+    return await runAndRespond(res, workflowId, workflow, payload, log);
   } catch (error) {
     log.error({ err: error }, "handleWorkflowWebhook failed");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+
+/** Insert the execution row, run the workflow and report per-step results. */
+async function runAndRespond(
+  res: Response,
+  workflowId: string,
+  workflow: any,
+  payload: WebhookPayload,
+  log: ReturnType<typeof reqLog>,
+) {
+  const db = getSupabaseClient();
+  const { data: execution, error: executionError } = await db
+    .from("workflow_executions")
+    .insert({
+      workflow_id: workflowId,
+      business_id: workflow.business_id,
+      trigger_data: payload,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (executionError) {
+    log.error({ err: executionError }, "Error creating execution");
+    return res.status(500).json({ error: "Failed to create execution" });
+  }
+
+  // Execute now and report what actually happened so callers can tell
+  // accepted-and-executed apart from accepted-but-steps-failed.
+  const run = await executeWorkflow(execution.id, workflow, payload);
+  const failedSteps = run.steps.filter((step) => step.status === "failed");
+
+  const requestedDestinations: string[] = Array.isArray(payload?.destinations)
+    ? payload.destinations.filter((d: unknown): d is string => typeof d === "string")
+    : [];
+  const results =
+    requestedDestinations.length > 0
+      ? requestedDestinations.map((destination) => destinationOutcome(destination, run.steps))
+      : undefined;
+
+  res.json({
+    success: run.status === "completed",
+    executionId: execution.id,
+    status: run.status,
+    steps: run.steps,
+    ...(results ? { results } : {}),
+    message:
+      run.status === "completed"
+        ? run.steps.length > 0
+          ? "Workflow executed successfully"
+          : "Workflow accepted, but it has no action steps; nothing was done"
+        : `Workflow ran, but ${failedSteps.length > 0 ? `${failedSteps.length} of ${run.steps.length} step${run.steps.length === 1 ? "" : "s"} failed` : "it failed"}${run.errorMessage ? `: ${run.errorMessage}` : ""}`,
+  });
+}
+
+// ── Authenticated trigger (mobile / API clients) ─────────────────────────────
+// POST /api/workflows/:workflowId/trigger  (requireAuth + requireWrite)
+// Same execution path as the public webhook, but authorised by the caller's
+// session instead of the HMAC secret — the phone app never holds the secret.
+export async function handleWorkflowTrigger(req: Request, res: Response) {
+  const log = reqLog(req);
+  try {
+    const { workflowId } = req.params;
+    const payload = (req.body ?? {}) as WebhookPayload;
+    if (!workflowId || !/^[0-9a-f-]{36}$/i.test(workflowId)) {
+      return res.status(400).json({ error: "Workflow ID is required" });
+    }
+    const db = getSupabaseClient();
+    const { data: workflow, error: workflowError } = await db
+      .from("workflows")
+      .select("*")
+      .eq("id", workflowId)
+      .eq("is_active", true)
+      .single();
+    if (workflowError || !workflow) {
+      return res.status(404).json({ error: "Workflow not found or inactive" });
+    }
+    if (!workflow.business_id || !canWriteBusiness(req, String(workflow.business_id))) {
+      return res.status(403).json({ error: "You do not have access to this workflow" });
+    }
+    return await runAndRespond(res, workflowId, workflow, payload, log);
+  } catch (error) {
+    log.error({ err: error }, "handleWorkflowTrigger failed");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/** GET /api/workflows?businessId=  — active workflows the caller may trigger. */
+export async function handleListWorkflows(req: Request, res: Response) {
+  const log = reqLog(req);
+  try {
+    const wanted = typeof req.query.businessId === "string" ? req.query.businessId : "";
+    const businessId = wanted
+      ? canAccessBusiness(req, wanted)
+        ? wanted
+        : null
+      : (req.profile?.businessIds ?? []).find((id) => canAccessBusiness(req, id)) ?? null;
+    if (!businessId) return res.json({ workflows: [] });
+    const db = getSupabaseClient();
+    const { data, error } = await db
+      .from("workflows")
+      .select("id, name, description, is_active, is_published, updated_at")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ businessId, workflows: data ?? [] });
+  } catch (error) {
+    log.error({ err: error }, "handleListWorkflows failed");
     res.status(500).json({ error: "Internal server error" });
   }
 }

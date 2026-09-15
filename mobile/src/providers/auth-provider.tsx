@@ -35,11 +35,11 @@ export interface AuthUser {
   lastName: string;
   isDemo: boolean;
   /**
-   * Access role. TODO(backend): populate from the membership/user row once the
-   * auth milestone wires roles through. Until then it reads from
-   * `user_metadata.role` when present and otherwise defaults to 'business_owner'
-   * (see userFromSession / DEMO_USER), so the role-aware UI has something real
-   * to branch on today.
+   * Access role, resolved the same way the server does (requireAuth.ts):
+   * `users.role` for super admins, `businesses.owner_id` for owners, then the
+   * `business_members` row (staff | viewer). Seeded from `user_metadata.role`
+   * / 'business_owner' the instant a session appears and refined by
+   * resolveRole() a moment later, so the role-aware UI always has a value.
    */
   role: UserRole;
 }
@@ -117,10 +117,34 @@ function userFromSession(session: Session | null): AuthUser | null {
     firstName,
     lastName,
     isDemo: false,
-    // TODO(backend): the auth milestone should source this from the membership
-    // row, not user_metadata. Read it opportunistically until then.
+    // Provisional until resolveRole() answers from the database.
     role: coerceRole(meta['role']),
   };
+}
+
+/**
+ * Role from the database, mirroring server/middleware/requireAuth.ts:
+ * super_admin (users.role) > owner of any business > staff member > viewer.
+ * A user with no business and no membership is treated as an owner — that is
+ * what onboarding makes them.
+ */
+async function resolveRole(userId: string, fallback: UserRole): Promise<UserRole> {
+  try {
+    const [profile, owned, memberships] = await Promise.all([
+      supabase.from('users').select('role').eq('id', userId).maybeSingle(),
+      supabase.from('businesses').select('id').eq('owner_id', userId).limit(1),
+      supabase.from('business_members').select('role').eq('user_id', userId).limit(20),
+    ]);
+    if (profile.data?.role === 'super_admin') return 'super_admin';
+    if ((owned.data?.length ?? 0) > 0) return 'business_owner';
+    const roles = (memberships.data ?? []).map((row) => String(row.role));
+    if (roles.includes('staff')) return 'staff';
+    if (roles.includes('viewer')) return 'viewer';
+    if (profile.data?.role === 'staff') return 'staff';
+    return fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 interface StoredDemoProfile {
@@ -180,18 +204,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
+    // Seed the user synchronously from the session, then refine the role
+    // from the database without blocking the UI.
+    const applySession = (session: Session | null) => {
+      const next = userFromSession(session);
+      // Token refreshes re-fire this; keep the already-resolved role for the
+      // same user rather than flashing back to the metadata default.
+      setUser((current) =>
+        next && current && current.id === next.id ? { ...next, role: current.role } : next,
+      );
+      if (!next) return;
+      void resolveRole(next.id, next.role).then((role) => {
+        if (cancelled || role === next.role) return;
+        setUser((current) => (current && current.id === next.id ? { ...current, role } : current));
+      });
+    };
+
     supabase.auth
       .getSession()
       .then(({ data }) => {
         if (cancelled) return;
-        setUser(userFromSession(data.session));
+        applySession(data.session);
       })
       .finally(() => {
         if (!cancelled) setInitializing(false);
       });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!cancelled) setUser(userFromSession(session));
+      if (!cancelled) applySession(session);
     });
 
     return () => {
@@ -280,7 +320,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (oauthError) return { error: oauthError };
     if (!code) return { error: 'Google sign-in did not return an authorization code.' };
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-    if (exchangeError) return { error: exchangeError.message };
+    if (exchangeError) {
+      // On Android the deep link also reaches the auth-callback route, which
+      // may have exchanged the code first — a session means we are signed in.
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session) return {};
+      return { error: exchangeError.message };
+    }
     // onAuthStateChange picks up the new session and populates the user.
     return {};
   }, []);
