@@ -9,17 +9,23 @@ import {
   twilioParamsFromRawBody,
   verifyTwilioSignature,
 } from "../lib/twilioSignature";
+import {
+  sendSms,
+  reviewRequestMessage,
+  classifyInbound,
+  recordOptOut,
+  clearOptOut,
+  normalisePhone,
+  getTwilioConfig,
+  E164_RE as SMS_E164_RE,
+  MAX_SMS_LENGTH as SMS_MAX_LENGTH,
+  statusForSendFailure,
+} from "../lib/sms";
 
 const moduleLog = logger.child({ module: "twilio" });
 const reqLog = (req: Request) => (req.log ?? moduleLog).child({ module: "twilio" });
 
-// Twilio Configuration
-interface TwilioConfig {
-  accountSid: string;
-  authToken: string;
-  phoneNumber: string;
-  webhookUrl?: string;
-}
+const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface SMSRequest {
   to: string;
@@ -28,8 +34,9 @@ interface SMSRequest {
   businessId?: string;
 }
 
-export const E164_RE = /^\+[1-9]\d{6,14}$/;
-export const MAX_SMS_LENGTH = 1600;
+// Re-exported from lib/sms so there is exactly one definition of each.
+export const E164_RE = SMS_E164_RE;
+export const MAX_SMS_LENGTH = SMS_MAX_LENGTH;
 
 /**
  * Per-user limit for outbound SMS endpoints (send + review-request share the
@@ -46,25 +53,6 @@ export const smsSendLimiter = rateLimit({
   validate: { keyGeneratorIpFallback: false },
   message: { success: false, error: "Too many messages sent, please try again later" },
 });
-
-// Get Twilio configuration from environment variables
-const getTwilioConfig = (): TwilioConfig | null => {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
-  const webhookUrl = process.env.TWILIO_WEBHOOK_URL;
-
-  if (accountSid && authToken && phoneNumber) {
-    return {
-      accountSid,
-      authToken,
-      phoneNumber,
-      webhookUrl
-    };
-  }
-
-  return null;
-};
 
 /**
  * Validate the shared SMS fields. Returns an error string or null.
@@ -116,15 +104,6 @@ function isValidReviewLink(reviewLink: unknown): boolean {
 export const handleSendSMS = async (req: Request, res: Response) => {
   const log = reqLog(req);
   try {
-    const config = getTwilioConfig();
-
-    if (!config) {
-      return res.status(503).json({
-        success: false,
-        error: "Twilio credentials not configured"
-      });
-    }
-
     const { to, message, campaignId, businessId }: SMSRequest = req.body ?? {};
 
     const invalid = validateSmsInput(req, to, message, businessId);
@@ -132,70 +111,29 @@ export const handleSendSMS = async (req: Request, res: Response) => {
       return res.status(invalid.status).json({ success: false, error: invalid.error });
     }
 
-    // Prepare Twilio API request
-    const authString = Buffer.from(
-      `${config.accountSid}:${config.authToken}`
-    ).toString('base64');
-
-    const params = new URLSearchParams({
-      From: config.phoneNumber,
-      To: to,
-      Body: message,
-      ...(config.webhookUrl && { StatusCallback: config.webhookUrl })
+    const result = await sendSms({
+      to: to as string,
+      message: message as string,
+      businessId: businessId as string,
+      campaignId: campaignId ?? null,
     });
 
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${config.accountSid}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${authString}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-        signal: AbortSignal.timeout(15_000),
-      }
+    if (!result.ok) {
+      // An opt-out is the caller's answer, not a server fault: 409 so a UI can
+      // say "this customer unsubscribed" instead of "something went wrong".
+      return res
+        .status(statusForSendFailure(result.reason))
+        .json({ success: false, error: result.error, reason: result.reason });
+    }
+
+    log.info(
+      { userId: req.user?.id, businessId: businessId || null, campaignId: campaignId ?? null },
+      "SMS sent",
     );
-
-    const data = (await response.json().catch(() => ({}))) as any;
-
-    if (!response.ok) {
-      // Never echo Twilio's error text to the client.
-      log.error({ status: response.status, code: data?.code, message: data?.message }, "Twilio API error");
-      return res.status(502).json({ success: false, error: "SMS provider request failed" });
-    }
-
-    // Persist SMS log to Supabase
-    const db = getSupabaseClient();
-    if (db) {
-      await db.from("sms_logs").insert({
-        twilio_sid: data.sid,
-        direction: "outbound",
-        to_number: to,
-        from_number: config.phoneNumber,
-        message,
-        status: data.status ?? "sent",
-        campaign_id: campaignId ?? null,
-        business_id: businessId || null,
-      }).then(({ error }) => {
-        if (error) log.error({ err: error.message }, "Failed to log SMS");
-      });
-    }
-
-    log.info({ userId: req.user?.id, businessId: businessId || null, campaignId: campaignId ?? null }, "SMS sent");
-
-    res.json({
-      success: true,
-      messageId: data.sid,
-      status: data.status
-    });
-
+    res.json({ success: true, messageId: result.sid, status: result.status });
   } catch (error) {
     log.error({ err: error }, "Twilio SMS error");
-    res.status(502).json({
-      success: false,
-      error: "SMS provider request failed"
-    });
+    res.status(502).json({ success: false, error: "SMS provider request failed" });
   }
 };
 
@@ -266,6 +204,46 @@ export const handleTwilioWebhook = async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const rawSid = body.MessageSid;
     const MessageSid = typeof rawSid === "string" ? rawSid : "";
+
+    // ── Inbound message (not a delivery receipt) ──────────────────────────
+    // A status callback carries MessageStatus; an inbound SMS carries Body and
+    // From. STOP has to be honoured here or the product keeps texting someone
+    // who told it to stop, which is a TCPA violation, not a bug backlog item.
+    const inboundBody = typeof body.Body === "string" ? body.Body : null;
+    const fromNumber = normalisePhone(body.From);
+    if (inboundBody !== null && fromNumber) {
+      const intent = classifyInbound(inboundBody);
+      const businessId = await businessForInboundNumber(fromNumber);
+
+      if (intent === "stop") {
+        // Recorded platform-wide when we cannot attribute the number to one
+        // tenant: an unattributable STOP must still stop everything.
+        await recordOptOut(fromNumber, businessId, "stop_reply", "inbound_sms");
+      } else if (intent === "start") {
+        await clearOptOut(fromNumber, businessId);
+      }
+
+      try {
+        const db = getSupabaseClient();
+        if (db) {
+          await db.from("sms_logs").insert({
+            twilio_sid: MessageSid || null,
+            direction: "inbound",
+            to_number: typeof body.To === "string" ? body.To : null,
+            from_number: fromNumber,
+            message: inboundBody.slice(0, 1600),
+            status: "received",
+            business_id: businessId,
+          });
+        }
+      } catch (err) {
+        reqLog(req).warn({ err }, "inbound SMS log failed");
+      }
+
+      reqLog(req).info({ intent, businessId }, "inbound SMS handled");
+      // Twilio reads the body as TwiML; an empty 200 means "no auto-reply".
+      return res.status(200).send("OK");
+    }
 
     // Nothing to key the update on — acknowledge and no-op.
     if (!MessageSid) {
@@ -377,21 +355,41 @@ export const handleTwilioStatus = async (_req: Request, res: Response) => {
 };
 
 // Send review request SMS
+/**
+ * Which business, if any, does this number belong to? Used to scope an inbound
+ * STOP. Returns null when the number cannot be attributed, in which case the
+ * opt-out is recorded platform-wide — the safer direction.
+ */
+async function businessForInboundNumber(fromNumber: string): Promise<string | null> {
+  try {
+    const db = getSupabaseClient();
+    if (!db) return null;
+    const { data } = await db
+      .from("sms_logs")
+      .select("business_id")
+      .eq("direction", "outbound")
+      .eq("to_number", fromNumber)
+      .not("business_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const row = Array.isArray(data) ? data[0] : null;
+    const id = (row as any)?.business_id;
+    return typeof id === "string" && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export const handleSendReviewRequest = async (req: Request, res: Response) => {
   const log = reqLog(req);
   try {
-    const {
-      to,
-      businessName,
-      customerName,
-      reviewLink,
-      businessId
-    } = req.body ?? {};
+    const { to, businessName, customerName, reviewLink, businessId, jobId, scheduledFor, requestId } =
+      req.body ?? {};
 
     if (!to || !businessName || !reviewLink) {
       return res.status(400).json({
         success: false,
-        error: "Phone number, business name, and review link are required"
+        error: "Phone number, business name, and review link are required",
       });
     }
     if (typeof businessName !== "string" || businessName.length > 120) {
@@ -403,27 +401,97 @@ export const handleSendReviewRequest = async (req: Request, res: Response) => {
     if (!isValidReviewLink(reviewLink)) {
       return res.status(400).json({
         success: false,
-        error: "reviewLink must be an https URL on this application's domain"
+        error: "reviewLink must be an https URL on this application's domain",
       });
     }
 
-    const message = `Hi ${customerName || 'there'}! Thank you for choosing ${businessName}. We'd love to hear about your experience. Please leave us a review: ${reviewLink}`;
+    const message = reviewRequestMessage({ customerName, businessName, reviewLink });
 
-    // Use the existing SMS handler (it re-validates `to`, length and businessId).
-    req.body = {
-      to,
-      message,
-      businessId,
-      campaignId: 'review_request'
+    const invalid = validateSmsInput(req, to, message, businessId);
+    if (invalid) {
+      return res.status(invalid.status).json({ success: false, error: invalid.error });
+    }
+
+    const db = getSupabaseClient();
+    const normalisedTo = normalisePhone(to);
+
+    // The web UI creates the row first, because the review link embeds its id.
+    // Update that row rather than inserting a duplicate beside it.
+    const existingId = typeof requestId === "string" && UUID_LIKE.test(requestId) ? requestId : null;
+    if (existingId) {
+      const { data: owned } = await db
+        .from("review_requests")
+        .select("id")
+        .eq("id", existingId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+      if (!owned) {
+        return res.status(404).json({ success: false, error: "Review request not found for this business" });
+      }
+    }
+
+    const recordOutcome = async (fields: Record<string, unknown>): Promise<string | null> => {
+      const base = {
+        business_id: businessId,
+        customer_name: typeof customerName === "string" && customerName ? customerName : "Customer",
+        customer_phone: normalisedTo,
+        project_name: typeof req.body?.projectName === "string" ? req.body.projectName : "Project",
+        job_id: typeof jobId === "string" && UUID_LIKE.test(jobId) ? jobId : null,
+        review_link: reviewLink,
+        channel: "sms",
+        ...fields,
+      };
+      if (existingId) {
+        const { error } = await db.from("review_requests").update(base).eq("id", existingId);
+        if (error) log.warn({ err: error.message }, "review request update failed");
+        return existingId;
+      }
+      const { data, error } = await db.from("review_requests").insert(base).select("id").single();
+      if (error) log.warn({ err: error.message }, "review request insert failed");
+      return (data as any)?.id ?? null;
     };
 
-    return handleSendSMS(req, res);
+    // A scheduled request is a row for the worker to pick up later, not a send.
+    const when = typeof scheduledFor === "string" ? Date.parse(scheduledFor) : NaN;
+    if (Number.isFinite(when) && when > Date.now() + 60_000) {
+      const id = await recordOutcome({
+        status: "scheduled",
+        scheduled_for: new Date(when).toISOString(),
+      });
+      if (!id) {
+        return res.status(500).json({ success: false, error: "Could not schedule the review request" });
+      }
+      return res.json({ success: true, scheduled: true, requestId: id });
+    }
 
+    const result = await sendSms({
+      to: normalisedTo,
+      message,
+      businessId: businessId as string,
+      campaignId: "review_request",
+    });
+
+    // Recorded either way: a request that was refused because the customer
+    // opted out is exactly the thing the operator needs to be able to see.
+    const recordedId = await recordOutcome({
+      status: result.ok ? "sent" : result.reason === "opted_out" ? "opted_out" : "failed",
+      attempt_count: 1,
+      twilio_sid: result.ok ? result.sid ?? null : null,
+      last_error: result.ok ? null : result.error,
+      sent_at: new Date().toISOString(),
+      // One nudge three days later, only for a request that actually went out.
+      follow_up_after: result.ok ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null,
+    });
+
+    if (!result.ok) {
+      return res
+        .status(statusForSendFailure(result.reason))
+        .json({ success: false, error: result.error, reason: result.reason, requestId: recordedId });
+    }
+
+    return res.json({ success: true, messageId: result.sid, status: result.status, requestId: recordedId });
   } catch (error) {
     log.error({ err: error }, "Review request SMS error");
-    res.status(500).json({
-      success: false,
-      error: "Failed to send review request"
-    });
+    res.status(500).json({ success: false, error: "Failed to send review request" });
   }
 };

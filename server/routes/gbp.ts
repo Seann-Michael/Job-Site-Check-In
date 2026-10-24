@@ -9,7 +9,11 @@
  *   POST /api/gbp/:businessId/reviews/:reviewId/reply   reply to a review (write)
  *   GET  /api/gbp/:businessId/posts                     local posts
  *   POST /api/gbp/:businessId/posts                     create a local post (write)
+ *   GET  /api/gbp/:businessId/location                  profile fields as rendered
+ *   PATCH /api/gbp/:businessId/location                 write profile fields to Google (write)
+ *   GET  /api/gbp/:businessId/categories?q=             search Google's category taxonomy
  *   GET  /api/gbp/:businessId/questions                 Q&A
+ *   PUT  /api/gbp/:businessId/questions/:questionId/answer  answer a question (write)
  *   GET  /api/gbp/:businessId/insights                  performance summary
  *   POST /api/gbp/:businessId/sync                      pull + upsert into app tables (write)
  *
@@ -41,6 +45,9 @@ import {
   updateLocalPost,
   deleteLocalPost,
   getLocationSummary,
+  updateLocation,
+  searchCategories,
+  answerQuestion,
 } from "../lib/gbp";
 
 const log = logger.child({ module: "gbp" });
@@ -319,7 +326,176 @@ async function handleInsights(req: Request, res: Response) {
   }
 }
 
+/**
+ * Write the editable profile fields back to Google.
+ *
+ * This is the half of the profile editor that was missing: before this, hours,
+ * categories, services and the description were only ever stored locally, so
+ * they never reached Google and the next Sync overwrote them with whatever
+ * Google still had. Google is the system of record — we push here, then Sync
+ * pulls the authoritative result back.
+ */
+async function handleUpdateLocation(req: Request, res: Response) {
+  const businessId = guardBusiness(req, res, true);
+  if (!businessId) return;
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const str = (v: unknown, max: number): string | undefined =>
+    typeof v === "string" ? v.trim().slice(0, max) : undefined;
+
+  const patch: Parameters<typeof updateLocation>[1] = {};
+  const title = str(body.title, 300);
+  if (title !== undefined) patch.title = title;
+  const phone = str(body.phone, 60);
+  if (phone !== undefined) patch.phone = phone;
+  const description = str(body.description, 750);
+  if (description !== undefined) patch.description = description;
+
+  // A website must be a real absolute URL or Google rejects the whole patch.
+  const website = str(body.website, 2048);
+  if (website !== undefined) {
+    if (website && !/^https?:\/\/[^\s]+$/i.test(website)) {
+      return res.status(400).json({ error: "Website must be a full http(s) URL." });
+    }
+    patch.website = website;
+  }
+
+  const primary = str(body.primaryCategoryId, 200);
+  if (primary) patch.primaryCategoryId = primary;
+  if (Array.isArray(body.additionalCategoryIds)) {
+    patch.additionalCategoryIds = body.additionalCategoryIds
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .slice(0, 9);
+  }
+  if (Array.isArray(body.services)) {
+    patch.services = body.services
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .map((v) => v.trim().slice(0, 120))
+      .slice(0, 100);
+  }
+  if (Array.isArray(body.hours)) {
+    patch.hours = body.hours
+      .filter((h): h is Record<string, unknown> => !!h && typeof h === "object")
+      .map((h) => ({
+        day: String((h as any).day ?? ""),
+        open: typeof (h as any).open === "string" ? (h as any).open : undefined,
+        close: typeof (h as any).close === "string" ? (h as any).close : undefined,
+        closed: (h as any).closed === true,
+      }));
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: "No profile fields were supplied." });
+  }
+
+  try {
+    const location = await updateLocation(businessId, patch);
+    await writeAudit(req, businessId, "update", "gbp_location", { fields: Object.keys(patch) });
+    res.json({ success: true, location });
+  } catch (err) {
+    if (sendGbpError(req, res, err)) return;
+    reqLog(req).error({ err }, "gbp update location failed");
+    res.status(502).json({ error: "Could not save the profile to Google." });
+  }
+}
+
+/** Google's category taxonomy — a location PATCH only accepts ids from here. */
+async function handleSearchCategories(req: Request, res: Response) {
+  const businessId = guardBusiness(req, res);
+  if (!businessId) return;
+  const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+  if (!q) return res.status(400).json({ error: "A search term is required." });
+  const regionCode =
+    typeof req.query.regionCode === "string" && /^[A-Z]{2}$/.test(req.query.regionCode)
+      ? req.query.regionCode
+      : "US";
+  try {
+    const categories = await searchCategories(businessId, q, regionCode);
+    res.json({ categories });
+  } catch (err) {
+    if (sendGbpError(req, res, err)) return;
+    reqLog(req).error({ err }, "gbp category search failed");
+    res.status(502).json({ error: "Could not search Google's categories." });
+  }
+}
+
+/** Post (or replace) the owner's answer to a profile question. */
+async function handleAnswerQuestion(req: Request, res: Response) {
+  const businessId = guardBusiness(req, res, true);
+  if (!businessId) return;
+  const questionId = typeof req.params.questionId === "string" ? req.params.questionId : "";
+  const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+  if (!questionId) return res.status(400).json({ error: "Missing question id" });
+  if (!text) return res.status(400).json({ error: "An answer is required" });
+  if (text.length > 4000) return res.status(400).json({ error: "That answer is too long" });
+  try {
+    await answerQuestion(businessId, questionId, text);
+    await writeAudit(req, businessId, "update", "gbp_question_answer", { questionId });
+    res.json({ success: true });
+  } catch (err) {
+    if (sendGbpError(req, res, err)) return;
+    reqLog(req).error({ err }, "gbp answer question failed");
+    res.status(502).json({ error: "Could not post the answer to Google." });
+  }
+}
+
 // ── Sync: pull live data and upsert into the app tables ──────────────────────
+
+/** How long dated scan snapshots are kept. Long enough to show a year of trend. */
+const AUDIT_RETENTION_DAYS = 400;
+
+/**
+ * Write the Google performance numbers into `analytics` as one dated row per
+ * metric, so the dashboard can chart calls/clicks/directions over time.
+ *
+ * Keyed on (business_id, metric_name, date) by upsert, so re-syncing the same
+ * day corrects that day's row rather than double-counting it.
+ */
+async function persistInsights(
+  req: Request,
+  businessId: string,
+  insights: GbpInsights | null,
+  avgRating: number | null,
+  reviewCount: number,
+): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows: Array<Record<string, unknown>> = [];
+
+  const add = (metricType: string, metricName: string, value: number | null) => {
+    if (value == null || !Number.isFinite(value)) return;
+    rows.push({
+      business_id: businessId,
+      metric_type: metricType,
+      metric_name: metricName,
+      value,
+      dimensions: insights ? { range_days: insights.rangeDays } : null,
+      date: today,
+      data_source: "google_my_business",
+    });
+  };
+
+  if (insights) {
+    add("phone_calls", "gbp_calls", insights.calls);
+    add("website_clicks", "gbp_website_clicks", insights.websiteClicks);
+    add("direction_requests", "gbp_direction_requests", insights.directionRequests);
+    add("organic_traffic", "gbp_profile_views", insights.views);
+    add("organic_traffic", "gbp_searches", insights.searches);
+  }
+  add("review_count", "gbp_review_count", reviewCount);
+  add("review_rating", "gbp_average_rating", avgRating);
+
+  if (!rows.length) return;
+  try {
+    const db = getSupabaseClient();
+    const { error } = await db
+      .from("analytics")
+      .upsert(rows, { onConflict: "business_id,metric_name,date", ignoreDuplicates: false });
+    if (error) reqLog(req).warn({ err: error.message }, "analytics insights upsert failed");
+  } catch (err) {
+    // Never fail a sync over its own telemetry.
+    reqLog(req).warn({ err }, "analytics insights upsert threw");
+  }
+}
 
 const DAY_NAMES: Record<string, string> = {
   MONDAY: "Monday",
@@ -650,14 +826,22 @@ async function handleSync(req: Request, res: Response) {
         action_required: respondsToReviews ? "No action needed." : "Reply to your recent reviews.",
       },
     ];
-    // Only replace the audit rows we own (these categories) to avoid clobbering
-    // Places-based audits; simplest correct behaviour is a full replace here.
-    await db.from("gmb_audit_results").delete().eq("business_id", businessId);
-    await db.from("gmb_audit_results").insert(auditRows);
+    // Each scan is a dated snapshot, NOT a replacement: the whole point of an
+    // optimisation tool is being able to show that the score moved, and that
+    // history is unrecoverable once deleted. Readers take the newest
+    // `scanned_at` batch; we only prune beyond the retention window.
+    const scannedAt = new Date().toISOString();
+    await db.from("gmb_audit_results").insert(auditRows.map((row) => ({ ...row, scanned_at: scannedAt })));
+    const retentionCutoff = new Date(Date.now() - AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    await db.from("gmb_audit_results").delete().eq("business_id", businessId).lt("scanned_at", retentionCutoff);
   } catch (err) {
     reqLog(req).error({ err }, "gbp sync persist failed");
     return res.status(500).json({ error: "Synced from Google but failed to save locally." });
   }
+
+  // Insights were previously fetched, returned once and thrown away, so no
+  // trend could ever be drawn. Persist them as dated metric rows instead.
+  await persistInsights(req, businessId, insights, avgRating, reviewCount);
 
   await writeAudit(req, businessId, "update", "gbp_sync", {
     reviews: reviewCount,
@@ -687,6 +871,9 @@ gbpRouter.post("/:businessId/posts", writeLimiter, handleCreatePost);
 gbpRouter.patch("/:businessId/posts/:postId", writeLimiter, handleUpdatePost);
 gbpRouter.delete("/:businessId/posts/:postId", writeLimiter, handleDeletePost);
 gbpRouter.get("/:businessId/location", handleLocation);
+gbpRouter.patch("/:businessId/location", writeLimiter, handleUpdateLocation);
+gbpRouter.get("/:businessId/categories", handleSearchCategories);
 gbpRouter.get("/:businessId/questions", handleQuestions);
+gbpRouter.put("/:businessId/questions/:questionId/answer", writeLimiter, handleAnswerQuestion);
 gbpRouter.get("/:businessId/insights", handleInsights);
 gbpRouter.post("/:businessId/sync", writeLimiter, handleSync);

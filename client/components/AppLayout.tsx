@@ -29,6 +29,7 @@ import {
   Shield,
   Users,
   FolderOpen,
+  LayoutDashboard,
   Camera,
   Star,
   Settings,
@@ -233,6 +234,14 @@ export function AppLayout({
 
   // Navigation items with conditional visibility
   const sidebarItems = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      href: "/admin/dashboard",
+      icon: LayoutDashboard,
+      active: location.pathname.startsWith("/admin/dashboard"),
+      comingSoon: false,
+    },
     {
       id: "jobs",
       label: "Jobs",
