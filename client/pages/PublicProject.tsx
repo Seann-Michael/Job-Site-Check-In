@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Images, MapPin, CalendarDays, Tag } from "lucide-react";
+import { Images, MapPin, CalendarDays, Tag, Phone, Globe } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
@@ -13,15 +13,32 @@ interface TaggedPhoto {
   isPrimary?: boolean;
 }
 
+/** Name, address, phone — what makes this page a local SEO asset at all. */
+interface PublicBusiness {
+  name?: string;
+  phone?: string;
+  website?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postal?: string;
+  country?: string;
+  mapsUrl?: string;
+  reviewUrl?: string;
+  logoUrl?: string;
+}
+
 interface PublicJobResponse {
   id: string;
   name: string;
   description: string | null;
   created_at: string;
+  completed_at: string | null;
   seo_targets: unknown;
   metadata: unknown;
   /** Signed (1h) URLs, already filtered to what the job exposes publicly. */
   photos: string[];
+  business: PublicBusiness | null;
 }
 
 interface Project {
@@ -31,6 +48,7 @@ interface Project {
   photos: TaggedPhoto[] | string[];
   keywords: string[];
   createdAt: string;
+  business: PublicBusiness | null;
 }
 
 /** Keep only the string entries of a value that may or may not be an array. */
@@ -38,6 +56,13 @@ const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+
+/** "123 Main St, Akron, OH 44301" from whichever parts are present. */
+const addressLine = (business: PublicBusiness | null): string => {
+  if (!business) return "";
+  const cityState = [business.city, business.state].filter(Boolean).join(", ");
+  return [business.street, cityState, business.postal].filter(Boolean).join(", ");
+};
 
 /**
  * Keywords have no dedicated column on jobs — derive them from the jsonb
@@ -81,7 +106,8 @@ export default function PublicProject() {
           description: row.description ?? "",
           photos,
           keywords,
-          createdAt: row.created_at,
+          createdAt: row.completed_at ?? row.created_at,
+          business: row.business ?? null,
         });
       } catch {
         // Project not found — show "not found" state
@@ -91,6 +117,14 @@ export default function PublicProject() {
     };
     loadProject();
   }, [id]);
+
+  // The server renders the authoritative <title> for a cold load; this covers a
+  // client-side navigation into the route, which never reaches the server.
+  useEffect(() => {
+    if (!project) return;
+    const where = [project.business?.city, project.business?.state].filter(Boolean).join(", ");
+    document.title = [project.name, where, project.business?.name].filter(Boolean).join(" | ");
+  }, [project]);
 
   const getPhotoUrl = (photo: TaggedPhoto | string): string => {
     return typeof photo === "string" ? photo : photo.url;
@@ -234,12 +268,53 @@ export default function PublicProject() {
           </div>
         )}
 
-        {/* Footer */}
-        <div className="text-center mt-12 pt-8 border-t">
-          <p className="text-sm text-muted-foreground">
-            Powered by ProjectLens
-          </p>
-        </div>
+        {/* NAP footer — the name/address/phone block search engines read, and
+            the only thing on this page that turns a visitor into a call. */}
+        {project.business && (
+          <footer className="mt-12 border-t pt-8">
+            <address className="space-y-2 text-center not-italic">
+              {project.business.name && (
+                <p className="text-lg font-semibold">{project.business.name}</p>
+              )}
+              {addressLine(project.business) && (
+                <p className="text-sm text-muted-foreground">
+                  {addressLine(project.business)}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center justify-center gap-4 pt-1 text-sm">
+                {project.business.phone && (
+                  <a
+                    className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
+                    href={`tel:${project.business.phone.replace(/[^\d+]/g, "")}`}
+                  >
+                    <Phone className="h-4 w-4" />
+                    {project.business.phone}
+                  </a>
+                )}
+                {project.business.website && (
+                  <a
+                    className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
+                    href={project.business.website}
+                    rel="noopener"
+                  >
+                    <Globe className="h-4 w-4" />
+                    Visit website
+                  </a>
+                )}
+                {project.business.mapsUrl && (
+                  <a
+                    className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
+                    href={project.business.mapsUrl}
+                    rel="noopener"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Get directions
+                  </a>
+                )}
+              </div>
+            </address>
+          </footer>
+        )}
       </div>
     </div>
   );

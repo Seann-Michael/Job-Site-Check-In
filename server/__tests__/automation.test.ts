@@ -204,3 +204,130 @@ describe("migration asserts the security posture", () => {
     expect(sql).toMatch(/trigger_runs_trigger_id_idx/);
   });
 });
+
+// ── Tenant-scoped automation ────────────────────────────────────────────────
+//
+// The engine used to be super-admin-only in its entirety, so the one working
+// automation system in the product was unreachable by the tenants who would pay
+// for it. Opening it up is only safe if a trigger's owning business decides who
+// may touch it — these tests are the proof of that boundary, and of the fact
+// that a platform-wide trigger is still operator-only.
+
+const TRIG_OWNED = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const TRIG_OTHER = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const BIZ_MINE = "11111111-1111-4111-8111-111111111111";
+const BIZ_THEIRS = "22222222-2222-4222-8222-222222222222";
+
+function seedTenantTriggers() {
+  // The owner owns BIZ_MINE and has no relationship to BIZ_THEIRS.
+  state.businesses = [
+    { id: BIZ_MINE, owner_id: "owner-id", status: "active" },
+    { id: BIZ_THEIRS, owner_id: "someone-else", status: "active" },
+  ];
+  state.event_triggers.push(
+    {
+      id: TRIG_OWNED,
+      name: "Post completed jobs to Google",
+      event: "job_created",
+      conditions: [],
+      actions: [],
+      is_active: true,
+      business_id: BIZ_MINE,
+      trigger_count: 0,
+      last_triggered: null,
+      created_at: "2026-08-01T00:00:00.000Z",
+    },
+    {
+      id: TRIG_OTHER,
+      name: "Another tenant's automation",
+      event: "job_created",
+      conditions: [],
+      actions: [],
+      is_active: true,
+      business_id: BIZ_THEIRS,
+      trigger_count: 0,
+      last_triggered: null,
+      created_at: "2026-08-01T00:00:00.000Z",
+    },
+  );
+}
+
+describe("tenant-scoped triggers", () => {
+  beforeEach(() => seedTenantTriggers());
+
+  it("lets a business owner run their own business's automation", async () => {
+    const r = await request(app).post(`/api/automation/triggers/${TRIG_OWNED}/run`).set(auth("owner"));
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+  });
+
+  it("refuses a trigger belonging to another business", async () => {
+    const r = await request(app).post(`/api/automation/triggers/${TRIG_OTHER}/run`).set(auth("owner"));
+    expect(r.status).toBe(403);
+  });
+
+  it("keeps a platform-wide trigger operator-only", async () => {
+    // TRIG1 has no business_id: it affects every tenant, so a tenant may not
+    // run it even though the router no longer blanket-requires super_admin.
+    const r = await request(app).post(`/api/automation/triggers/${TRIG1}/run`).set(auth("owner"));
+    expect(r.status).toBe(403);
+  });
+
+  it("lets an owner read the run log for their own trigger", async () => {
+    state.trigger_runs = [
+      {
+        id: "r9",
+        trigger_id: TRIG_OWNED,
+        event: "job_created",
+        status: "success",
+        detail: {},
+        created_at: "2026-08-20T01:00:00.000Z",
+      },
+    ];
+    const r = await request(app).get(`/api/automation/triggers/${TRIG_OWNED}/runs`).set(auth("owner"));
+    expect(r.status).toBe(200);
+    expect(r.body.runs).toHaveLength(1);
+  });
+
+  it("does not leak another business's run log", async () => {
+    const r = await request(app).get(`/api/automation/triggers/${TRIG_OTHER}/runs`).set(auth("owner"));
+    expect(r.status).toBe(403);
+  });
+
+  it("still refuses a full tick to a tenant", async () => {
+    // A tick runs every processor for every tenant; it is an operator tool.
+    const r = await request(app).post(`/api/automation/tick`).set(auth("owner"));
+    expect(r.status).toBe(403);
+  });
+
+  it("lists only the caller's own automations", async () => {
+    const r = await request(app).get(`/api/automation/triggers`).set(auth("owner"));
+    expect(r.status).toBe(200);
+    const ids = (r.body.triggers as Array<{ id: string }>).map((t) => t.id);
+    expect(ids).toContain(TRIG_OWNED);
+    expect(ids).not.toContain(TRIG_OTHER);
+    expect(ids).not.toContain(TRIG1);
+  });
+
+  it("audit-logs a tenant run against its own business", async () => {
+    await request(app).post(`/api/automation/triggers/${TRIG_OWNED}/run`).set(auth("owner"));
+    const entry = state.audit_logs.find((a) => a.resource_id === TRIG_OWNED);
+    expect(entry).toBeTruthy();
+    expect(entry.business_id).toBe(BIZ_MINE);
+  });
+});
+
+describe("tenant automation migration", () => {
+  it("scopes event_triggers by business and keeps platform triggers admin-only", () => {
+    const sql = readFileSync(
+      path.resolve(__dirname, "../../supabase/migrations/20261024121000_tenant_automation.sql"),
+      "utf8",
+    );
+    expect(sql).toMatch(/ALTER TABLE public\.event_triggers\s+ADD COLUMN IF NOT EXISTS business_id uuid/);
+    // A NULL business_id must remain reachable only by a super admin.
+    expect(sql).toMatch(/business_id IS NOT NULL AND public\.can_read_business\(business_id\)/);
+    expect(sql).toMatch(/business_id IS NOT NULL AND public\.can_write_business\(business_id\)/);
+    // Run logs stay server-written, or they are worthless as a record.
+    expect(sql).toMatch(/REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.trigger_runs FROM authenticated, anon;/);
+  });
+});

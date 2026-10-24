@@ -24,6 +24,7 @@ const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
 const BusinessManagement = lazy(() => import("./pages/BusinessManagement"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Payments = lazy(() => import("./pages/Payments"));
 
 const Profile = lazy(() => import("./pages/Profile"));
@@ -538,23 +539,31 @@ const App = () => (
                   }
                 />
 
-                {/* Legacy/manual route redirects */}
+                {/* Dashboard. These four used to redirect to /admin/jobs, so
+                    a customer signing in landed on a work queue and never saw
+                    whether any of the optimisation work had moved anything. */}
+                <Route
+                  path="/admin/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/"
-                  element={<Navigate to="/admin/jobs" replace />}
+                  element={<Navigate to="/admin/dashboard" replace />}
                 />
                 <Route
                   path="/dashboard"
-                  element={<Navigate to="/admin/jobs" replace />}
+                  element={<Navigate to="/admin/dashboard" replace />}
                 />
                 <Route
                   path="/admin"
-                  element={<Navigate to="/admin/jobs" replace />}
+                  element={<Navigate to="/admin/dashboard" replace />}
                 />
-                <Route
-                  path="/admin/dashboard"
-                  element={<Navigate to="/admin/jobs" replace />}
-                />
+
+                {/* Legacy/manual route redirects */}
                 <Route
                   path="/add-job"
                   element={<Navigate to="/admin/add-job" replace />}
