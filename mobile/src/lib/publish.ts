@@ -19,9 +19,11 @@
  * user picks are *requests* carried in the payload; the web app fulfils them.
  *
  * ── The handoff ────────────────────────────────────────────────────────────
- * POST {EXPO_PUBLIC_API_BASE_URL}/api/workflows/webhook/{EXPO_PUBLIC_PUBLISH_WEBHOOK_ID}
- * — the same endpoint the rest of this product's automations use (see
- * server/routes/workflows.ts). Without both variables there is no route off
+ * POST {API_BASE_URL}/api/workflows/{workflowId}/trigger — the authenticated
+ * twin of the public HMAC webhook (server/routes/workflows.ts), authorised by
+ * the signed-in session. The workflow is the one picked under Settings →
+ * Integrations (stored on-device), falling back to the build-time
+ * EXPO_PUBLIC_PUBLISH_WEBHOOK_ID. Without a workflow there is no route off
  * the device: nothing is uploaded, nothing is sent, and every destination says
  * so in as many words.
  *
@@ -68,26 +70,52 @@ import { Platform } from 'react-native';
 
 import { jobsStore } from '@/lib/jobs-store';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { API_BASE_URL, PUBLISH_WEBHOOK_ID } from '@/lib/config';
 import { workspace } from '@/lib/workspace';
 import type { Job, MediaCategory, MediaItem } from '@/lib/types';
 
 const STORAGE_KEY = 'lsr-published-jobs-v1';
 const RELEASE_KEY = 'lsr-job-photo-release-v1';
-const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').trim();
-const PUBLISH_WEBHOOK_ID = (process.env.EXPO_PUBLIC_PUBLISH_WEBHOOK_ID ?? '').trim();
+const API_BASE = API_BASE_URL;
+const WORKFLOW_KEY = 'lsr-publish-workflow-v1';
 
 /** A hung request must not leave the publish screen spinning forever. */
 const REQUEST_TIMEOUT_MS = 20_000;
 
+let workflowOverride: string | null | undefined;
+
+/** Workflow chosen in Settings → Integrations (on-device), else the build default. */
+export async function getPublishWorkflowId(): Promise<string> {
+  if (workflowOverride === undefined) {
+    try {
+      workflowOverride = await AsyncStorage.getItem(WORKFLOW_KEY);
+    } catch {
+      workflowOverride = null;
+    }
+  }
+  return (workflowOverride ?? '').trim() || PUBLISH_WEBHOOK_ID;
+}
+
+export async function setPublishWorkflowId(id: string | null): Promise<void> {
+  workflowOverride = id?.trim() || null;
+  try {
+    if (workflowOverride) await AsyncStorage.setItem(WORKFLOW_KEY, workflowOverride);
+    else await AsyncStorage.removeItem(WORKFLOW_KEY);
+  } catch {
+    // Best-effort.
+  }
+}
+
 /** Both halves of the address are needed before anything can leave here. */
-const isPublishApiConfigured = Boolean(API_BASE && PUBLISH_WEBHOOK_ID);
+async function isPublishConfigured(): Promise<boolean> {
+  return Boolean(API_BASE && (await getPublishWorkflowId()));
+}
 
 /** The one URL this client talks to. Null when it is not configured. */
-function publishApiUrl(): string | null {
-  if (!isPublishApiConfigured) return null;
-  return `${API_BASE.replace(/\/+$/, '')}/api/workflows/webhook/${encodeURIComponent(
-    PUBLISH_WEBHOOK_ID,
-  )}`;
+async function publishApiUrl(): Promise<string | null> {
+  const workflowId = await getPublishWorkflowId();
+  if (!API_BASE || !workflowId) return null;
+  return `${API_BASE.replace(/\/+$/, '')}/api/workflows/${encodeURIComponent(workflowId)}/trigger`;
 }
 
 /** Most platforms cap a post's gallery well below this; so does the UI. */
@@ -678,7 +706,7 @@ const DEMO_DETAIL: Record<Destination, string> = {
 
 /** Said when there is no web app address, so the handoff never happened. */
 const NOT_CONFIGURED_DETAIL =
-  'This build has no web app address, so nothing was sent. Set EXPO_PUBLIC_API_BASE_URL and EXPO_PUBLIC_PUBLISH_WEBHOOK_ID to publish for real.';
+  'No publish workflow is selected, so nothing was sent. Pick one under Settings → Integrations → GoHighLevel to publish for real.';
 
 /** Statuses worth keeping in the on-device record the job screen reads. */
 function isRecorded(status: DeliveryStatus): boolean {
@@ -931,7 +959,7 @@ async function handOffToWebApp(
   payload: Record<string, unknown>,
   requested: Destination[],
 ): Promise<HandoffResult> {
-  const url = publishApiUrl();
+  const url = await publishApiUrl();
   if (!url) {
     return { status: 'not-configured', detail: NOT_CONFIGURED_DETAIL, certainlyNotAccepted: true };
   }
@@ -1077,7 +1105,8 @@ export async function publishJob(options: PublishJobInput): Promise<PublishOutco
   const now = new Date().toISOString();
 
   // Nothing to hand off to anywhere: demo mode, not a delivery failure.
-  const demoMode = !isSupabaseConfigured && !isPublishApiConfigured;
+  const publishConfigured = await isPublishConfigured();
+  const demoMode = !isSupabaseConfigured && !publishConfigured;
 
   /** Save the record and wake the job screens. Shared by every exit below. */
   const finish = async (
@@ -1138,7 +1167,7 @@ export async function publishJob(options: PublishJobInput): Promise<PublishOutco
   // ── Gate 4 — is there a route off the device at all? ────────────────────
   // Answered before sanitisation for the same reason: with nowhere to send
   // the post, uploading cleaned copies would strand them in Storage.
-  if (!isPublishApiConfigured) {
+  if (!publishConfigured) {
     return finish(
       destinations.map((destination) => ({
         destination,

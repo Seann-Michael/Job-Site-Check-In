@@ -1,8 +1,9 @@
 /**
  * Local SEO Ranker design tokens.
  *
- * Modern / bold / clean / minimal system. Keeps the brand blue but makes the
- * primary bolder, backgrounds softer, corners rounder and shadows lighter.
+ * Mirrors the web app's palette (client/global.css `:root` / `.dark` HSL
+ * variables, converted to hex) so the phone app and the dashboard read as one
+ * product: brand blue #0697E0 primary, slate neutrals, 0.75rem-ish radii.
  *
  * The *Strong variants are text-on-soft-background colors chosen to clear
  * WCAG AA contrast for small badge text on the (lighter) soft backgrounds in
@@ -13,25 +14,29 @@ import { Platform, type TextStyle, type ViewStyle } from 'react-native';
 
 export const Colors = {
   light: {
-    background: '#F7F8FA',
+    // Web: --background 0 0% 100% / --secondary 210 40% 96% / --foreground
+    // 210 22% 22% / --muted-foreground 215 16% 47% / --border 214 32% 91%.
+    background: '#F4F7FA',
     card: '#FFFFFF',
     cardPressed: '#F1F5F9',
     raised: '#FFFFFF',
     elevated: '#FFFFFF',
-    border: '#ECEFF3',
-    text: '#0F172A',
-    textSecondary: '#64748B',
+    border: '#E1E7EF',
+    text: '#2C3844',
+    textSecondary: '#65758B',
     textMuted: '#94A3B8',
-    primary: '#0A84FF',
+    // Brand blue — web --primary 200 95% 45% (also the splash / icon colour).
+    primary: '#0697E0',
     onPrimary: '#FFFFFF',
-    primarySoft: '#E7F1FF',
-    primaryStrong: '#0B63C4',
+    primarySoft: '#E6F5FC',
+    primaryStrong: '#0472AB',
     success: '#16A34A',
     successSoft: '#DCFCE7',
     successStrong: '#15803D',
     warning: '#F59E0B',
     warningSoft: '#FEF3C7',
     warningStrong: '#B45309',
+    // Web --destructive 0 84% 60%.
     danger: '#EF4444',
     dangerSoft: '#FEE2E2',
     dangerStrong: '#DC2626',
@@ -39,22 +44,25 @@ export const Colors = {
     star: '#F59E0B',
     input: '#FFFFFF',
     tabBar: '#FFFFFF',
-    tabBarBorder: '#ECEFF3',
+    tabBarBorder: '#E1E7EF',
   },
   dark: {
-    background: '#0B0E14',
-    card: '#151A23',
-    cardPressed: '#1D2330',
-    raised: '#1B2230',
-    elevated: '#1B2230',
-    border: '#232B3B',
+    // Web .dark: --background 224 20% 8% / --card 224 20% 10% / --secondary &
+    // --border 217 33% 18% / --foreground 210 40% 98% / --muted-fg 215 20% 65%.
+    background: '#101218',
+    card: '#14171F',
+    cardPressed: '#1B2130',
+    raised: '#181C26',
+    elevated: '#181C26',
+    border: '#1F2A3D',
     text: '#F8FAFC',
     textSecondary: '#94A3B8',
     textMuted: '#64748B',
-    primary: '#3B9EFF',
-    onPrimary: '#0B1220',
-    primarySoft: '#12263D',
-    primaryStrong: '#7DBEFF',
+    // Web .dark --primary 200 95% 50%.
+    primary: '#06A8F9',
+    onPrimary: '#101218',
+    primarySoft: '#0C2A3F',
+    primaryStrong: '#6CCBFF',
     success: '#34D399',
     successSoft: '#0B2E23',
     successStrong: '#4ADE80',
@@ -66,9 +74,9 @@ export const Colors = {
     dangerStrong: '#FCA5A5',
     neutralStrong: '#A9B4C6',
     star: '#FBBF24',
-    input: '#151A23',
-    tabBar: '#0F131B',
-    tabBarBorder: '#232B3B',
+    input: '#14171F',
+    tabBar: '#0E1016',
+    tabBarBorder: '#1F2A3D',
   },
 } as const;
 
@@ -141,7 +149,7 @@ export const cardShadow: ViewStyle = Platform.select({
 /** Stronger elevation for floating elements (FAB). */
 export const floatingShadow: ViewStyle = Platform.select({
   ios: {
-    shadowColor: '#0A84FF',
+    shadowColor: '#0697E0',
     shadowOpacity: 0.35,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },

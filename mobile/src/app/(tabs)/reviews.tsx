@@ -118,11 +118,6 @@ export default function ReviewsScreen() {
           />
         </KpiRow>
 
-        {/*
-          The FAB used to be a paper plane onto a flow that told people a
-          customer had been contacted. Nothing sends. This says so once, up
-          front, so no screen underneath has to imply otherwise.
-        */}
         <Card style={{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md }}>
           <IconTile icon="qr-code-outline" tone="primary" />
           <View style={{ flex: 1, gap: 3 }}>
@@ -163,7 +158,6 @@ export default function ReviewsScreen() {
           filtered.map((request) => <ReviewCard key={request.id} request={request} />)
         )}
       </Screen>
-      {/* Not a paper plane: this button records a request, it does not send one. */}
       <Fab icon="qr-code" onPress={openPicker} />
 
       <Modal
@@ -182,8 +176,7 @@ export default function ReviewsScreen() {
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Which job?</Text>
             <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
               Pick the job the review is about. On the next screen you can turn it into a QR code the
-              customer scans while you are still there — or record a text/email request, which waits
-              under Scheduled for the web dashboard to send.
+              customer scans while you are still there, or text / email them the review link.
             </Text>
 
             {jobsLoading ? (

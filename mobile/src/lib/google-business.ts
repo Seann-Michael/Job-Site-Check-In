@@ -1,26 +1,25 @@
 /**
- * Google Business Profile API client — the owner's connection powers ALL
- * GMB features (profile info, hours, posts, reviews). The Places API is
- * used only as a utility (address autocomplete, public-view audit).
+ * Google Business Profile — profile info, reviews and review replies for the
+ * current business, through our own API (server/routes/gbp.ts):
  *
- * Endpoints:
- * - Business info (read/patch):  mybusinessbusinessinformation.googleapis.com/v1
- * - Posts + reviews (v4):        mybusiness.googleapis.com/v4
+ *   GET  /api/gbp/:businessId/location                 → { location }
+ *   GET  /api/gbp/:businessId/reviews                  → { reviews }
+ *   POST /api/gbp/:businessId/reviews/:reviewId/reply  → { success, reply }
+ *   GET  /api/gbp/:businessId/insights                 → { insights }
  *
- * Everything here requires the owner's OAuth token (business.manage scope)
- * from Settings → Integrations; callers fall back to the local/demo data
- * layer when not connected.
+ * The server owns the OAuth tokens (refresh included) and enforces that the
+ * caller may access the business; the phone only ever sends its Supabase
+ * session. Callers fall back to the local/demo data layer when not connected.
  */
 
-import { getGmbConnection, type GmbConnection } from '@/lib/gmb-posts';
-
-const INFO_BASE = 'https://mybusinessbusinessinformation.googleapis.com/v1';
-const V4_BASE = 'https://mybusiness.googleapis.com/v4';
+import { apiFetch } from '@/lib/api';
+import { getGmbConnection } from '@/lib/gmb-posts';
 
 export interface BusinessInfo {
   title: string;
   phone?: string;
   website?: string;
+  address?: string;
   /** e.g. { MONDAY: '8:00 AM – 5:00 PM' } */
   hours: Record<string, string>;
   primaryCategory?: string;
@@ -35,71 +34,53 @@ export interface GoogleReview {
   reply?: string;
 }
 
-async function authedFetch(
-  connection: GmbConnection,
-  url: string,
-  init?: RequestInit,
-): Promise<Record<string, unknown>> {
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${connection.accessToken}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Google API ${response.status}: ${text.slice(0, 200)}`);
-  }
-  return (await response.json().catch(() => ({}))) as Record<string, unknown>;
+export interface GoogleInsights {
+  calls: number;
+  websiteClicks: number;
+  directionRequests: number;
+  views: number;
+  searches: number;
+  rangeDays: number;
 }
 
-/** locations/{id} resource name from the stored accounts/{a}/locations/{l}. */
-function locationResource(connection: GmbConnection): string {
-  const match = connection.locationName.match(/locations\/[^/]+$/);
-  return match ? match[0] : connection.locationName;
+interface ServerLocation {
+  name: string;
+  title: string;
+  phone: string | null;
+  website: string | null;
+  primaryCategory: string | null;
+  hours: Record<string, string>;
+  address: string | null;
 }
 
-function fmtTime(time: Record<string, unknown> | undefined): string {
-  if (!time) return '';
-  const hours = typeof time.hours === 'number' ? time.hours : 0;
-  const minutes = typeof time.minutes === 'number' ? time.minutes : 0;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const display = hours % 12 === 0 ? 12 : hours % 12;
-  return `${display}:${String(minutes).padStart(2, '0')} ${period}`;
+interface ServerReview {
+  name: string;
+  reviewId: string;
+  reviewer: string;
+  rating: number;
+  comment: string;
+  createTime: string | null;
+  updateTime: string | null;
+  reply: { comment: string; updateTime: string | null } | null;
 }
 
 /** Live business info from the owner's profile, or null when not connected. */
 export async function fetchBusinessInfo(): Promise<BusinessInfo | null> {
   const connection = await getGmbConnection();
-  if (!connection) return null;
+  if (!connection || !connection.approved) return null;
   try {
-    const data = await authedFetch(
-      connection,
-      `${INFO_BASE}/${locationResource(connection)}?readMask=title,phoneNumbers,websiteUri,regularHours,categories`,
+    const data = await apiFetch<{ location: ServerLocation }>(
+      `/api/gbp/${connection.businessId}/location`,
     );
-    const phones = (data.phoneNumbers ?? {}) as Record<string, unknown>;
-    const categories = (data.categories ?? {}) as Record<string, unknown>;
-    const primary = (categories.primaryCategory ?? {}) as Record<string, unknown>;
-    const regular = (data.regularHours ?? {}) as Record<string, unknown>;
-    const periods = Array.isArray(regular.periods)
-      ? (regular.periods as Record<string, unknown>[])
-      : [];
-    const hours: Record<string, string> = {};
-    for (const period of periods) {
-      const day = typeof period.openDay === 'string' ? period.openDay : '';
-      if (!day) continue;
-      const open = fmtTime(period.openTime as Record<string, unknown> | undefined);
-      const close = fmtTime(period.closeTime as Record<string, unknown> | undefined);
-      hours[day] = open && close ? `${open} – ${close}` : 'Open';
-    }
+    const loc = data?.location;
+    if (!loc) return null;
     return {
-      title: String(data.title ?? ''),
-      phone: typeof phones.primaryPhone === 'string' ? phones.primaryPhone : undefined,
-      website: typeof data.websiteUri === 'string' ? data.websiteUri : undefined,
-      hours,
-      primaryCategory: typeof primary.displayName === 'string' ? primary.displayName : undefined,
+      title: loc.title ?? '',
+      phone: loc.phone ?? undefined,
+      website: loc.website ?? undefined,
+      address: loc.address ?? undefined,
+      hours: loc.hours ?? {},
+      primaryCategory: loc.primaryCategory ?? undefined,
     };
   } catch {
     return null;
@@ -109,26 +90,20 @@ export async function fetchBusinessInfo(): Promise<BusinessInfo | null> {
 /** Live reviews with owner replies, or null when not connected. */
 export async function fetchGoogleReviews(): Promise<GoogleReview[] | null> {
   const connection = await getGmbConnection();
-  if (!connection) return null;
+  if (!connection || !connection.approved) return null;
   try {
-    const data = await authedFetch(
-      connection,
-      `${V4_BASE}/${connection.locationName}/reviews?pageSize=20`,
+    const data = await apiFetch<{ reviews: ServerReview[] }>(
+      `/api/gbp/${connection.businessId}/reviews`,
     );
-    const raw = Array.isArray(data.reviews) ? (data.reviews as Record<string, unknown>[]) : [];
-    const stars: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
-    return raw.map((review) => {
-      const reviewer = (review.reviewer ?? {}) as Record<string, unknown>;
-      const reply = (review.reviewReply ?? {}) as Record<string, unknown>;
-      return {
-        id: String(review.name ?? review.reviewId ?? ''),
-        reviewer: String(reviewer.displayName ?? 'Google user'),
-        rating: stars[String(review.starRating ?? '')] ?? 5,
-        comment: String(review.comment ?? ''),
-        created_at: String(review.createTime ?? ''),
-        reply: typeof reply.comment === 'string' ? reply.comment : undefined,
-      };
-    });
+    const raw = Array.isArray(data?.reviews) ? data.reviews : [];
+    return raw.map((review) => ({
+      id: review.name || review.reviewId,
+      reviewer: review.reviewer || 'Google user',
+      rating: review.rating || 5,
+      comment: review.comment ?? '',
+      created_at: review.createTime ?? '',
+      reply: review.reply?.comment || undefined,
+    }));
   } catch {
     return null;
   }
@@ -138,8 +113,22 @@ export async function fetchGoogleReviews(): Promise<GoogleReview[] | null> {
 export async function replyToGoogleReview(reviewId: string, comment: string): Promise<void> {
   const connection = await getGmbConnection();
   if (!connection) throw new Error('Google Business Profile is not connected.');
-  await authedFetch(connection, `${V4_BASE}/${reviewId}/reply`, {
-    method: 'PUT',
-    body: JSON.stringify({ comment }),
-  });
+  await apiFetch(
+    `/api/gbp/${connection.businessId}/reviews/${encodeURIComponent(reviewId)}/reply`,
+    { method: 'POST', body: { comment } },
+  );
+}
+
+/** 30-day performance metrics, or null when not connected. */
+export async function fetchGoogleInsights(): Promise<GoogleInsights | null> {
+  const connection = await getGmbConnection();
+  if (!connection || !connection.approved) return null;
+  try {
+    const data = await apiFetch<{ insights: GoogleInsights }>(
+      `/api/gbp/${connection.businessId}/insights`,
+    );
+    return data?.insights ?? null;
+  } catch {
+    return null;
+  }
 }

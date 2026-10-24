@@ -84,7 +84,11 @@ export default function ShareGalleryScreen() {
         // URL would be dead — so no link was created and none is shared.
         notify(
           'Could not create the link',
-          "Share links need the web app's gallery feature, which isn't set up yet. No link was created, so nothing was shared.",
+          result.reason === 'no-photos'
+            ? 'None of the selected photos have finished uploading yet. Wait for the upload to complete, then try again.'
+            : result.reason === 'no-business'
+              ? 'Share links need a real business — switch out of the sample workspace in Settings first.'
+              : `The link could not be saved${result.detail ? ` (${result.detail})` : ''}. Nothing was shared.`,
         );
         return;
       }

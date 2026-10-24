@@ -4,7 +4,9 @@
  * without it the new-job form falls back to manual address entry.
  */
 
-const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
+
+const API_KEY = GOOGLE_MAPS_API_KEY;
 
 export const isPlacesConfigured = API_KEY.length > 10;
 

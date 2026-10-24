@@ -8,8 +8,11 @@ import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/hooks/use-data';
+import { apiErrorMessage, apiFetch } from '@/lib/api';
+import { isApiConfigured } from '@/lib/config';
 import { formatDate, notify } from '@/lib/format';
 import { fetchGoogleReviews, replyToGoogleReview, type GoogleReview } from '@/lib/google-business';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { useAuth } from '@/providers/auth-provider';
 
 const DEMO_REVIEWS: GoogleReview[] = [
@@ -59,10 +62,12 @@ export default function GmbReviewsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { user, initializing } = useAuth();
+  const { business } = useWorkspace();
   const { data, refresh, refreshing } = useData(fetchGoogleReviews);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [working, setWorking] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [localReplies, setLocalReplies] = useState<Record<string, string>>({});
 
   if (!initializing && !user) {
@@ -92,6 +97,33 @@ export default function GmbReviewsScreen() {
       notify('Could not reply', error instanceof Error ? error.message : 'Try again.');
     } finally {
       setWorking(false);
+    }
+  };
+
+  // Same AI endpoint the web dashboard's review detail page uses.
+  const suggestReply = async (review: GoogleReview) => {
+    if (suggesting) return;
+    if (!isApiConfigured) {
+      notify('AI replies unavailable', 'The web app API is not configured for this build.');
+      return;
+    }
+    setSuggesting(true);
+    try {
+      const result = await apiFetch<{ response?: string }>('/api/ai-review-response', {
+        method: 'POST',
+        body: {
+          reviewText: review.comment,
+          rating: review.rating,
+          customerName: review.reviewer,
+          businessName: business?.name ?? '',
+          existingResponse: draft.trim() || undefined,
+        },
+      });
+      if (result?.response) setDraft(result.response);
+    } catch (error) {
+      notify('Could not draft a reply', apiErrorMessage(error));
+    } finally {
+      setSuggesting(false);
     }
   };
 
@@ -178,6 +210,13 @@ export default function GmbReviewsScreen() {
                           color: colors.text,
                         },
                       ]}
+                    />
+                    <Button
+                      label={draft.trim() ? 'Improve with AI' : 'Draft with AI'}
+                      icon="sparkles-outline"
+                      variant="secondary"
+                      loading={suggesting}
+                      onPress={() => void suggestReply(review)}
                     />
                     <View style={{ flexDirection: 'row', gap: Spacing.md }}>
                       <Button

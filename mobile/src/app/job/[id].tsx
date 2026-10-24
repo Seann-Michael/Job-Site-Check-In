@@ -30,6 +30,7 @@ import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchClients } from '@/lib/clients';
+import { webUrl } from '@/lib/config';
 import { dataErrors, deleteJob, fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
 import { openDirections } from '@/lib/directions';
 import { jobExtras, visitDuration } from '@/lib/job-extras';
@@ -382,8 +383,7 @@ export default function JobDetailScreen() {
 
   const shareJob = async () => {
     if (!job) return;
-    const appUrl = process.env.EXPO_PUBLIC_APP_URL ?? '';
-    const link = appUrl ? `${appUrl.replace(/\/$/, '')}/public/job/${job.id}` : '';
+    const link = webUrl(`/public/job/${job.id}`) ?? '';
     try {
       await Share.share({
         message: [

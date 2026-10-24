@@ -41,8 +41,6 @@ function toMode(role: UserRole): RoleMode {
 export function useRole(): RoleAccess {
   const { user } = useAuth();
   return useMemo(() => {
-    // TODO(backend): role defaults to 'business_owner' in the auth provider
-    // until memberships are wired through; this hook branches on it now.
     const role: UserRole = user?.role ?? 'business_owner';
     const mode = toMode(role);
     return {
