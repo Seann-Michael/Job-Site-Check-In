@@ -6,10 +6,11 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { APP_URL } from '@/lib/config';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { workspace } from '@/lib/workspace';
 
 const STORAGE_KEY = 'lsr-share-links-v1';
-const APP_URL = process.env.EXPO_PUBLIC_APP_URL ?? '';
 
 export interface ShareLink {
   token: string;
@@ -27,9 +28,26 @@ export interface ShareLink {
  */
 export type ShareLinkResult =
   | { ok: true; link: ShareLink; demo: boolean }
-  | { ok: false; reason: 'server-unavailable' };
+  | { ok: false; reason: 'server-unavailable' | 'no-business' | 'no-photos'; detail?: string };
 
 let cache: ShareLink[] | null = null;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TOKEN_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+/** 20-char URL-safe token from the platform CSPRNG (~119 bits). */
+function makeToken(): string {
+  const bytes = new Uint8Array(20);
+  const cryptoObj = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } })
+    .crypto;
+  if (cryptoObj?.getRandomValues) {
+    cryptoObj.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 1) out += TOKEN_ALPHABET[bytes[i] % TOKEN_ALPHABET.length];
+  return out;
+}
 const listeners = new Set<() => void>();
 
 async function load(): Promise<ShareLink[]> {
@@ -74,11 +92,14 @@ export const shareLinks = {
     photoIds: string[],
     details?: { jobTitle?: string; businessName?: string; photoUrls?: string[] },
   ): Promise<ShareLinkResult> {
-    const token = `${jobId.slice(0, 6)}${Date.now().toString(36)}`.replace(/[^a-z0-9]/gi, '');
+    const token = makeToken();
+    // Only photos that already live on the server can appear on a public
+    // page; local / pending captures have no object the server could sign.
+    const mediaIds = photoIds.filter((id) => UUID_RE.test(id));
     const link: ShareLink = {
       token,
       job_id: jobId,
-      photo_ids: photoIds,
+      photo_ids: mediaIds,
       created_at: new Date().toISOString(),
     };
     // The server row is the only thing that makes the /g/:token page live, so
@@ -87,15 +108,19 @@ export const shareLinks = {
     // so the error must be read off the response; the try/catch only covers
     // transport-level failures.
     if (isSupabaseConfigured) {
+      if (mediaIds.length === 0) return { ok: false, reason: 'no-photos' };
+      const business = await workspace.getCurrent().catch(() => null);
+      if (!business || business.id.startsWith('demo')) return { ok: false, reason: 'no-business' };
       try {
         const { error } = await supabase.from('shared_galleries').insert({
           token,
           job_id: jobId,
+          business_id: business.id,
           job_title: details?.jobTitle ?? null,
-          business_name: details?.businessName ?? null,
-          photo_urls: (details?.photoUrls ?? []).filter((url) => url.startsWith('http')),
+          business_name: details?.businessName ?? business.name ?? null,
+          media_ids: mediaIds,
         });
-        if (error) return { ok: false, reason: 'server-unavailable' };
+        if (error) return { ok: false, reason: 'server-unavailable', detail: error.message };
       } catch {
         return { ok: false, reason: 'server-unavailable' };
       }

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
@@ -9,7 +9,9 @@ import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspace } from '@/hooks/use-workspace';
-import { notify } from '@/lib/format';
+import { apiFetch } from '@/lib/api';
+import { isApiConfigured, webUrl } from '@/lib/config';
+import { formatDate, notify } from '@/lib/format';
 import {
   getCurrentOffering,
   purchase,
@@ -19,14 +21,47 @@ import {
 } from '@/lib/purchases';
 import { useAuth } from '@/providers/auth-provider';
 
-const APP_URL = process.env.EXPO_PUBLIC_APP_URL ?? '';
+/** Shape of GET /api/billing/my — the same call the web Billing page makes. */
+interface BillingSummary {
+  businessId?: string;
+  planName: string | null;
+  subscription: {
+    status: string;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+    plans?: { name: string; amount_cents: number; interval: string } | null;
+  } | null;
+  invoices: {
+    id: string;
+    created_at: string;
+    status: string;
+    amount: number | string;
+    amount_cents?: number | null;
+    currency?: string;
+    description?: string | null;
+    hosted_invoice_url?: string | null;
+    provider_invoice_url?: string | null;
+  }[];
+}
 
-// Demo invoice history until Supabase billing tables are connected.
-const DEMO_INVOICES = [
-  { id: 'inv-3', date: 'Jul 1, 2026', amount: '$99.00', status: 'Paid' },
-  { id: 'inv-2', date: 'Jun 1, 2026', amount: '$99.00', status: 'Paid' },
-  { id: 'inv-1', date: 'May 1, 2026', amount: '$99.00', status: 'Paid' },
-];
+function money(cents: number | null | undefined, amount: number | string | undefined, currency = 'usd') {
+  const value = typeof cents === 'number' ? cents / 100 : Number(amount ?? 0);
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(
+      value,
+    );
+  } catch {
+    return `$${value.toFixed(2)}`;
+  }
+}
+
+function invoiceTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
+  const s = status.toLowerCase();
+  if (s === 'paid' || s === 'succeeded') return 'success';
+  if (s === 'open' || s === 'pending') return 'warning';
+  if (s === 'failed' || s === 'uncollectible' || s === 'void') return 'danger';
+  return 'neutral';
+}
 
 export default function BillingSettingsScreen() {
   const { colors } = useTheme();
@@ -38,6 +73,25 @@ export default function BillingSettingsScreen() {
   const iapReady = purchasesAvailable();
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [buying, setBuying] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingSummary | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  // Live plan + invoice history from the server (Stripe-backed).
+  useEffect(() => {
+    if (!isApiConfigured || !business?.id || business.id.startsWith('demo')) return;
+    let cancelled = false;
+    setBillingError(null);
+    apiFetch<BillingSummary>(`/api/billing/my?businessId=${encodeURIComponent(business.id)}`)
+      .then((data) => {
+        if (!cancelled) setBilling(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setBillingError(err instanceof Error ? err.message : 'Could not load billing.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [business?.id]);
 
   useEffect(() => {
     if (!iapReady) return;
@@ -54,6 +108,10 @@ export default function BillingSettingsScreen() {
   if (!initializing && !user) {
     return <Redirect href="/login" />;
   }
+
+  const planName = billing?.planName ?? business?.plan ?? null;
+  const subscription = billing?.subscription ?? null;
+  const invoices = billing?.invoices ?? [];
 
   const buy = async (pkg: PurchasesPackage) => {
     setBuying(pkg.identifier);
@@ -84,8 +142,9 @@ export default function BillingSettingsScreen() {
   };
 
   const manageBilling = () => {
-    if (APP_URL) {
-      void Linking.openURL(`${APP_URL.replace(/\/$/, '')}/admin/payments`);
+    const url = webUrl('/admin/payments');
+    if (url) {
+      void Linking.openURL(url);
     } else {
       notify(
         'Manage billing',
@@ -106,30 +165,54 @@ export default function BillingSettingsScreen() {
                 customer may not have — and an "Active" badge to match — is
                 worse than saying nothing. */}
             <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>
-              {business?.plan ?? 'No plan on file'}
+              {planName ?? 'No plan on file'}
             </Text>
             <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
               {business?.name ?? 'Your business'}
             </Text>
           </View>
-          {business?.plan ? <Badge label="Active" tone="success" /> : null}
+          {subscription ? (
+            <Badge
+              label={
+                subscription.cancel_at_period_end
+                  ? 'Cancels soon'
+                  : subscription.status === 'active' || subscription.status === 'trialing'
+                    ? 'Active'
+                    : subscription.status
+              }
+              tone={
+                subscription.status === 'active' || subscription.status === 'trialing'
+                  ? subscription.cancel_at_period_end
+                    ? 'warning'
+                    : 'success'
+                  : 'warning'
+              }
+            />
+          ) : planName ? (
+            <Badge label="Active" tone="success" />
+          ) : null}
         </View>
-        <View style={[styles.planMeta, { borderTopColor: colors.border }]}>
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaValue, { color: colors.text }]}>$99</Text>
-            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>per month</Text>
+        {subscription?.plans || subscription?.current_period_end ? (
+          <View style={[styles.planMeta, { borderTopColor: colors.border }]}>
+            <View style={styles.metaItem}>
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {subscription.plans ? money(subscription.plans.amount_cents, undefined) : '—'}
+              </Text>
+              <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
+                per {subscription.plans?.interval ?? 'month'}
+              </Text>
+            </View>
+            <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.metaItem}>
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {subscription.current_period_end ? formatDate(subscription.current_period_end) : '—'}
+              </Text>
+              <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
+                {subscription.cancel_at_period_end ? 'ends on' : 'renews on'}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaValue, { color: colors.text }]}>Aug 1</Text>
-            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>next invoice</Text>
-          </View>
-          <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaValue, { color: colors.text }]}>•••• 4242</Text>
-            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>card on file</Text>
-          </View>
-        </View>
+        ) : null}
         <Button label="Manage billing" icon="open-outline" variant="secondary" onPress={manageBilling} />
       </Card>
 
@@ -165,31 +248,58 @@ export default function BillingSettingsScreen() {
       ) : null}
 
       <Section title="Invoice history">
-        <Card style={{ padding: 0 }}>
-          {DEMO_INVOICES.map((invoice, index) => (
-            <View
-              key={invoice.id}
-              style={[
-                styles.invoiceRow,
-                index > 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: colors.border,
-                },
-              ]}>
-              <Ionicons name="receipt-outline" size={17} color={colors.textMuted} />
-              <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>{invoice.date}</Text>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
-                {invoice.amount}
-              </Text>
-              <Badge label={invoice.status} tone="success" />
-            </View>
-          ))}
-        </Card>
+        {invoices.length === 0 ? (
+          <Card>
+            <Text style={{ fontSize: 13.5, color: colors.textSecondary, lineHeight: 19 }}>
+              {billingError
+                ? `Couldn't load invoices: ${billingError}`
+                : business?.id?.startsWith('demo')
+                  ? 'Sample workspace — no invoices.'
+                  : 'No invoices yet. They appear here once your first payment goes through.'}
+            </Text>
+          </Card>
+        ) : (
+          <Card style={{ padding: 0 }}>
+            {invoices.map((invoice, index) => {
+              const link = invoice.hosted_invoice_url ?? invoice.provider_invoice_url ?? null;
+              return (
+                <Pressable
+                  key={invoice.id}
+                  disabled={!link}
+                  onPress={() => link && void Linking.openURL(link)}
+                  style={({ pressed }) => [
+                    styles.invoiceRow,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: colors.border,
+                    },
+                    pressed && { backgroundColor: colors.cardPressed },
+                  ]}>
+                  <Ionicons name="receipt-outline" size={17} color={colors.textMuted} />
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={{ fontSize: 14, color: colors.text }}>
+                      {formatDate(invoice.created_at)}
+                    </Text>
+                    {invoice.description ? (
+                      <Text style={{ fontSize: 12, color: colors.textMuted }} numberOfLines={1}>
+                        {invoice.description}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
+                    {money(invoice.amount_cents, invoice.amount, invoice.currency)}
+                  </Text>
+                  <Badge label={invoice.status} tone={invoiceTone(invoice.status)} />
+                </Pressable>
+              );
+            })}
+          </Card>
+        )}
       </Section>
 
       <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
-        Demo billing data — plan changes, payment methods, and real invoices live in the web
-        dashboard (Stripe).
+        Plan changes and payment methods are managed in the web dashboard (Stripe). In-app
+        subscriptions are billed through the App Store.
       </Text>
     </Screen>
   );

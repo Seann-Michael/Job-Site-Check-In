@@ -101,6 +101,28 @@ export const handlePublicJob: RequestHandler = async (req, res) => {
   res.json({ ...rest, photos });
 };
 
+const TOKEN_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
+/** GET /api/public/gallery/:token -> gallery_by_token row + signed photo URLs */
+export const handlePublicGallery: RequestHandler = async (req, res) => {
+  const token = req.params.token;
+  if (!TOKEN_RE.test(token)) return res.status(404).json({ error: "Not found" });
+
+  const { data, error } = await getSupabaseClient().rpc("gallery_by_token", { p_token: token });
+  if (error) {
+    log.error({ err: error }, "gallery_by_token rpc failed");
+    return res.status(502).json({ error: "Could not load gallery" });
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  const photoPaths: unknown[] = Array.isArray(row.photo_paths) ? row.photo_paths : [];
+  const photos = await signMediaValues(photoPaths);
+  const { photo_paths: _omit, ...rest } = row;
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ...rest, photos });
+};
+
 /** GET /api/public/review-request/:id -> review_request_public passthrough */
 export const handlePublicReviewRequest: RequestHandler = async (req, res) => {
   const id = req.params.id;
@@ -133,6 +155,7 @@ export const handlePublicReviewRequest: RequestHandler = async (req, res) => {
 export const publicContentRouter = Router();
 publicContentRouter.use(publicContentLimiter);
 publicContentRouter.get("/job/:id", wrap(handlePublicJob));
+publicContentRouter.get("/gallery/:token", wrap(handlePublicGallery));
 publicContentRouter.get("/review-request/:id", wrap(handlePublicReviewRequest));
 // Server-uploaded media flagged public (server_media_metadata.is_public).
 publicContentRouter.get("/media/:publicId/:filename", wrap(handlePublicMedia));

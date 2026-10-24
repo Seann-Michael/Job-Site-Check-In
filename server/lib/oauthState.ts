@@ -12,6 +12,9 @@ export interface OAuthStateData {
   workspace_id: string;
   user_id: string;
   created_at: number;
+  /** Set when the mobile app started the flow: the callback page then offers a
+   *  deep link back into the app instead of relying on window.opener. */
+  mobile?: boolean;
 }
 
 const log = logger.child({ module: "oauthState" });

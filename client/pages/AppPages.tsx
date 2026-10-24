@@ -73,6 +73,7 @@ export default function AppPages() {
         { name: "Job Detail", path: "/job/:id", description: "Photos, documents, tasks and activity for one job", icon: FileText },
         { name: "Gallery", path: "/admin/gallery", description: "Photo and video gallery across all jobs", icon: Camera },
         { name: "Public Job Page", path: "/public/job/:id", description: "Shareable public view of a job", icon: Globe },
+        { name: "Public Gallery", path: "/g/:token", description: "Shareable gallery link", icon: Camera },
       ],
     },
     {

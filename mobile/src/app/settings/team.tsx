@@ -15,23 +15,36 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Avatar, Badge, Card } from '@/components/ui/basics';
+import { Avatar, Badge, Button, Card, Segmented } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useRole } from '@/hooks/use-role';
 import { useTheme } from '@/hooks/use-theme';
 import { useWorkspace } from '@/hooks/use-workspace';
-import { fetchTeam, type TeamRoster } from '@/lib/team';
+import { isApiConfigured } from '@/lib/config';
+import { notify } from '@/lib/format';
+import { fetchTeam, inviteTeamMember, type TeamRoster } from '@/lib/team';
 import { useAuth } from '@/providers/auth-provider';
+
+const ROLE_OPTIONS = [
+  { value: 'staff', label: 'Staff' },
+  { value: 'viewer', label: 'Viewer' },
+];
 
 export default function TeamSettingsScreen() {
   const { colors } = useTheme();
   const { user, initializing } = useAuth();
   const { business } = useWorkspace();
 
+  const { canManage } = useRole();
   const [roster, setRoster] = useState<TeamRoster | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState('staff');
+  const [inviting, setInviting] = useState(false);
 
   // `business` is null while useWorkspace loads, so the roster cannot be a
   // fetch-once call — it has to re-run once the workspace resolves, or an
@@ -62,6 +75,36 @@ export default function TeamSettingsScreen() {
 
   const members = roster?.members ?? [];
   const isDemo = roster?.isDemo ?? false;
+  const canInvite =
+    canManage && isApiConfigured && Boolean(businessId) && !businessId?.startsWith('demo');
+
+  const sendInvite = async () => {
+    if (!businessId || inviting) return;
+    const email = inviteEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      notify('Check the email', 'Enter a valid email address for your teammate.');
+      return;
+    }
+    setInviting(true);
+    const result = await inviteTeamMember(
+      businessId,
+      email,
+      inviteRole === 'viewer' ? 'viewer' : 'staff',
+      inviteName,
+    );
+    setInviting(false);
+    if (!result.ok) {
+      notify('Could not add teammate', result.error);
+      return;
+    }
+    setInviteEmail('');
+    setInviteName('');
+    notify(
+      'Teammate added',
+      `${email} now has ${inviteRole} access. If they are new, they get an email to set a password.`,
+    );
+    refresh();
+  };
   const divider = {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
@@ -130,21 +173,59 @@ export default function TeamSettingsScreen() {
         )}
       </Section>
 
-      <Section title="Adding teammates">
-        <Card style={{ gap: Spacing.sm }}>
-          <View style={styles.noteRow}>
-            <Ionicons name="mail-outline" size={16} color={colors.textMuted} />
-            <Text style={{ flex: 1, fontSize: 12.5, color: colors.textSecondary }}>
-              Sending an invite is not available yet — not from this app and not from the web
-              dashboard. There is no invite email behind either one, so this screen deliberately
-              offers no invite box rather than collecting an address that would reach nobody.
+      <Section title="Add a teammate">
+        {canInvite ? (
+          <Card style={{ gap: Spacing.md }}>
+            <Text style={{ fontSize: 12.5, color: colors.textSecondary, lineHeight: 18 }}>
+              Staff can add jobs, photos and posts. Viewers can only look. New teammates receive an
+              email invitation to set their password.
             </Text>
-          </View>
-          <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
-            Accounts are created and linked to a business outside the app for now. Once someone is
-            linked and has signed in, they appear in this list.
-          </Text>
-        </Card>
+            <TextInput
+              value={inviteName}
+              onChangeText={setInviteName}
+              placeholder="Name (optional)"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+              style={[
+                styles.input,
+                { backgroundColor: colors.input, borderColor: colors.border, color: colors.text },
+              ]}
+            />
+            <TextInput
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              placeholder="teammate@company.com"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              style={[
+                styles.input,
+                { backgroundColor: colors.input, borderColor: colors.border, color: colors.text },
+              ]}
+            />
+            <Segmented options={ROLE_OPTIONS} value={inviteRole} onChange={setInviteRole} />
+            <Button
+              label="Add teammate"
+              icon="person-add-outline"
+              loading={inviting}
+              onPress={() => void sendInvite()}
+            />
+          </Card>
+        ) : (
+          <Card style={{ gap: Spacing.sm }}>
+            <View style={styles.noteRow}>
+              <Ionicons name="mail-outline" size={16} color={colors.textMuted} />
+              <Text style={{ flex: 1, fontSize: 12.5, color: colors.textSecondary }}>
+                {!canManage
+                  ? 'Only the business owner can add or remove teammates.'
+                  : businessId?.startsWith('demo') || !businessId
+                    ? 'Switch to your real business to manage its team.'
+                    : 'Team management needs the web app API, which this build cannot reach.'}
+              </Text>
+            </View>
+          </Card>
+        )}
       </Section>
     </Screen>
   );
@@ -162,5 +243,12 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.input,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    fontSize: 14,
   },
 });
