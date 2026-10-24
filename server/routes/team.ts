@@ -22,6 +22,7 @@ import {
   requireAuth,
   requireRole,
   canAccessBusiness,
+  canWriteBusiness,
   isBusinessOwner,
   isSuperAdmin,
 } from "../middleware/requireAuth";
@@ -106,6 +107,13 @@ function requireOwner(req: Request, res: Response, businessId: string): boolean 
   }
   if (!isBusinessOwner(req, businessId)) {
     res.status(403).json({ error: "Only the business owner can manage the team" });
+    return false;
+  }
+  // A suspended business is read-only for its tenant (see requireAuth
+  // canWriteBusiness / the database's can_write_business). Team changes are
+  // writes, so they stop too — super admins are exempt via canWriteBusiness.
+  if (!canWriteBusiness(req, businessId)) {
+    res.status(403).json({ error: "This business is suspended" });
     return false;
   }
   return true;

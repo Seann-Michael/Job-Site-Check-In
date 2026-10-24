@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20.19 <23"
+    "node": ">=22.19 <23"
   },
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "build:server": "vite build --config vite.config.server.ts",
     "start": "node dist/server/node-build.mjs",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx",
+    "lint": "eslint . --ext ts,tsx --max-warnings 1300",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "format": "prettier --write ."

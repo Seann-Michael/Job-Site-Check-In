@@ -263,7 +263,7 @@ export function SuperAdminLayout({
           <div className="flex items-center space-x-3 mb-3">
             <Avatar className="h-10 w-10">
               <AvatarImage
-                src="/placeholder-avatar.jpg"
+                src={currentUser?.avatar}
                 alt={currentUser?.name || "User"}
               />
               <AvatarFallback>
@@ -410,7 +410,7 @@ export function SuperAdminLayout({
                   >
                     <Avatar className="h-8 w-8">
                       <AvatarImage
-                        src="/placeholder-avatar.jpg"
+                        src={currentUser?.avatar}
                         alt={currentUser?.name || "User"}
                       />
                       <AvatarFallback>

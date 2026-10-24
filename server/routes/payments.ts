@@ -3,6 +3,46 @@ import type { Request, Response } from "express";
 import { getSupabaseClient } from "../supabaseClient";
 import { getAppUrl } from "../lib/env";
 import { getStripe } from "../lib/stripe";
+import { logger } from "../lib/logger";
+import { canWriteBusiness } from "../middleware/requireAuth";
+
+const log = logger.child({ module: "payments" });
+
+/**
+ * A plan the server is willing to sell, looked up by the Stripe price id the
+ * client asked for. The client never gets to name a plan or set a price — both
+ * come from this row.
+ */
+type SellablePlan = {
+  id: string;
+  name: string;
+  interval: string | null;
+  stripe_price_id: string;
+};
+
+/**
+ * Resolve a client-supplied Stripe price id against the `plans` table.
+ * Returns null when the price is unknown or the plan is not active, which is
+ * what stops a caller buying an arbitrary (e.g. cheapest) price on the account
+ * and having it recorded as a higher tier.
+ */
+async function findSellablePlan(priceId: string): Promise<SellablePlan | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("plans")
+    .select("id, name, interval, stripe_price_id, is_active")
+    .eq("stripe_price_id", priceId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    interval: (data.interval as string) ?? null,
+    stripe_price_id: data.stripe_price_id as string,
+  };
+}
 
 // ── Stripe Checkout ───────────────────────────────────────────────────────────
 
@@ -12,7 +52,7 @@ export async function handleStripeCheckout(req: Request, res: Response) {
   if (!secretKey) {
     return res.status(503).json({
       error: "stripe_not_configured",
-      message: "Stripe is not configured. Please add your STRIPE_SECRET_KEY environment variable.",
+      message: "Payments are not available right now. Please try again later or contact support.",
     });
   }
 
@@ -25,36 +65,71 @@ export async function handleStripeCheckout(req: Request, res: Response) {
     if (!stripe) {
       return res.status(503).json({
         error: "stripe_not_configured",
-        message: "Stripe is not configured. Please add your STRIPE_SECRET_KEY environment variable.",
+        message: "Payments are not available right now. Please try again later or contact support.",
       });
     }
 
-    // SECURITY: the price MUST come from a real Stripe Price (created in the
-    // Stripe dashboard / server), never from a client-supplied amount. The
-    // previous version built an ad-hoc price from req.body.amount, which let
-    // the browser choose its own price (e.g. pay $1 for "Pro"). We now require
-    // a Stripe priceId and ignore any amount sent in the request body.
-    const { mode = "subscription", priceId, planName = "Pro", email, businessId } = req.body;
+    // SECURITY: everything that determines what is bought and who it is
+    // recorded against is resolved on the server.
+    //   - the price MUST be a Stripe Price that maps to an active row in
+    //     `plans` (never a client-supplied amount, and never an arbitrary
+    //     price id from the Stripe account);
+    //   - the plan NAME comes from that row, not from the request body — the
+    //     previous version let the caller label any purchase "Enterprise";
+    //   - the business MUST be one the authenticated caller can write, so a
+    //     purchase can no longer be recorded against someone else's tenant;
+    //   - the receipt email comes from the session, not the body.
+    // This route is mounted behind requireAuth, so req.profile is always set.
+    const { priceId, businessId } = req.body ?? {};
 
     if (!priceId || typeof priceId !== "string") {
       return res.status(400).json({
         error: "price_id_required",
-        message:
-          "A server-configured Stripe price is required. Client-supplied amounts are not accepted; configure your plan prices in Stripe and pass a priceId (or use the /api/billing module).",
+        message: "A plan is required to start checkout.",
       });
     }
 
+    if (!businessId || typeof businessId !== "string") {
+      return res.status(400).json({
+        error: "business_id_required",
+        message: "Select a business before starting checkout.",
+      });
+    }
+
+    if (!canWriteBusiness(req, businessId)) {
+      return res.status(403).json({
+        error: "forbidden",
+        message: "You do not have access to this business.",
+      });
+    }
+
+    const plan = await findSellablePlan(priceId);
+    if (!plan) {
+      return res.status(400).json({
+        error: "unknown_plan",
+        message: "That plan is not available for purchase.",
+      });
+    }
+
+    const mode = plan.interval === "one_time" ? "payment" : "subscription";
+
     const sessionParams: any = {
       payment_method_types: ["card"],
-      mode: mode === "payment" ? "payment" : "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      mode,
+      line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
       success_url: `${appUrl}/admin/payments?success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/admin/payments?cancelled=1`,
-      // business_id lets the success-redirect confirm step record the plan on
-      // the purchasing business (see handleStripeConfirm below).
-      metadata: { plan: planName, business_id: businessId || "" },
+      // Recorded on the session so the confirm step (below) knows what was
+      // bought and for whom, without trusting the browser on the way back.
+      metadata: {
+        plan: plan.name,
+        plan_id: plan.id,
+        business_id: businessId,
+        purchased_by: req.profile?.id ?? "",
+      },
     };
 
+    const email = req.profile?.email;
     if (email) {
       sessionParams.customer_email = email;
     }
@@ -62,8 +137,8 @@ export async function handleStripeCheckout(req: Request, res: Response) {
     const session = await stripe.checkout.sessions.create(sessionParams);
     return res.json({ url: session.url, sessionId: session.id });
   } catch (err: any) {
-    console.error("[stripe] checkout error:", err?.message);
-    return res.status(500).json({ error: "stripe_error", message: err?.message || "Stripe checkout failed" });
+    log.error({ err: err?.message }, "checkout error");
+    return res.status(500).json({ error: "stripe_error", message: "Checkout could not be started." });
   }
 }
 
@@ -76,18 +151,22 @@ export async function handleStripeCheckout(req: Request, res: Response) {
  * writes the plan into businesses.metadata.plan — the key both the mobile app
  * (lib/workspace.ts toPlan) and the web admin screens already read.
  * Idempotent: re-confirming the same session rewrites the same value.
+ *
+ * Mounted behind requireAuth. The caller must be able to write the business
+ * named on the session, so a leaked or guessed session id cannot be replayed
+ * by a third party to move another tenant's plan.
  */
 export async function handleStripeConfirm(req: Request, res: Response) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     return res.status(503).json({
       error: "stripe_not_configured",
-      message: "Stripe is not configured. Please add your STRIPE_SECRET_KEY environment variable.",
+      message: "Payments are not available right now. Please try again later or contact support.",
     });
   }
 
   const sessionId = (req.body?.sessionId || req.query?.session_id) as string | undefined;
-  if (!sessionId) {
+  if (!sessionId || typeof sessionId !== "string") {
     return res.status(400).json({ error: "missing_session_id", message: "session_id is required." });
   }
 
@@ -96,7 +175,7 @@ export async function handleStripeConfirm(req: Request, res: Response) {
     if (!stripe) {
       return res.status(503).json({
         error: "stripe_not_configured",
-        message: "Stripe is not configured. Please add your STRIPE_SECRET_KEY environment variable.",
+        message: "Payments are not available right now. Please try again later or contact support.",
       });
     }
 
@@ -115,17 +194,19 @@ export async function handleStripeConfirm(req: Request, res: Response) {
       // no business_id — nothing to record, and saying otherwise would lie.
       return res.json({
         applied: false,
-        message: "Payment received, but the session isn't linked to a business, so the plan couldn't be recorded automatically.",
+        message:
+          "Payment received, but the session isn't linked to a business, so the plan couldn't be recorded automatically.",
+      });
+    }
+
+    if (!canWriteBusiness(req, businessId)) {
+      return res.status(403).json({
+        error: "forbidden",
+        message: "You do not have access to the business on this checkout session.",
       });
     }
 
     const supabase = getSupabaseClient();
-    if (!supabase) {
-      return res.status(503).json({
-        error: "supabase_not_configured",
-        message: "Payment received, but the database isn't configured on the server, so the plan couldn't be recorded.",
-      });
-    }
 
     const { data: row, error: readError } = await supabase
       .from("businesses")
@@ -152,8 +233,8 @@ export async function handleStripeConfirm(req: Request, res: Response) {
 
     return res.json({ applied: true, plan, businessId });
   } catch (err: any) {
-    console.error("[stripe] confirm error:", err?.message);
-    return res.status(500).json({ error: "stripe_error", message: err?.message || "Couldn't confirm the payment." });
+    log.error({ err: err?.message }, "confirm error");
+    return res.status(500).json({ error: "stripe_error", message: "The payment could not be confirmed." });
   }
 }
 

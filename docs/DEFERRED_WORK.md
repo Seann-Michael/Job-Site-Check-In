@@ -102,5 +102,8 @@ Flagged by the Supabase advisor; both are dashboard toggles, not code:
 - `mobile/` (Expo app) is in the repo without a shared build and still has
   its own demo mode; treat it as unsupported until it is brought up to the
   web app's auth model.
+- RESOLVED 2026-09-07: the CI workflow now really is at `.github/workflows/ci.yml`
+  (it had been sitting at `docs/ci.yml`, where GitHub never looks, so no CI had
+  ever run). Original note follows.
 - The CI workflow (`.github/workflows/ci.yml`) is in the repo but not yet
   active on GitHub; see [DEPLOYMENT.md](DEPLOYMENT.md#ci).

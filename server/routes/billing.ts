@@ -637,7 +637,12 @@ async function myBilling(req: Request, res: Response) {
     db.from("billing_records").select("*").eq("business_id", businessId).order("created_at", { ascending: false }).limit(100),
     db.from("businesses").select("metadata").eq("id", businessId).maybeSingle(),
   ]);
-  if (recErr) return res.status(500).json({ error: recErr.message });
+  // myBilling is reachable by ANY authenticated user, so the Postgres error
+  // text (table/column names, constraint detail) stays in the log only.
+  if (recErr) {
+    log.error({ err: recErr, businessId }, "myBilling billing_records query failed");
+    return res.status(500).json({ error: "Could not load billing records" });
+  }
   const meta = (biz?.metadata ?? {}) as Record<string, any>;
   const planName = (sub as any)?.plans?.name ?? meta.plan ?? meta.subscription_plan ?? null;
   return res.json({ businessId, subscription: sub ?? null, planName, invoices: records ?? [] });

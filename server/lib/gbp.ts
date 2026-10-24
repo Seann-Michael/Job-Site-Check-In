@@ -37,8 +37,10 @@ export class GbpNotConnectedError extends Error {
 
 /**
  * Google returned 403: the Cloud project is not approved for the Business
- * Profile API (or the account lacks access to this location). Carries Google's
- * own message so the UI can be specific and honest.
+ * Profile API (or the account lacks access to this location). The message is
+ * ours, not Google's — Google's text names `accounts/…/locations/…` resources
+ * and other project internals, which must not reach a tenant. The upstream
+ * message is logged in gbpFetch instead.
  */
 export class GbpNotApprovedError extends Error {
   status = 403;
@@ -418,17 +420,20 @@ export async function gbpFetch(
     }
   }
 
+  // Google's own error text names the resource it was reached through
+  // (`accounts/<id>/locations/<id>/...`) and other project internals, so it is
+  // logged but never propagated to the tenant-facing response.
   if (res.status === 403) {
-    const gMsg = body?.error?.message || "The Business Profile API is not approved for this Google Cloud project yet.";
-    throw new GbpNotApprovedError(gMsg);
+    log.warn({ status: 403, url: url.split("?")[0], google: body?.error?.message ?? null }, "gbpFetch not approved");
+    throw new GbpNotApprovedError();
   }
   if (res.status === 404) {
-    throw new GbpError(body?.error?.message || "Google resource not found.", 404);
+    log.warn({ status: 404, url: url.split("?")[0], google: body?.error?.message ?? null }, "gbpFetch not found");
+    throw new GbpError("Google resource not found.", 404);
   }
   if (!res.ok) {
-    const gMsg = body?.error?.message || `Google API error (${res.status}).`;
-    log.warn({ status: res.status, url: url.split("?")[0] }, "gbpFetch non-ok");
-    throw new GbpError(gMsg, res.status >= 500 ? 502 : 400);
+    log.warn({ status: res.status, url: url.split("?")[0], google: body?.error?.message ?? null }, "gbpFetch non-ok");
+    throw new GbpError(`Google API error (${res.status}).`, res.status >= 500 ? 502 : 400);
   }
 
   return body ?? {};
@@ -474,18 +479,23 @@ function mapReview(r: any): GbpReview {
 }
 
 /**
- * v4: reply to a review. `reviewName` is the full resource
- * (`accounts/x/locations/y/reviews/z`); a bare review id is also accepted and
- * expanded against the resolved location.
+ * v4: reply to a review.
+ *
+ * `reviewId` is a BARE review id — one path segment. A full resource name
+ * (`accounts/x/locations/y/reviews/z`) is REJECTED: Express decodes `%2F` in a
+ * route param to `/`, so accepting one let a caller who passed the per-business
+ * guard for business A reply on any listing the connected token can manage.
+ * The account/location half of the path always comes from the server-resolved
+ * location for `businessId`.
  */
-export async function replyToReview(businessId: string, reviewName: string, comment: string): Promise<any> {
+export async function replyToReview(businessId: string, reviewId: string, comment: string): Promise<any> {
+  if (typeof reviewId !== "string" || !reviewId || reviewId.includes("/") || reviewId.length > 256) {
+    throw new GbpError("Invalid review id.", 400);
+  }
   const tokens = await getTokensForBusiness(businessId);
   if (!tokens) throw new GbpNotConnectedError();
   const { v4Name } = await resolveLocation(businessId, tokens);
-  const full = reviewName.includes("/reviews/")
-    ? reviewName
-    : `${v4Name}/reviews/${reviewName.split("/").pop()}`;
-  const url = `${HOST_V4}/v4/${full}/reply`;
+  const url = `${HOST_V4}/v4/${v4Name}/reviews/${encodeURIComponent(reviewId)}/reply`;
   return gbpFetch(businessId, url, { method: "PUT", body: JSON.stringify({ comment }) });
 }
 

@@ -102,13 +102,14 @@ async function resolvePlanId(
   entitlementIds: string[] | undefined,
 ): Promise<string | null> {
   if (productId) {
-    const { data } = await db
-      .from("plans")
-      .select("id")
-      .or(`apple_product_id.eq.${productId},google_product_id.eq.${productId}`)
-      .limit(1)
-      .maybeSingle();
-    if (data?.id) return data.id;
+    // Two parameterised .eq() lookups rather than one .or() filter string:
+    // the product id comes straight off the webhook body, and interpolating it
+    // into a PostgREST filter expression lets a crafted value (commas, dots,
+    // `or(...)`, `not.is.null`) rewrite the filter and match arbitrary rows.
+    for (const column of ["apple_product_id", "google_product_id"] as const) {
+      const { data } = await db.from("plans").select("id").eq(column, productId).limit(1).maybeSingle();
+      if (data?.id) return data.id;
+    }
   }
   const ent = entitlementIds?.[0];
   if (ent) {

@@ -189,8 +189,30 @@ CREATE POLICY "rss_feed_items_write" ON public.rss_feed_items FOR ALL TO authent
 CREATE POLICY "webhook_deliveries_select" ON public.webhook_deliveries FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.webhooks wh WHERE wh.id=webhook_deliveries.webhook_id AND public.can_read_business(wh.business_id)));
 CREATE POLICY "webhook_deliveries_write" ON public.webhook_deliveries FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.webhooks wh WHERE wh.id=webhook_deliveries.webhook_id AND public.can_write_business(wh.business_id))) WITH CHECK (EXISTS (SELECT 1 FROM public.webhooks wh WHERE wh.id=webhook_deliveries.webhook_id AND public.can_write_business(wh.business_id)));
 
+-- Membership test used by businesses_select. Kept as a SECURITY DEFINER helper
+-- (rather than an inline EXISTS) so the policy does not recurse into
+-- business_members' own RLS. It reads business_members, never businesses, so it
+-- is free of the self-reference problem described below.
+CREATE OR REPLACE FUNCTION public.is_business_member(bid uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.business_members m
+    WHERE m.business_id = bid AND m.user_id = auth.uid()
+  );
+$$;
+REVOKE ALL ON FUNCTION public.is_business_member(uuid) FROM public;
+GRANT EXECUTE ON FUNCTION public.is_business_member(uuid) TO authenticated, service_role;
+
 -- businesses: members may read; only the owner (or super admin) may change/delete.
-CREATE POLICY "businesses_select" ON public.businesses FOR SELECT TO authenticated USING (public.can_read_business(id));
+-- NOTE: this policy must NOT call can_read_business(id) / owns_business(id).
+-- Those are STABLE SECURITY DEFINER functions that re-read public.businesses,
+-- so during INSERT ... RETURNING they run against the statement-start snapshot,
+-- cannot see the row being inserted, and abort the whole insert with 42501.
+-- That took /onboarding down on 2026-09-07. Ownership is evaluated inline
+-- against the row instead; see 20260907130305_fix_businesses_select_policy_self_reference.sql.
+CREATE POLICY "businesses_select" ON public.businesses FOR SELECT TO authenticated
+  USING (public.is_super_admin() OR owner_id = auth.uid() OR public.is_business_member(id));
 CREATE POLICY "businesses_insert" ON public.businesses FOR INSERT TO authenticated WITH CHECK (public.is_super_admin() OR owner_id = auth.uid());
 CREATE POLICY "businesses_update" ON public.businesses FOR UPDATE TO authenticated USING (public.is_super_admin() OR owner_id = auth.uid()) WITH CHECK (public.is_super_admin() OR owner_id = auth.uid());
 CREATE POLICY "businesses_delete" ON public.businesses FOR DELETE TO authenticated USING (public.is_super_admin() OR owner_id = auth.uid());

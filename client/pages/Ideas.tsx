@@ -97,20 +97,12 @@ const CATEGORIES = [
 
 const getCurrentUserEmail = (): string => getCurrentUser()?.email || "";
 
-// Returns a stable device ID for anonymous users — persisted in localStorage
-const getOrCreateDeviceId = (): string => {
-  const KEY = "ideas_device_id";
-  try {
-    let id = localStorage.getItem(KEY);
-    if (!id) {
-      id = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem(KEY, id);
-    }
-    return id;
-  } catch {
-    return "";
-  }
-};
+/**
+ * The signed-in Supabase user id. `idea_votes` RLS is
+ * `user_id = auth.uid()::text`, so every read and write of that table must key
+ * on this — not on the email column, which no policy looks at.
+ */
+const getCurrentUserId = (): string => getCurrentUser()?.id || "";
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Ideas() {
@@ -189,18 +181,18 @@ export default function Ideas() {
 
   // ── Load user's existing votes from Supabase ────────────────────────────────
   const fetchUserVotes = useCallback(async () => {
-    const userEmail = getCurrentUserEmail();
-    const deviceId = getOrCreateDeviceId();
+    // RLS on idea_votes is `user_id = auth.uid()::text` — filtering by
+    // user_email matched nothing, so previously-cast votes never restored.
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setVotedIds(new Set());
+      return;
+    }
     try {
-      // Try email first, fall back to device ID
-      const identifier = userEmail
-        ? { column: "user_email", value: userEmail }
-        : { column: "device_id", value: deviceId };
-
       const { data, error } = await supabaseClient
         .from("idea_votes")
         .select("idea_id")
-        .eq(identifier.column, identifier.value);
+        .eq("user_id", userId);
       if (error) throw error;
       setVotedIds(new Set((data ?? []).map((r: any) => r.idea_id as string)));
     } catch (err) {
@@ -218,46 +210,56 @@ export default function Ideas() {
   // ── Vote ─────────────────────────────────────────────────────────────────────
   const handleVote = async (idea: Idea) => {
     const alreadyVoted = votedIds.has(idea.id);
-    const newUpvotes = alreadyVoted ? idea.upvotes - 1 : idea.upvotes + 1;
+    const userId = getCurrentUserId();
     const userEmail = getCurrentUserEmail();
-    const deviceId = getOrCreateDeviceId();
 
-    // Optimistic update
-    setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: newUpvotes } : i));
+    // idea_votes is only writable by the signed-in owner of the row.
+    if (!userId) {
+      toast.error("You must be logged in to vote");
+      return;
+    }
+
+    // Optimistic update. The displayed count is derived from the vote rows
+    // (see voteCount) — the `ideas.upvotes` aggregate is not written here:
+    // only super admins may update that table, so the write always failed
+    // silently and rolled the whole vote back with it.
     const newVoted = new Set(votedIds);
     if (alreadyVoted) newVoted.delete(idea.id); else newVoted.add(idea.id);
     setVotedIds(newVoted);
 
     try {
-      const { error } = await supabaseClient
-        .from("ideas")
-        .update({ upvotes: newUpvotes })
-        .eq("id", idea.id);
-      if (error) throw error;
-
-      // Persist vote — logged-in users keyed by email, anonymous by device_id
       if (alreadyVoted) {
-        // Remove vote: delete by email if available, else by device_id
-        const deleteQuery = supabaseClient.from("idea_votes").delete().eq("idea_id", idea.id);
-        const { error: delError } = userEmail
-          ? await deleteQuery.eq("user_email", userEmail)
-          : await deleteQuery.eq("device_id", deviceId);
+        const { error: delError } = await supabaseClient
+          .from("idea_votes")
+          .delete()
+          .eq("idea_id", idea.id)
+          .eq("user_id", userId);
         if (delError) throw delError;
       } else {
         const { error: insError } = await supabaseClient.from("idea_votes").insert({
           idea_id: idea.id,
+          // Required by RLS: WITH CHECK (user_id = auth.uid()::text).
+          user_id: userId,
           user_email: userEmail || "",
-          device_id: deviceId || "",
+          // device_id is left at its '' default: the partial unique index on
+          // (idea_id, device_id) would otherwise make two accounts sharing a
+          // browser collide, and anonymous voting is not possible under RLS.
         });
         // 23505 = unique violation: the vote was already recorded, which is fine.
         if (insError && insError.code !== "23505") throw insError;
       }
     } catch (err: any) {
-      setIdeas((prev) => prev.map((i) => i.id === idea.id ? { ...i, upvotes: idea.upvotes } : i));
       setVotedIds(votedIds);
-      toast.error("Failed to record vote");
+      toast.error("Failed to record vote: " + (err?.message ?? "Unknown error"));
     }
   };
+
+  /**
+   * Votes shown on a card: the stored `ideas.upvotes` total plus this user's
+   * own vote, which is the only vote row RLS lets the client read back.
+   */
+  const voteCount = (idea: Idea): number =>
+    idea.upvotes + (votedIds.has(idea.id) ? 1 : 0);
 
   // ── Submit suggestion ─────────────────────────────────────────────────────────
   const handleSuggestionSubmit = async () => {
@@ -552,7 +554,7 @@ export default function Ideas() {
                                 onClick={() => handleVote(item)}
                               >
                                 <ThumbsUp className="h-3 w-3 mr-1" />
-                                {item.upvotes}
+                                {voteCount(item)}
                               </Button>
                             </div>
                             <h4 className="font-medium text-gray-900 mb-2">{item.title}</h4>
@@ -596,7 +598,7 @@ export default function Ideas() {
                                 onClick={() => handleVote(item)}
                               >
                                 <ThumbsUp className="h-3 w-3 mr-1" />
-                                {item.upvotes}
+                                {voteCount(item)}
                               </Button>
                             </div>
                             <h4 className="font-medium text-gray-900 mb-2">{item.title}</h4>
@@ -633,9 +635,14 @@ export default function Ideas() {
                         .map((item) => (
                           <div key={item.id} className="border border-gray-200 rounded-lg p-4">
                             <div className="flex items-center gap-2 mb-2">
-                              <Button variant="outline" size="sm" className="h-8 px-2 text-xs" disabled>
+                              <Button
+                                variant={votedIds.has(item.id) ? "default" : "outline"}
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => handleVote(item)}
+                              >
                                 <ThumbsUp className="h-3 w-3 mr-1" />
-                                {item.upvotes}
+                                {voteCount(item)}
                               </Button>
                             </div>
                             <h4 className="font-medium text-gray-900 mb-2">{item.title}</h4>
@@ -703,7 +710,7 @@ export default function Ideas() {
                             className="h-8 px-2 text-xs"
                           >
                             <ThumbsUp className="h-3 w-3 mr-1" />
-                            {idea.upvotes}
+                            {voteCount(idea)}
                           </Button>
                         </div>
 

@@ -226,6 +226,36 @@ describe("access control", () => {
     expect(calls.some((c) => c.includes("/reviews/rev-1/reply"))).toBe(true);
   });
 
+  it("rejects a review id that escapes the resolved location (path traversal)", async () => {
+    seedTokens({ expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    const { calls } = mockGoogle([{ match: "/reply", status: 200, body: { comment: "pwned" } }]);
+    // Express decodes %2F in a route param, so this arrives at the handler as
+    // `accounts/99/locations/77/reviews/evil` — a listing outside the business
+    // the per-business guard just authorised.
+    const res = await request(app)
+      .post(`/api/gbp/${BUSINESS_CONNECTED}/reviews/accounts%2F99%2Flocations%2F77%2Freviews%2Fevil/reply`)
+      .set(auth("owner"))
+      .send({ comment: "pwned" });
+    expect(res.status).toBe(400);
+    // Google was never asked to reply on the attacker-chosen location.
+    expect(calls.some((c) => c.includes("locations/77"))).toBe(false);
+    expect(calls.some((c) => c.includes("/reply"))).toBe(false);
+  });
+
+  it("always builds the reply path from the server-resolved location", async () => {
+    seedTokens({ expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    const { calls } = mockGoogle([{ match: "/reply", status: 200, body: { comment: "thanks" } }]);
+    const res = await request(app)
+      .post(`/api/gbp/${BUSINESS_CONNECTED}/reviews/rev%2Bencoded/reply`)
+      .set(auth("owner"))
+      .send({ comment: "thanks" });
+    expect(res.status).toBe(200);
+    const replyCall = calls.find((c) => c.includes("/reply")) ?? "";
+    // accounts/9/locations/5 come from the business's own settings, not the URL.
+    expect(replyCall).toContain("accounts/9/locations/5/reviews/");
+    expect(replyCall).toContain("/reviews/rev%2Bencoded/reply");
+  });
+
   it("reply with an empty comment is rejected (400)", async () => {
     seedTokens({ expiresAt: new Date(Date.now() + 3600_000).toISOString() });
     const r = await request(app)

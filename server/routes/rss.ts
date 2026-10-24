@@ -2,9 +2,26 @@ import { Request, Response } from "express";
 import { getSupabaseClient } from "../supabaseClient";
 import { logger } from "../lib/logger";
 import { getAppUrl } from "../lib/env";
-import { canWriteBusiness } from "../middleware/requireAuth";
+import { canAccessBusiness, canWriteBusiness } from "../middleware/requireAuth";
 
 const log = logger.child({ module: "rss" });
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Shared authorisation for both sides of a feed. `workflowId` must be a UUID
+ * (it hits a uuid column; a malformed value would otherwise surface as a 500)
+ * and the caller must either own the workflow's business or be using their own
+ * legacy account id as the feed key.
+ */
+async function canUseFeed(req: Request, workflowId: string, write: boolean): Promise<boolean> {
+  if (req.profile?.accountId && req.profile.accountId === workflowId) return true;
+  const db = getSupabaseClient();
+  const { data: wf } = await db.from("workflows").select("business_id").eq("id", workflowId).maybeSingle();
+  if (!wf) return false;
+  const businessId = wf.business_id as string;
+  return write ? canWriteBusiness(req, businessId) : canAccessBusiness(req, businessId);
+}
 
 function escapeXml(str: string): string {
   return String(str)
@@ -20,14 +37,28 @@ function toRfc2822(date: string): string {
 }
 
 /**
- * GET /api/rss/:workflowId  (public)
+ * GET /api/rss/:workflowId  (auth)
  * Valid RSS 2.0 feed for the given workflow.
+ *
+ * This used to be public: it service-role read `rss_feed_items` for ANY
+ * workflow UUID, so anyone who guessed or obtained an id could read another
+ * tenant's completed-job feed. It now requires a session and the same
+ * ownership check the write side performs.
  */
 export async function handleGetRssFeed(req: Request, res: Response) {
   const { workflowId } = req.params;
 
+  if (!UUID_RE.test(workflowId || "") && workflowId !== req.profile?.accountId) {
+    return res.status(400).send("Invalid workflow id");
+  }
+
   try {
     const db = getSupabaseClient();
+
+    if (!(await canUseFeed(req, workflowId, false))) {
+      return res.status(404).send("Feed not found");
+    }
+
     const { data: items, error } = await db
       .from("rss_feed_items")
       .select("*")
@@ -91,6 +122,9 @@ export async function handleAddRssItem(req: Request, res: Response) {
   const { workflowId } = req.params;
   const { item_title, item_description, item_link, feed_title } = req.body ?? {};
 
+  if (!UUID_RE.test(workflowId || "") && workflowId !== req.profile?.accountId) {
+    return res.status(400).json({ error: "Invalid workflow id" });
+  }
   if (!item_title || typeof item_title !== "string") {
     return res.status(400).json({ error: "item_title is required" });
   }
@@ -100,12 +134,9 @@ export async function handleAddRssItem(req: Request, res: Response) {
 
     // Authorise: workflowId is either a workflow owned by the caller, or the
     // caller's own legacy account id.
-    let allowed = req.profile?.accountId === workflowId;
-    if (!allowed) {
-      const { data: wf } = await db.from("workflows").select("business_id").eq("id", workflowId).maybeSingle();
-      allowed = !!wf && canWriteBusiness(req, wf.business_id as string);
+    if (!(await canUseFeed(req, workflowId, true))) {
+      return res.status(404).json({ error: "Feed not found" });
     }
-    if (!allowed) return res.status(404).json({ error: "Feed not found" });
 
     const { data, error } = await db
       .from("rss_feed_items")

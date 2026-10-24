@@ -66,6 +66,10 @@ interface USStatesSelectProps {
   onValueChange?: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Applied to the trigger so a <Label htmlFor> can actually name this field. */
+  id?: string;
+  /** Accessible name when there is no visible label to point at the trigger. */
+  "aria-label"?: string;
 }
 
 export const USStatesSelect: React.FC<USStatesSelectProps> = ({
@@ -73,10 +77,12 @@ export const USStatesSelect: React.FC<USStatesSelectProps> = ({
   onValueChange,
   placeholder = "Select state",
   disabled,
+  id,
+  "aria-label": ariaLabel,
 }) => {
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger>
+      <SelectTrigger id={id} aria-label={ariaLabel}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

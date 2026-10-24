@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -118,7 +117,6 @@ interface ExecutionHistory {
   duration?: number;
   trigger: string;
   errorMessage?: string;
-  progress: number;
 }
 
 export default function Automation() {
@@ -161,9 +159,28 @@ export default function Automation() {
           updatedAt: new Date(w.updated_at),
           runCount: 0,
         }));
-        setWorkflows(mapped);
 
         const workflowIds = mapped.map((w) => w.id);
+
+        // Real execution totals per workflow. Counted server-side rather than
+        // taken from the 50-row history window below, which would undercount a
+        // busy workflow — the column used to be hardcoded to 0 for everything.
+        const counts = await Promise.all(
+          workflowIds.map((wid) =>
+            supabaseClient
+              .from("workflow_executions")
+              .select("id", { count: "exact", head: true })
+              .eq("workflow_id", wid),
+          ),
+        );
+        const runCounts = new Map<string, number>();
+        counts.forEach((res, idx) => {
+          if (!res.error) runCounts.set(workflowIds[idx], res.count ?? 0);
+        });
+        setWorkflows(
+          mapped.map((w) => ({ ...w, runCount: runCounts.get(w.id) ?? 0 })),
+        );
+
         const { data: exData, error: exError } = workflowIds.length
           ? await supabaseClient
               .from("workflow_executions")
@@ -185,7 +202,6 @@ export default function Automation() {
             : undefined,
           trigger: (e.trigger_data as any)?.trigger ?? "manual",
           errorMessage: e.error_message ?? undefined,
-          progress: e.status === "completed" ? 100 : e.status === "failed" ? 0 : 50,
         }));
         setExecutionHistory(exMapped);
       } catch (err) {
@@ -789,7 +805,6 @@ export default function Automation() {
                       <TableHead>Start Time</TableHead>
                       <TableHead>Duration</TableHead>
                       <TableHead>Trigger</TableHead>
-                      <TableHead>Progress</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -808,17 +823,6 @@ export default function Automation() {
                           {formatDuration(execution.duration)}
                         </TableCell>
                         <TableCell>{execution.trigger}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Progress
-                              value={execution.progress}
-                              className="w-16"
-                            />
-                            <span className="text-xs text-muted-foreground">
-                              {execution.progress}%
-                            </span>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

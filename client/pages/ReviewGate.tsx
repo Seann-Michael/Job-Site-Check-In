@@ -483,10 +483,14 @@ export default function ReviewGate() {
             {/* Review Text Input */}
             {rating > 0 && (
               <div>
-                <label className="block text-sm font-semibold text-blue-900 mb-3">
+                <label
+                  htmlFor="review-text"
+                  className="block text-sm font-semibold text-blue-900 mb-3"
+                >
                   Tell us about your experience:
                 </label>
                 <Textarea
+                  id="review-text"
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
                   placeholder="Share details about your experience..."

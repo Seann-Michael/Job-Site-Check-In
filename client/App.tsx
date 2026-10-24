@@ -22,7 +22,6 @@ const AppPages = lazy(() => import("./pages/AppPages"));
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
 const BusinessManagement = lazy(() => import("./pages/BusinessManagement"));
-const CrashLogs = lazy(() => import("./pages/CrashLogs"));
 const Ideas = lazy(() => import("./pages/Ideas"));
 const GMBOptimization = lazy(() => import("./pages/GMBOptimization"));
 const Payments = lazy(() => import("./pages/Payments"));
@@ -378,15 +377,6 @@ const App = () => (
                 />
 
                 <Route
-                  path="/admin/crash-logs"
-                  element={
-                    <ProtectedRoute>
-                      <CrashLogs />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
                   path="/support"
                   element={
                     <ProtectedRoute>
@@ -622,10 +612,6 @@ const App = () => (
                 <Route
                   path="/AppPages"
                   element={<Navigate to="/admin/app-pages" replace />}
-                />
-                <Route
-                  path="/CrashLogs"
-                  element={<Navigate to="/admin/crash-logs" replace />}
                 />
                 <Route
                   path="/AdminProjects"

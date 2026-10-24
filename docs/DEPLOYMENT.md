@@ -110,7 +110,7 @@ deploying the current server build, otherwise the Google connect flow fails.
 
 ## CI
 
-`.github/workflows/ci.yml` is in the repo and, once enabled, runs on every push
+`.github/workflows/ci.yml` runs on every push
 and pull request:
 
 1. `npm ci` (Node 20)

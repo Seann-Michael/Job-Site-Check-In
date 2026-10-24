@@ -176,6 +176,18 @@ describe("POST /api/twilio/sms/send", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("400 when businessId is omitted (no unscoped sends)", async () => {
+    for (const path of ["/api/twilio/sms/send", "/api/twilio/review-request"]) {
+      const res = await request(app)
+        .post(path)
+        .set("Authorization", "Bearer owner")
+        .send({ to: "+15551234567", message: "hi", businessName: "Acme", reviewLink: "https://app.example.com/r/1" });
+      expect(res.status, path).toBe(400);
+      expect(res.body.error, path).toMatch(/businessId is required/);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("403 for a business the caller does not own", async () => {
     const res = await request(app)
       .post("/api/twilio/sms/send")
@@ -200,7 +212,7 @@ describe("POST /api/twilio/sms/send", () => {
     const bad = await request(app)
       .post("/api/twilio/sms/send")
       .set("Authorization", "Bearer owner")
-      .send({ to: "+15551234567", message: "hi" });
+      .send({ to: "+15551234567", message: "hi", businessId: "biz-1" });
     expect(bad.status).toBe(502);
     expect(JSON.stringify(bad.body)).not.toMatch(/SECRET upstream detail/);
   });
@@ -209,17 +221,17 @@ describe("POST /api/twilio/sms/send", () => {
     const res = await request(app)
       .post("/api/twilio/review-request")
       .set("Authorization", "Bearer owner")
-      .send({ to: "+15551234567", businessName: "Acme", reviewLink: "https://evil.example.net/r" });
+      .send({ to: "+15551234567", businessName: "Acme", reviewLink: "https://evil.example.net/r", businessId: "biz-1" });
     expect(res.status).toBe(400);
     const http = await request(app)
       .post("/api/twilio/review-request")
       .set("Authorization", "Bearer owner")
-      .send({ to: "+15551234567", businessName: "Acme", reviewLink: "http://app.example.com/r" });
+      .send({ to: "+15551234567", businessName: "Acme", reviewLink: "http://app.example.com/r", businessId: "biz-1" });
     expect(http.status).toBe(400);
     const good = await request(app)
       .post("/api/twilio/review-request")
       .set("Authorization", "Bearer owner")
-      .send({ to: "+15551234567", businessName: "Acme", reviewLink: "https://app.example.com/r/1" });
+      .send({ to: "+15551234567", businessName: "Acme", reviewLink: "https://app.example.com/r/1", businessId: "biz-1" });
     expect(good.status).toBe(200);
   });
 });
@@ -296,6 +308,29 @@ describe("POST /api/workflows/webhook/:id timestamp replay protection", () => {
     const res = await post({ "x-webhook-signature": signature, "x-webhook-timestamp": timestamp });
     expect(res.status).toBe(200);
     expect(res.body.executionId).toBe("exec-1");
+  });
+
+  it("409s on a replay of an accepted request (same signature, inside the window)", async () => {
+    // A distinct body so this signature is unique to this test.
+    const replayBody = JSON.stringify({ hello: "replay" });
+    const { signature, timestamp } = signWithTimestamp(WEBHOOK_SECRET, replayBody);
+    const send = () =>
+      request(app)
+        .post("/api/workflows/webhook/wf-1")
+        .set("Content-Type", "application/json")
+        .set({ "x-webhook-signature": signature, "x-webhook-timestamp": timestamp })
+        .send(replayBody);
+
+    const first = await send();
+    expect(first.status).toBe(200);
+    expect(first.body.executionId).toBe("exec-1");
+
+    const replay = await send();
+    expect(replay.status).toBe(409);
+    expect(replay.body.error).toMatch(/already been processed/i);
+
+    // A third attempt is still refused.
+    expect((await send()).status).toBe(409);
   });
 });
 

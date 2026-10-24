@@ -65,9 +65,12 @@ Never put the service-role key in a `VITE_` variable; it would ship to browsers.
 
 Set the secrets in the DO dashboard (the yaml mirrors the dashboard, which is
 authoritative). A CI workflow (`.github/workflows/ci.yml`: lint, typecheck,
-tests, full build) is in the repo but is **not yet active on GitHub**: the push
-that added it was rejected because the token lacked the `workflow` scope. Run
-`gh auth refresh -s workflow` and push again to enable it. See
+tests, full build) runs on every push and pull request. It lived at
+`docs/ci.yml` until 2026-09-07 — where GitHub never looks, so no CI had ever
+run — because the original push was rejected for lack of the `workflow` token
+scope. If a push touching it is rejected, run `gh auth refresh -s workflow`
+first. `deploy_on_push` is on, so this workflow is the only gate before
+production: make it a required status check. See
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for details.
 
 ## Database migrations

@@ -59,7 +59,7 @@ import {
 } from "@/components/ui/select";
 
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { getCurrentUser as getAuthUser } from "@/lib/auth";
 import { aiApi, aiErrorMessage } from "@/lib/api";
@@ -185,6 +185,9 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(true);
+  // Set when the load itself failed, which is a different thing from the job
+  // not existing — the two get different screens below.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [editingPhoto, setEditingPhoto] = useState<TaggedPhoto | null>(null);
   const [editPhotoTags, setEditPhotoTags] = useState("");
@@ -256,9 +259,9 @@ export default function ProjectDetail() {
     loadUsers();
   }, []);
 
-  useEffect(() => {
-    const loadProject = async () => {
+  const loadProject = useCallback(async () => {
       setIsLoadingProject(true);
+      setLoadError(null);
       try {
         const projects = await dataService.getProjects();
         const foundProject = projects.find((p: any) => p.id === id) as any;
@@ -360,14 +363,21 @@ export default function ProjectDetail() {
           setProject(projectWithDefaults);
         }
       } catch (error) {
+        // A failed load is NOT a deleted job — without this the page fell
+        // through to the "Job Not Found" screen and told the user their job
+        // was gone whenever the network hiccuped.
         console.error("Error loading project:", error);
+        setLoadError(
+          error instanceof Error ? error.message : "Could not load this job.",
+        );
       } finally {
         setIsLoadingProject(false);
       }
-    };
-
-    loadProject();
   }, [id]);
+
+  useEffect(() => {
+    loadProject();
+  }, [loadProject]);
 
   const getCurrentUser = (): { id: string; name: string; platform: "mobile" | "web" } => {
     const authUser = getAuthUser();
@@ -1448,6 +1458,38 @@ export default function ProjectDetail() {
             <div className="h-32 bg-muted animate-pulse rounded-lg" />
             <div className="h-64 bg-muted animate-pulse rounded-lg" />
           </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!project && loadError) {
+    return (
+      <AppLayout>
+        <div className="container px-4 py-6 max-w-full overflow-x-hidden">
+          <div className="flex items-center gap-4 mb-6">
+            <Link to="/admin/jobs">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold">Couldn't load this job</h1>
+          </div>
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">
+                The job couldn't be loaded. It has not been deleted — the app
+                just couldn't reach it.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Button onClick={() => loadProject()}>Try again</Button>
+                <Link to="/admin/jobs">
+                  <Button variant="outline">Back to Jobs</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </AppLayout>
     );

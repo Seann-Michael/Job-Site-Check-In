@@ -81,12 +81,16 @@ services:
         value: YOUR_SUPABASE_ANON_KEY
 
       # App
+      # NOTE: ${APP_URL} is NOT a valid DigitalOcean self-reference — it
+      # resolves empty, which makes corsOrigins() return [] and getAppUrl()
+      # throw a 500 on OAuth start, /api/workflows/webhook-url and Stripe
+      # checkout. Set the literal origin here and in the dashboard.
       - key: APP_URL
         scope: RUN_TIME
-        value: ${APP_URL}
+        value: https://app.mylocalseoranker.com
       - key: CORS_ORIGINS
         scope: RUN_TIME
-        value: ${APP_URL}
+        value: https://app.mylocalseoranker.com
       - key: LOG_LEVEL
         scope: RUN_TIME
         value: info
@@ -148,3 +152,32 @@ services:
       - key: TWILIO_PHONE_NUMBER
         scope: RUN_TIME
         type: SECRET
+      # Required for X-Twilio-Signature verification on /api/webhooks/twilio:
+      # it is the exact URL Twilio signs. Falls back to APP_URL + path.
+      - key: TWILIO_WEBHOOK_URL
+        scope: RUN_TIME
+        value: https://app.mylocalseoranker.com/api/webhooks/twilio
+
+      # ── Outbound email (server/lib/email.ts) ─────────────────────────────
+      # Without these, every email path silently no-ops.
+      - key: SMTP_HOST
+        scope: RUN_TIME
+        value: ""
+      - key: SMTP_PORT
+        scope: RUN_TIME
+        value: "587"
+      - key: SMTP_USER
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      - key: FROM_EMAIL
+        scope: RUN_TIME
+        value: ""
+      - key: MAILGUN_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: MAILGUN_DOMAIN
+        scope: RUN_TIME
+        value: ""

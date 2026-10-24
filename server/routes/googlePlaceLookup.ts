@@ -1,9 +1,30 @@
 import { Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { getEnv } from "../lib/env";
 import { logger } from "../lib/logger";
 import { assertSafeUrl, GOOGLE_MAPS_HOSTS, resolveFinalUrl, SafeFetchError } from "../lib/safeFetch";
 
 const log = logger.child({ module: "googlePlaceLookup" });
+
+/** Every outbound Google call gets a hard 10s deadline. */
+const GOOGLE_TIMEOUT_MS = 10_000;
+
+/**
+ * Per-user quota for the Place Lookup endpoint: 30 lookups/hour/user. A single
+ * lookup fans out to up to three BILLED Google calls (Geocoding, Find Place,
+ * Place Details at ~$17/1000), so requireAuth alone is not a spend bound.
+ * Must be mounted after requireAuth so req.user is populated.
+ */
+export const placeLookupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip || "anonymous",
+  // Keyed by user id, so the IPv6-subnet keyGenerator validation does not apply.
+  validate: { keyGeneratorIpFallback: false },
+  message: { error: "Too many place lookups, please try again later" },
+});
 
 function apiKey(): string {
   return getEnv("GOOGLE_MAPS_API_KEY") || "";
@@ -55,7 +76,7 @@ function extractMapsInfo(url: string): {
 /** Geocoding API: CID → standard place_id */
 async function placeIdFromCid(cid: string): Promise<string | null> {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?place_id=cid:${cid}&key=${apiKey()}`;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS) });
   const data: any = await resp.json();
   return data?.results?.[0]?.place_id ?? null;
 }
@@ -74,7 +95,7 @@ async function findPlaceId(
     `https://maps.googleapis.com/maps/api/place/findplacefromtext/json` +
     `?input=${encodeURIComponent(name)}&inputtype=textquery` +
     `&fields=place_id${locationBias}&key=${apiKey()}`;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS) });
   const data: any = await resp.json();
   return data?.candidates?.[0]?.place_id ?? null;
 }
@@ -100,7 +121,7 @@ async function getPlaceDetails(placeId: string): Promise<any | null> {
   const url =
     `https://maps.googleapis.com/maps/api/place/details/json` +
     `?place_id=${placeId}&fields=${fields}&key=${apiKey()}`;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS) });
   const data: any = await resp.json();
   if (data.status !== "OK" || !data.result) return null;
   return data.result;

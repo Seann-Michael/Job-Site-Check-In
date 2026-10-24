@@ -1,6 +1,7 @@
 import { supabaseClient as supabase } from "./supabaseClient";
 import { workspaceService } from "./workspaceService";
 import { getSignedMediaUrls, mediaObjectKey } from "./mediaUrls";
+import { apiFetch } from "./api";
 
 export { supabase };
 
@@ -1313,20 +1314,17 @@ export class DataService {
   // Webhook URL generation
   async generateWebhookUrl(workflowId: string, businessId: string) {
     try {
-      const response = await fetch("/api/workflows/webhook-url", {
+      // apiFetch, not raw fetch: this route is behind requireAuth, so without
+      // the Authorization header it always 401s.
+      return await apiFetch<{
+        success: boolean;
+        webhookUrl: string;
+        secret?: string;
+      }>("/api/workflows/webhook-url", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-business-id": businessId,
-        },
-        body: JSON.stringify({ workflowId }),
+        headers: { "x-business-id": businessId },
+        body: { workflowId },
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate webhook URL: ${response.statusText}`);
-      }
-
-      return await response.json();
     } catch (error) {
       console.error("Error generating webhook URL:", error);
       throw error;
@@ -1354,17 +1352,11 @@ export class DataService {
   // Get webhook deliveries for an execution
   async getWebhookDeliveries(executionId: string, businessId: string) {
     try {
-      const response = await fetch(`/api/workflows/deliveries/${executionId}`, {
-        headers: {
-          "x-business-id": businessId,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch deliveries: ${response.statusText}`);
-      }
-
-      return await response.json();
+      // apiFetch, not raw fetch: this route is behind requireAuth.
+      return await apiFetch<{ success: boolean; deliveries: any[] }>(
+        `/api/workflows/deliveries/${executionId}`,
+        { headers: { "x-business-id": businessId } },
+      );
     } catch (error) {
       console.error("Error fetching webhook deliveries:", error);
       return { success: false, deliveries: [] };
