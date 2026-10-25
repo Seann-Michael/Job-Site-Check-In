@@ -36,9 +36,19 @@ const ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? EXTRA.reve
 // Expo Go can't load native modules; `appOwnership === 'expo'` identifies it.
 const isExpoGo = Constants.appOwnership === 'expo';
 
+// RevenueCat hard-crashes (native fatalError, not catchable) any release build
+// — TestFlight, App Store, Play — that configures with a Test Store key
+// ("test_..."). So outside __DEV__ a Test Store key is treated as "no key":
+// billing goes read-only instead of taking the whole app down.
+function usableKey(key: string): string {
+  if (!key) return '';
+  if (!__DEV__ && key.startsWith('test_')) return '';
+  return key;
+}
+
 function apiKey(): string {
-  if (Platform.OS === 'ios') return IOS_KEY;
-  if (Platform.OS === 'android') return ANDROID_KEY;
+  if (Platform.OS === 'ios') return usableKey(IOS_KEY);
+  if (Platform.OS === 'android') return usableKey(ANDROID_KEY);
   return '';
 }
 
