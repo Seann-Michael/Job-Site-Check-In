@@ -200,14 +200,14 @@ function GooglePostsCard() {
   const { colors } = useTheme();
   const router = useRouter();
   return (
-    <Card style={styles.postsCard} onPress={() => router.push('/gmb-posts')}>
+    <Card style={styles.postsCard} onPress={() => router.push('/share-queue')}>
       <IconTile icon="megaphone-outline" size={40} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-          Google posts
+          Share queue
         </Text>
         <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
-          See what is live on Google — edit, delete, or publish with a photo
+          Projects waiting to go out, and what went live where
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

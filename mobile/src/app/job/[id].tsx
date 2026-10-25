@@ -673,8 +673,8 @@ export default function JobDetailScreen() {
               </Card>
             ) : (
               <Button
-                label="Complete & publish"
-                icon="megaphone-outline"
+                label="Share this work"
+                icon="paper-plane-outline"
                 variant="secondary"
                 onPress={() => router.push({ pathname: '/publish/[id]', params: { id: job.id } })}
               />

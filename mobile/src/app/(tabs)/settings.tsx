@@ -11,6 +11,7 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { getNavApp, NAV_APP_LABELS, type NavApp } from '@/lib/directions';
 import { useAuth } from '@/providers/auth-provider';
 import { useThemePreference } from '@/providers/theme-preference';
+import Constants from 'expo-constants';
 
 function SettingsRow({
   icon,
@@ -163,9 +164,21 @@ export default function SettingsScreen() {
             onPress={() => router.push('/settings/media')}
           />
           <SettingsRow
+            icon="paper-plane-outline"
+            label="Sharing & destinations"
+            sub="Google, Facebook, Instagram, website"
+            onPress={() => router.push('/settings/sharing')}
+          />
+          <SettingsRow
+            icon="time-outline"
+            label="Share queue"
+            sub="Projects waiting to go out"
+            onPress={() => router.push('/share-queue')}
+          />
+          <SettingsRow
             icon="link-outline"
-            label="Integrations"
-            sub="Google Business Profile, GoHighLevel"
+            label="Connections"
+            sub="Google Business Profile, website workflow"
             onPress={() => router.push('/settings/integrations')}
           />
           <SettingsRow
@@ -206,7 +219,7 @@ export default function SettingsScreen() {
       </Card>
 
       <Text style={{ textAlign: 'center', fontSize: 12, color: colors.textMuted }}>
-        Local SEO Ranker Mobile · v0.1.0
+        Job Site Check In · {Constants.expoConfig?.version ?? ''}
       </Text>
     </Screen>
   );
