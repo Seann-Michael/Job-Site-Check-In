@@ -6,10 +6,12 @@
  * before processing (a conditional UPDATE ... WHERE status = 'scheduled') so a
  * manual "run now" and the timed tick can never double-send the same item.
  *
- * Every 60s (and once shortly after boot) `tick()` runs three processors:
+ * Every 60s (and once shortly after boot) `tick()` runs five processors:
  *   a) scheduled broadcasts      -> fan out `notifications` rows
  *   b) scheduled email campaigns -> sendCampaignById() (same code as the route)
  *   c) automation event triggers -> detect new activity, run actions, log runs
+ *   d) review requests           -> send the ones that are due, and nudge once
+ *   e) review alerts             -> notify the business about a bad new review
  *
  * Each processor is wrapped in try/catch: one failure never kills the loop.
  * Disabled entirely under NODE_ENV=test or DISABLE_WORKER=true.
@@ -19,6 +21,7 @@ import { logger } from "./logger";
 import { sendEmail, isEmailConfigured, renderTemplate } from "./email";
 import { sendCampaignById } from "../routes/email";
 import { safeFetch, SafeFetchError, readLimitedText } from "./safeFetch";
+import { sendSms, reviewRequestMessage, normalisePhone } from "./sms";
 
 const log = logger.child({ module: "worker" });
 
@@ -77,6 +80,8 @@ export interface TickSummary {
   broadcasts: { processed: number; sent: number; failed: number };
   campaigns: { processed: number; sent: number; skipped: number; failed: number };
   triggers: { evaluated: number; fired: number; failed: number };
+  reviewRequests: { processed: number; sent: number; skipped: number; failed: number };
+  reviewAlerts: { reviews: number; notified: number };
 }
 
 /**
@@ -101,7 +106,14 @@ export async function runTickOnce(): Promise<TickSummary> {
     fired: 0,
     failed: 0,
   });
-  return { broadcasts, campaigns, triggers };
+  const reviewRequests = await guarded("review_requests", processReviewRequests, {
+    processed: 0,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+  });
+  const reviewAlerts = await guarded("review_alerts", processReviewAlerts, { reviews: 0, notified: 0 });
+  return { broadcasts, campaigns, triggers, reviewRequests, reviewAlerts };
 }
 
 async function guarded<T>(name: string, fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -324,6 +336,8 @@ interface TriggerRow {
   trigger_count: number | null;
   last_triggered: string | null;
   created_at: string;
+  /** Owning business, or null for a platform-wide (super-admin) trigger. */
+  business_id?: string | null;
 }
 
 /** A source of new activity: one or more tables scanned by created_at. */
@@ -492,8 +506,18 @@ interface ActionResult {
   detail: string;
 }
 
-/** Normalize + run a single action against an (optional) affected row. */
-async function runAction(action: any, row: Record<string, any> | null): Promise<ActionResult> {
+/**
+ * Normalize + run a single action against an (optional) affected row.
+ *
+ * `businessId` is the owning business of the trigger, or null for a
+ * platform-wide one. It scopes the notification audience: a tenant's own
+ * automation must not be able to address "all users" or the super admins.
+ */
+async function runAction(
+  action: any,
+  row: Record<string, any> | null,
+  businessId: string | null = null,
+): Promise<ActionResult> {
   const rawType = String(action?.type || "").toLowerCase();
   const cfg = (action && typeof action.config === "object" && action.config) || {};
   const get = (...keys: string[]) => {
@@ -510,8 +534,27 @@ async function runAction(action: any, row: Record<string, any> | null): Promise<
       case "send_message": {
         const title = String(get("title", "messageTitle") || "Notification");
         const message = String(get("message", "messageContent", "body") || "");
-        const target = String(get("target", "targetAudience") || "super_admins");
         const mtype = String(get("type", "messageType") || "info");
+
+        // A business-owned trigger notifies that business's own people and
+        // nobody else — the configured target is ignored rather than trusted,
+        // because "all" or "super_admins" would otherwise let a tenant's
+        // automation message the whole platform.
+        if (businessId) {
+          const recipients = await businessRecipients(businessId);
+          if (recipients.length === 0) {
+            return { type: rawType, ok: false, detail: "no recipients for this business — skipped" };
+          }
+          const count = await deliverNotificationToUsers(recipients, {
+            title,
+            message,
+            type: mtype,
+            businessId,
+          });
+          return { type: rawType, ok: true, detail: `notified ${count} user(s) in this business` };
+        }
+
+        const target = String(get("target", "targetAudience") || "super_admins");
         const count = await deliverNotification({ title, message, target, type: mtype });
         return { type: rawType, ok: true, detail: `notified ${count} user(s) (target=${target})` };
       }
@@ -624,6 +667,32 @@ async function deliverNotification(n: {
   return rows.length;
 }
 
+/** Insert `notifications` rows for an explicit list of users. */
+async function deliverNotificationToUsers(
+  userIds: string[],
+  n: { title: string; message: string; type: string; businessId: string | null },
+): Promise<number> {
+  const db = getSupabaseClient();
+  const type = NOTIFICATION_TYPES.has(n.type) ? n.type : "info";
+  const rows = userIds.filter(Boolean).map((user_id) => ({
+    user_id,
+    business_id: n.businessId,
+    type,
+    title: n.title,
+    message: n.message,
+    read: false,
+    source: "automation",
+    priority: type === "error" ? "high" : "normal",
+    category: "system",
+  }));
+  if (rows.length === 0) return 0;
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await db.from("notifications").insert(rows.slice(i, i + 500));
+    if (error) throw new Error(`notifications insert failed: ${error.message}`);
+  }
+  return rows.length;
+}
+
 async function insertTriggerRun(
   triggerId: string,
   event: string,
@@ -686,7 +755,7 @@ async function processTrigger(t: TriggerRow, opts: { manual: boolean }): Promise
       return { ...base, status: "skipped", matched: 0, actions: [], notes, detail: "not due yet" };
     }
     const results: ActionResult[] = [];
-    for (const a of actions) results.push(await runAction(a, null));
+    for (const a of actions) results.push(await runAction(a, null, t.business_id ?? null));
     const okAll = results.every((r) => r.ok);
     await bumpTrigger(t.id, t.trigger_count, 1);
     const status = results.length === 0 ? "skipped" : okAll ? "success" : "failed";
@@ -711,6 +780,10 @@ async function processTrigger(t: TriggerRow, opts: { manual: boolean }): Promise
       .gt("created_at", cursor)
       .order("created_at", { ascending: true })
       .limit(MAX_ROWS_PER_TRIGGER);
+    // A business-owned trigger only ever sees its own rows. Without this a
+    // tenant trigger would fire on every tenant's activity, which is why this
+    // engine could not be opened up before.
+    if (t.business_id) q = q.eq("business_id", t.business_id);
     if (src.filter) q = src.filter(q);
     const { data, error } = await q;
     if (error) {
@@ -738,7 +811,7 @@ async function processTrigger(t: TriggerRow, opts: { manual: boolean }): Promise
   for (const row of matchedRows) {
     if (!evalConditions(conditions, row, notes)) continue;
     fired++;
-    for (const a of actions) allResults.push(await runAction(a, row));
+    for (const a of actions) allResults.push(await runAction(a, row, t.business_id ?? null));
   }
   if (capped) notes.push(`row cap (${MAX_ROWS_PER_TRIGGER}) hit — more will process next tick`);
 
@@ -792,7 +865,7 @@ async function bumpTrigger(id: string, currentCount: number | null, fired: numbe
 
 async function processEventTriggers(): Promise<TickSummary["triggers"]> {
   const db = getSupabaseClient();
-  const { data, error } = await db.from("event_triggers").select("*").eq("is_active", true).limit(200);
+  const { data, error } = await db.from("event_triggers").select("*").eq("is_active", true).limit(500);
   if (error) throw new Error(`trigger scan failed: ${error.message}`);
   const triggers = (data as TriggerRow[]) || [];
   let fired = 0;
@@ -809,4 +882,327 @@ async function processEventTriggers(): Promise<TickSummary["triggers"]> {
     }
   }
   return { evaluated: triggers.length, fired, failed };
+}
+
+
+// ── (d) Review requests: scheduled sends and one follow-up ───────────────────
+
+/** Nudge window: a request with no review after this long gets one follow-up. */
+const FOLLOW_UP_AFTER_DAYS = 3;
+/** A request is abandoned after this many failed attempts. */
+const MAX_REVIEW_REQUEST_ATTEMPTS = 3;
+
+interface ReviewRequestRow {
+  id: string;
+  business_id: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  project_name: string | null;
+  review_link: string | null;
+  channel: string | null;
+  status: string;
+  attempt_count: number | null;
+  follow_up_of: string | null;
+}
+
+/** The business's display name, for the message body. */
+async function businessName(businessId: string | null): Promise<string> {
+  if (!businessId) return "";
+  const db = getSupabaseClient();
+  const { data } = await db.from("businesses").select("name").eq("id", businessId).maybeSingle();
+  const name = (data as any)?.name;
+  return typeof name === "string" ? name : "";
+}
+
+/**
+ * Send one review request and record the outcome on its row.
+ *
+ * An opt-out is a terminal state, not a failure to retry: the customer said no,
+ * so the row is marked `opted_out` and never picked up again.
+ */
+async function deliverReviewRequest(row: ReviewRequestRow, followUp: boolean): Promise<"sent" | "skipped" | "failed"> {
+  const db = getSupabaseClient();
+  const phone = normalisePhone(row.customer_phone);
+  const name = await businessName(row.business_id);
+
+  if (!phone || !row.business_id || !row.review_link || !name) {
+    await db
+      .from("review_requests")
+      .update({
+        status: "failed",
+        last_error: "missing phone, business, review link or business name",
+        follow_up_after: null,
+      })
+      .eq("id", row.id);
+    return "failed";
+  }
+
+  const result = await sendSms({
+    to: phone,
+    message: reviewRequestMessage({
+      customerName: row.customer_name,
+      businessName: name,
+      reviewLink: row.review_link,
+      followUp,
+    }),
+    businessId: row.business_id,
+    campaignId: followUp ? "review_request_follow_up" : "review_request",
+  });
+
+  const attempts = (Number(row.attempt_count) || 0) + 1;
+
+  if (result.ok) {
+    await db
+      .from("review_requests")
+      .update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        attempt_count: attempts,
+        twilio_sid: result.sid ?? null,
+        last_error: null,
+        // A follow-up never earns another follow-up: one nudge, then stop.
+        follow_up_after: followUp
+          ? null
+          : new Date(Date.now() + FOLLOW_UP_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .eq("id", row.id);
+    return "sent";
+  }
+
+  if (result.reason === "opted_out") {
+    await db
+      .from("review_requests")
+      .update({ status: "opted_out", attempt_count: attempts, last_error: result.error, follow_up_after: null })
+      .eq("id", row.id);
+    return "skipped";
+  }
+
+  // `not_configured` is transient (someone has yet to add credentials), so the
+  // row goes back to scheduled and retries — bounded by the attempt counter.
+  const transient = result.reason === "not_configured" || result.reason === "provider_error";
+  const giveUp = !transient || attempts >= MAX_REVIEW_REQUEST_ATTEMPTS;
+  await db
+    .from("review_requests")
+    .update({
+      status: giveUp ? "failed" : "scheduled",
+      attempt_count: attempts,
+      last_error: result.error,
+      ...(giveUp ? { follow_up_after: null } : {}),
+    })
+    .eq("id", row.id);
+  return giveUp ? "failed" : "skipped";
+}
+
+/**
+ * Send review requests that are due, then nudge sent-but-unanswered ones once.
+ *
+ * `review_requests.scheduled_for` has existed on this table from the beginning
+ * with nothing reading it, so scheduling a request silently did nothing. This
+ * is the consumer.
+ */
+async function processReviewRequests(): Promise<TickSummary["reviewRequests"]> {
+  const db = getSupabaseClient();
+  const nowIso = new Date().toISOString();
+  let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  const tally = (outcome: "sent" | "skipped" | "failed") => {
+    if (outcome === "sent") sent++;
+    else if (outcome === "skipped") skipped++;
+    else failed++;
+  };
+
+  // ── due scheduled requests ───────────────────────────────────────────────
+  const { data: due, error: dueErr } = await db
+    .from("review_requests")
+    .select("id, business_id, customer_name, customer_phone, project_name, review_link, channel, status, attempt_count, follow_up_of")
+    .eq("status", "scheduled")
+    .lte("scheduled_for", nowIso)
+    .limit(MAX_ITEMS_PER_TICK);
+  if (dueErr) throw new Error(`review request scan failed: ${dueErr.message}`);
+
+  for (const row of (due as ReviewRequestRow[]) || []) {
+    // CLAIM, same conditional-update pattern as the other processors, so a
+    // manual send and this tick can never double-text the same customer.
+    const { data: claimed, error: claimErr } = await db
+      .from("review_requests")
+      .update({ status: "sending" })
+      .eq("id", row.id)
+      .eq("status", "scheduled")
+      .select("id");
+    if (claimErr) {
+      log.error({ err: claimErr.message, id: row.id }, "review request claim failed");
+      continue;
+    }
+    if (!claimed || claimed.length === 0) continue;
+    tally(await deliverReviewRequest(row, false));
+  }
+
+  // ── follow-ups: sent, nudge window elapsed, still no review ─────────────
+  const { data: nudges, error: nudgeErr } = await db
+    .from("review_requests")
+    .select("id, business_id, customer_name, customer_phone, project_name, review_link, channel, status, attempt_count, follow_up_of")
+    .eq("status", "sent")
+    .is("follow_up_of", null)
+    .not("follow_up_after", "is", null)
+    .lte("follow_up_after", nowIso)
+    .limit(MAX_ITEMS_PER_TICK);
+  if (nudgeErr) {
+    log.warn({ err: nudgeErr.message }, "review request follow-up scan failed");
+    return { processed: sent + skipped + failed, sent, skipped, failed };
+  }
+
+  for (const row of (nudges as ReviewRequestRow[]) || []) {
+    // Clear the window first, whatever happens next: a row that cannot be
+    // nudged must not be rescanned every minute forever.
+    const { data: claimed } = await db
+      .from("review_requests")
+      .update({ follow_up_after: null })
+      .eq("id", row.id)
+      .not("follow_up_after", "is", null)
+      .select("id");
+    if (!claimed || claimed.length === 0) continue;
+
+    // Did the customer already leave a review? If the business has any review
+    // newer than the request, assume this one landed and do not chase it.
+    if (row.business_id) {
+      const { count } = await db
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", row.business_id)
+        .gte("date", new Date(Date.now() - FOLLOW_UP_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString());
+      if ((count || 0) > 0) {
+        skipped++;
+        continue;
+      }
+    }
+
+    const { data: followUp, error: insErr } = await db
+      .from("review_requests")
+      .insert({
+        business_id: row.business_id,
+        customer_name: row.customer_name || "Customer",
+        customer_phone: row.customer_phone || "N/A",
+        project_name: row.project_name || "Project",
+        review_link: row.review_link,
+        channel: row.channel || "sms",
+        status: "sending",
+        follow_up_of: row.id,
+      })
+      .select("id")
+      .single();
+    if (insErr || !followUp) {
+      log.warn({ err: insErr?.message, id: row.id }, "review request follow-up insert failed");
+      failed++;
+      continue;
+    }
+    tally(await deliverReviewRequest({ ...row, id: followUp.id, attempt_count: 0, follow_up_of: row.id }, true));
+  }
+
+  return { processed: sent + skipped + failed, sent, skipped, failed };
+}
+
+// ── (e) Review alerts: a bad new review should reach a human ─────────────────
+
+/** At or below this rating, the business gets told. */
+const ALERT_AT_OR_BELOW = 3;
+/** Only look at reviews this recent, so enabling the watcher is not a flood. */
+const ALERT_LOOKBACK_HOURS = 72;
+
+/**
+ * Notify a business's owner and staff about new low-rated reviews.
+ *
+ * Previously a one-star review landed in the database and told nobody, which is
+ * the single worst silence in a reputation product: the window to reply well is
+ * hours, and review responses are themselves a ranking input.
+ *
+ * Idempotent through `notifications.dedupe_key`, so the same review never
+ * produces a second alert however often this runs.
+ */
+async function processReviewAlerts(): Promise<TickSummary["reviewAlerts"]> {
+  const db = getSupabaseClient();
+  const since = new Date(Date.now() - ALERT_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await db
+    .from("reviews")
+    .select("id, business_id, rating, text, author, date, response")
+    .lte("rating", ALERT_AT_OR_BELOW)
+    .gte("date", since)
+    .is("response", null)
+    .limit(MAX_ITEMS_PER_TICK);
+  if (error) throw new Error(`review alert scan failed: ${error.message}`);
+
+  const reviews = (data as any[]) || [];
+  let notified = 0;
+
+  for (const review of reviews) {
+    const businessId = review?.business_id;
+    if (!businessId || !review?.id) continue;
+
+    const recipients = await businessRecipients(businessId);
+    if (recipients.length === 0) continue;
+
+    const rating = Number(review.rating) || 0;
+    const authorName =
+      review.author && typeof review.author === "object" && typeof review.author.name === "string"
+        ? review.author.name
+        : "A customer";
+    const snippet = typeof review.text === "string" && review.text.trim() ? `: "${review.text.trim().slice(0, 140)}"` : "";
+
+    const rows = recipients.map((user_id) => ({
+      user_id,
+      business_id: businessId,
+      type: rating <= 2 ? "error" : "warning",
+      title: `New ${rating}-star review`,
+      message: `${authorName} left a ${rating}-star review${snippet}. Replying quickly is the single best thing you can do about it.`,
+      read: false,
+      source: "system",
+      priority: rating <= 2 ? "urgent" : "high",
+      category: "project",
+      action_url: "/admin/reviews",
+      action_label: "Reply to it",
+      dedupe_key: `review_alert:${review.id}`,
+    }));
+
+    // ignoreDuplicates leans on the (user_id, dedupe_key) unique index: a review
+    // already alerted on is a no-op rather than a conflict.
+    const { error: insErr } = await db.from("notifications").upsert(rows, {
+      onConflict: "user_id,dedupe_key",
+      ignoreDuplicates: true,
+    });
+    if (insErr) {
+      log.warn({ err: insErr.message, reviewId: review.id }, "review alert insert failed");
+      continue;
+    }
+    notified += rows.length;
+  }
+
+  return { reviews: reviews.length, notified };
+}
+
+/** Owner + members of a business: who should hear about its reviews. */
+async function businessRecipients(businessId: string): Promise<string[]> {
+  const db = getSupabaseClient();
+  const ids = new Set<string>();
+  try {
+    const { data: biz } = await db.from("businesses").select("owner_id").eq("id", businessId).maybeSingle();
+    const ownerId = (biz as any)?.owner_id;
+    if (typeof ownerId === "string" && ownerId) ids.add(ownerId);
+  } catch (err) {
+    log.warn({ err, businessId }, "review alert owner lookup failed");
+  }
+  try {
+    const { data: members } = await db
+      .from("business_members")
+      .select("user_id, role")
+      .eq("business_id", businessId)
+      .in("role", ["owner", "staff"]);
+    for (const m of (members as any[]) || []) {
+      if (typeof m?.user_id === "string" && m.user_id) ids.add(m.user_id);
+    }
+  } catch (err) {
+    log.warn({ err, businessId }, "review alert member lookup failed");
+  }
+  return [...ids];
 }

@@ -1,10 +1,17 @@
 import path from "path";
+import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
 import express, { Request, Response, NextFunction } from "express";
 import * as Sentry from "@sentry/node";
 import { createServer, APP_VERSION } from "./index";
 import { logger } from "./lib/logger";
 import { startWorker, stopWorker } from "./lib/worker";
+import {
+  makePublicJobPageHandler,
+  handlePublicJobPhoto,
+  handleRobotsTxt,
+  handleSitemapXml,
+} from "./routes/publicSeo";
 
 // Optional error reporting: only active when SENTRY_DSN is set. Must run
 // before createServer() so the error handler's captureException has a client.
@@ -29,6 +36,28 @@ const distPath = path.join(__dirname, "..");
 const indexHtml = path.join(distPath, "index.html");
 
 const app = createServer();
+
+// ── Search-engine surface ────────────────────────────────────────────────────
+// Registered ahead of the static layer so the generated robots.txt wins over a
+// checked-in file, and ahead of the SPA fallback so a public job page is served
+// with real <head> tags rather than the app shell's.
+app.get("/robots.txt", handleRobotsTxt);
+app.get("/sitemap.xml", (req: Request, res: Response, next: NextFunction) => {
+  void Promise.resolve(handleSitemapXml(req, res, next)).catch(next);
+});
+app.get("/public/job-photo/:jobId/:index", (req: Request, res: Response, next: NextFunction) => {
+  void Promise.resolve(handlePublicJobPhoto(req, res, next)).catch(next);
+});
+
+/** index.html, re-read per request in dev and cached once in production. */
+let cachedIndexHtml: string | null = null;
+const readIndexHtml = async (): Promise<string> => {
+  if (cachedIndexHtml && process.env.NODE_ENV === "production") return cachedIndexHtml;
+  cachedIndexHtml = await readFile(indexHtml, "utf-8");
+  return cachedIndexHtml;
+};
+
+app.get("/public/job/:id", makePublicJobPageHandler(readIndexHtml));
 
 // Service worker: must always be revalidated so a new deploy can replace the
 // installed worker immediately (browsers cap SW max-age at 24h, but
@@ -68,7 +97,11 @@ app.use(
 // inside createServer().
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method !== "GET" && req.method !== "HEAD") return next();
-  if (req.path.startsWith("/api/") || req.path.startsWith("/public/media/")) {
+  if (
+    req.path.startsWith("/api/") ||
+    req.path.startsWith("/public/media/") ||
+    req.path.startsWith("/public/job-photo/")
+  ) {
     return res.status(404).json({ error: "Not found" });
   }
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
