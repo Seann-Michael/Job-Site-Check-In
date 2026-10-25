@@ -339,6 +339,12 @@ export default function CameraScreen() {
     if (savingRef.current > 0) {
       notify('Saving in background', 'Your last shots finish saving while you work.');
     }
+    // Took something: go straight to Share (it can still be saved to the
+    // queue there). Took nothing: just close.
+    if (shotCount > 0 && jobId) {
+      router.replace({ pathname: '/publish/[id]', params: { id: jobId } });
+      return;
+    }
     router.back();
   };
 

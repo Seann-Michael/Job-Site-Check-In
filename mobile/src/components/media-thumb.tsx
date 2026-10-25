@@ -34,7 +34,7 @@ type TileSource = { uri: string; full: boolean };
  * pipeline shipped has none and never will, and web uploads never have one
  * either. Its absence is normal, not an error.
  */
-export function MediaThumb({ item }: { item: MediaItem }) {
+export function MediaThumb({ item, fill = false }: { item: MediaItem; /** Stretch to the parent instead of a rounded square (mosaics). */ fill?: boolean }) {
   const { colors, isDark } = useTheme();
 
   // Preference order for this tile. A thumbnail that 404s (the object was
@@ -71,7 +71,7 @@ export function MediaThumb({ item }: { item: MediaItem }) {
   const chipBg = isDark ? '#000000A0' : '#ffffffE0';
 
   return (
-    <View style={[styles.tile, { backgroundColor: tint.bg }]}>
+    <View style={[styles.tile, fill && styles.fill, { backgroundColor: tint.bg }]}>
       {source ? (
         <Image
           source={{ uri: source.uri }}
@@ -126,6 +126,7 @@ export function MediaThumb({ item }: { item: MediaItem }) {
 }
 
 const styles = StyleSheet.create({
+  fill: { aspectRatio: undefined, borderRadius: 0, width: '100%', height: '100%' },
   tile: {
     flex: 1,
     aspectRatio: 1,

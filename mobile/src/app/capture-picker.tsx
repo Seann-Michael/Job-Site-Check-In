@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Card, EmptyState, IconTile, Segmented } from '@/components/ui/basics';
@@ -58,6 +58,20 @@ export default function CapturePickerScreen() {
     };
   }, []);
 
+  // Standing at exactly one open project (within ~250 ft): skip the list and
+  // open the camera for it. Two projects that close, or none, show the list.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || !fix || !jobs) return;
+    const here = jobs
+      .filter((job) => job.status !== 'completed' && job.status !== 'cancelled' && job.latitude != null && job.longitude != null)
+      .filter((job) => milesBetween(fix.latitude, fix.longitude, job.latitude!, job.longitude!) < 0.05);
+    if (here.length === 1) {
+      autoOpened.current = true;
+      router.replace({ pathname: '/camera', params: { jobId: here[0].id, jobTitle: here[0].title } });
+    }
+  }, [fix, jobs, router]);
+
   const sorted = useMemo(() => {
     const open = (jobs ?? []).filter(
       (job) => job.status !== 'completed' && job.status !== 'cancelled',
@@ -92,7 +106,7 @@ export default function CapturePickerScreen() {
 
   return (
     <Screen>
-      <DetailHeader title="Take photos" />
+      <DetailHeader title="Capture" />
       <Segmented
         options={[
           { value: 'nearby', label: 'Nearby' },
@@ -107,8 +121,8 @@ export default function CapturePickerScreen() {
       ) : tab === 'nearby' ? (
         <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: -Spacing.sm }}>
           {located && !fix
-            ? 'Location unavailable — jobs are unsorted.'
-            : 'Pick the job — closest first.'}
+            ? 'Location unavailable — projects are unsorted.'
+            : 'Which project? Closest first. Standing at one opens the camera.'}
         </Text>
       ) : null}
 
@@ -122,8 +136,8 @@ export default function CapturePickerScreen() {
       ) : sorted.length === 0 ? (
         <EmptyState
           icon="briefcase-outline"
-          title="No open jobs"
-          message="Create a job first, then capture photos into it."
+          title="No open projects"
+          message="Create a project first, then capture photos into it."
         />
       ) : (
         sorted.map(({ job, miles }) => (
@@ -163,7 +177,7 @@ export default function CapturePickerScreen() {
         ]}>
         <Ionicons name="add" size={18} color={colors.onPrimary} />
         <Text style={{ fontSize: 14.5, fontWeight: '700', color: colors.onPrimary }}>
-          New job
+          New project
         </Text>
       </Pressable>
     </Screen>

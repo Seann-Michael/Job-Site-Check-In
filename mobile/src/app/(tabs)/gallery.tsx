@@ -44,6 +44,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { JobCard } from '@/components/job-card';
+import { ProjectCard } from '@/components/project-card';
+import { clientDisplayName, fetchClients } from '@/lib/clients';
+import { getLocationFix, type GeoFix } from '@/lib/media-capture';
+import { fetchShares, isSharingAvailable, SHARE_LABELS, shareStatusLabel, type ProjectShare } from '@/lib/shares';
+import { fetchPresence, type Presence } from '@/lib/team-presence';
+import { Avatar } from '@/components/ui/basics';
 import { MediaThumb } from '@/components/media-thumb';
 import { MediaViewer } from '@/components/media-viewer';
 import { SearchBar } from '@/components/search-bar';
@@ -69,14 +75,23 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { useAuth } from '@/providers/auth-provider';
 import type { Job, MediaItem } from '@/lib/types';
 
-type FeedTab = 'gallery' | 'tasks' | 'lists' | 'jobs' | 'published';
+type FeedTab = 'gallery' | 'tasks' | 'lists' | 'projects' | 'clients' | 'published';
 
 const TABS: { value: FeedTab; label: string }[] = [
   { value: 'gallery', label: 'Gallery' },
   { value: 'tasks', label: 'Tasks' },
   { value: 'lists', label: 'Check Lists' },
-  { value: 'jobs', label: 'Jobs' },
-  { value: 'published', label: 'Published Jobs' },
+  { value: 'projects', label: 'Projects' },
+  { value: 'clients', label: 'Clients' },
+  { value: 'published', label: 'Published' },
+];
+
+const PROJECT_FILTERS = [
+  { value: 'active', label: 'Active' },
+  { value: 'nearby', label: 'Nearby' },
+  { value: 'starred', label: 'Starred' },
+  { value: 'done', label: 'Done' },
+  { value: 'archived', label: 'Archived' },
 ];
 
 const TYPE_FILTERS = [
@@ -371,6 +386,7 @@ export default function GalleryScreen() {
   const { view } = useLocalSearchParams<{ view?: string }>();
   useEffect(() => {
     if (view === 'company') showCompany();
+    else if (view === 'projects' || view === 'clients' || view === 'tasks' || view === 'lists' || view === 'published') setTab(view);
   }, [view, showCompany]);
 
   const [typeFilter, setTypeFilter] = useState('all');
@@ -460,6 +476,64 @@ export default function GalleryScreen() {
       .sort((a, b) => (a.task.due_date ?? '~').localeCompare(b.task.due_date ?? '~'));
   }, [checklists, taskScope, assignedToMe]);
 
+  // ---- Projects (the full list) + Clients ----
+  const [metaTick, setMetaTick] = useState(0);
+  useEffect(() => jobMeta.subscribe(() => setMetaTick((t) => t + 1)), []);
+  const [projectFilter, setProjectFilter] = useState('active');
+  const [projectQuery, setProjectQuery] = useState('');
+  const [fix, setFix] = useState<GeoFix | undefined>();
+  useEffect(() => {
+    if (tab !== 'projects' || fix) return;
+    let alive = true;
+    void getLocationFix().then((f) => { if (alive) setFix(f); });
+    return () => { alive = false; };
+  }, [tab, fix]);
+  const { data: presence } = useData(() => fetchPresence(user?.name ?? 'You').catch(() => [] as Presence[]));
+  const { data: shareRows, refresh: refreshShares } = useData(() =>
+    business?.id && isSharingAvailable ? fetchShares(business.id).catch(() => [] as ProjectShare[]) : Promise.resolve([] as ProjectShare[]),
+  );
+  useEffect(() => workspace.subscribe(refreshShares), [refreshShares]);
+  const mediaByJob = useMemo(() => {
+    const map = new Map<string, MediaItem[]>();
+    for (const e of entries) map.set(e.item.job_id, [...(map.get(e.item.job_id) ?? []), e.item]);
+    return map;
+  }, [entries]);
+  const shareStateByJob = useMemo(() => {
+    const map = new Map<string, 'shared' | 'waiting'>();
+    for (const s of shareRows ?? []) {
+      if (s.status === 'done' || s.status === 'partial') map.set(s.job_id, 'shared');
+      else if (!map.has(s.job_id)) map.set(s.job_id, 'waiting');
+    }
+    return map;
+  }, [shareRows]);
+  const projectList = useMemo(() => {
+    void metaTick;
+    const all = jobs ?? [];
+    const q = projectQuery.trim().toLowerCase();
+    const dist = (job: Job) =>
+      fix && job.latitude != null && job.longitude != null
+        ? Math.hypot((job.latitude - fix.latitude) * 69, (job.longitude - fix.longitude) * 53)
+        : null;
+    const rows = all
+      .filter((job) => {
+        const meta = jobMeta.getSync(job.id);
+        const done = job.status === 'completed';
+        if (projectFilter === 'archived') return !!meta.archived;
+        if (meta.archived) return false;
+        if (projectFilter === 'done') return done;
+        if (projectFilter === 'starred') return !!meta.starred;
+        if (projectFilter === 'nearby') return !done && job.status !== 'cancelled' && dist(job) != null;
+        return !done && job.status !== 'cancelled';
+      })
+      .filter((job) => !q || [job.title, job.client_name, job.city, job.address, ...(job.tags ?? [])].join(' ').toLowerCase().includes(q))
+      .map((job) => ({ job, miles: dist(job) }));
+    if (projectFilter === 'nearby') rows.sort((a, b) => (a.miles ?? Infinity) - (b.miles ?? Infinity));
+    return rows;
+  }, [jobs, projectFilter, projectQuery, fix, metaTick]);
+  const { data: clients, refresh: refreshClients } = useData(fetchClients);
+  const [clientQuery, setClientQuery] = useState('');
+  useEffect(() => workspace.subscribe(refreshClients), [refreshClients]);
+
   // ---- Published jobs ----
   const [published, setPublished] = useState<PublishedEntry[] | null>(null);
   const [publishedLoading, setPublishedLoading] = useState(false);
@@ -496,7 +570,9 @@ export default function GalleryScreen() {
     if (jobsError) return undefined;
     if (tab === 'tasks') return checklists ? `${openTasks.length} open` : undefined;
     if (tab === 'lists') return checklists ? `${checklists.length} checklists` : undefined;
-    if (tab === 'jobs') return jobs ? `${jobs.length} jobs` : undefined;
+    if (tab === 'projects') return jobs ? `${projectList.length} ${projectFilter}` : undefined;
+    if (tab === 'clients') return clients ? `${clients.length} clients` : undefined;
+    if (isSharingAvailable) return shareRows ? `${(shareRows ?? []).filter((s) => s.status === 'done' || s.status === 'partial').length} shared` : undefined;
     return published ? `${published.length} published` : undefined;
   };
 
@@ -763,6 +839,87 @@ export default function GalleryScreen() {
     );
   };
 
+  const renderProjects = () => (
+    <>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <SearchBar value={projectQuery} onChangeText={setProjectQuery} placeholder="Search projects, customers, tags" />
+        </View>
+        {canWrite ? <Button label="New" icon="add" size="small" onPress={() => router.push('/job/new')} /> : null}
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.xs, paddingRight: Spacing.lg }}>
+        {PROJECT_FILTERS.map((f) => {
+          const on = f.value === projectFilter;
+          return (
+            <Pressable key={f.value} onPress={() => setProjectFilter(f.value)} style={[styles.tab, { backgroundColor: on ? colors.primary : colors.card, borderColor: on ? colors.primary : colors.border }]}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: on ? colors.onPrimary : colors.textSecondary }}>{f.label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      {loading && !jobs ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+      ) : projectList.length === 0 ? (
+        jobsError ? null : (
+          <EmptyState icon="briefcase-outline" title="No projects here" message={projectFilter === 'active' ? 'Create one and start capturing.' : 'Nothing matches this filter.'} />
+        )
+      ) : (
+        <View style={{ gap: Spacing.sm }}>
+          {projectList.map(({ job, miles }) => (
+            <ProjectCard
+              key={job.id}
+              job={job}
+              media={mediaByJob.get(job.id) ?? []}
+              crew={jobMeta.getSync(job.id).assignees ?? []}
+              onSite={(presence ?? []).filter((p) => p.jobId === job.id).map((p) => (p.isYou ? 'You' : p.name))}
+              shared={shareStateByJob.get(job.id) ?? 'none'}
+              miles={miles}
+            />
+          ))}
+        </View>
+      )}
+    </>
+  );
+
+  const renderClients = () => {
+    const q = clientQuery.trim().toLowerCase();
+    const list = (clients ?? []).filter((c) => !q || [clientDisplayName(c), c.name, c.business_name, c.email, c.phone].filter(Boolean).join(' ').toLowerCase().includes(q));
+    return (
+      <>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <SearchBar value={clientQuery} onChangeText={setClientQuery} placeholder="Search clients" />
+          </View>
+          {canWrite ? <Button label="New" icon="person-add-outline" size="small" onPress={() => router.push('/client/edit')} /> : null}
+        </View>
+        {list.length === 0 ? (
+          <EmptyState icon="people-outline" title="No clients found" message={(clients ?? []).length ? 'No client matches that search.' : 'Clients appear here as you create projects for them.'} />
+        ) : (
+          <View style={{ gap: Spacing.sm }}>
+            {list.map((client) => (
+              <Card key={client.id} onPress={() => router.push({ pathname: '/client/[id]', params: { id: client.id } })}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+                  <Avatar name={clientDisplayName(client)} size={44} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={1}>{clientDisplayName(client)}</Text>
+                    <Text style={{ fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
+                      {[client.phone, client.email].filter(Boolean).join(' · ') || 'No contact info'}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>{client.jobs_count} {client.jobs_count === 1 ? 'project' : 'projects'}</Text>
+                    {client.last_job_at ? <Text style={{ fontSize: 12, color: colors.textMuted }}>{formatDate(client.last_job_at)}</Text> : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+      </>
+    );
+  };
+
   const renderJobs = () => (
     <Section title="Recent jobs">
       <Text style={muted}>
@@ -790,7 +947,42 @@ export default function GalleryScreen() {
     </Section>
   );
 
-  const renderPublished = () => (
+  const renderPublished = () => {
+    const shared = (shareRows ?? []).filter((s) => s.status === 'done' || s.status === 'partial');
+    if (isSharingAvailable) {
+      return (
+        <>
+          {shared.length === 0 ? (
+            <EmptyState icon="megaphone-outline" title="Nothing shared yet" message="Share a project and it shows up here with where it went." />
+          ) : (
+            <View style={{ gap: Spacing.sm }}>
+              {shared.map((s) => {
+                const st = shareStatusLabel(s);
+                return (
+                  <Card key={s.id} onPress={() => openJob(s.job_id)} style={{ gap: Spacing.sm }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                      <Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>
+                        {s.caption?.title || jobs?.find((j) => j.id === s.job_id)?.title || 'Project'}
+                      </Text>
+                      <Badge label={st.label} tone={st.tone} />
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+                      {s.destinations.map((d) => {
+                        const r = s.results?.[d];
+                        return <Badge key={d} label={SHARE_LABELS[d]} tone={r?.status === 'live' ? 'success' : r?.status === 'not_configured' ? 'neutral' : 'danger'} />;
+                      })}
+                    </View>
+                    <Text style={muted}>{formatDateTime(s.finished_at ?? s.created_at)} · {s.media_ids.length} photo{s.media_ids.length === 1 ? '' : 's'}</Text>
+                  </Card>
+                );
+              })}
+            </View>
+          )}
+          <Button label="Open the share queue" icon="time-outline" variant="secondary" onPress={() => router.push('/share-queue')} />
+        </>
+      );
+    }
+    return (
     <>
       <Text style={muted}>
         {isSupabaseConfigured
@@ -826,7 +1018,8 @@ export default function GalleryScreen() {
         </View>
       )}
     </>
-  );
+    );
+  };
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -849,7 +1042,8 @@ export default function GalleryScreen() {
       {tab === 'gallery' ? renderGallery() : null}
       {tab === 'tasks' ? renderTasks() : null}
       {tab === 'lists' ? renderLists() : null}
-      {tab === 'jobs' ? renderJobs() : null}
+      {tab === 'projects' ? renderProjects() : null}
+      {tab === 'clients' ? renderClients() : null}
       {tab === 'published' ? renderPublished() : null}
       <MediaViewer
         items={viewerItems}

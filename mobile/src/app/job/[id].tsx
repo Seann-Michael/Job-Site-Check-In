@@ -70,14 +70,27 @@ function chunk<T>(items: T[], size: number): T[][] {
  * identifies the job (hero, actions, check-in) stays pinned above, and the four
  * long-running lists share one pane below.
  */
-type JobTab = 'activity' | 'checklist' | 'notes' | 'documents';
+type JobTab = 'photos' | 'checklist' | 'notes' | 'documents' | 'info';
 
 const TABS: { value: JobTab; label: string }[] = [
-  { value: 'activity', label: 'Activity' },
+  { value: 'photos', label: 'Photos' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'notes', label: 'Notes' },
   { value: 'documents', label: 'Docs' },
+  { value: 'info', label: 'Info' },
 ];
+
+/** Day label for the photo timeline: Today, Yesterday, else the date. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const same = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (same(d, now)) return 'Today';
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  if (same(d, y)) return 'Yesterday';
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 export default function JobDetailScreen() {
   const { colors } = useTheme();
@@ -133,7 +146,7 @@ export default function JobDetailScreen() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [statusSheetVisible, setStatusSheetVisible] = useState(false);
-  const [tab, setTab] = useState<JobTab>('activity');
+  const [tab, setTab] = useState<JobTab>('photos');
   const [actionsVisible, setActionsVisible] = useState(false);
   const [assignVisible, setAssignVisible] = useState(false);
   const [addingDocument, setAddingDocument] = useState(false);
@@ -354,7 +367,25 @@ export default function JobDetailScreen() {
   }
 
   const jobMedia = jobMediaData ?? [];
-  const mediaRows = chunk<MediaItem>(jobMedia.slice(0, 6), 3);
+  // Photo timeline: newest day first, newest photo first within a day, with the
+  // first names of whoever shot that day's photos (from the roster) as a caption.
+  const photoDays = (() => {
+    const sorted = [...jobMedia].sort((a, b) => Date.parse(b.taken_at) - Date.parse(a.taken_at));
+    const days: { key: string; label: string; items: MediaItem[]; who: string[] }[] = [];
+    for (const item of sorted) {
+      const d = new Date(item.taken_at);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      let day = days.find((x) => x.key === key);
+      if (!day) {
+        day = { key, label: dayLabel(item.taken_at), items: [], who: [] };
+        days.push(day);
+      }
+      day.items.push(item);
+      const who = item.uploaded_by ? (item.uploaded_by === user?.id ? 'You' : (roster && 'members' in roster ? roster.members : []).find((m) => m.id === item.uploaded_by)?.name?.split(' ')[0]) : undefined;
+      if (who && !day.who.includes(who)) day.who.push(who);
+    }
+    return days;
+  })();
   // Configured: the per-job query is the source of truth. Demo: the job row's
   // count plus anything captured on this device.
   const capturedCount = jobMedia.filter((item) => item.id.startsWith('local-')).length;
@@ -444,351 +475,221 @@ export default function JobDetailScreen() {
           </Card>
         ) : job ? (
           <>
-            <Card style={{ gap: Spacing.md }}>
-              <View style={styles.heroRow}>
-                <IconTile icon={SERVICE_ICONS[job.service_type] ?? 'hammer-outline'} size={46} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.title, { color: colors.text }]}>{job.title}</Text>
-                </View>
-                <Pressable
-                  onPress={() => setStatusSheetVisible(true)}
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.statusChip, pressed && { opacity: 0.7 }]}>
-                  <Badge
-                    label={JOB_STATUS_LABELS[job.status]}
-                    tone={JOB_STATUS_TONES[job.status]}
-                  />
+            {/* Hero: status, title, where. Everything else lives in the tabs. */}
+            <View style={{ gap: 4 }}>
+              <View style={[styles.heroRow, { justifyContent: 'space-between' }]}>
+                <Pressable onPress={() => setStatusSheetVisible(true)} hitSlop={8} style={({ pressed }) => [styles.statusChip, pressed && { opacity: 0.7 }]}>
+                  <Badge label={JOB_STATUS_LABELS[job.status]} tone={JOB_STATUS_TONES[job.status]} />
                   <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
                 </Pressable>
+                <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                  {jobMedia.filter((m) => m.media_type === 'image').length} photo{jobMedia.filter((m) => m.media_type === 'image').length === 1 ? '' : 's'}
+                  {jobMedia.some((m) => m.media_type === 'video') ? ` · ${jobMedia.filter((m) => m.media_type === 'video').length} video` : ''}
+                </Text>
               </View>
-              <View style={styles.customerBlock}>
-                <Text style={[styles.customerName, { color: colors.text }]}>{job.client_name}</Text>
-                {clientBusinessName ? (
-                  <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
-                    {clientBusinessName}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={[styles.infoBlock, { borderTopColor: colors.border }]}>
-                {fullAddress ? (
-                  <ContactRow
-                    icon="location-outline"
-                    text={fullAddress}
-                    copyLabel="Address"
-                    actions={[
-                      { icon: 'navigate', onPress: () => void openDirections(job) },
-                    ]}
-                  />
-                ) : (
-                  <View style={styles.infoRow}>
-                    <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-                    <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
-                      No address on file
-                    </Text>
-                  </View>
-                )}
-                {clientPhone ? (
-                  <ContactRow
-                    icon="call-outline"
-                    text={clientPhone}
-                    copyLabel="Phone number"
-                    actions={[
-                      {
-                        icon: 'call',
-                        onPress: () =>
-                          void Linking.openURL(`tel:${clientPhone.replace(/[^+\d]/g, '')}`),
-                      },
-                      {
-                        icon: 'chatbubble-outline',
-                        onPress: () =>
-                          void Linking.openURL(`sms:${clientPhone.replace(/[^+\d]/g, '')}`),
-                      },
-                    ]}
-                  />
-                ) : null}
-                {clientEmail ? (
-                  <ContactRow
-                    icon="mail-outline"
-                    text={clientEmail}
-                    copyLabel="Email"
-                    actions={[
-                      { icon: 'mail', onPress: () => void Linking.openURL(`mailto:${clientEmail}`) },
-                    ]}
-                  />
-                ) : null}
-                <View style={styles.infoRow}>
-                  <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
-                    Started {formatDate(job.start_date)}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="camera-outline" size={16} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
-                    {photoCount} photos captured
-                  </Text>
-                </View>
-                {meta?.value != null || meta?.group ? (
-                  <View style={styles.infoRow}>
-                    <Ionicons name="cash-outline" size={16} color={colors.textMuted} />
-                    <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
-                      {[
-                        meta?.value != null ? `${formatJobValue(meta.value)} job value` : null,
-                        meta?.group ?? null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
-                  </View>
-                ) : null}
-                <View style={styles.infoRow}>
-                  <Ionicons name="people-outline" size={16} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
-                    {(meta?.assignees ?? []).length > 0
-                      ? (meta?.assignees ?? []).join(', ')
-                      : 'Nobody assigned yet'}
-                  </Text>
-                  <Pressable
-                    onPress={() => setAssignVisible(true)}
-                    hitSlop={8}
-                    style={({ pressed }) => [
-                      styles.directionsChip,
-                      { backgroundColor: colors.primarySoft },
-                      pressed && { opacity: 0.7 },
-                    ]}>
-                    <Ionicons name="person-add-outline" size={12} color={colors.primaryStrong} />
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primaryStrong }}>
-                      Assign
-                    </Text>
-                  </Pressable>
-                </View>
-                {job.tags?.length ? <TagList tags={job.tags} /> : null}
-              </View>
-            </Card>
+              <Text style={[styles.title, { color: colors.text, fontSize: 21 }]}>{job.title}</Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                {[fullAddress || 'No address on file', job.client_name].filter(Boolean).join(' · ')}
+              </Text>
+            </View>
 
-            {showScope ? (
-              <Section title="Scope of work">
-                <Card>
-                  <Text style={{ fontSize: 13.5, lineHeight: 20, color: colors.textSecondary }}>
-                    {scopeOfWork}
-                  </Text>
-                </Card>
-              </Section>
-            ) : null}
-
-            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
               <Button
-                label="Add media"
-                icon="camera-outline"
-                style={{ flex: 1 }}
+                label="Capture"
+                icon="camera"
+                style={{ flex: 2 }}
                 loading={capturing}
                 onPress={() => {
-                  // Media settings can pin a default category and skip the sheet.
                   void getMediaPrefs().then((prefs) => {
-                    if (prefs.defaultCategory !== 'ask') {
-                      chooseSource(prefs.defaultCategory);
-                    } else {
-                      setSheetVisible(true);
-                    }
+                    if (prefs.defaultCategory !== 'ask' && Platform.OS !== 'web') openCamera(prefs.defaultCategory);
+                    else if (Platform.OS !== 'web') openCamera('progress');
+                    else setSheetVisible(true);
                   });
                 }}
               />
               <Button
-                label="Request review"
-                icon="star-outline"
+                label="Share"
+                icon="paper-plane-outline"
                 variant="secondary"
                 style={{ flex: 1 }}
-                onPress={() =>
-                  router.push({ pathname: '/review-request/[id]', params: { id: job.id } })
-                }
+                onPress={() => router.push({ pathname: '/publish/[id]', params: { id: job.id } })}
               />
+              {fullAddress ? (
+                <Button label="" icon="navigate" variant="secondary" onPress={() => void openDirections(job)} />
+              ) : null}
             </View>
 
-            <Card
-              style={[
-                styles.checkinCard,
-                activeVisit && { borderColor: colors.success, borderWidth: 1 },
-              ]}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons
-                    name={activeVisit ? 'radio-button-on' : 'location-outline'}
-                    size={15}
-                    color={activeVisit ? colors.success : colors.textSecondary}
-                  />
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
-                    {activeVisit
-                      ? `On site — ${visitDuration(activeVisit.checked_in_at)}`
-                      : `Site visits: ${(extras?.checkins ?? []).length}`}
+            {/* Who is here and the running visit, in one line. */}
+            {activeVisit || teammatesOnSite.length > 0 ? (
+              <Card style={[styles.checkinCard, { borderColor: colors.success, borderWidth: 1 }]}>
+                <View style={[styles.presenceDot, { backgroundColor: colors.success }]} />
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }} numberOfLines={1}>
+                    {[activeVisit ? 'You' : null, ...teammatesOnSite.map((t) => t.name.split(' ')[0])].filter(Boolean).join(', ')} on site
+                    {activeVisit ? ` · ${visitDuration(activeVisit.checked_in_at)}` : teammatesOnSite[0] ? ` · ${visitDuration(teammatesOnSite[0].since)}` : ''}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                    {(extras?.checkins ?? []).length} visit{(extras?.checkins ?? []).length === 1 ? '' : 's'} on this project
                   </Text>
                 </View>
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {activeVisit
-                    ? `Checked in ${timeAgo(activeVisit.checked_in_at)}`
-                    : 'Track each day you are at this job'}
-                </Text>
-              </View>
-              <Button
-                label={activeVisit ? 'Check out' : 'Check in'}
-                icon={activeVisit ? 'log-out-outline' : 'log-in-outline'}
-                variant={activeVisit ? 'primary' : 'secondary'}
-                loading={checkingIn}
-                onPress={() => void handleCheckInOut()}
-              />
-            </Card>
-
-            {teammatesOnSite.length > 0 ? (
-              <Card style={{ gap: Spacing.sm }}>
-                {teammatesOnSite.map((entry) => (
-                  <View key={entry.name} style={styles.infoRow}>
-                    <View style={[styles.presenceDot, { backgroundColor: colors.success }]} />
-                    <Text style={{ flex: 1, fontSize: 13.5, color: colors.text }}>
-                      <Text style={{ fontWeight: '700' }}>{entry.name}</Text> is on site
-                    </Text>
-                    <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
-                      {visitDuration(entry.since)}
-                    </Text>
-                  </View>
-                ))}
+                <Button
+                  label={activeVisit ? 'Check out' : 'Check in'}
+                  icon={activeVisit ? 'log-out-outline' : 'log-in-outline'}
+                  variant={activeVisit ? 'primary' : 'secondary'}
+                  size="small"
+                  loading={checkingIn}
+                  onPress={() => void handleCheckInOut()}
+                />
               </Card>
             ) : null}
 
+            {/* Shared? */}
             {publishRecord ? (
               <Card style={{ gap: Spacing.sm }}>
                 <View style={styles.publishedHeader}>
                   <Ionicons name="megaphone" size={16} color={colors.success} />
                   <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
-                    Published {formatDate(publishRecord.published_at)}
+                    Shared {formatDate(publishRecord.published_at)}
                   </Text>
                 </View>
                 <View style={styles.publishedBadges}>
                   {publishRecord.destinations.map((destination) => (
-                    <Badge
-                      key={destination}
-                      label={DESTINATION_LABELS[destination]}
-                      tone="success"
-                    />
+                    <Badge key={destination} label={DESTINATION_LABELS[destination]} tone="success" />
                   ))}
                 </View>
               </Card>
-            ) : (
-              <Button
-                label="Share this work"
-                icon="paper-plane-outline"
-                variant="secondary"
-                onPress={() => router.push({ pathname: '/publish/[id]', params: { id: job.id } })}
-              />
-            )}
-
-            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-              <Button
-                label="PDF report"
-                icon="document-text-outline"
-                variant="secondary"
-                style={{ flex: 1 }}
-                loading={exporting}
-                onPress={() => void handleExportReport()}
-              />
-              {jobMedia.length > 0 ? (
-                <Button
-                  label="Before / After"
-                  icon="images-outline"
-                  variant="secondary"
-                  style={{ flex: 1 }}
-                  onPress={() =>
-                    router.push({ pathname: '/before-after/[id]', params: { id: job.id } })
-                  }
-                />
-              ) : null}
-            </View>
-
-            {mediaRows.length > 0 || mediaError ? (
-              <Section title="Latest media">
-                {/* A banner, not a replacement: photos still waiting in this
-                    device's upload queue are real and keep rendering below. */}
-                {mediaError ? (
-                  <Card style={styles.mediaErrorCard}>
-                    <IconTile icon="cloud-offline-outline" tone="danger" />
-                    <Text style={[styles.mediaErrorText, { color: colors.text }]}>
-                      {mediaError}
-                    </Text>
-                    <Button
-                      label="Try again"
-                      variant="secondary"
-                      icon="refresh"
-                      loading={mediaRefreshing}
-                      onPress={refresh}
-                    />
-                  </Card>
-                ) : null}
-                {mediaRows.length > 0 ? (
-                  <View style={{ gap: Spacing.sm }}>
-                    {mediaRows.map((row, rowIndex) => (
-                      <View key={rowIndex} style={{ flexDirection: 'row', gap: Spacing.sm }}>
-                        {row.map((item, colIndex) => (
-                          <Pressable
-                            key={item.id}
-                            style={{ flex: 1 }}
-                            onPress={() => setViewerIndex(rowIndex * 3 + colIndex)}>
-                            <MediaThumb item={item} />
-                          </Pressable>
-                        ))}
-                        {row.length < 3
-                          ? Array.from({ length: 3 - row.length }).map((_, i) => (
-                              <View key={`pad-${i}`} style={{ flex: 1 }} />
-                            ))
-                          : null}
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </Section>
+            ) : jobMedia.length > 0 && job.status !== 'cancelled' ? (
+              <Card style={[styles.checkinCard, { backgroundColor: colors.warningSoft, borderColor: 'transparent' }]}>
+                <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: colors.text }}>Not shared yet</Text>
+                <Button label="Share" size="small" onPress={() => router.push({ pathname: '/publish/[id]', params: { id: job.id } })} />
+              </Card>
             ) : null}
 
-            {/* Everything above stays pinned; the four long lists share this
-                pane. Site visits are no longer a stack of their own — each
-                check-in and checkout is an Activity row that still opens the
-                same visit detail screen. */}
+            {/* Photos first; everything else in tabs. */}
             <View style={{ gap: Spacing.md }}>
-              <Segmented
-                options={TABS}
-                value={tab}
-                onChange={(value) => setTab(value as JobTab)}
-              />
-              {tab === 'activity' ? (
-                <JobActivityTab
-                  jobId={id ?? ''}
-                  media={jobMedia}
-                  extras={extras}
-                  tasks={tasks ?? []}
-                  publishRecord={publishRecord}
-                  roster={roster}
-                />
+              <Segmented options={TABS} value={tab} onChange={(value) => setTab(value as JobTab)} />
+              {tab === 'photos' ? (
+                <>
+                  {mediaError ? (
+                    <Card style={styles.mediaErrorCard}>
+                      <IconTile icon="cloud-offline-outline" tone="danger" />
+                      <Text style={[styles.mediaErrorText, { color: colors.text }]}>{mediaError}</Text>
+                      <Button label="Try again" variant="secondary" icon="refresh" loading={mediaRefreshing} onPress={refresh} />
+                    </Card>
+                  ) : null}
+                  {jobMedia.length === 0 && !mediaError ? (
+                    <Card style={{ alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xl }}>
+                      <IconTile icon="camera-outline" size={44} />
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>No photos yet</Text>
+                      <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>Tap Capture. Before, progress and after shots become the post.</Text>
+                    </Card>
+                  ) : null}
+                  {photoDays.map((day) => (
+                    <View key={day.key} style={{ gap: Spacing.sm }}>
+                      <View style={[styles.heroRow, { justifyContent: 'space-between' }]}>
+                        <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text }}>{day.label}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                          {day.items.length} {day.items.length === 1 ? 'item' : 'items'}{day.who.length ? ` · ${day.who.join(', ')}` : ''}
+                        </Text>
+                      </View>
+                      {chunk<MediaItem>(day.items, 3).map((row, rowIndex) => (
+                        <View key={`${day.key}-${rowIndex}`} style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                          {row.map((item) => (
+                            <Pressable key={item.id} style={{ flex: 1 }} onPress={() => setViewerIndex(jobMedia.findIndex((m) => m.id === item.id))}>
+                              <MediaThumb item={item} />
+                            </Pressable>
+                          ))}
+                          {row.length < 3 ? Array.from({ length: 3 - row.length }).map((_, i) => <View key={`pad-${i}`} style={{ flex: 1 }} />) : null}
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </>
               ) : null}
               {tab === 'checklist' ? (
-                <JobChecklistTab
-                  jobId={id ?? ''}
-                  tasks={tasks ?? []}
-                  author={user?.name ?? 'You'}
-                  roster={roster ?? undefined}
-                />
+                <JobChecklistTab jobId={id ?? ''} tasks={tasks ?? []} author={user?.name ?? 'You'} roster={roster ?? undefined} />
               ) : null}
               {tab === 'notes' ? (
-                <NotesSection
-                  bare
-                  jobId={id ?? ''}
-                  notes={extras?.notes ?? []}
-                  voiceNotes={extras?.voiceNotes ?? []}
-                  author={user?.name ?? 'You'}
-                />
+                <NotesSection bare jobId={id ?? ''} notes={extras?.notes ?? []} voiceNotes={extras?.voiceNotes ?? []} author={user?.name ?? 'You'} />
               ) : null}
               {tab === 'documents' ? (
-                <JobDocumentsTab
-                  jobId={id ?? ''}
-                  documents={extras?.documents ?? []}
-                  onAdd={() => void handleAddDocument()}
-                  adding={addingDocument}
-                />
+                <JobDocumentsTab jobId={id ?? ''} documents={extras?.documents ?? []} onAdd={() => void handleAddDocument()} adding={addingDocument} />
+              ) : null}
+              {tab === 'info' ? (
+                <>
+                  <Card style={{ gap: Spacing.md }}>
+                    <View style={styles.customerBlock}>
+                      <Text style={[styles.customerName, { color: colors.text }]}>{job.client_name}</Text>
+                      {clientBusinessName ? <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>{clientBusinessName}</Text> : null}
+                    </View>
+                    <View style={[styles.infoBlock, { borderTopColor: colors.border }]}>
+                      {fullAddress ? (
+                        <ContactRow icon="location-outline" text={fullAddress} copyLabel="Address" actions={[{ icon: 'navigate', onPress: () => void openDirections(job) }]} />
+                      ) : null}
+                      {clientPhone ? (
+                        <ContactRow
+                          icon="call-outline"
+                          text={clientPhone}
+                          copyLabel="Phone number"
+                          actions={[
+                            { icon: 'call', onPress: () => void Linking.openURL(`tel:${clientPhone.replace(/[^+\d]/g, '')}`) },
+                            { icon: 'chatbubble-outline', onPress: () => void Linking.openURL(`sms:${clientPhone.replace(/[^+\d]/g, '')}`) },
+                          ]}
+                        />
+                      ) : null}
+                      {clientEmail ? (
+                        <ContactRow icon="mail-outline" text={clientEmail} copyLabel="Email" actions={[{ icon: 'mail', onPress: () => void Linking.openURL(`mailto:${clientEmail}`) }]} />
+                      ) : null}
+                      <View style={styles.infoRow}>
+                        <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
+                        <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>Created {formatDate(job.start_date)}</Text>
+                      </View>
+                      {meta?.value != null || meta?.group ? (
+                        <View style={styles.infoRow}>
+                          <Ionicons name="cash-outline" size={16} color={colors.textMuted} />
+                          <Text style={{ fontSize: 13.5, color: colors.textSecondary }}>
+                            {[meta?.value != null ? `${formatJobValue(meta.value)} job value` : null, meta?.group ?? null].filter(Boolean).join(' · ')}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.infoRow}>
+                        <Ionicons name="people-outline" size={16} color={colors.textMuted} />
+                        <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
+                          {(meta?.assignees ?? []).length > 0 ? (meta?.assignees ?? []).join(', ') : 'Nobody assigned yet'}
+                        </Text>
+                        <Pressable onPress={() => setAssignVisible(true)} hitSlop={8} style={({ pressed }) => [styles.directionsChip, { backgroundColor: colors.primarySoft }, pressed && { opacity: 0.7 }]}>
+                          <Ionicons name="person-add-outline" size={12} color={colors.primaryStrong} />
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primaryStrong }}>Assign</Text>
+                        </Pressable>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+                        <Text style={{ fontSize: 13.5, color: colors.textSecondary, flex: 1 }}>
+                          {(extras?.checkins ?? []).length} site visit{(extras?.checkins ?? []).length === 1 ? '' : 's'}
+                        </Text>
+                        {!activeVisit ? (
+                          <Button label="Check in" icon="log-in-outline" variant="secondary" size="small" loading={checkingIn} onPress={() => void handleCheckInOut()} />
+                        ) : null}
+                      </View>
+                      {job.tags?.length ? <TagList tags={job.tags} /> : null}
+                    </View>
+                  </Card>
+                  {showScope ? (
+                    <Section title="Scope of work">
+                      <Card>
+                        <Text style={{ fontSize: 13.5, lineHeight: 20, color: colors.textSecondary }}>{scopeOfWork}</Text>
+                      </Card>
+                    </Section>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+                    <Button label="PDF report" icon="document-text-outline" variant="secondary" style={{ flex: 1 }} loading={exporting} onPress={() => void handleExportReport()} />
+                    {jobMedia.length > 0 ? (
+                      <Button label="Before / After" icon="images-outline" variant="secondary" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/before-after/[id]', params: { id: job.id } })} />
+                    ) : null}
+                  </View>
+                  <Button label="Request review" icon="star-outline" variant="secondary" onPress={() => router.push({ pathname: '/review-request/[id]', params: { id: job.id } })} />
+                  <JobActivityTab jobId={id ?? ''} media={jobMedia} extras={extras} tasks={tasks ?? []} publishRecord={publishRecord} roster={roster} />
+                </>
               ) : null}
             </View>
           </>
