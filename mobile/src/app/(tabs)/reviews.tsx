@@ -24,6 +24,12 @@ import { JOB_STATUS_LABELS } from '@/lib/format';
 import { useData } from '@/hooks/use-data';
 import { REVIEW_DELIVERY_NOTE } from '@/lib/review-requests';
 import type { Job } from '@/lib/types';
+import { GoogleReviewsPanel, useGoogleReviews } from '../gmb-reviews';
+
+const SEGMENTS = [
+  { value: 'google', label: 'Google reviews' },
+  { value: 'requests', label: 'Requests' },
+];
 
 // Mirrors the web app's AdminReviews pipeline tabs (Current / Past / Scheduled)
 const TABS = [
@@ -41,7 +47,9 @@ export default function ReviewsScreen() {
   const insets = useSafeAreaInsets();
   const { isViewer } = useRole();
   const { data: requests, loading, refreshing, refresh } = useData(fetchReviewRequests);
+  const [segment, setSegment] = useState('google');
   const [tab, setTab] = useState('current');
+  const google = useGoogleReviews();
   // Tells "no requests in this stage" apart from "the review query failed".
   const [loadError, setLoadError] = useState<string | null>(() => dataErrors.get('reviews'));
   React.useEffect(() => dataErrors.subscribe(() => setLoadError(dataErrors.get('reviews'))), []);
@@ -105,8 +113,22 @@ export default function ReviewsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen refreshing={refreshing} onRefresh={refresh}>
-        <ScreenHeader title="Reviews" subtitle="Request pipeline" readOnly={isViewer} />
+      <Screen
+        refreshing={refreshing || google.refreshing}
+        onRefresh={() => {
+          refresh();
+          google.refresh();
+        }}>
+        <ScreenHeader
+          title="Reviews"
+          subtitle={google.needsReply ? `${google.needsReply} waiting on a reply` : 'Google reviews & requests'}
+          readOnly={isViewer}
+        />
+        <Segmented options={SEGMENTS} value={segment} onChange={setSegment} />
+        {segment === 'google' ? (
+          <GoogleReviewsPanel {...google} />
+        ) : (
+          <>
         <KpiRow>
           <StatCard icon="star" tone="warning" value={stats.avg} label="Avg rating" />
           <StatCard icon="paper-plane" tone="primary" value={String(stats.total)} label="Requests" />
@@ -156,6 +178,8 @@ export default function ReviewsScreen() {
           />
         ) : (
           filtered.map((request) => <ReviewCard key={request.id} request={request} />)
+        )}
+          </>
         )}
       </Screen>
       <Fab icon="qr-code" onPress={openPicker} />

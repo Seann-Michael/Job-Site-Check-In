@@ -59,23 +59,39 @@ function Stars({ rating }: { rating: number }) {
 
 /** Google reviews from the Business Profile API, with owner replies. */
 export default function GmbReviewsScreen() {
+  const { user, initializing } = useAuth();
+  const panel = useGoogleReviews();
+  if (!initializing && !user) {
+    return <Redirect href="/login" />;
+  }
+  return (
+    <Screen refreshing={panel.refreshing} onRefresh={panel.refresh}>
+      <DetailHeader title="Google reviews" />
+      <GoogleReviewsPanel {...panel} />
+    </Screen>
+  );
+}
+
+export function useGoogleReviews() {
+  const { data, refresh, refreshing } = useData(fetchGoogleReviews);
+  const live = data !== null && data !== undefined;
+  const reviews = (live ? data : DEMO_REVIEWS) ?? DEMO_REVIEWS;
+  // Reviews waiting on a reply float to the top — that is the job this screen exists for.
+  const sorted = [...reviews].sort((a, b) => Number(Boolean(a.reply)) - Number(Boolean(b.reply)));
+  const needsReply = reviews.filter((r) => !r.reply).length;
+  return { live, reviews: sorted, needsReply, refresh, refreshing };
+}
+
+/** The reviews list + reply composer, shared by the Reviews tab and the standalone page. */
+export function GoogleReviewsPanel({ live, reviews, needsReply, refresh }: ReturnType<typeof useGoogleReviews>) {
   const { colors } = useTheme();
   const router = useRouter();
-  const { user, initializing } = useAuth();
   const { business } = useWorkspace();
-  const { data, refresh, refreshing } = useData(fetchGoogleReviews);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [working, setWorking] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [localReplies, setLocalReplies] = useState<Record<string, string>>({});
-
-  if (!initializing && !user) {
-    return <Redirect href="/login" />;
-  }
-
-  const live = data !== null && data !== undefined;
-  const reviews = (live ? data : DEMO_REVIEWS) ?? DEMO_REVIEWS;
 
   const sendReply = async (review: GoogleReview) => {
     if (!draft.trim() || working) return;
@@ -133,9 +149,7 @@ export default function GmbReviewsScreen() {
       : '—';
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
-      <DetailHeader title="Google reviews" />
-
+    <>
       <Card style={styles.summary}>
         <View style={{ alignItems: 'center', gap: 2 }}>
           <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text }}>{average}</Text>
@@ -143,7 +157,7 @@ export default function GmbReviewsScreen() {
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
-            {reviews.length} recent reviews
+            {reviews.length} recent reviews{needsReply ? ` · ${needsReply} to answer` : ''}
           </Text>
           <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
             {live
@@ -178,7 +192,7 @@ export default function GmbReviewsScreen() {
                       </Text>
                     </View>
                   </View>
-                  {reply ? <Badge label="Replied" tone="success" /> : null}
+                  {reply ? <Badge label="Replied" tone="success" /> : <Badge label="Needs reply" tone="warning" />}
                 </View>
 
                 {review.comment ? (
@@ -258,7 +272,7 @@ export default function GmbReviewsScreen() {
           onPress={() => router.push('/settings/integrations')}
         />
       ) : null}
-    </Screen>
+    </>
   );
 }
 

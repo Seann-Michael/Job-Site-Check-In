@@ -1,35 +1,89 @@
-import { Redirect } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Redirect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
-import { Badge, Button, Card, IconTile } from '@/components/ui/basics';
+import { Avatar, Badge, Button, Card, IconTile, Segmented } from '@/components/ui/basics';
+import { TagEditor } from '@/components/tag-editor';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useData } from '@/hooks/use-data';
+import { useRole } from '@/hooks/use-role';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { apiErrorMessage } from '@/lib/api';
 import { notify } from '@/lib/format';
+import { fetchShareSettings, isSharingAvailable, updateShareSettings, type ShareSettings } from '@/lib/shares';
 import type { Business, BusinessAddress } from '@/lib/types';
 import type { BusinessPatch } from '@/lib/workspace';
 import { useAuth } from '@/providers/auth-provider';
 
 /**
- * The details of the *active* business — the mobile counterpart of the web
- * app's Settings → Business tab, writing the same columns (name, description,
- * phone, email, website, address JSONB). Picking *which* business is active is
- * a different screen: app/settings/business.tsx.
+ * Business — identity, contact, online presence, service area, services,
+ * credentials and the About text that captions and the website page use.
  *
- * Saves send a *diff* against the record the form was seeded from, never the
- * whole form. A field the user did not touch is left out of the patch entirely,
- * so lib/workspace.ts never writes it; a field the user emptied is sent as ''
- * and cleared (-> null in Supabase). Without the diff, saving a form seeded
- * from a thin cached business (name and id only) would null out the real phone,
- * email, website, and address on the server.
+ * Two stores, one screen: name/description/phone/email/website/address write
+ * the businesses row the web app also edits (as a diff, never the whole
+ * form); everything else lives in businesses.share_settings.profile through
+ * the sharing API, so captions and the website page read the same values.
  */
+interface Profile {
+  tagline: string;
+  category: string;
+  founded: string;
+  owner_name: string;
+  service_area: string[];
+  radius_miles: number;
+  services: string[];
+  license: string;
+  insured: boolean;
+  bonded: boolean;
+  certifications: string[];
+  about: string;
+  hide_street: boolean;
+  facebook_url: string;
+  instagram_handle: string;
+  review_link: string;
+}
+
+const EMPTY_PROFILE: Profile = {
+  tagline: '', category: '', founded: '', owner_name: '', service_area: [], radius_miles: 25, services: [],
+  license: '', insured: false, bonded: false, certifications: [], about: '', hide_street: true,
+  facebook_url: '', instagram_handle: '', review_link: '',
+};
+
+function Field({ label, hint, value, onChangeText, placeholder, multiline, keyboardType, autoCapitalize, style }: {
+  label: string; hint?: string; value: string; onChangeText: (v: string) => void; placeholder?: string; multiline?: boolean;
+  keyboardType?: 'default' | 'phone-pad' | 'email-address' | 'number-pad' | 'url'; autoCapitalize?: 'none' | 'characters' | 'sentences' | 'words'; style?: object;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[{ gap: 5 }, style]}>
+      <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textMuted}
+        multiline={multiline}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.text }, multiline && styles.multiline]}
+      />
+      {hint ? <Text style={{ fontSize: 12, color: colors.textMuted }}>{hint}</Text> : null}
+    </View>
+  );
+}
+
 export default function BusinessProfileScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { user, initializing, isSupabaseConfigured } = useAuth();
   const { business, update } = useWorkspace();
+  const { mode } = useRole();
+  const isOwner = mode === 'owner';
 
+  // Row fields (seeded once per business; saved as a diff).
+  const [seeded, setSeeded] = useState<Business | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('');
@@ -39,22 +93,10 @@ export default function BusinessProfileScreen() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
-  const [country, setCountry] = useState('');
-  /**
-   * The record the fields above were filled from — the save baseline, and the
-   * proof that the form holds a loaded business rather than ten empty strings.
-   * Null until that has happened, which is what gates the save button.
-   */
-  const [seeded, setSeeded] = useState<Business | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Seed once per business. Saving re-emits with the merged copy, and re-seeding
-  // on every change would fight whatever the user is typing; a different id
-  // (they switched business in the other screen) does refill the form.
   useEffect(() => {
     if (!business || business.id === seeded?.id) return;
     setSeeded(business);
-    setName(business.name);
+    setName(business.name ?? '');
     setDescription(business.description ?? '');
     setPhone(business.phone ?? '');
     setEmail(business.email ?? '');
@@ -63,260 +105,212 @@ export default function BusinessProfileScreen() {
     setCity(business.address?.city ?? '');
     setState(business.address?.state ?? '');
     setZip(business.address?.zip ?? '');
-    setCountry(business.address?.country ?? '');
   }, [business, seeded]);
 
-  if (!initializing && !user) {
-    return <Redirect href="/login" />;
-  }
+  // Profile fields (share_settings.profile).
+  const loader = useCallback(
+    () => (business?.id && isSharingAvailable ? fetchShareSettings(business.id).catch(() => ({}) as ShareSettings) : Promise.resolve({} as ShareSettings)),
+    [business?.id],
+  );
+  const { data: settings } = useData(loader);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [alwaysMention, setAlwaysMention] = useState('');
+  const [neverSay, setNeverSay] = useState<string[]>([]);
+  useEffect(() => {
+    if (settings && !profile) {
+      const p = ((settings as ShareSettings & { profile?: Partial<Profile> }).profile ?? {}) as Partial<Profile>;
+      setProfile({ ...EMPTY_PROFILE, ...p });
+      setAlwaysMention(settings.caption?.always_mention ?? '');
+      setNeverSay(settings.caption?.never_say ?? []);
+    }
+  }, [settings, profile]);
+  const setP = <K extends keyof Profile>(key: K, value: Profile[K]) => setProfile((p) => ({ ...(p ?? EMPTY_PROFILE), [key]: value }));
 
-  const fieldStyle = [
-    styles.input,
-    { backgroundColor: colors.input, borderColor: colors.border, color: colors.text },
-  ];
+  const [saving, setSaving] = useState(false);
 
-  // Only what changed against the seeded record. An untouched field is absent
-  // from the patch, so the writer leaves the server copy alone.
-  const buildPatch = (from: Business) => {
+  if (!initializing && !user) return <Redirect href="/login" />;
+
+  const buildPatch = (base: Business): BusinessPatch => {
     const patch: BusinessPatch = {};
-    const changed = (next: string, before: string | undefined) => next !== (before ?? '');
-    if (changed(name.trim(), from.name)) patch.name = name.trim();
-    if (changed(description.trim(), from.description)) patch.description = description.trim();
-    if (changed(phone.trim(), from.phone)) patch.phone = phone.trim();
-    if (changed(email.trim(), from.email)) patch.email = email.trim();
-    if (changed(website.trim(), from.website)) patch.website = website.trim();
-    // `address` is one JSONB column, so any change rewrites the whole object —
-    // built from the seeded values the user left alone, not from nothing.
-    const address: BusinessAddress = {
-      ...(street.trim() ? { street: street.trim() } : {}),
-      ...(city.trim() ? { city: city.trim() } : {}),
-      ...(state.trim() ? { state: state.trim() } : {}),
-      ...(zip.trim() ? { zip: zip.trim() } : {}),
-      ...(country.trim() ? { country: country.trim() } : {}),
-    };
-    const before = from.address;
-    const addressChanged =
-      changed(street.trim(), before?.street) ||
-      changed(city.trim(), before?.city) ||
-      changed(state.trim(), before?.state) ||
-      changed(zip.trim(), before?.zip) ||
-      changed(country.trim(), before?.country);
-    if (addressChanged) patch.address = address;
+    if (name.trim() !== (base.name ?? '')) patch.name = name.trim();
+    if (description.trim() !== (base.description ?? '')) patch.description = description.trim();
+    if (phone.trim() !== (base.phone ?? '')) patch.phone = phone.trim();
+    if (email.trim() !== (base.email ?? '')) patch.email = email.trim();
+    if (website.trim() !== (base.website ?? '')) patch.website = website.trim();
+    const addr: BusinessAddress = { street: street.trim(), city: city.trim(), state: state.trim(), zip: zip.trim(), country: base.address?.country };
+    const cur = base.address ?? {};
+    if ((cur.street ?? '') !== addr.street || (cur.city ?? '') !== addr.city || (cur.state ?? '') !== addr.state || (cur.zip ?? '') !== addr.zip) patch.address = addr;
     return patch;
   };
 
-  // A business has to be called something — every job, photo, and post is filed
-  // under this name. Nothing else is required, matching the web form. Saving is
-  // impossible before the form has been seeded from a loaded record: with no
-  // baseline there is no way to tell an untouched field from a cleared one.
-  const pending: BusinessPatch = seeded ? buildPatch(seeded) : {};
-  const canSave = Boolean(seeded) && Boolean(name.trim()) && Object.keys(pending).length > 0;
-
-  // Demo businesses never reach the network, and neither does anything else
-  // until Supabase is configured. Say so rather than implying a server save.
-  const localOnly = !isSupabaseConfigured || Boolean(business?.id.startsWith('demo'));
-
   const handleSave = async () => {
-    if (!seeded || !canSave || saving) return;
+    if (!seeded || saving) return;
+    if (!name.trim()) {
+      notify('Name required', 'Give the business a name.');
+      return;
+    }
     setSaving(true);
     try {
-      const patch = pending;
-      const result = await update(patch);
-      // The local override is written before the network call, so the change is
-      // on this device either way. Only `synced` means the server took it.
-      if (result.synced) {
-        setSeeded({ ...seeded, ...patch });
-        notify('Business profile saved', 'Your business details have been updated.');
-      } else if (result.reason === 'local') {
-        setSeeded({ ...seeded, ...patch });
-        notify(
-          'Saved on this device',
-          localOnly
-            ? 'Connect your account to sync these details to the web dashboard.'
-            : 'These details are stored on this device only.',
-        );
-      } else {
-        notify(
-          'Saved on this device only',
-          result.message
-            ? `Couldn't save to the server, so the web dashboard still shows the previous details. (${result.message})`
-            : "Couldn't save to the server, so the web dashboard still shows the previous details.",
-        );
+      const patch = buildPatch(seeded);
+      if (Object.keys(patch).length) {
+        const result = await update(patch);
+        if (!result.synced && result.reason === 'failed') {
+          notify('Not saved', result.message ?? 'The server rejected the change.');
+          return;
+        }
+        if (!result.synced && !isSupabaseConfigured) notify('Saved on this phone', 'Sign in to a workspace to save for the whole team.');
       }
+      if (profile && business?.id && isSharingAvailable) {
+        if (!isOwner) notify('Owner only', 'Only the owner can change the business profile. Contact details were saved.');
+        else await updateShareSettings(business.id, { profile, caption: { ...(settings?.caption ?? {}), always_mention: alwaysMention.trim(), never_say: neverSay } } as Partial<ShareSettings>);
+      }
+      notify('Saved', 'Business details updated.');
+      router.back();
+    } catch (err) {
+      notify('Not saved', apiErrorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <Screen avoidKeyboard>
-      <DetailHeader title="Business profile" />
+  const p = profile ?? EMPTY_PROFILE;
 
-      <Card style={styles.headerCard}>
-        <IconTile icon="business-outline" size={52} tone="primary" />
-        <View style={{ flex: 1, gap: 3 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
-            {name.trim() || business?.name || 'Business'}
-          </Text>
-          {business?.plan ? <Badge label={business.plan} tone="primary" /> : null}
+  return (
+    <Screen>
+      <DetailHeader title="Business" />
+      <Card style={styles.logoRow}>
+        <Avatar name={name || business?.name || 'B'} size={64} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>Logo</Text>
+            {business?.plan ? <Badge label={business.plan} tone="primary" /> : null}
+          </View>
+          <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>Stamped on photos, on reports and the website page. Set under Camera & stamps.</Text>
+          <Button label="Change logo" variant="secondary" size="small" icon="image-outline" onPress={() => router.push('/settings/media')} />
         </View>
       </Card>
 
-      <Section title="Business details">
+      <Section title="Identity">
         <Card style={{ gap: Spacing.md }}>
-          <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Business name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Westside Home Services"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
+          <Field label="Business name" value={name} onChangeText={setName} placeholder="Westside Home Services" />
+          <Field label="Tagline" value={p.tagline} onChangeText={(v) => setP('tagline', v)} placeholder="One line under your name" />
+          <Field label="Primary category" value={p.category} onChangeText={(v) => setP('category', v)} placeholder="e.g. Roofing contractor" hint="Matches your Google category. Captions and keywords lean on it." />
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <Field label="Founded" value={p.founded} onChangeText={(v) => setP('founded', v.replace(/\D/g, '').slice(0, 4))} placeholder="2016" keyboardType="number-pad" style={{ flex: 1 }} />
+            <Field label="Owner" value={p.owner_name} onChangeText={(v) => setP('owner_name', v)} placeholder="Name" style={{ flex: 2 }} />
           </View>
-          <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What you do, and the areas you cover"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              style={[fieldStyle, styles.multiline]}
-            />
+        </Card>
+      </Section>
+
+      <Section title="Contact">
+        <Card style={{ gap: Spacing.md }}>
+          <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="(555) 555-0123" keyboardType="phone-pad" hint="On posts' call button and review texts." />
+          <Field label="Email" value={email} onChangeText={setEmail} placeholder="hello@yourbusiness.com" keyboardType="email-address" autoCapitalize="none" />
+          <Field label="Street address" value={street} onChangeText={setStreet} placeholder="214 Maple Ave" />
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <Field label="City" value={city} onChangeText={setCity} placeholder="Westlake" style={{ flex: 2 }} />
+            <Field label="State" value={state} onChangeText={setState} placeholder="OH" autoCapitalize="characters" style={{ flex: 1 }} />
+            <Field label="ZIP" value={zip} onChangeText={setZip} placeholder="44145" keyboardType="number-pad" style={{ flex: 1 }} />
           </View>
-          <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Phone</Text>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholder="(555) 555-0123"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.text }}>Hide street address on posts and pages</Text>
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>Service-area businesses show city only</Text>
+            </View>
+            <Switch value={p.hide_street} onValueChange={(v) => setP('hide_street', v)} trackColor={{ true: colors.primary, false: colors.cardPressed }} thumbColor="#FFFFFF" />
           </View>
+        </Card>
+      </Section>
+
+      <Section title="Online">
+        <Card style={{ gap: Spacing.md }}>
+          <Field label="Website" value={website} onChangeText={setWebsite} placeholder="https://yourbusiness.com" keyboardType="url" autoCapitalize="none" />
           <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholder="hello@yourbusiness.com"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>Google Business Profile</Text>
+            <Pressable onPress={() => router.push('/settings/integrations')} style={({ pressed }) => [styles.linkRow, { borderColor: colors.border, backgroundColor: colors.card }, pressed && { backgroundColor: colors.cardPressed }]}>
+              <IconTile icon="storefront-outline" size={32} />
+              <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>Manage connection and profile</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primaryStrong }}>Open ›</Text>
+            </Pressable>
           </View>
+          <Field label="Facebook Page" value={p.facebook_url} onChangeText={(v) => setP('facebook_url', v)} placeholder="facebook.com/yourpage" autoCapitalize="none" />
+          <Field label="Instagram" value={p.instagram_handle} onChangeText={(v) => setP('instagram_handle', v)} placeholder="@username" autoCapitalize="none" />
+          <Field label="Review link" value={p.review_link} onChangeText={(v) => setP('review_link', v)} placeholder="g.page/r/…/review" autoCapitalize="none" hint="Where review requests and QR codes send customers." />
+        </Card>
+      </Section>
+
+      <Section title="Service area">
+        <Card style={{ gap: Spacing.md }}>
+          <TagEditor tags={p.service_area} onChange={(v) => setP('service_area', v)} mode="phrase" placeholder="Add a city" />
+          <Text style={{ fontSize: 12, color: colors.textMuted }}>Mentioned in captions when a project is in that city.</Text>
           <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Website</Text>
-            <TextInput
-              value={website}
-              onChangeText={setWebsite}
-              keyboardType="url"
-              autoCapitalize="none"
-              placeholder="https://yourbusiness.com"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>Radius from home base</Text>
+            <Segmented
+              options={[
+                { value: '15', label: '15 mi' },
+                { value: '25', label: '25 mi' },
+                { value: '40', label: '40 mi' },
+                { value: '0', label: 'Statewide' },
+              ]}
+              value={String(p.radius_miles)}
+              onChange={(v) => setP('radius_miles', Number(v))}
             />
           </View>
         </Card>
       </Section>
 
-      <Section title="Address">
+      <Section title="Services">
         <Card style={{ gap: Spacing.md }}>
-          <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Street</Text>
-            <TextInput
-              value={street}
-              onChangeText={setStreet}
-              placeholder="214 Maple Ave"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
-          </View>
-          <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>City</Text>
-            <TextInput
-              value={city}
-              onChangeText={setCity}
-              placeholder="Westlake"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
-          </View>
+          <TagEditor tags={p.services} onChange={(v) => setP('services', v)} mode="phrase" placeholder="Add a service" />
+          <Text style={{ fontSize: 12, color: colors.textMuted }}>Prices and descriptions live under GMB › Services.</Text>
+        </Card>
+      </Section>
+
+      <Section title="Credentials">
+        <Card style={{ gap: Spacing.md }}>
+          <Field label="License number" value={p.license} onChangeText={(v) => setP('license', v)} placeholder="OH-RC-00000" autoCapitalize="characters" />
           <View style={{ flexDirection: 'row', gap: Spacing.md }}>
             <View style={{ flex: 1, gap: 5 }}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>State</Text>
-              <TextInput
-                value={state}
-                onChangeText={setState}
-                placeholder="OH"
-                placeholderTextColor={colors.textMuted}
-                style={fieldStyle}
-              />
+              <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>Insured</Text>
+              <Segmented options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} value={p.insured ? 'yes' : 'no'} onChange={(v) => setP('insured', v === 'yes')} />
             </View>
             <View style={{ flex: 1, gap: 5 }}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>ZIP</Text>
-              <TextInput
-                value={zip}
-                onChangeText={setZip}
-                keyboardType="number-pad"
-                placeholder="44145"
-                placeholderTextColor={colors.textMuted}
-                style={fieldStyle}
-              />
+              <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>Bonded</Text>
+              <Segmented options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} value={p.bonded ? 'yes' : 'no'} onChange={(v) => setP('bonded', v === 'yes')} />
             </View>
           </View>
           <View style={{ gap: 5 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Country</Text>
-            <TextInput
-              value={country}
-              onChangeText={setCountry}
-              placeholder="United States"
-              placeholderTextColor={colors.textMuted}
-              style={fieldStyle}
-            />
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>Certifications</Text>
+            <TagEditor tags={p.certifications} onChange={(v) => setP('certifications', v)} mode="phrase" placeholder="e.g. GAF Certified" />
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>Captions can mention these. Nothing is claimed that isn't listed here.</Text>
           </View>
         </Card>
       </Section>
 
-      <Button
-        label="Save changes"
-        loading={saving}
-        disabled={!canSave}
-        onPress={() => void handleSave()}
-      />
+      <Section title="About">
+        <Card style={{ gap: Spacing.md }}>
+          <Field label="About the business" value={p.about} onChangeText={(v) => setP('about', v)} placeholder="2–4 sentences. Used on website project pages and as background for captions." multiline />
+          <Field label="Short description" value={description} onChangeText={setDescription} placeholder="What you do and the areas you cover" multiline hint="Shown in the web dashboard." />
+          <Field label="Always mention in posts" value={alwaysMention} onChangeText={setAlwaysMention} placeholder="e.g. Serving Medina County since 2016" />
+          <View style={{ gap: 5 }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textSecondary }}>Never say</Text>
+            <TagEditor tags={neverSay} onChange={setNeverSay} mode="phrase" placeholder="e.g. cheapest" />
+          </View>
+        </Card>
+      </Section>
 
-      <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
-        {business
-          ? 'These details are used on your GMB posts, review requests, and photo stamps. Editing changes the active business — switch businesses from Settings → Switch business.'
-          : 'Loading the active business…'}
+      <Button label="Save" icon="checkmark" loading={saving} disabled={!seeded} onPress={() => void handleSave()} />
+      <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+        {isOwner ? 'Applies to every phone in this business.' : 'Contact details save for everyone; the rest is owner-only.'}
       </Text>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  headerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  label: {
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    height: 44,
-    fontSize: 15,
-  },
-  multiline: {
-    height: 88,
-    paddingTop: Spacing.sm + 2,
-    textAlignVertical: 'top',
-  },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: Spacing.md, height: 44, fontSize: 15 },
+  multiline: { height: 96, paddingTop: 10, textAlignVertical: 'top' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, padding: Spacing.md },
 });

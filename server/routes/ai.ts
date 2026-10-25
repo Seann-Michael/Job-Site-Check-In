@@ -288,6 +288,8 @@ aiRouter.post("/caption", async (req: Request, res: Response) => {
   const neverSay = Array.isArray(b.neverSay) ? b.neverSay.filter((k: any) => typeof k === "string").slice(0, 20) : [];
   const alwaysMention = str(b.alwaysMention, 200);
   const note = str(b.note, 600);
+  const about = str(b.about, 600);
+  const certifications = Array.isArray(b.certifications) ? b.certifications.filter((k: any) => typeof k === "string").slice(0, 10) : [];
   const onSite = clampInt(b.onSiteMinutes, 0, 24 * 60, 0);
   const done = clampInt(b.checklistDone, 0, 500, 0);
   const total = clampInt(b.checklistTotal, 0, 500, 0);
@@ -307,6 +309,8 @@ aiRouter.post("/caption", async (req: Request, res: Response) => {
   if (materials.length) facts.push(`Materials: ${materials.join(", ")}`);
   if (keywords.length) facts.push(`Target phrases (use naturally, don't stuff): ${keywords.join("; ")}`);
   if (note) facts.push(`Crew note (internal; use only facts about the work, never names or addresses): ${note}`);
+  if (about) facts.push(`About the business (background only, do not quote at length): ${about}`);
+  if (certifications.length) facts.push(`Credentials that may be mentioned: ${certifications.join(", ")}`);
   if (alwaysMention) facts.push(`Always include this line somewhere: "${alwaysMention}"`);
   if (neverSay.length) facts.push(`Never use these words: ${neverSay.join(", ")}`);
 

@@ -158,6 +158,31 @@ sharesRouter.patch("/settings/:businessId", requireWrite, async (req: Request, r
       never_say: Array.isArray(b.caption.never_say) ? b.caption.never_say.filter((s: any) => typeof s === "string").slice(0, 20) : cur.caption?.never_say ?? [],
     };
   }
+  // Business profile details the apps and captions use (not Google fields).
+  if (b.profile && typeof b.profile === "object") {
+    const pr = b.profile;
+    const cur_p = (cur.profile && typeof cur.profile === "object" ? cur.profile : {}) as Record<string, any>;
+    const str = (v: any, max: number, fallback: any) => (typeof v === "string" ? v.trim().slice(0, max) : fallback);
+    const list = (v: any, max: number, fallback: any) => (Array.isArray(v) ? v.filter((x: any) => typeof x === "string").map((x: string) => x.trim().slice(0, 80)).filter(Boolean).slice(0, max) : fallback);
+    next.profile = {
+      tagline: str(pr.tagline, 140, cur_p.tagline ?? ""),
+      category: str(pr.category, 120, cur_p.category ?? ""),
+      founded: str(pr.founded, 4, cur_p.founded ?? ""),
+      owner_name: str(pr.owner_name, 120, cur_p.owner_name ?? ""),
+      service_area: list(pr.service_area, 30, cur_p.service_area ?? []),
+      radius_miles: Number.isInteger(pr.radius_miles) && pr.radius_miles >= 0 && pr.radius_miles <= 500 ? pr.radius_miles : cur_p.radius_miles ?? 25,
+      services: list(pr.services, 40, cur_p.services ?? []),
+      license: str(pr.license, 60, cur_p.license ?? ""),
+      insured: typeof pr.insured === "boolean" ? pr.insured : cur_p.insured ?? false,
+      bonded: typeof pr.bonded === "boolean" ? pr.bonded : cur_p.bonded ?? false,
+      certifications: list(pr.certifications, 20, cur_p.certifications ?? []),
+      about: str(pr.about, 1200, cur_p.about ?? ""),
+      hide_street: typeof pr.hide_street === "boolean" ? pr.hide_street : cur_p.hide_street ?? true,
+      facebook_url: str(pr.facebook_url, 200, cur_p.facebook_url ?? ""),
+      instagram_handle: str(pr.instagram_handle, 60, cur_p.instagram_handle ?? ""),
+      review_link: str(pr.review_link, 300, cur_p.review_link ?? ""),
+    };
+  }
   const { error } = await db.from("businesses").update({ share_settings: next }).eq("id", businessId);
   if (error) return res.status(500).json({ error: "Could not save settings" });
   res.json({ ok: true });
