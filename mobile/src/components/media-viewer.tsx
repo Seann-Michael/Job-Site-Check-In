@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -87,6 +88,8 @@ type MediaViewerProps = {
   onLogoSticker?: (item: MediaItem) => void;
   /** Open the annotation editor for a photo. */
   onAnnotate?: (item: MediaItem) => void;
+  /** Shown as a trash button when provided; the viewer confirms first. */
+  onDelete?: (item: MediaItem) => Promise<void> | void;
 };
 
 /**
@@ -143,7 +146,36 @@ function MediaViewerBody({
   onClose,
   onLogoSticker,
   onAnnotate,
+  onDelete,
 }: MediaViewerProps) {
+  const [deleting, setDeleting] = React.useState(false);
+  const confirmDelete = () => {
+    if (!onDelete || !current || deleting) return;
+    const item = current;
+    const go = async () => {
+      setDeleting(true);
+      try {
+        await onDelete(item);
+        // Stay on a neighbour when there is one; close on the last item.
+        if (items.length <= 1) onClose();
+        else setIndex((i) => Math.max(0, Math.min(i, items.length - 2)));
+      } finally {
+        setDeleting(false);
+      }
+    };
+    if (Platform.OS === 'web') {
+      void go();
+      return;
+    }
+    Alert.alert(
+      item.media_type === 'video' ? 'Delete this video?' : 'Delete this photo?',
+      'It is removed from the project for everyone. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void go() },
+      ],
+    );
+  };
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -379,6 +411,11 @@ function MediaViewerBody({
           <Pressable onPress={handleShare} hitSlop={10} style={styles.iconButton}>
             <Ionicons name="share-outline" size={22} color="#FFFFFF" />
           </Pressable>
+          {onDelete && current ? (
+            <Pressable onPress={confirmDelete} hitSlop={10} style={styles.iconButton} disabled={deleting}>
+              <Ionicons name="trash-outline" size={20} color={deleting ? '#FFFFFF80' : '#FCA5A5'} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

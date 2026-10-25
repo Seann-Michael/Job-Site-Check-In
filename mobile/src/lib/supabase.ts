@@ -12,9 +12,9 @@ import { Platform } from 'react-native';
 // key are public (they ship in the web bundle too), so keeping them in `extra`
 // is safe.
 const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
-const supabaseUrl =
+export const supabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL ?? extra.supabaseUrl ?? 'https://placeholder.supabase.co';
-const supabaseAnonKey =
+export const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? extra.supabaseAnonKey ?? 'placeholder-key';
 
 // Mirrors the placeholder detection in the web app's client/lib/dataService.ts:

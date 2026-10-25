@@ -700,6 +700,47 @@ async function jobMediaStorageKeys(jobId: string): Promise<string[]> {
   }
 }
 
+/**
+ * Delete one photo or video wherever it lives: still on this device (demo
+ * capture or waiting in the upload queue), or on the server — the row first,
+ * then its file and thumbnail. Throws with a readable message on failure.
+ */
+export async function deleteMediaItem(item: MediaItem): Promise<void> {
+  if (item.id.startsWith('local-')) {
+    await mediaStore.remove(item.id);
+    return;
+  }
+  if (item.pending || item.id.startsWith('q-')) {
+    await uploadQueue.remove(item.id);
+    mediaStore.notifyChanged();
+    return;
+  }
+  if (!isSupabaseConfigured) {
+    await mediaStore.remove(item.id);
+    return;
+  }
+  const { data, error } = await supabase
+    .from('job_media')
+    .delete()
+    .eq('id', item.id)
+    .select('file_path, metadata');
+  if (error) throw new Error(`Couldn't delete: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error("Couldn't delete — you may not have permission for this project.");
+  }
+  const keys = new Set<string>();
+  for (const row of data as Row[]) {
+    const key = mediaStorageKey(str(row, 'file_path'));
+    if (!key) continue;
+    keys.add(key);
+    const metadata = (row.metadata ?? {}) as Row;
+    const thumb = mediaStorageKey(str(metadata, 'thumbnail_path')) ?? derivedThumbKey(key);
+    if (thumb) keys.add(thumb);
+  }
+  await removeMediaObjects([...keys]);
+  mediaStore.notifyChanged();
+}
+
 /** Best-effort bucket cleanup — the rows are already gone either way. */
 async function removeMediaObjects(keys: string[]): Promise<void> {
   if (!keys.length) return;

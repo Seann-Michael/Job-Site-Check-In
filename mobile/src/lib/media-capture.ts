@@ -30,7 +30,7 @@ import { snapshotUploader } from '@/lib/identity';
 import { getLogoUri } from '@/lib/logo';
 import { getMediaPrefs, QUALITY_DIMENSIONS } from '@/lib/media-prefs';
 import { mediaStore } from '@/lib/media-store';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 import { uploadQueue, type FlushFailureKind, type QueuedUpload } from '@/lib/upload-queue';
 import { workspace } from '@/lib/workspace';
 import type { MediaCategory, MediaItem } from '@/lib/types';
@@ -376,10 +376,13 @@ const MISSING_FILE = 'The file could not be read from this device.';
 
 /** Bytes for one file. Videos always stream as a blob — base64-decoding a
  *  two-minute clip (hundreds of MB as string + buffer) is an OOM crash. */
+/** A file to be streamed from disk by the native uploader (videos on device). */
+type FileBody = { fileUri: string };
+
 async function readUploadBody(
   uri: string,
   mediaType: 'image' | 'video',
-): Promise<{ body: ArrayBuffer | Blob; size: number }> {
+): Promise<{ body: ArrayBuffer | Blob | FileBody; size: number }> {
   if (Platform.OS !== 'web' && uri.startsWith('file:')) {
     // Check first: fetch() on a missing file reports "Network request failed",
     // which would otherwise look like being offline and retry forever.
@@ -398,6 +401,20 @@ async function readUploadBody(
     });
     const bytes = decode(base64);
     return { body: bytes, size: bytes.byteLength };
+  }
+
+  // Videos on device: a Blob made from fetch(file:) arrives at storage with no
+  // bytes (every clip uploaded that way was a 0-byte object), and base64 is
+  // an OOM for long clips. The native uploader streams the file instead.
+  if (mediaType === 'video' && Platform.OS !== 'web' && /^(file|content):/.test(uri)) {
+    let size = 0;
+    try {
+      const info = (await FileSystem.getInfoAsync(uri)) as { exists: boolean; size?: number };
+      size = info.size ?? 0;
+    } catch {
+      // Size is informational; the upload decides.
+    }
+    return { body: { fileUri: uri }, size };
   }
 
   let response: Response;
@@ -429,14 +446,60 @@ function thumbKeyFor(storageKey: string): string {
  */
 async function uploadObject(
   path: string,
-  body: ArrayBuffer | Blob,
+  body: ArrayBuffer | Blob | FileBody,
   contentType: string,
 ): Promise<'stored' | 'existing'> {
+  if (typeof body === 'object' && body !== null && 'fileUri' in body) {
+    return uploadFileFromDisk(path, body.fileUri, contentType);
+  }
   const { error } = await supabase.storage
     .from('media')
     .upload(path, body, { contentType, upsert: false });
   if (!error) return 'stored';
   if (isDuplicateObject(error)) return 'existing';
+  throw error;
+}
+
+/**
+ * Stream a file straight from disk into Storage (same endpoint the client
+ * library uses), authenticated as the signed-in user so the bucket policies
+ * apply exactly as they do for photos.
+ */
+async function uploadFileFromDisk(
+  path: string,
+  fileUri: string,
+  contentType: string,
+): Promise<'stored' | 'existing'> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? supabaseAnonKey;
+  const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+  const result = await FileSystem.uploadAsync(
+    `${supabaseUrl}/storage/v1/object/media/${encodedPath}`,
+    fileUri,
+    {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: supabaseAnonKey,
+        'Content-Type': contentType,
+        'x-upsert': 'false',
+        'cache-control': 'max-age=3600',
+      },
+    },
+  );
+  if (result.status >= 200 && result.status < 300) return 'stored';
+  if (result.status === 409) return 'existing';
+  let message = `Upload failed (${result.status}).`;
+  try {
+    const parsed = JSON.parse(result.body) as { message?: string; error?: string };
+    message = parsed.message ?? parsed.error ?? message;
+  } catch {
+    // Non-JSON body; the status is the message.
+  }
+  const error = new Error(message) as Error & { status?: number; statusCode?: number };
+  error.status = result.status;
+  error.statusCode = result.status;
   throw error;
 }
 

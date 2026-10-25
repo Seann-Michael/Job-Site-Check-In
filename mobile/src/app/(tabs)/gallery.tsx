@@ -57,8 +57,8 @@ import { Badge, Button, Card, EmptyState, IconTile, Segmented } from '@/componen
 import { Screen, ScreenHeader, Section } from '@/components/ui/screen';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { dataErrors, fetchJobs, fetchMedia } from '@/lib/data';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { dataErrors, deleteMediaItem, fetchJobs, fetchMedia } from '@/lib/data';
+import { formatDate, formatDateTime, notify } from '@/lib/format';
 import { getUploader, snapshotUploader } from '@/lib/identity';
 import { jobMeta } from '@/lib/job-meta';
 import { mediaStore } from '@/lib/media-store';
@@ -1050,6 +1050,18 @@ export default function GalleryScreen() {
         initialIndex={viewerIndex ?? 0}
         visible={viewerIndex !== null && viewerIndex < viewerItems.length}
         onClose={() => setViewerIndex(null)}
+        onDelete={
+          canWrite
+            ? async (item) => {
+                try {
+                  await deleteMediaItem(item);
+                  refresh();
+                } catch (error) {
+                  notify('Not deleted', error instanceof Error ? error.message : 'Try again.');
+                }
+              }
+            : undefined
+        }
         onLogoSticker={
           canWrite
             ? (item) => {

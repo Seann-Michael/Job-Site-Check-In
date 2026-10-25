@@ -65,6 +65,17 @@ export const mediaStore = {
     }
   },
 
+  async remove(id: string): Promise<void> {
+    await load();
+    captured = captured.filter((item) => item.id !== id);
+    emit();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(captured));
+    } catch {
+      // Best-effort persistence, as in add().
+    }
+  },
+
   /** Wake subscribers without touching the demo store (e.g. after an upload). */
   notifyChanged(): void {
     emit();

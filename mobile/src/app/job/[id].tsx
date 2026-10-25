@@ -31,7 +31,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchClients } from '@/lib/clients';
 import { webUrl } from '@/lib/config';
-import { dataErrors, deleteJob, fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
+import { dataErrors, deleteJob, deleteMediaItem, fetchJob, fetchJobMedia, updateJob } from '@/lib/data';
 import { openDirections } from '@/lib/directions';
 import { jobExtras, visitDuration } from '@/lib/job-extras';
 import { TagList } from '@/components/tag-editor';
@@ -54,6 +54,7 @@ import { useJobPresence } from '@/lib/team-presence';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { useData } from '@/hooks/use-data';
 import { useMediaRefresh } from '@/hooks/use-media-refresh';
+import { useRole } from '@/hooks/use-role';
 import { useAuth } from '@/providers/auth-provider';
 import type { JobStatus, MediaCategory, MediaItem } from '@/lib/types';
 
@@ -96,6 +97,7 @@ export default function JobDetailScreen() {
   const { colors } = useTheme();
   const { id, capture } = useLocalSearchParams<{ id: string; capture?: string }>();
   const { user, initializing } = useAuth();
+  const { canWrite } = useRole();
   const { business } = useWorkspace();
 
   const router = useRouter();
@@ -776,6 +778,18 @@ export default function JobDetailScreen() {
         initialIndex={viewerIndex ?? 0}
         visible={viewerIndex !== null}
         onClose={() => setViewerIndex(null)}
+        onDelete={
+          canWrite
+            ? async (item) => {
+                try {
+                  await deleteMediaItem(item);
+                  refresh();
+                } catch (error) {
+                  notify('Not deleted', error instanceof Error ? error.message : 'Try again.');
+                }
+              }
+            : undefined
+        }
         onLogoSticker={(item) => {
           setViewerIndex(null);
           router.push({ pathname: '/logo-sticker', params: { mediaId: item.id } });
