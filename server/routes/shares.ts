@@ -65,7 +65,14 @@ sharesRouter.post("/", requireWrite, writeLimiter, async (req: Request, res: Res
   if (!caption.gbp && !caption.facebook && !caption.instagram && !caption.website) {
     return res.status(400).json({ error: "The post needs some text" });
   }
-  const run: "now" | "queue" | "draft" = body.run === "queue" ? "queue" : body.run === "draft" ? "draft" : "now";
+  let run: "now" | "queue" | "draft" = body.run === "queue" ? "queue" : body.run === "draft" ? "draft" : "now";
+  // The owner's after-capture rule is enforced here, not on the phone: with
+  // "queue", nobody but the owner can send immediately, so a crew member's
+  // "Share now" lands in the queue for the owner to release.
+  if (run === "now" && !isBusinessOwner(req, businessId)) {
+    const { data: biz } = await db.from("businesses").select("share_settings").eq("id", businessId).maybeSingle();
+    if (biz?.share_settings?.after_capture === "queue") run = "queue";
+  }
   const options: Record<string, any> = {};
   if (body.markComplete === true) options.mark_complete = true;
   if (body.cta && typeof body.cta === "object") options.cta = { actionType: String(body.cta.actionType || "LEARN_MORE"), url: body.cta.url ? String(body.cta.url) : undefined };
