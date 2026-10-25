@@ -15,6 +15,9 @@ final class DualCameraRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDe
 
   var swapped = false
   var muted = false
+  /// Set by the view when a camera's output couldn't rotate its buffers itself.
+  var backNeedsTurn = false
+  var frontNeedsTurn = false
   var pipCorner = "topRight"
   var pipScale: CGFloat = 0.3
   var onFinished: (([String: Any]?, Error?) -> Void)?
@@ -111,11 +114,21 @@ final class DualCameraRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDe
     write(main: pixel, pip: mainIsBack ? latestFront : latestBack, at: time)
   }
 
+  /// Sensor-landscape frames turned upright (90° clockwise) when the capture
+  /// connection couldn't do it; already-portrait frames pass through.
+  private func upright(_ image: CIImage, needsTurn: Bool) -> CIImage {
+    guard needsTurn, image.extent.width > image.extent.height else { return image }
+    let turned = image.oriented(.right)
+    return turned.transformed(by: CGAffineTransform(translationX: -turned.extent.minX, y: -turned.extent.minY))
+  }
+
   private func ensureInputs(for pixel: CVPixelBuffer) -> Bool {
     guard let writer = writer else { return false }
     if videoInput != nil { return true }
-    let width = CVPixelBufferGetWidth(pixel)
-    let height = CVPixelBufferGetHeight(pixel)
+    var width = CVPixelBufferGetWidth(pixel)
+    var height = CVPixelBufferGetHeight(pixel)
+    let mainNeedsTurn = swapped ? frontNeedsTurn : backNeedsTurn
+    if mainNeedsTurn && width > height { swap(&width, &height) }
     size = CGSize(width: width, height: height)
 
     let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -170,16 +183,18 @@ final class DualCameraRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDe
     }
     guard writer.status == .writing, videoInput.isReadyForMoreMediaData else { return }
 
-    var composed = CIImage(cvPixelBuffer: main)
+    let mainIsBack = !swapped
+    var composed = upright(CIImage(cvPixelBuffer: main), needsTurn: mainIsBack ? backNeedsTurn : frontNeedsTurn)
     if let pip = pip {
-      composed = overlay(pip: CIImage(cvPixelBuffer: pip), on: composed)
+      let pipImage = upright(CIImage(cvPixelBuffer: pip), needsTurn: mainIsBack ? frontNeedsTurn : backNeedsTurn)
+      composed = overlay(pip: pipImage, on: composed)
     }
 
     guard let pool = adaptor.pixelBufferPool else { return }
     var out: CVPixelBuffer?
     CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &out)
     guard let target = out else { return }
-    ciContext.render(composed, to: target, bounds: composed.extent, colorSpace: CGColorSpaceCreateDeviceRGB())
+    ciContext.render(composed, to: target, bounds: CGRect(origin: .zero, size: size), colorSpace: CGColorSpaceCreateDeviceRGB())
     if adaptor.append(target, withPresentationTime: time) {
       lastVideoTime = time
     }

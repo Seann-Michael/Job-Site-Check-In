@@ -11,6 +11,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/basics';
@@ -35,11 +36,15 @@ import {
 
 const PIP_CORNERS: DualCameraCorner[] = ['topRight', 'bottomRight', 'bottomLeft', 'topLeft'];
 
+/** Zoom presets, as optical-style factors. Pinch anywhere on the viewfinder for anything in between. */
 const ZOOMS: { label: string; value: number }[] = [
-  { label: '1x', value: 0 },
-  { label: '2x', value: 0.12 },
-  { label: '4x', value: 0.3 },
+  { label: '1x', value: 1 },
+  { label: '2x', value: 2 },
+  { label: '4x', value: 4 },
 ];
+const MAX_ZOOM = 8;
+/** expo-camera takes 0–1 of the device's range; this keeps 2x/4x where the eye expects them. */
+const toCameraZoom = (factor: number) => Math.min(1, Math.max(0, (factor - 1) * 0.1));
 
 type AspectRatio = 'full' | '4:3' | '1:1';
 const ASPECTS: AspectRatio[] = ['full', '4:3', '1:1'];
@@ -159,7 +164,9 @@ export default function CameraScreen() {
   const [lastShotUri, setLastShotUri] = useState<string | null>(null);
   const [snapping, setSnapping] = useState(false);
   const [flashOverlay, setFlashOverlay] = useState(false);
-  const [zoom, setZoom] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const pinchStart = useRef(1);
+  const [pinching, setPinching] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [prefs, setPrefs] = useState<MediaPrefs | null>(null);
@@ -299,6 +306,20 @@ export default function CameraScreen() {
 
   const dualMode = mode === 'walkthru' && isDualCameraSupported && !dualError && !previewMode;
 
+  // Pinch to zoom, like the stock camera. State updates are cheap enough at
+  // gesture rate here, and both viewfinders take a plain number.
+  const pinch = Gesture.Pinch()
+    .runOnJS(true)
+    .onBegin(() => {
+      pinchStart.current = zoom;
+      setPinching(true);
+    })
+    .onUpdate((event) => {
+      const next = Math.min(MAX_ZOOM, Math.max(1, pinchStart.current * event.scale));
+      setZoom(Math.round(next * 10) / 10);
+    })
+    .onFinalize(() => setPinching(false));
+
   const saveRecording = (video: { uri: string; width?: number; height?: number }) => {
     if (!jobId) return;
     setShotCount((count) => count + 1);
@@ -401,7 +422,9 @@ export default function CameraScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <GestureHandlerRootView style={styles.root}>
+      <GestureDetector gesture={pinch}>
+      <View style={StyleSheet.absoluteFill}>
       {previewMode ? (
         <View style={[StyleSheet.absoluteFill, styles.previewViewfinder]}>
           <Ionicons name="videocam-outline" size={54} color="#31445C" />
@@ -414,6 +437,7 @@ export default function CameraScreen() {
           pipCorner={pipCorner}
           pipScale={0.3}
           swapped={swapped}
+          zoom={zoom}
           torch={flash !== 'off'}
           onReady={() => setDualReady(true)}
           onError={(event) => {
@@ -430,11 +454,20 @@ export default function CameraScreen() {
           style={StyleSheet.absoluteFill}
           facing={facing}
           flash={flash}
-          zoom={zoom}
+          zoom={toCameraZoom(zoom)}
           mode={mode === 'photo' ? 'picture' : 'video'}
           enableTorch={mode !== 'photo' && flash !== 'off'}
         />
       )}
+      </View>
+      </GestureDetector>
+      {pinching ? (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center]}>
+          <View style={styles.zoomBubble}>
+            <Text style={styles.zoomBubbleText}>{zoom.toFixed(1)}x</Text>
+          </View>
+        </View>
+      ) : null}
       {showGrid ? (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <View style={[styles.gridLine, { left: '33.3%', width: 1, top: 0, bottom: 0 }]} />
@@ -593,16 +626,22 @@ export default function CameraScreen() {
         ) : null}
 
         <View style={styles.zoomRow}>
-          {(dualMode ? [] : ZOOMS).map((entry) => (
-            <Pressable
-              key={entry.label}
-              onPress={() => setZoom(entry.value)}
-              style={[styles.zoomChip, zoom === entry.value && styles.zoomChipOn]}>
-              <Text style={[styles.zoomText, zoom === entry.value && styles.zoomTextOn]}>
-                {entry.label}
-              </Text>
-            </Pressable>
-          ))}
+          {ZOOMS.map((entry) => {
+            const on = Math.abs(zoom - entry.value) < 0.05;
+            const between = !ZOOMS.some((z) => Math.abs(zoom - z.value) < 0.05);
+            // The chip nearest a free-pinched zoom shows the live number.
+            const nearest = between && ZOOMS.reduce((a, b) => (Math.abs(b.value - zoom) < Math.abs(a.value - zoom) ? b : a)).label === entry.label;
+            return (
+              <Pressable
+                key={entry.label}
+                onPress={() => setZoom(entry.value)}
+                style={[styles.zoomChip, (on || nearest) && styles.zoomChipOn]}>
+                <Text style={[styles.zoomText, (on || nearest) && styles.zoomTextOn]}>
+                  {nearest ? `${zoom.toFixed(1)}x` : entry.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <View style={styles.categoryRow}>
@@ -681,7 +720,7 @@ export default function CameraScreen() {
           ))}
         </View>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -849,6 +888,13 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
   },
+  zoomBubble: {
+    backgroundColor: '#000000A0',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  zoomBubbleText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   walkHint: {
     color: '#D7E3F4',
     fontSize: 12,

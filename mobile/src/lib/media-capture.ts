@@ -20,6 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { decode } from 'base64-arraybuffer';
 import { Linking, Platform } from 'react-native';
 
@@ -358,6 +359,17 @@ async function makeThumbnail(uri: string, width?: number): Promise<string | unde
   }
 }
 
+/** A frame from one second in, shrunk like a photo thumbnail — so videos get a
+ *  real picture in the grid instead of a camera icon. Best-effort. */
+async function makeVideoThumbnail(uri: string): Promise<string | undefined> {
+  try {
+    const frame = await VideoThumbnails.getThumbnailAsync(uri, { time: 1000, quality: 0.8 });
+    return await makeThumbnail(frame.uri, frame.width);
+  } catch {
+    return undefined;
+  }
+}
+
 /** The file is gone: a missing-file message, so the queue parks the item
  *  instead of retrying a URI that can never resolve. */
 const MISSING_FILE = 'The file could not be read from this device.';
@@ -639,7 +651,9 @@ async function saveOrQueue(
   const geo = extras.geo;
   const localUri = await persistLocalCopy(file.uri, file.ext);
   const thumbUri =
-    file.mediaType === 'image' ? await makeThumbnail(localUri, file.width) : undefined;
+    file.mediaType === 'image'
+      ? await makeThumbnail(localUri, file.width)
+      : await makeVideoThumbnail(localUri);
 
   if (!isSupabaseConfigured) {
     const item: MediaItem = {

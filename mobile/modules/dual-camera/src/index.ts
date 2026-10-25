@@ -20,6 +20,8 @@ export type DualCameraViewProps = ViewProps & {
   swapped?: boolean;
   muted?: boolean;
   torch?: boolean;
+  /** Zoom factor on the main camera, 1–8 (clamped to what the lens can do). */
+  zoom?: number;
   onReady?: () => void;
   onError?: (event: { nativeEvent: { message: string } }) => void;
   onRecordingFinished?: (event: { nativeEvent: DualCameraRecording }) => void;

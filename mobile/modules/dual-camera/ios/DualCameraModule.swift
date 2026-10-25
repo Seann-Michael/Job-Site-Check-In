@@ -28,6 +28,9 @@ public class DualCameraModule: Module {
       Prop("torch") { (view: DualCameraView, on: Bool) in
         view.setTorch(on)
       }
+      Prop("zoom") { (view: DualCameraView, factor: Double) in
+        view.setZoom(CGFloat(factor))
+      }
 
       AsyncFunction("startRecording") { (view: DualCameraView, promise: Promise) in
         view.startRecording { error in

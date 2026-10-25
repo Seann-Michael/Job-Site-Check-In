@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import React from 'react';
 import {
   FlatList,
@@ -327,9 +328,11 @@ function MediaViewerBody({
         onMomentumScrollEnd={(event) => {
           setIndex(Math.round(event.nativeEvent.contentOffset.x / windowWidth));
         }}
-        renderItem={({ item }) => (
+        renderItem={({ item, index: itemIndex }) => (
           <View style={[styles.page, { width: windowWidth }]}>
-            {item.uri ? (
+            {item.uri && item.media_type === 'video' ? (
+              <VideoPage uri={item.uri} active={itemIndex === index} />
+            ) : item.uri ? (
               <Image
                 source={{ uri: item.uri }}
                 style={StyleSheet.absoluteFill}
@@ -545,6 +548,34 @@ function MediaViewerBody({
         </KeyboardAvoidingView>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * One video page of the viewer. Plays as soon as it's the page on screen,
+ * pauses when swiped away, native controls for scrubbing / full screen.
+ */
+function VideoPage({ uri, active }: { uri: string; active: boolean }) {
+  const player = useVideoPlayer({ uri }, (instance) => {
+    instance.loop = false;
+    instance.timeUpdateEventInterval = 0;
+  });
+  React.useEffect(() => {
+    if (active) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [active, player]);
+  return (
+    <VideoView
+      player={player}
+      style={StyleSheet.absoluteFill}
+      contentFit="contain"
+      nativeControls
+      allowsFullscreen
+      allowsPictureInPicture={false}
+    />
   );
 }
 

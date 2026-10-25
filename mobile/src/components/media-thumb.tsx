@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Platform } from 'react-native';
 
 import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,6 +35,9 @@ type TileSource = { uri: string; full: boolean };
  * pipeline shipped has none and never will, and web uploads never have one
  * either. Its absence is normal, not an error.
  */
+/** uri → extracted frame (null = tried and failed). Session-scoped. */
+const videoFrames = new Map<string, string | null>();
+
 export function MediaThumb({ item, fill = false }: { item: MediaItem; /** Stretch to the parent instead of a rounded square (mosaics). */ fill?: boolean }) {
   const { colors, isDark } = useTheme();
 
@@ -41,15 +45,43 @@ export function MediaThumb({ item, fill = false }: { item: MediaItem; /** Stretc
   // pruned, or the thumbnail upload failed after the row landed) falls through
   // to the original rather than leaving a hole in the grid; when the original
   // fails too the ladder runs out and the category placeholder shows.
+  // Older videos were saved without a thumbnail; pull a frame on the device
+  // once and remember it for the session.
+  const [frameUri, setFrameUri] = React.useState<string | null>(
+    () => (item.media_type === 'video' && item.uri ? videoFrames.get(item.uri) ?? null : null),
+  );
+  React.useEffect(() => {
+    if (item.media_type !== 'video' || item.thumb_uri || !item.uri || Platform.OS === 'web') return;
+    const cached = videoFrames.get(item.uri);
+    if (cached !== undefined) {
+      setFrameUri(cached);
+      return;
+    }
+    let alive = true;
+    void VideoThumbnails.getThumbnailAsync(item.uri, { time: 1000, quality: 0.6 })
+      .then((frame) => {
+        videoFrames.set(item.uri!, frame.uri);
+        if (alive) setFrameUri(frame.uri);
+      })
+      .catch(() => {
+        videoFrames.set(item.uri!, null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [item.media_type, item.thumb_uri, item.uri]);
+
   const sources = React.useMemo<TileSource[]>(() => {
     const list: TileSource[] = [];
-    // Videos never get a thumbnail from the pipeline, so don't look for one.
-    if (item.media_type === 'image' && item.thumb_uri) {
-      list.push({ uri: item.thumb_uri, full: false });
+    if (item.thumb_uri) list.push({ uri: item.thumb_uri, full: false });
+    if (item.media_type === 'video') {
+      // An <Image> can't decode a video URL, so the ladder stops at the frame.
+      if (frameUri) list.push({ uri: frameUri, full: false });
+      return list;
     }
     if (item.uri) list.push({ uri: item.uri, full: true });
     return list;
-  }, [item.media_type, item.thumb_uri, item.uri]);
+  }, [item.media_type, item.thumb_uri, item.uri, frameUri]);
 
   const sourceKey = sources.map((entry) => entry.uri).join('|');
   // The grids re-chunk their rows when a filter changes, so one MediaThumb

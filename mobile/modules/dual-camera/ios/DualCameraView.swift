@@ -23,6 +23,26 @@ class DualCameraView: ExpoView {
     didSet {
       setNeedsLayout()
       recorder.swapped = swapped
+      setZoom(zoomFactor)
+    }
+  }
+  private var zoomFactor: CGFloat = 1
+
+  /// Zoom applies to whichever camera is full-frame; the bubble stays at 1x.
+  func setZoom(_ factor: CGFloat) {
+    zoomFactor = factor
+    sessionQueue.async { [weak self] in
+      guard let self = self else { return }
+      let main = self.swapped ? self.frontDevice : self.backDevice
+      let other = self.swapped ? self.backDevice : self.frontDevice
+      for (device, target) in [(main, factor), (other, CGFloat(1))] {
+        guard let device = device else { continue }
+        let clamped = min(max(1, target), min(device.activeFormat.videoMaxZoomFactor, 8))
+        if (try? device.lockForConfiguration()) != nil {
+          device.ramp(toVideoZoomFactor: clamped, withRate: 8)
+          device.unlockForConfiguration()
+        }
+      }
     }
   }
   var muted: Bool = false { didSet { recorder.muted = muted } }
@@ -42,6 +62,10 @@ class DualCameraView: ExpoView {
   private let frontLayer = AVCaptureVideoPreviewLayer()
   private var configured = false
   private var observers: [NSObjectProtocol] = []
+  // iOS 17+: the authoritative "which way is up" per camera. Must be retained.
+  private var rotationCoordinators: [AnyObject] = []
+  // Preview layers whose connection refused a rotation get turned by hand.
+  private var layerNeedsTurn: [ObjectIdentifier: Bool] = [:]
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -104,7 +128,7 @@ class DualCameraView: ExpoView {
     CATransaction.setDisableActions(true)
     let main = swapped ? frontLayer : backLayer
     let pip = swapped ? backLayer : frontLayer
-    main.frame = bounds
+    place(main, in: bounds)
     main.cornerRadius = 0
     main.borderWidth = 0
     main.zPosition = 0
@@ -122,13 +146,26 @@ class DualCameraView: ExpoView {
     case "bottomRight": y = bounds.height - safeBottom - h
     default: break
     }
-    pip.frame = CGRect(x: x, y: y, width: w, height: h)
+    place(pip, in: CGRect(x: x, y: y, width: w, height: h))
     pip.cornerRadius = 14
     pip.borderWidth = 1.5
     pip.zPosition = 1
     CATransaction.commit()
     recorder.pipCorner = pipCorner
     recorder.pipScale = pipScale
+  }
+
+  /// Frames the layer in `rect`; a layer whose connection couldn't be rotated
+  /// is laid out sideways and turned 90° clockwise so it still fills `rect`.
+  private func place(_ layer: CALayer, in rect: CGRect) {
+    if layerNeedsTurn[ObjectIdentifier(layer)] == true {
+      layer.bounds = CGRect(x: 0, y: 0, width: rect.height, height: rect.width)
+      layer.position = CGPoint(x: rect.midX, y: rect.midY)
+      layer.setAffineTransform(CGAffineTransform(rotationAngle: .pi / 2))
+    } else {
+      layer.setAffineTransform(.identity)
+      layer.frame = rect
+    }
   }
 
   // MARK: - Session
@@ -202,28 +239,52 @@ class DualCameraView: ExpoView {
     guard session.canAddOutput(output) else { throw err("Could not add camera output.") }
     session.addOutputWithNoConnections(output)
 
+    // Which angle makes each camera upright in portrait. The coordinator is
+    // the system's answer on iOS 17+; before that both cameras want 90°.
+    var captureAngle: CGFloat = 90
+    var previewAngle: CGFloat = 90
+    if #available(iOS 17.0, *) {
+      let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+      rotationCoordinators.append(coordinator)
+      captureAngle = coordinator.videoRotationAngleForHorizonLevelCapture
+      previewAngle = coordinator.videoRotationAngleForHorizonLevelPreview
+    }
+
     let dataConnection = AVCaptureConnection(inputPorts: [port], output: output)
     guard session.canAddConnection(dataConnection) else { throw err("Could not connect camera.") }
     session.addConnection(dataConnection)
-    orient(dataConnection, mirrored: mirrored)
+    let dataRotated = orient(dataConnection, angle: captureAngle, mirrored: mirrored)
+    // If the output can't rotate the buffers, the recorder turns the frames.
+    if device.position == .front { recorder.frontNeedsTurn = !dataRotated } else { recorder.backNeedsTurn = !dataRotated }
 
     previewLayer.setSessionWithNoConnection(session)
     let previewConnection = AVCaptureConnection(inputPort: port, videoPreviewLayer: previewLayer)
     guard session.canAddConnection(previewConnection) else { throw err("Could not connect preview.") }
     session.addConnection(previewConnection)
-    orient(previewConnection, mirrored: mirrored)
+    let previewRotated = orient(previewConnection, angle: previewAngle, mirrored: mirrored)
+    layerNeedsTurn[ObjectIdentifier(previewLayer)] = !previewRotated
+    DispatchQueue.main.async { self.setNeedsLayout() }
   }
 
-  private func orient(_ connection: AVCaptureConnection, mirrored: Bool) {
-    if #available(iOS 17.0, *) {
-      if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
-    } else if connection.isVideoOrientationSupported {
-      connection.videoOrientation = .portrait
-    }
+  /// Returns true when the connection itself now delivers upright portrait frames.
+  @discardableResult
+  private func orient(_ connection: AVCaptureConnection, angle: CGFloat, mirrored: Bool) -> Bool {
     if connection.isVideoMirroringSupported {
       connection.automaticallyAdjustsVideoMirroring = false
       connection.isVideoMirrored = mirrored
     }
+    var rotated = false
+    if #available(iOS 17.0, *) {
+      if connection.isVideoRotationAngleSupported(angle) {
+        connection.videoRotationAngle = angle
+        rotated = abs(connection.videoRotationAngle - angle) < 0.5
+      }
+    }
+    if !rotated, connection.isVideoOrientationSupported {
+      connection.videoOrientation = .portrait
+      rotated = connection.videoOrientation == .portrait
+    }
+    return rotated
   }
 
   private func err(_ message: String) -> NSError {
