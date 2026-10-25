@@ -262,3 +262,84 @@ aiRouter.post("/rewrite", async (req: Request, res: Response) => {
     handleError(req, res, err, "rewrite");
   }
 });
+
+// POST /api/ai/caption
+// One post written once, fitted to each destination. Facts only — nothing the
+// job didn't record goes in. Settings come from businesses.share_settings.caption
+// unless the caller overrides them.
+// {
+//   businessName, service, stage ("before"|"progress"|"after"|"final"), city, state,
+//   keywords?: string[], onSiteMinutes?, checklistDone?, checklistTotal?,
+//   photoCounts?: {before,progress,after,final}, materials?: string[], note?,
+//   tone?: "plain"|"friendly"|"professional", alwaysMention?, neverSay?: string[], hashtags?: boolean
+// }
+// -> { title, gbp, facebook, instagram, website, hashtags: string[] }
+aiRouter.post("/caption", async (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  const businessName = str(b.businessName, 120);
+  const service = str(b.service, 120);
+  const city = str(b.city, 80);
+  const state = str(b.state, 40);
+  if (!businessName || !service) return res.status(400).json({ error: "businessName and service are required" });
+  const stage = ["before", "progress", "after", "final"].includes(b.stage) ? b.stage : "progress";
+  const tone = ["plain", "friendly", "professional"].includes(b.tone) ? b.tone : "plain";
+  const keywords = Array.isArray(b.keywords) ? b.keywords.filter((k: any) => typeof k === "string").slice(0, 8) : [];
+  const materials = Array.isArray(b.materials) ? b.materials.filter((k: any) => typeof k === "string").slice(0, 8) : [];
+  const neverSay = Array.isArray(b.neverSay) ? b.neverSay.filter((k: any) => typeof k === "string").slice(0, 20) : [];
+  const alwaysMention = str(b.alwaysMention, 200);
+  const note = str(b.note, 600);
+  const onSite = clampInt(b.onSiteMinutes, 0, 24 * 60, 0);
+  const done = clampInt(b.checklistDone, 0, 500, 0);
+  const total = clampInt(b.checklistTotal, 0, 500, 0);
+  const pc = b.photoCounts && typeof b.photoCounts === "object" ? b.photoCounts : {};
+  const wantTags = b.hashtags !== false;
+
+  const facts: string[] = [
+    `Business: ${businessName}`,
+    `Service: ${service}`,
+    `Stage of work: ${stage}`,
+    city ? `Location (city only, never a street address): ${city}${state ? `, ${state}` : ""}` : "Location: not given",
+  ];
+  if (onSite > 0) facts.push(`Time on site so far: ${Math.floor(onSite / 60)}h ${onSite % 60}m`);
+  if (total > 0) facts.push(`Checklist: ${done} of ${total} items done`);
+  const counts = Object.entries(pc).filter(([, v]) => Number(v) > 0).map(([k, v]) => `${v} ${k}`);
+  if (counts.length) facts.push(`Photos: ${counts.join(", ")}`);
+  if (materials.length) facts.push(`Materials: ${materials.join(", ")}`);
+  if (keywords.length) facts.push(`Target phrases (use naturally, don't stuff): ${keywords.join("; ")}`);
+  if (note) facts.push(`Crew note (internal; use only facts about the work, never names or addresses): ${note}`);
+  if (alwaysMention) facts.push(`Always include this line somewhere: "${alwaysMention}"`);
+  if (neverSay.length) facts.push(`Never use these words: ${neverSay.join(", ")}`);
+
+  try {
+    const out = await chatCompletion(
+      [
+        {
+          role: "system",
+          content:
+            `You write social and Google Business Profile posts for a local home-service company. Tone: ${tone}. ` +
+            "Use ONLY the facts provided — never invent results, prices, warranties, customer names, or street addresses. " +
+            "Mention the city when given. Keep sentences short and concrete. " +
+            "Return a JSON object with keys: title (max 60 chars), gbp (max 1400 chars, no hashtags, no emoji), " +
+            "facebook (max 400 chars, may use 1-2 emoji), instagram (max 350 chars, line breaks ok), " +
+            "website (2-4 sentences, third person, suitable for a project page), " +
+            (wantTags ? "hashtags (array of 3-6 short tags without the # sign, including the city and service)." : "hashtags (empty array)."),
+        },
+        { role: "user", content: facts.join("\n") },
+      ],
+      { maxTokens: 900, temperature: 0.6, json: true },
+    );
+    const parsed = parseJsonResponse<any>(out);
+    const pick = (k: string, max: number) => (typeof parsed?.[k] === "string" ? parsed[k].trim().slice(0, max) : "");
+    const hashtags = Array.isArray(parsed?.hashtags) ? parsed.hashtags.map((t: any) => String(t).replace(/[^\w]/g, "")).filter(Boolean).slice(0, 6) : [];
+    res.json({
+      title: pick("title", 120),
+      gbp: pick("gbp", 1500),
+      facebook: pick("facebook", 5000),
+      instagram: pick("instagram", 2200),
+      website: pick("website", 5000),
+      hashtags: wantTags ? hashtags : [],
+    });
+  } catch (err) {
+    handleError(req, res, err, "caption");
+  }
+});

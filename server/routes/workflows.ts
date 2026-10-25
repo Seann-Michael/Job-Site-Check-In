@@ -794,3 +794,46 @@ export async function handleGetWebhookDeliveries(req: Request, res: Response) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// ── Programmatic trigger (used by server/lib/shares.ts) ──────────────────────
+/**
+ * Run a workflow for a business without an HTTP request in hand. The caller is
+ * the server itself, so authorisation is "the workflow belongs to this
+ * business and is active" — the same check the authed trigger makes after it
+ * has verified the session.
+ */
+export async function runWorkflowById(
+  workflowId: string,
+  businessId: string,
+  payload: WebhookPayload,
+): Promise<{ ok: boolean; detail: string; executionId?: string }> {
+  const db = getSupabaseClient();
+  const { data: workflow, error: workflowError } = await db
+    .from("workflows")
+    .select("*")
+    .eq("id", workflowId)
+    .eq("is_active", true)
+    .single();
+  if (workflowError || !workflow) return { ok: false, detail: "The website workflow is missing or turned off." };
+  if (String(workflow.business_id) !== String(businessId)) return { ok: false, detail: "The website workflow belongs to a different business." };
+  const { data: execution, error: executionError } = await db
+    .from("workflow_executions")
+    .insert({ workflow_id: workflowId, business_id: workflow.business_id, trigger_data: payload, status: "pending" })
+    .select()
+    .single();
+  if (executionError || !execution) return { ok: false, detail: "Could not start the website workflow." };
+  const run = await executeWorkflow(execution.id, workflow, payload);
+  if (run.status === "completed") {
+    return {
+      ok: true,
+      executionId: String(execution.id),
+      detail: run.steps.length > 0 ? "Sent to your website." : "The website workflow ran but has no steps, so nothing was published.",
+    };
+  }
+  const failed = run.steps.filter((s) => s.status === "failed").length;
+  return {
+    ok: false,
+    executionId: String(execution.id),
+    detail: failed > 0 ? `Your website rejected the project (${failed} of ${run.steps.length} steps failed).` : run.errorMessage || "The website workflow failed.",
+  };
+}

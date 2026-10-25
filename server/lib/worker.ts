@@ -19,6 +19,7 @@ import { logger } from "./logger";
 import { sendEmail, isEmailConfigured, renderTemplate } from "./email";
 import { sendCampaignById } from "../routes/email";
 import { safeFetch, SafeFetchError, readLimitedText } from "./safeFetch";
+import { processQueuedShares } from "./shares";
 
 const log = logger.child({ module: "worker" });
 
@@ -74,6 +75,7 @@ async function tick(): Promise<void> {
 }
 
 export interface TickSummary {
+  shares: { processed: number; live: number; failed: number };
   broadcasts: { processed: number; sent: number; failed: number };
   campaigns: { processed: number; sent: number; skipped: number; failed: number };
   triggers: { evaluated: number; fired: number; failed: number };
@@ -101,7 +103,12 @@ export async function runTickOnce(): Promise<TickSummary> {
     fired: 0,
     failed: 0,
   });
-  return { broadcasts, campaigns, triggers };
+  const shares = await guarded("project_shares", () => processQueuedShares(), {
+    processed: 0,
+    live: 0,
+    failed: 0,
+  });
+  return { broadcasts, campaigns, triggers, shares };
 }
 
 async function guarded<T>(name: string, fn: () => Promise<T>, fallback: T): Promise<T> {

@@ -44,6 +44,7 @@ import { handleRevenueCatWebhook } from "./routes/revenuecat";
 import { emailRouter } from "./routes/email";
 import { automationRouter } from "./routes/automation";
 import { gbpRouter } from "./routes/gbp";
+import { sharesRouter } from "./routes/shares";
 
 export const APP_VERSION = process.env.APP_VERSION || process.env.npm_package_version || "1.0.0";
 
@@ -261,6 +262,7 @@ export function createServer(options: CreateServerOptions = {}) {
   // Google Business Profile live API (reviews, posts, Q&A, insights, sync).
   // Router applies requireAuth itself; per-business access is enforced inside.
   app.use("/api/gbp", gbpRouter);
+  app.use("/api/shares", sharesRouter);
 
   // Google OAuth (Business Profile connection)
   app.post("/api/oauth/google_my_business/start", requireAuth, requireWrite, handleGoogleStart);
