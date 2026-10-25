@@ -24,6 +24,7 @@ import { decode } from 'base64-arraybuffer';
 import { Linking, Platform } from 'react-native';
 
 import { stampImage } from '@/components/stamp-host';
+import { getWeatherStamp } from '@/lib/weather';
 import { snapshotUploader } from '@/lib/identity';
 import { getLogoUri } from '@/lib/logo';
 import { getMediaPrefs, QUALITY_DIMENSIONS } from '@/lib/media-prefs';
@@ -733,14 +734,16 @@ export async function savePreparedImage(
   );
 }
 
+/** 01/25/2026 11:14 AM */
 function formatStampTimestamp(date: Date): string {
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  let hours = date.getHours();
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd}/${yyyy} ${hours}:${minutes} ${suffix}`;
 }
 
 function formatStampGps(geo: GeoFix): string {
@@ -758,8 +761,15 @@ async function applyStamps(
   const business = await workspace.getCurrent();
   const lines: string[] = [];
   if (prefs.stampBusiness && business?.name) lines.push(business.name);
-  if (prefs.stampTimestamp) lines.push(formatStampTimestamp(new Date()));
-  if (prefs.stampGps && geo) lines.push(formatStampGps(geo));
+  // Date, coordinates and weather share one line — less of the photo covered.
+  const details: string[] = [];
+  if (prefs.stampTimestamp) details.push(formatStampTimestamp(new Date()));
+  if (prefs.stampGps && geo) details.push(formatStampGps(geo));
+  if (prefs.stampWeather && geo) {
+    const weather = await getWeatherStamp(geo.latitude, geo.longitude);
+    if (weather) details.push(weather);
+  }
+  if (details.length > 0) lines.push(details.join('  ·  '));
   const logoUri = prefs.stampLogo && business ? await getLogoUri(business.id) : null;
   if ((lines.length === 0 && !logoUri) || Platform.OS === 'web') return image;
 

@@ -170,7 +170,11 @@ export function StampHost() {
         onLoad={handleLoaded}
         onError={() => finish(null)}
       />
-      <View style={[styles.stampColumn, { left: inset, bottom: chipsBottom, gap: 4 * ui }]}>
+      <View
+        style={[
+          styles.stampColumn,
+          { left: inset, bottom: chipsBottom, gap: 4 * ui, maxWidth: renderWidth - inset * 2 },
+        ]}>
         {request.lines.map((line, index) => (
           <View
             key={index}
@@ -183,6 +187,9 @@ export function StampHost() {
               },
             ]}>
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.65}
               style={[
                 styles.chipText,
                 { fontSize: 11 * ui },

@@ -314,6 +314,12 @@ export default function MediaSettingsScreen() {
                 label: 'GPS coordinates stamp',
                 sub: 'Overlay latitude/longitude (needs GPS on)',
               },
+              {
+                key: 'stampWeather' as const,
+                icon: 'partly-sunny-outline' as const,
+                label: 'Weather stamp',
+                sub: 'Temperature and sky at capture time (needs GPS on)',
+              },
             ]
           ).map((row, index) => {
             // Only the business-name stamp needs the current business to render.

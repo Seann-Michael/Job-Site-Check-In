@@ -57,6 +57,8 @@ export interface MediaPrefs {
   stampTimestamp: boolean;
   /** Burn the GPS coordinates onto the photo. */
   stampGps: boolean;
+  /** Burn the current weather (temperature + sky) onto the photo. */
+  stampWeather: boolean;
   /** Burn the business name onto the photo. */
   stampBusiness: boolean;
   /** Place the business logo on captured photos, at `stampPosition`. */
@@ -71,6 +73,7 @@ export const DEFAULT_MEDIA_PREFS: MediaPrefs = {
   defaultCategory: 'ask',
   stampTimestamp: true,
   stampGps: true,
+  stampWeather: false,
   stampBusiness: true,
   stampLogo: false,
   stampPosition: 'bottom-right',

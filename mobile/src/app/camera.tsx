@@ -26,6 +26,14 @@ import {
 import { getMediaPrefs, setMediaPrefs, type MediaPrefs } from '@/lib/media-prefs';
 import { useAuth } from '@/providers/auth-provider';
 import type { MediaCategory } from '@/lib/types';
+import {
+  DualCameraView,
+  isDualCameraSupported,
+  type DualCameraCorner,
+  type DualCameraHandle,
+} from '../../modules/dual-camera/src';
+
+const PIP_CORNERS: DualCameraCorner[] = ['topRight', 'bottomRight', 'bottomLeft', 'topLeft'];
 
 const ZOOMS: { label: string; value: number }[] = [
   { label: '1x', value: 0 },
@@ -121,6 +129,13 @@ export default function CameraScreen() {
   const [levelOn, setLevelOn] = useState(false);
   const [roll, setRoll] = useState(0);
   const [walkStep, setWalkStep] = useState(0);
+  // Walk-through = both cameras at once (rear full-frame, you in a bubble)
+  // on phones that can do it; otherwise it is ordinary single-camera video.
+  const dualRef = useRef<DualCameraHandle>(null);
+  const [dualReady, setDualReady] = useState(false);
+  const [dualError, setDualError] = useState<string | null>(null);
+  const [pipCorner, setPipCorner] = useState<DualCameraCorner>('topRight');
+  const [swapped, setSwapped] = useState(false);
 
   // Level indicator: roll from the accelerometer while enabled. iOS reports
   // gravity direction (upright => y ≈ -1) while Android reports the reaction
@@ -153,7 +168,7 @@ export default function CameraScreen() {
     void getMediaPrefs().then(setPrefs);
   }, []);
 
-  const togglePref = (key: 'stampTimestamp' | 'stampGps' | 'stampBusiness' | 'stampLogo') => {
+  const togglePref = (key: 'stampTimestamp' | 'stampGps' | 'stampWeather' | 'stampBusiness' | 'stampLogo') => {
     if (!prefs) return;
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
@@ -282,40 +297,76 @@ export default function CameraScreen() {
     }
   };
 
-  const toggleRecord = async () => {
-    if (!cameraRef.current || !jobId) return;
-    if (recording) {
-      cameraRef.current.stopRecording();
-      return;
-    }
+  const dualMode = mode === 'walkthru' && isDualCameraSupported && !dualError && !previewMode;
+
+  const saveRecording = (video: { uri: string; width?: number; height?: number }) => {
+    if (!jobId) return;
+    setShotCount((count) => count + 1);
+    setLastShotUri(null);
+    savingRef.current += 1;
+    void saveCameraVideo(jobId, jobTitle ?? '', category, video, geoRef.current)
+      .then((result) => {
+        if (result.queued) setQueuedCount((count) => count + 1);
+        else if (result.error) {
+          setShotCount((count) => Math.max(0, count - 1));
+          notify('Not saved', result.error);
+        }
+      })
+      .finally(() => {
+        savingRef.current = Math.max(0, savingRef.current - 1);
+      });
+  };
+
+  const ensureMic = async () => {
     if (micPermission && !micPermission.granted) {
       const response = await requestMicPermission();
       if (!response.granted) {
         notify('Microphone needed', 'Videos record without sound unless mic access is allowed.');
       }
     }
+  };
+
+  const toggleDualRecord = async () => {
+    if (!dualRef.current || !jobId) return;
+    if (recording) {
+      try {
+        const video = await dualRef.current.stopRecording();
+        setRecording(false);
+        if (video?.uri) saveRecording(video);
+      } catch (error) {
+        setRecording(false);
+        notify('Could not save', error instanceof Error ? error.message : 'Try again.');
+      }
+      return;
+    }
+    if (!dualReady) {
+      notify('One moment', 'Both cameras are still starting.');
+      return;
+    }
+    await ensureMic();
+    try {
+      await dualRef.current.startRecording();
+      setRecording(true);
+    } catch (error) {
+      notify('Could not record', error instanceof Error ? error.message : 'Try again.');
+    }
+  };
+
+  const toggleRecord = async () => {
+    if (dualMode) return toggleDualRecord();
+    if (!cameraRef.current || !jobId) return;
+    if (recording) {
+      cameraRef.current.stopRecording();
+      return;
+    }
+    await ensureMic();
     setRecording(true);
     try {
       const video = await cameraRef.current.recordAsync({ maxDuration: 120 });
       // Leave "recording" state the moment capture ends — the (possibly
       // slow) save runs in the background like photos do.
       setRecording(false);
-      if (video?.uri) {
-        setShotCount((count) => count + 1);
-        setLastShotUri(null);
-        savingRef.current += 1;
-        void saveCameraVideo(jobId, jobTitle ?? '', category, video, geoRef.current)
-          .then((result) => {
-            if (result.queued) setQueuedCount((count) => count + 1);
-            else if (result.error) {
-              setShotCount((count) => Math.max(0, count - 1));
-              notify('Not saved', result.error);
-            }
-          })
-          .finally(() => {
-            savingRef.current = Math.max(0, savingRef.current - 1);
-          });
-      }
+      if (video?.uri) saveRecording(video);
     } catch (error) {
       notify('Could not record', error instanceof Error ? error.message : 'Try again.');
     } finally {
@@ -333,7 +384,8 @@ export default function CameraScreen() {
     // Never navigate away mid-recording — that tears down the camera session
     // and discards the footage. Stop first; the resolved recording saves.
     if (recording) {
-      cameraRef.current?.stopRecording();
+      if (dualMode) void toggleDualRecord();
+      else cameraRef.current?.stopRecording();
       return;
     }
     if (savingRef.current > 0) {
@@ -355,6 +407,23 @@ export default function CameraScreen() {
           <Ionicons name="videocam-outline" size={54} color="#31445C" />
           <Text style={styles.previewLabel}>Live viewfinder (on your phone)</Text>
         </View>
+      ) : dualMode ? (
+        <DualCameraView
+          ref={dualRef}
+          style={StyleSheet.absoluteFill}
+          pipCorner={pipCorner}
+          pipScale={0.3}
+          swapped={swapped}
+          torch={flash !== 'off'}
+          onReady={() => setDualReady(true)}
+          onError={(event) => {
+            // Fall back to the single camera rather than a black screen.
+            setDualError(event.nativeEvent.message);
+            setDualReady(false);
+            if (recording) setRecording(false);
+            notify('Single camera', event.nativeEvent.message);
+          }}
+        />
       ) : (
         <CameraView
           ref={cameraRef}
@@ -413,12 +482,27 @@ export default function CameraScreen() {
             {flash === 'auto' ? <Text style={styles.flashAuto}>A</Text> : null}
           </Pressable>
           <Pressable
-            disabled={recording}
-            onPress={() => setFacing((side) => (side === 'back' ? 'front' : 'back'))}
+            disabled={recording && !dualMode}
+            onPress={() => {
+              if (dualMode) setSwapped((value) => !value);
+              else setFacing((side) => (side === 'back' ? 'front' : 'back'));
+            }}
             hitSlop={10}
-            style={[styles.roundButton, recording && { opacity: 0.4 }]}>
+            style={[styles.roundButton, recording && !dualMode && { opacity: 0.4 }]}>
             <Ionicons name="camera-reverse-outline" size={20} color="#FFFFFF" />
           </Pressable>
+          {dualMode ? (
+            <Pressable
+              onPress={() =>
+                setPipCorner(
+                  (corner) => PIP_CORNERS[(PIP_CORNERS.indexOf(corner) + 1) % PIP_CORNERS.length],
+                )
+              }
+              hitSlop={10}
+              style={styles.roundButton}>
+              <Ionicons name="move-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => setShowSettings((open) => !open)}
             hitSlop={10}
@@ -438,6 +522,7 @@ export default function CameraScreen() {
               { key: 'level', label: 'Display Level', icon: 'analytics-outline', on: levelOn },
               { key: 'stampTimestamp', label: 'Stamp Date/Time', icon: 'time-outline', on: prefs.stampTimestamp },
               { key: 'stampGps', label: 'Stamp Lat/Long', icon: 'location-outline', on: prefs.stampGps },
+              { key: 'stampWeather', label: 'Stamp Weather', icon: 'partly-sunny-outline', on: prefs.stampWeather },
               { key: 'stampBusiness', label: 'Stamp Business', icon: 'business-outline', on: prefs.stampBusiness },
               { key: 'stampLogo', label: 'Stamp Logo', icon: 'image-outline', on: prefs.stampLogo },
             ] as const
@@ -483,6 +568,19 @@ export default function CameraScreen() {
         ) : null}
 
         {mode === 'walkthru' ? (
+          <Text style={styles.walkHint}>
+            {dualMode
+              ? recording
+                ? 'Recording you and what you’re showing'
+                : dualReady
+                  ? 'Both cameras on — talk while you show it. Flip swaps, move changes the bubble corner.'
+                  : 'Starting both cameras…'
+              : isDualCameraSupported
+                ? 'Single camera for this clip.'
+                : 'Narrated video — this phone records one camera at a time.'}
+          </Text>
+        ) : null}
+        {mode === 'walkthru' ? (
           <Pressable
             onPress={() => setWalkStep((step) => (step + 1) % WALKTHRU_STEPS.length)}
             style={styles.walkPill}>
@@ -495,7 +593,7 @@ export default function CameraScreen() {
         ) : null}
 
         <View style={styles.zoomRow}>
-          {ZOOMS.map((entry) => (
+          {(dualMode ? [] : ZOOMS).map((entry) => (
             <Pressable
               key={entry.label}
               onPress={() => setZoom(entry.value)}
@@ -568,7 +666,12 @@ export default function CameraScreen() {
               disabled={recording}
               onPress={() => {
                 setMode(entry);
-                if (entry === 'walkthru') setWalkStep(0);
+                if (entry === 'walkthru') {
+                  setWalkStep(0);
+                  setDualError(null);
+                } else {
+                  setDualReady(false);
+                }
               }}
               style={[styles.modeChip, mode === entry && styles.modeChipOn]}>
               <Text style={[styles.modeText, mode === entry && styles.modeTextOn]}>
@@ -745,6 +848,13 @@ const styles = StyleSheet.create({
     width: 180,
     height: 2,
     borderRadius: 1,
+  },
+  walkHint: {
+    color: '#D7E3F4',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xl,
+    marginBottom: 6,
   },
   walkPill: {
     alignSelf: 'center',
