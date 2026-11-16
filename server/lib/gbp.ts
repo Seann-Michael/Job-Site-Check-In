@@ -626,6 +626,184 @@ export async function getLocationSummary(businessId: string): Promise<GbpLocatio
   };
 }
 
+/**
+ * The subset of the Business Information location resource this app is allowed
+ * to write. Everything here is a documented local-ranking input: the primary
+ * category and the service list drive which searches the profile is eligible
+ * for, hours drive the "open now" filter, and the description and site are what
+ * Google reads for relevance.
+ */
+export interface UpdateLocationInput {
+  title?: string;
+  phone?: string;
+  website?: string;
+  description?: string;
+  /** Category *id* (e.g. "gcid:plumber"), not a display name — see searchCategories. */
+  primaryCategoryId?: string;
+  additionalCategoryIds?: string[];
+  /** Day -> open/close in 24h "HH:MM"; pass `closed: true` to publish a closed day. */
+  hours?: Array<{ day: string; open?: string; close?: string; closed?: boolean }>;
+  /** Free-form service names shown under "Services" on the profile. */
+  services?: string[];
+}
+
+const GBP_DAYS = new Set([
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+]);
+
+/** "HH:MM" (24h) -> Google TimeOfDay. Returns null when unparseable. */
+function parseClock(v: unknown): { hours: number; minutes: number } | null {
+  if (typeof v !== "string") return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+  if (!m) return null;
+  const hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  if (!Number.isInteger(hours) || hours < 0 || hours > 23) return null;
+  if (!Number.isInteger(minutes) || minutes < 0 || minutes > 59) return null;
+  return { hours, minutes };
+}
+
+/**
+ * Business Information API: search Google's category taxonomy by display name.
+ *
+ * A location PATCH will not accept a human category name, only an id from this
+ * taxonomy, so the picker in the UI is fed from here rather than from free text.
+ */
+export async function searchCategories(
+  businessId: string,
+  query: string,
+  regionCode = "US",
+): Promise<Array<{ id: string; displayName: string }>> {
+  const tokens = await getTokensForBusiness(businessId);
+  if (!tokens) throw new GbpNotConnectedError();
+  const params = new URLSearchParams({
+    regionCode,
+    languageCode: "en",
+    filter: `displayName=${query}`,
+    view: "BASIC",
+    pageSize: "20",
+  });
+  const data = await gbpFetch(businessId, `${HOST_INFO}/v1/categories:search?${params.toString()}`);
+  const list: any[] = Array.isArray(data?.categories) ? data.categories : [];
+  return list
+    .map((c) => ({ id: String(c?.name || ""), displayName: String(c?.displayName || "") }))
+    .filter((c) => c.id && c.displayName);
+}
+
+/**
+ * Business Information API: write the editable profile fields back to Google.
+ *
+ * Only the fields actually present in `input` go into the updateMask, because
+ * the API treats a masked-but-absent field as "clear this" — sending a blanket
+ * mask would wipe whatever the caller did not supply.
+ *
+ * Returns the updated location as Google echoes it back.
+ */
+export async function updateLocation(businessId: string, input: UpdateLocationInput): Promise<any> {
+  const tokens = await getTokensForBusiness(businessId);
+  if (!tokens) throw new GbpNotConnectedError();
+  const { locationName } = await resolveLocation(businessId, tokens);
+
+  const body: any = {};
+  const mask: string[] = [];
+
+  if (typeof input.title === "string" && input.title.trim()) {
+    body.title = input.title.trim().slice(0, 300);
+    mask.push("title");
+  }
+  if (typeof input.phone === "string") {
+    body.phoneNumbers = { primaryPhone: input.phone.trim() };
+    mask.push("phoneNumbers");
+  }
+  if (typeof input.website === "string") {
+    body.websiteUri = input.website.trim();
+    mask.push("websiteUri");
+  }
+  if (typeof input.description === "string") {
+    // Google caps the profile description at 750 characters.
+    body.profile = { description: input.description.trim().slice(0, 750) };
+    mask.push("profile");
+  }
+
+  if (input.primaryCategoryId || (input.additionalCategoryIds && input.additionalCategoryIds.length)) {
+    const categories: any = {};
+    if (input.primaryCategoryId) {
+      categories.primaryCategory = { name: input.primaryCategoryId };
+    }
+    if (Array.isArray(input.additionalCategoryIds)) {
+      // Google allows at most 9 additional categories.
+      categories.additionalCategories = input.additionalCategoryIds
+        .filter((id) => typeof id === "string" && id.trim())
+        .slice(0, 9)
+        .map((id) => ({ name: id.trim() }));
+    }
+    body.categories = categories;
+    mask.push("categories");
+  }
+
+  if (Array.isArray(input.hours)) {
+    const periods: any[] = [];
+    for (const row of input.hours) {
+      const day = typeof row?.day === "string" ? row.day.toUpperCase() : "";
+      if (!GBP_DAYS.has(day)) continue;
+      // A closed day is expressed by omitting it from `periods` entirely.
+      if (row.closed) continue;
+      const openTime = parseClock(row.open);
+      const closeTime = parseClock(row.close);
+      if (!openTime || !closeTime) continue;
+      periods.push({ openDay: day, openTime, closeDay: day, closeTime });
+    }
+    body.regularHours = { periods };
+    mask.push("regularHours");
+  }
+
+  if (Array.isArray(input.services)) {
+    body.serviceItems = input.services
+      .filter((name) => typeof name === "string" && name.trim())
+      .slice(0, 100)
+      .map((name) => ({
+        freeFormServiceItem: {
+          category: input.primaryCategoryId || undefined,
+          label: { displayName: name.trim().slice(0, 120), languageCode: "en" },
+        },
+      }));
+    mask.push("serviceItems");
+  }
+
+  if (mask.length === 0) {
+    throw new GbpError("Nothing to update.", 400);
+  }
+
+  const url = `${HOST_INFO}/v1/${locationName}?updateMask=${encodeURIComponent(mask.join(","))}`;
+  return gbpFetch(businessId, url, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+/**
+ * Q&A API: post or replace the owner's answer to a question.
+ *
+ * `answers:upsert` is the owner-answer endpoint — it replaces this account's
+ * previous answer rather than stacking another one, which is what an edit in
+ * the UI should do.
+ */
+export async function answerQuestion(businessId: string, questionName: string, text: string): Promise<void> {
+  const tokens = await getTokensForBusiness(businessId);
+  if (!tokens) throw new GbpNotConnectedError();
+  const { locationName } = await resolveLocation(businessId, tokens);
+  const full = questionName.includes("/questions/")
+    ? questionName
+    : `${locationName}/questions/${questionName.split("/").pop()}`;
+  await gbpFetch(businessId, `${HOST_QANDA}/v1/${full}/answers:upsert`, {
+    method: "POST",
+    body: JSON.stringify({ answer: { text: text.slice(0, 4000) } }),
+  });
+}
+
 /** Q&A API: list questions (with the top answer) for the selected location. */
 export async function listQuestions(businessId: string): Promise<GbpQuestion[]> {
   const tokens = await getTokensForBusiness(businessId);

@@ -58,6 +58,7 @@ import { useNavigate } from "react-router-dom";
 import { formatTableDate } from "@/lib/dateUtils";
 import { supabase } from "@/lib/dataService";
 import { workspaceService } from "@/lib/workspaceService";
+import { apiFetch, isApiError } from "@/lib/api";
 import { ReviewRequest } from "@/components/ReviewRequest";
 import { ReviewAnalyticsSection } from "@/components/ReviewAnalyticsSection";
 
@@ -735,23 +736,73 @@ export default function AdminReviews() {
         : `${finalMessage} ${reviewLink}`;
     }
 
+    // ── SMS: actually send it ────────────────────────────────────────────
+    // This used to open `sms:` in the operator's own messaging app, which does
+    // nothing at all on a desktop browser — so "send a review request" quietly
+    // did not. The Twilio sender on the server has always worked; only the
+    // mobile app was calling it. Now the web does too.
+    let smsSent = false;
+    let smsProblem: string | null = null;
+
     if (method === "sms" || method === "both") {
-      const phoneUrl = `sms:${details.customerPhone}?body=${encodeURIComponent(finalMessage)}`;
-      window.open(phoneUrl);
+      const { currentBusinessId } = await workspaceService.whenReady();
+      try {
+        const res = await apiFetch<{ success?: boolean; error?: string; reason?: string }>(
+          "/api/twilio/review-request",
+          {
+            method: "POST",
+            body: {
+              to: details.customerPhone,
+              businessName:
+                workspaceService.getCurrentBusinessName() || "us",
+              customerName: details.customerName,
+              projectName: details.projectName || "Project",
+              reviewLink,
+              businessId: currentBusinessId,
+              requestId,
+            },
+          },
+        );
+        smsSent = res?.success === true;
+        if (!smsSent) smsProblem = res?.error ?? "The message was not sent.";
+      } catch (err) {
+        // apiFetch throws ApiError on a non-2xx, carrying the JSON body in
+        // `details`. The opt-out case is the one worth naming, because it is
+        // the customer's decision rather than a fault to retry.
+        const details_ = isApiError(err) ? (err.details as { reason?: string; error?: string } | null) : null;
+        const reason = details_?.reason;
+        smsProblem =
+          reason === "opted_out"
+            ? "That number replied STOP, so no further messages can be sent to it."
+            : reason === "not_configured"
+              ? "SMS isn't configured yet — add your Twilio credentials in Settings."
+              : (details_?.error ??
+                (err instanceof Error ? err.message : "The message could not be sent."));
+      }
     }
 
+    // ── Email: still a hand-off ──────────────────────────────────────────
+    // There is no configured email sender in this product yet, so this opens
+    // the operator's mail client. Said plainly rather than implied.
+    let emailHandedOff = false;
     if (method === "email" || method === "both") {
       const subject = `Review Request for ${details.projectName || "your project"}`;
       const emailUrl = `mailto:${details.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalMessage)}`;
       window.open(emailUrl);
+      emailHandedOff = true;
     }
 
-    // Honest wording: this opens the operator's own messaging app — nothing is
-    // delivered until they hit send there, so the request is listed under
-    // "Scheduled" rather than as sent.
-    toast.success(
-      "Request saved under Scheduled — finish sending the message in the app that just opened",
-    );
+    if (smsProblem) {
+      toast.error(smsProblem);
+    } else if (smsSent && emailHandedOff) {
+      toast.success("Text sent. Finish the email in the mail app that just opened.");
+    } else if (smsSent) {
+      toast.success("Review request sent.");
+    } else if (emailHandedOff) {
+      toast.success(
+        "Request saved — finish sending the email in the mail app that just opened.",
+      );
+    }
     setShowReviewRequest(false);
     setActiveRequest(null);
     loadReviewData();

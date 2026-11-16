@@ -79,6 +79,10 @@ function builder(table: string) {
       }
       return { data: null, error: { message: "not found" } };
     }
+    // No opt-outs in this fixture: an empty suppression list, so sends proceed.
+    if (table === "sms_opt_outs" && op === "select") {
+      return { data: [], error: null };
+    }
     if (table === "audit_logs" && op === "insert") {
       state.inserts.push({ table, row: payload });
       return { data: null, error: state.auditInsertError };
@@ -97,7 +101,16 @@ function builder(table: string) {
     order: () => api,
     limit: () => api,
     eq: (col: string, val: any) => ((filters[col] = val), api),
+    // Real PostgREST filters the SMS path uses. Without them the mock throws
+    // and the opt-out check fails closed, so every send would 409.
+    is: (col: string, val: unknown) => ((filters[col] = val), api),
+    not: (col: string, _op: string, val: unknown) => ((filters[`not_${col}`] = val), api),
+    lt: (col: string, val: unknown) => ((filters[col] = val), api),
+    lte: (col: string, val: unknown) => ((filters[col] = val), api),
+    gte: (col: string, val: unknown) => ((filters[col] = val), api),
+    in: (col: string, val: unknown) => ((filters[col] = val), api),
     insert: (row: any) => ((op = "insert"), (payload = row), api),
+    upsert: (row: unknown) => ((op = "insert"), (payload = row), api),
     update: (row: any) => ((op = "update"), (payload = row), api),
     delete: () => ((op = "delete"), api),
     maybeSingle: async () => resolve(),

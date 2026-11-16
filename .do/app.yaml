@@ -24,7 +24,7 @@ region: nyc
 services:
   - name: web
     github:
-      repo: Seann-Michael/Local-GMB-Booster
+      repo: Seann-Michael/Job-Site-Check-In
       branch: Main
       deploy_on_push: true
     source_dir: /

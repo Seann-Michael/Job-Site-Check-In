@@ -5,6 +5,7 @@ import { getAppUrl } from "../lib/env";
 import { safeFetch, SafeFetchError, readLimitedText, DEFAULT_MAX_RESPONSE_BYTES } from "../lib/safeFetch";
 import { generateSecret, signWithTimestamp, verifySignature } from "../lib/webhookSignature";
 import { canAccessBusiness, canWriteBusiness } from "../middleware/requireAuth";
+import { createLocalPost, GbpNotConnectedError, GbpNotApprovedError } from "../lib/gbp";
 
 interface WebhookPayload {
   [key: string]: any;
@@ -350,7 +351,7 @@ export async function handleListWorkflows(req: Request, res: Response) {
 }
 
 /** What actually happened when one workflow step ran. */
-interface StepResult {
+export interface StepResult {
   stepId: string;
   app: string;
   action: string;
@@ -408,7 +409,12 @@ async function executeWorkflow(
 }
 
 /** Action handlers this server implements, keyed `${app}_${action}`. */
-export const AVAILABLE_ACTIONS = ["webhook_send_webhook", "jobs_create_job", "rss_add_item"] as const;
+export const AVAILABLE_ACTIONS = [
+  "webhook_send_webhook",
+  "jobs_create_job",
+  "rss_add_item",
+  "gbp_create_post",
+] as const;
 
 async function executeAction(
   step: WorkflowStep,
@@ -433,6 +439,10 @@ async function executeAction(
         const output = await addRssItem(config ?? {}, triggerData, workflow);
         return { ...base, status: "succeeded", output };
       }
+      case "gbp_create_post": {
+        const output = await postToGbp(config ?? {}, triggerData, workflow);
+        return { ...base, status: "succeeded", output };
+      }
       default:
         return { ...base, status: "failed", error: `no handler for ${app}_${action}` };
     }
@@ -445,12 +455,22 @@ async function executeAction(
 /**
  * Which builder apps publish to which destination a caller can request.
  * Only destinations with a real handler are mapped.
+ *
+ * `gohighlevel` has no bespoke client: GoHighLevel is reached by pointing a
+ * `webhook_send_webhook` step at a GHL inbound webhook URL, so a webhook step
+ * is what fulfils that destination. If a workflow has no webhook step, the
+ * destination correctly reports "nothing was published there".
  */
 const DESTINATION_STEP_APPS: Record<string, string[]> = {
+  gmb: ["gbp"],
   website: ["rss"],
+  gohighlevel: ["webhook"],
 };
 
-function destinationOutcome(
+/** Exported for tests: the mapping is the contract mobile's publish screen relies on. */
+export const __DESTINATION_STEP_APPS = DESTINATION_STEP_APPS;
+
+export function destinationOutcome(
   destination: string,
   steps: StepResult[],
 ): { destination: string; status: "sent" | "failed"; detail: string } {
@@ -630,6 +650,86 @@ async function addRssItem(
     throw new Error("failed to add RSS item");
   }
   return { itemId: data.id };
+}
+
+// ── gbp_create_post ──────────────────────────────────────────────────────────
+/**
+ * Publish a Google Business Profile local post for the workflow's business.
+ *
+ * The summary comes from the step config (interpolated) or, failing that, from
+ * the job in the trigger payload. Photos are attached only when they are
+ * already publicly fetchable https URLs, because Google pulls the bytes itself
+ * — a signed or private URL would simply fail on their side, so we drop those
+ * rather than send a post Google cannot render.
+ *
+ * `business_id` is always the workflow's own, never a value from the inbound
+ * payload, so a webhook caller cannot post to someone else's profile.
+ */
+async function postToGbp(
+  config: Record<string, any>,
+  payload: WebhookPayload,
+  workflow: any,
+): Promise<Record<string, any>> {
+  const businessId = typeof workflow?.business_id === "string" ? workflow.business_id : "";
+  if (!businessId) throw new Error("workflow has no business, so there is nothing to post to");
+
+  const ctx = buildContext(payload);
+  const job = payload.job ?? {};
+
+  const summary = firstString(
+    config.summary && interpolate(config.summary, ctx),
+    config.message && interpolate(config.message, ctx),
+    payload.summary,
+    job.description,
+    payload.description,
+    job.title,
+    payload.jobTitle,
+    payload.title,
+  );
+  if (!summary) throw new Error("a post summary is required (set one on the step, or send a job title)");
+
+  // Google rejects anything over 1500 characters outright.
+  const trimmed = summary.length > 1500 ? `${summary.slice(0, 1497)}...` : summary;
+
+  const ctaUrl = firstString(config.cta_url && interpolate(config.cta_url, ctx), payload.cta_url, payload.link);
+  const callToAction =
+    /^https:\/\/[^\s]{1,2040}$/i.test(ctaUrl)
+      ? { actionType: firstString(config.cta_action, "LEARN_MORE"), url: ctaUrl }
+      : undefined;
+
+  const rawPhotos: unknown[] = Array.isArray(config.media)
+    ? config.media
+    : Array.isArray(payload.media)
+      ? payload.media
+      : Array.isArray(payload.photos)
+        ? payload.photos
+        : [];
+  const media = rawPhotos
+    .map((m) => (typeof m === "string" ? m : m && typeof (m as any).sourceUrl === "string" ? (m as any).sourceUrl : ""))
+    .map((u: string) => u.trim())
+    .filter((u: string) => /^https:\/\/[^\s]+$/i.test(u) && u.length <= 2048)
+    .slice(0, 1)
+    .map((sourceUrl: string) => ({ mediaFormat: "PHOTO", sourceUrl }));
+
+  try {
+    const post = await createLocalPost(businessId, {
+      summary: trimmed,
+      topicType: firstString(config.topic_type, "STANDARD"),
+      ...(callToAction ? { callToAction } : {}),
+      ...(media.length ? { media } : {}),
+    });
+    return { postName: post.name, searchUrl: post.searchUrl ?? null, photoAttached: media.length > 0 };
+  } catch (err) {
+    // These two are the common, actionable cases; say which it is so the run
+    // log tells the operator what to go and fix.
+    if (err instanceof GbpNotConnectedError) {
+      throw new Error("Google Business Profile is not connected for this business");
+    }
+    if (err instanceof GbpNotApprovedError) {
+      throw new Error("Google has not approved Business Profile API access for this project yet");
+    }
+    throw err;
+  }
 }
 
 // ── webhook_send_webhook ─────────────────────────────────────────────────────

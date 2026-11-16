@@ -64,7 +64,7 @@ function seedTokens(opts: { expiresAt: string | null; refreshToken?: string | nu
   });
 }
 
-type Filter = { col: string; val: any; op: "eq" | "in" };
+type Filter = { col: string; val: any; op: "eq" | "in" | "lt" | "lte" | "gte" | "is" | "not" };
 
 function query(table: string) {
   const filters: Filter[] = [];
@@ -115,6 +115,14 @@ function query(table: string) {
     limit: () => api,
     eq: (col: string, val: any) => (filters.push({ col, val, op: "eq" }), api),
     in: (col: string, val: any) => (filters.push({ col, val, op: "in" }), api),
+    // The real client has these; the sync uses lt() to prune old scan
+    // snapshots and is()/not() elsewhere, so the mock has to model them or a
+    // passing test only proves the mock is incomplete.
+    lt: (col: string, val: unknown) => (filters.push({ col, val, op: "lt" }), api),
+    lte: (col: string, val: unknown) => (filters.push({ col, val, op: "lte" }), api),
+    gte: (col: string, val: unknown) => (filters.push({ col, val, op: "gte" }), api),
+    is: (col: string, val: unknown) => (filters.push({ col, val, op: "is" }), api),
+    not: (col: string, _op: string, val: unknown) => (filters.push({ col, val, op: "not" }), api),
     insert: (row: any) => ((op = "insert"), (payload = row), api),
     update: (row: any) => ((op = "update"), (payload = row), api),
     upsert: (row: any, opts?: any) => ((op = "upsert"), (payload = row), (conflictKey = opts?.onConflict), api),

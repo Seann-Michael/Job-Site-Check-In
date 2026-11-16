@@ -30,6 +30,7 @@ import {
   Mail,
   MessageSquare,
   Webhook,
+  Globe,
   Database,
   Clock,
   GitBranch,
@@ -61,6 +62,25 @@ interface AppAction {
   description: string;
   secondary?: boolean;
 }
+
+/**
+ * Action steps the server actually executes, as `${app}_${action}`.
+ *
+ * This list mirrors AVAILABLE_ACTIONS in server/routes/workflows.ts. Everything
+ * else in the catalog below is a step the builder will happily let you place
+ * and the engine has no handler for — it fails at run time with "no handler
+ * for …". Showing those as freely selectable is how a customer ends up with an
+ * automation they believe is running and isn't, so they are marked here and
+ * rendered as unavailable rather than quietly offered.
+ *
+ * Adding a handler on the server means adding its key here.
+ */
+const IMPLEMENTED_ACTIONS = new Set([
+  "webhook_send_webhook",
+  "jobs_create_job",
+  "rss_add_item",
+  "gbp_create_post",
+]);
 
 const availableApps = [
   // Triggers
@@ -312,6 +332,21 @@ const availableApps = [
         id: "api_call",
         name: "API Call",
         description: "Make custom API request",
+      },
+    ],
+  },
+  {
+    type: "action",
+    app: "gbp",
+    name: "Google Business Profile",
+    icon: Globe,
+    color: "bg-emerald-600",
+    actions: [
+      {
+        id: "create_post",
+        name: "Publish a Google post",
+        description:
+          "Post the job to your Google Business Profile, with a photo when one is attached",
       },
     ],
   },
@@ -829,11 +864,17 @@ export default function WorkflowBuilder() {
                         </div>
                         {app.actions.map((action: AppAction) => {
                           const isSecondaryDisabled = selectorType === "trigger" && canAddTrigger && action.secondary;
+                          // An action step with no server handler would fail at
+                          // run time, so it is not offered as if it worked.
+                          const notBuilt =
+                            selectorType === "action" &&
+                            !IMPLEMENTED_ACTIONS.has(`${app.app}_${action.id}`);
+                          const disabled = isSecondaryDisabled || notBuilt;
                           return (
                             <Card
                               key={action.id}
-                              className={`${isSecondaryDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:shadow-md"} transition-shadow`}
-                              onClick={() => !isSecondaryDisabled && addStep(app, action)}
+                              className={`${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:shadow-md"} transition-shadow`}
+                              onClick={() => !disabled && addStep(app, action)}
                             >
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
@@ -851,6 +892,11 @@ export default function WorkflowBuilder() {
                                   {isSecondaryDisabled && (
                                     <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded whitespace-nowrap">
                                       Add trigger first
+                                    </span>
+                                  )}
+                                  {!isSecondaryDisabled && notBuilt && (
+                                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded whitespace-nowrap">
+                                      Not available yet
                                     </span>
                                   )}
                                 </div>

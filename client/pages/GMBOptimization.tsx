@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { aiApi, aiErrorMessage } from "@/lib/api";
-import { isApiError } from "@/lib/api";
+import { isApiError, apiFetch } from "@/lib/api";
 import {
   gbpService,
   type GbpReview,
@@ -167,9 +167,42 @@ interface AuditResult {
   status: "critical" | "warning" | "good";
   impact: "high" | "medium" | "low";
   action_required: string;
+  /** All rows written by one scan share this. */
+  scanned_at?: string | null;
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** How long scan snapshots are kept — matches the server-side sync. */
+const AUDIT_RETENTION_DAYS = 400;
+
+/** Google's day enum, keyed by the names stored in `gmb_hours.day`. */
+const GOOGLE_DAYS: Record<string, string> = {
+  monday: "MONDAY",
+  tuesday: "TUESDAY",
+  wednesday: "WEDNESDAY",
+  thursday: "THURSDAY",
+  friday: "FRIDAY",
+  saturday: "SATURDAY",
+  sunday: "SUNDAY",
+};
+
+const dayToGoogle = (day: string): string => GOOGLE_DAYS[String(day || "").trim().toLowerCase()] ?? "";
+
+/**
+ * The rows belonging to the most recent scan.
+ *
+ * `gmb_audit_results` is now an append-only series of dated snapshots, so a
+ * plain select returns every scan ever run. Rows arrive newest first, so the
+ * first row's `scanned_at` names the latest batch. Rows without a timestamp
+ * predate snapshotting and are all treated as one legacy batch.
+ */
+const latestScanBatch = (rows: AuditResult[]): AuditResult[] => {
+  if (rows.length === 0) return rows;
+  const newest = rows[0]?.scanned_at ?? null;
+  if (!newest) return rows.filter((r) => !r.scanned_at);
+  return rows.filter((r) => r.scanned_at === newest);
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -306,7 +339,7 @@ export default function GMBOptimization() {
         supabase.from("gmb_qas").select("*").eq("business_id", bid).order("created_at", { ascending: false }),
         supabase.from("gmb_categories").select("*").eq("business_id", bid).order("is_primary", { ascending: false }),
         supabase.from("gmb_services").select("*").eq("business_id", bid).order("created_at"),
-        supabase.from("gmb_audit_results").select("*").eq("business_id", bid).order("scanned_at", { ascending: false }).limit(20),
+        supabase.from("gmb_audit_results").select("*").eq("business_id", bid).order("scanned_at", { ascending: false }).limit(200),
         supabase.from("businesses").select("settings, google_place_id, google_my_business, name, address, phone, website").eq("id", bid).maybeSingle(),
       ]);
 
@@ -315,7 +348,10 @@ export default function GMBOptimization() {
       if (qaRes.data) setQAs(qaRes.data as unknown as GMBQA[]);
       if (catRes.data) setCategories(catRes.data as unknown as GMBCategory[]);
       if (svcRes.data) setServices(svcRes.data as unknown as GMBService[]);
-      if (auditRes.data) setAuditResults(auditRes.data as unknown as AuditResult[]);
+      // Scans are kept as dated history now, so this table holds every past
+      // snapshot. The checklist shows the latest one: rows come back newest
+      // first, so the newest `scanned_at` identifies that batch.
+      if (auditRes.data) setAuditResults(latestScanBatch(auditRes.data as unknown as AuditResult[]));
 
       // The business row backs the "not connected" branch: it carries the
       // Settings-level Google Business Profile connection we now reuse.
@@ -445,13 +481,23 @@ export default function GMBOptimization() {
       await supabase.from("gmb_profiles").update(updates).eq("business_id", businessId);
       setProfile((p) => p ? { ...p, ...updates } : p);
 
-      // Replace audit results
-      await supabase.from("gmb_audit_results").delete().eq("business_id", businessId);
+      // A scan is a dated snapshot, not a replacement. Deleting the previous
+      // results on every scan destroyed the only record of whether the score
+      // ever moved — which is the single thing an optimisation tool exists to
+      // show, and is unrecoverable once gone. Insert, then prune past the
+      // retention window.
+      const scannedAt = new Date().toISOString();
       const { data: savedAudit } = await supabase
         .from("gmb_audit_results")
-        .insert(auditItems.map((a) => ({ ...a, business_id: businessId })))
+        .insert(auditItems.map((a) => ({ ...a, business_id: businessId, scanned_at: scannedAt })))
         .select();
       if (savedAudit) setAuditResults(savedAudit as unknown as AuditResult[]);
+      const cutoff = new Date(Date.now() - AUDIT_RETENTION_DAYS * 86_400_000).toISOString();
+      await supabase
+        .from("gmb_audit_results")
+        .delete()
+        .eq("business_id", businessId)
+        .lt("scanned_at", cutoff);
 
       toast.success("Profile scanned and updated!");
     } catch (err: any) {
@@ -637,8 +683,47 @@ export default function GMBOptimization() {
       const toInsert = hours.map(({ id: _id, ...h }) => ({ ...h, business_id: businessId }));
       const { error: insErr } = await supabase.from("gmb_hours").insert(toInsert);
       if (insErr) throw insErr;
+
+      // Push to Google as well. Saving hours locally and nowhere else was the
+      // worst kind of silent failure: the UI said "saved", Google never heard
+      // about it, and the next Sync pulled the old hours straight back over
+      // the top. Google is the system of record, so the write goes there too.
+      // No local "is it connected" flag exists, and guessing one would be
+      // worse than asking: the endpoint answers 409 when the business has no
+      // Google connection, so attempt the push and read the real answer.
+      let pushed = false;
+      let notConnected = false;
+      let pushProblem: string | null = null;
+      try {
+        await apiFetch(`/api/gbp/${businessId}/location`, {
+          method: "PATCH",
+          body: {
+            hours: hours
+              .map((h) => ({
+                day: dayToGoogle(h.day),
+                open: h.open_time,
+                close: h.close_time,
+                closed: h.is_closed,
+              }))
+              .filter((h) => h.day),
+          },
+        });
+        pushed = true;
+      } catch (err) {
+        if (isApiError(err) && err.status === 409) {
+          notConnected = true;
+        } else if (noteApprovalError(err)) {
+          pushProblem = "Google hasn't approved Business Profile API access for this project yet.";
+        } else {
+          pushProblem = isApiError(err) ? err.message : "Google did not accept the change.";
+        }
+      }
+
       setEditingHours(false);
-      toast.success("Business hours saved!");
+      if (pushed) toast.success("Hours saved and published to Google.");
+      else if (notConnected)
+        toast.success("Hours saved. Connect Google Business Profile in Settings to publish them to your listing.");
+      else toast.warning(`Hours saved here, but not on Google: ${pushProblem}`);
     } catch (err: any) {
       toast.error(`Failed to save hours: ${err?.message ?? "unknown error"}`);
     } finally {
