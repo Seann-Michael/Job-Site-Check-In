@@ -37,6 +37,7 @@ import {
   handlePaymentStatus,
 } from "./routes/payments";
 import { handleLogout, handleChangePassword } from "./routes/authApi";
+import { handleClientError } from "./routes/clientErrors";
 import { handleAIReviewResponse } from "./routes/aiReview";
 import { teamRouter, adminStaffRouter } from "./routes/team";
 import { billingRouter, handleStripeWebhook } from "./routes/billing";
@@ -302,6 +303,19 @@ export function createServer(options: CreateServerOptions = {}) {
   // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/change-password", requireAuth, handleChangePassword);
+
+  // Crash / uncaught-error reports from the mobile app and the web error
+  // boundary. Per-user cap: a render loop must not be able to flood the table.
+  const clientErrorLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user?.id || req.ip || "anonymous",
+    validate: { keyGeneratorIpFallback: false },
+    message: { error: "Too many requests, please try again later" },
+  });
+  app.post("/api/client-errors", requireAuth, clientErrorLimiter, handleClientError);
 
   // Team memberships (routers apply requireAuth themselves; admin router
   // additionally requires super_admin). business_members is read-only over
