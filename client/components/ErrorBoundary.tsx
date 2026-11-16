@@ -36,6 +36,28 @@ function reportToSentry(error: Error, info: React.ErrorInfo) {
     .catch(() => undefined);
 }
 
+/**
+ * Also record the error in the app's own crash log, so a report exists even
+ * when Sentry is not configured. Best-effort: only a signed-in user can report,
+ * and a failure here is swallowed.
+ */
+function reportToServer(error: Error, info: React.ErrorInfo) {
+  import("@/lib/api")
+    .then(({ apiFetch }) =>
+      apiFetch("/api/client-errors", {
+        method: "POST",
+        body: {
+          severity: "error",
+          component: "web",
+          message: error.message || error.name || "Unknown error",
+          stack: `${error.stack ?? ""}\n${info.componentStack ?? ""}`,
+          url: window.location.pathname,
+        },
+      }),
+    )
+    .catch(() => undefined);
+}
+
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -53,6 +75,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       info.componentStack,
     );
     reportToSentry(error, info);
+    reportToServer(error, info);
   }
 
   render() {
