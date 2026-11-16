@@ -19,6 +19,11 @@
 -- business NAP returned here is the same information the business publishes on
 -- its own Google profile.
 
+-- The return type gains columns (completed_at, business, indexable), and
+-- CREATE OR REPLACE cannot change a function's return type, so drop first.
+-- Same transaction, so there is no window where the function is missing.
+DROP FUNCTION IF EXISTS public.public_job(uuid);
+
 CREATE OR REPLACE FUNCTION public.public_job(p_id uuid)
 RETURNS TABLE (
   id uuid,
