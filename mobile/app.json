@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.localseoranker.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.localseoranker.app",
@@ -60,7 +61,8 @@
           "sounds": []
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -72,7 +74,7 @@
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmaGJ1c3F1cGlkaXdscnprZ3FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1ODk5MDcsImV4cCI6MjA3MDE2NTkwN30.kbZCQXEQk93QknZfHR0eZ3d-paEXho5YHOGlCUxmNUw",
       "apiBaseUrl": "https://app.mylocalseoranker.com",
       "appUrl": "https://app.mylocalseoranker.com",
-      "//publish": "Default workflow that receives completed jobs; users pick one in Settings → Integrations, which overrides this on-device.",
+      "//publish": "Default workflow that receives completed jobs; users pick one in Settings \u2192 Integrations, which overrides this on-device.",
       "publishWebhookId": "",
       "//maps": "Google Places browser key for address autocomplete (optional). Set via EXPO_PUBLIC_GOOGLE_MAPS_API_KEY or here.",
       "googleMapsApiKey": "",

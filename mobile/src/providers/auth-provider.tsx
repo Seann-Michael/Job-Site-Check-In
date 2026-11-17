@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, {
@@ -64,6 +65,7 @@ interface AuthContextValue {
     name: string,
   ) => Promise<{ error?: string; needsConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
+  signInWithApple: () => Promise<{ error?: string }>;
   signInDemo: () => void;
   signOut: () => Promise<void>;
   updateName: (firstName: string, lastName: string) => Promise<{ error?: string }>;
@@ -331,6 +333,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {};
   }, []);
 
+  const signInWithApple = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setUser(DEMO_USER);
+      return {};
+    }
+    // Native Sign in with Apple: iOS shows its own sheet and hands back a signed
+    // identity token, which is exchanged for a session. No browser involved.
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) return { error: 'Apple sign-in did not complete.' };
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+      if (error) return { error: error.message };
+      // Apple gives the name only on the very first sign-in, and only to the
+      // app — save it now or it is never available again.
+      const given = credential.fullName?.givenName?.trim();
+      const family = credential.fullName?.familyName?.trim();
+      const full = [given, family].filter(Boolean).join(' ');
+      if (full) {
+        await supabase.auth
+          .updateUser({ data: { full_name: full, first_name: given ?? '', last_name: family ?? '' } })
+          .catch(() => undefined);
+      }
+      return {};
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === 'ERR_REQUEST_CANCELED') return { error: 'cancelled' };
+      return { error: 'Apple sign-in is not available right now.' };
+    }
+  }, []);
+
   const signInDemo = useCallback(() => {
     setUser(DEMO_USER);
   }, []);
@@ -395,6 +435,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signInWithGoogle,
+      signInWithApple,
       signInDemo,
       signOut,
       updateName,
@@ -406,6 +447,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signInWithGoogle,
+      signInWithApple,
       signInDemo,
       signOut,
       updateName,
