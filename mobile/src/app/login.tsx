@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -44,10 +45,10 @@ function Hero() {
 }
 
 export default function LoginScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn, signUp, signInWithGoogle, signInDemo, isSupabaseConfigured } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signInWithApple, signInDemo, isSupabaseConfigured } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
@@ -57,6 +58,14 @@ export default function LoginScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [appleSubmitting, setAppleSubmitting] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  // Only offered where the phone supports it (iOS 13+).
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
 
   const isSignup = mode === 'signup';
 
@@ -99,6 +108,19 @@ export default function LoginScreen() {
     setGoogleSubmitting(false);
     if (result.error) {
       // A user who backs out of the Google sheet isn't an error to shout about.
+      if (result.error !== 'cancelled') setError(result.error);
+      return;
+    }
+    router.replace('/');
+  };
+
+  const handleApple = async () => {
+    setError(null);
+    setNotice(null);
+    setAppleSubmitting(true);
+    const result = await signInWithApple();
+    setAppleSubmitting(false);
+    if (result.error) {
       if (result.error !== 'cancelled') setError(result.error);
       return;
     }
@@ -240,6 +262,26 @@ export default function LoginScreen() {
               loading={googleSubmitting}
               onPress={handleGoogle}
             />
+
+            {appleAvailable ? (
+              <View style={{ opacity: appleSubmitting ? 0.6 : 1 }} pointerEvents={appleSubmitting ? 'none' : 'auto'}>
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={
+                    isSignup
+                      ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+                      : AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+                  }
+                  buttonStyle={
+                    isDark
+                      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  }
+                  cornerRadius={12}
+                  style={{ width: '100%', height: 48 }}
+                  onPress={() => void handleApple()}
+                />
+              </View>
+            ) : null}
 
             <Pressable
               onPress={switchMode}
