@@ -38,6 +38,8 @@ import {
 } from "./routes/payments";
 import { handleLogout, handleChangePassword } from "./routes/authApi";
 import { handleClientError } from "./routes/clientErrors";
+import { handleDeleteAccount } from "./routes/account";
+import { handlePushRegister, handlePushUnregister } from "./routes/push";
 import { handleAIReviewResponse } from "./routes/aiReview";
 import { teamRouter, adminStaffRouter } from "./routes/team";
 import { billingRouter, handleStripeWebhook } from "./routes/billing";
@@ -303,6 +305,12 @@ export function createServer(options: CreateServerOptions = {}) {
   // Supabase (signInWithPassword / resetPasswordForEmail). MFA is deferred.
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/change-password", requireAuth, handleChangePassword);
+  // Account deletion (App Store requirement). Destructive; confirmed in the body.
+  app.delete("/api/auth/account", requireAuth, handleDeleteAccount);
+
+  // Push notification device registration.
+  app.post("/api/push/register", requireAuth, handlePushRegister);
+  app.delete("/api/push/register", requireAuth, handlePushUnregister);
 
   // Crash / uncaught-error reports from the mobile app and the web error
   // boundary. Per-user cap: a render loop must not be able to flood the table.

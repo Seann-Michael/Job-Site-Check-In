@@ -8,6 +8,7 @@ import { DetailHeader, Screen, Section } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ensureNotificationPermission } from '@/lib/notifications';
+import { registerForPush } from '@/lib/push';
 import { useAuth } from '@/providers/auth-provider';
 
 const STORAGE_KEY = 'lsr-notification-prefs-v1';
@@ -54,9 +55,12 @@ export default function NotificationsSettingsScreen() {
     setPrefs((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
-      // Turning job reminders on needs the OS notification permission.
-      if (key === 'jobUpdates' && next.jobUpdates) {
-        void ensureNotificationPermission();
+      // Turning anything on needs the OS permission; once allowed, this phone
+      // is registered so review alerts can reach it.
+      if (next[key]) {
+        void ensureNotificationPermission().then((granted) => {
+          if (granted) void registerForPush();
+        });
       }
       return next;
     });
@@ -95,8 +99,9 @@ export default function NotificationsSettingsScreen() {
         </Card>
       </Section>
       <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center' }}>
-        Job updates schedule local &quot;job starts today&quot; reminders at 7:30 AM. Push alerts
-        for new reviews and Google updates are coming in a later release.
+        You get an alert on this phone when a new low-star review arrives, so you can reply
+        fast. Job updates schedule a &quot;job starts today&quot; reminder at 7:30 AM. The other
+        alerts are coming in a later release.
       </Text>
     </Screen>
   );

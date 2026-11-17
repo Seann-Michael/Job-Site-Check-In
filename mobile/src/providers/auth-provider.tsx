@@ -12,6 +12,7 @@ import React, {
 } from 'react';
 
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
+import { registerForPush, unregisterFromPush } from '@/lib/push';
 import { clearSignedMediaUrlCache } from '@/lib/media-urls';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -251,6 +252,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, user?.isDemo]);
 
+  // Keep this phone registered for notifications while someone is signed in.
+  // Never prompts: it only registers when notifications are already allowed.
+  useEffect(() => {
+    if (user && !user.isDemo) void registerForPush();
+  }, [user?.id, user?.isDemo]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
       setUser(DEMO_USER);
@@ -337,6 +344,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (isSupabaseConfigured) {
+      // While the session is still valid: stop notifying this phone.
+      await unregisterFromPush();
       await supabase.auth.signOut();
     }
     // Drop any signed media URLs cached for the account that is leaving.

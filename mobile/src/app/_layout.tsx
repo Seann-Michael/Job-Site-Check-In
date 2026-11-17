@@ -1,8 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Stack, useRouter, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import { StampHost } from '@/components/stamp-host';
 import { useTheme } from '@/hooks/use-theme';
@@ -10,6 +11,7 @@ import { notify } from '@/lib/format';
 import { recoverPendingCapture } from '@/lib/media-capture';
 import { flushPendingReports, installCrashReporting, reportError } from '@/lib/crash-report';
 import { initNotifications } from '@/lib/notifications';
+import { routeForNotification } from '@/lib/push';
 import { uploadQueue } from '@/lib/upload-queue';
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemePreferenceProvider } from '@/providers/theme-preference';
@@ -43,6 +45,17 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 function RootNavigator() {
   const { colors, isDark } = useTheme();
+  const router = useRouter();
+
+  // Tapping a notification opens the screen it is about.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const route = routeForNotification(response.notification.request.content.data);
+      if (route) router.push(route);
+    });
+    return () => subscription.remove();
+  }, [router]);
 
   useEffect(() => {
     // Set up notification handler now that the native layer is ready.

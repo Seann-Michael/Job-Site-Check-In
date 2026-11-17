@@ -1,6 +1,6 @@
 import { Redirect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -12,6 +12,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useRole } from '@/hooks/use-role';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { apiErrorMessage, apiFetch } from '@/lib/api';
 import { webUrl } from '@/lib/config';
 import { notify } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
@@ -21,9 +22,9 @@ import { useAuth } from '@/providers/auth-provider';
  * and the account actions Apple requires (download my data, delete account).
  *
  * The photo and Face ID choice are kept on this phone; name and password go
- * through the auth provider as before. Email changes and account deletion
- * are confirmed by email through the web app, so those hand off with a
- * clear message rather than pretending to finish here.
+ * through the auth provider as before. Email changes hand off to the web
+ * app. Account deletion happens here, after a typed confirmation, because the
+ * App Store requires it to be possible inside the app.
  */
 const PHOTO_KEY = 'profile.photo';
 const FACEID_KEY = 'profile.faceid';
@@ -47,6 +48,9 @@ export default function ProfileScreen() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [changing, setChanging] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -139,13 +143,23 @@ export default function ProfileScreen() {
     void Linking.openURL(url);
   };
 
-  const confirmDelete = () => {
-    const go = () => openWeb('/admin/settings?delete=account', 'Delete account');
-    if (Platform.OS === 'web') return go();
-    Alert.alert('Delete your account?', 'Removes your sign-in. Business data and photos stay with the business owner. You confirm by email from the web dashboard.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Continue', style: 'destructive', onPress: go },
-    ]);
+  const ownsBusiness = mode === 'owner' && businesses.length > 0;
+
+  const handleDelete = async () => {
+    if (deleting || deleteText.trim() !== 'DELETE') return;
+    setDeleting(true);
+    try {
+      await apiFetch('/api/auth/account', { method: 'DELETE', body: { confirm: 'DELETE' }, timeoutMs: 60_000 });
+    } catch (err) {
+      setDeleting(false);
+      notify('Not deleted', apiErrorMessage(err, 'Your account could not be deleted. Nothing was removed.'));
+      return;
+    }
+    await AsyncStorage.multiRemove([PHOTO_KEY, FACEID_KEY, 'profile.mobile']).catch(() => undefined);
+    // The account no longer exists; this only clears the phone.
+    await signOut().catch(() => undefined);
+    router.replace('/login');
+    notify('Account deleted', ownsBusiness ? 'Your account and your business data have been deleted.' : 'Your account has been deleted.');
   };
 
   const roleLabel = mode === 'owner' ? 'Owner' : mode === 'staff' ? 'Staff' : 'Viewer';
@@ -261,13 +275,42 @@ export default function ProfileScreen() {
             <IconTile icon="log-out-outline" size={34} />
             <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: colors.text }}>Sign out of this phone</Text>
           </Pressable>
-          <Pressable onPress={confirmDelete} style={({ pressed }) => [styles.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, pressed && { backgroundColor: colors.cardPressed }]}>
+          <Pressable onPress={() => setShowDelete((v) => !v)} style={({ pressed }) => [styles.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, pressed && { backgroundColor: colors.cardPressed }]}>
             <IconTile icon="trash-outline" size={34} tone="danger" />
             <View style={{ flex: 1, gap: 1 }}>
               <Text style={{ fontSize: 14.5, fontWeight: '600', color: colors.danger }}>Delete account</Text>
-              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>Business data and photos stay with the owner</Text>
+              <Text style={{ fontSize: 12.5, color: colors.textSecondary }}>
+                {ownsBusiness ? 'Deletes your account and your business' : 'Removes your sign-in; the business keeps its work'}
+              </Text>
             </View>
           </Pressable>
+          {showDelete ? (
+            <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, gap: Spacing.sm }}>
+              <Text style={{ fontSize: 13.5, lineHeight: 19, color: colors.text }}>
+                {ownsBusiness
+                  ? 'This permanently deletes your account and every business you own, with all of its jobs, photos, documents, clients and reviews. Your crew loses access. It cannot be undone.'
+                  : 'This permanently removes your sign-in. Jobs and photos you added stay with the business. It cannot be undone.'}
+              </Text>
+              <Text style={styles.label(colors)}>Type DELETE to confirm</Text>
+              <TextInput
+                value={deleteText}
+                onChangeText={setDeleteText}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!deleting}
+                placeholder="DELETE"
+                placeholderTextColor={colors.textMuted}
+                style={field}
+              />
+              <Button
+                label={deleting ? 'Deleting…' : 'Delete my account'}
+                variant="danger"
+                onPress={() => void handleDelete()}
+                disabled={deleting || deleteText.trim() !== 'DELETE'}
+                fullWidth
+              />
+            </View>
+          ) : null}
         </Card>
       </Section>
     </Screen>
