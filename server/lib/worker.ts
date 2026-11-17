@@ -22,6 +22,7 @@ import { sendEmail, isEmailConfigured, renderTemplate } from "./email";
 import { sendCampaignById } from "../routes/email";
 import { safeFetch, SafeFetchError, readLimitedText } from "./safeFetch";
 import { processQueuedShares } from "./shares";
+import { sendPushToUsers } from "./push";
 import { sendSms, reviewRequestMessage, normalisePhone } from "./sms";
 
 const log = logger.child({ module: "worker" });
@@ -1174,15 +1175,26 @@ async function processReviewAlerts(): Promise<TickSummary["reviewAlerts"]> {
 
     // ignoreDuplicates leans on the (user_id, dedupe_key) unique index: a review
     // already alerted on is a no-op rather than a conflict.
-    const { error: insErr } = await db.from("notifications").upsert(rows, {
-      onConflict: "user_id,dedupe_key",
-      ignoreDuplicates: true,
-    });
+    // .select() returns only the rows actually inserted, so a phone is pushed
+    // once per review, not once per tick.
+    const { data: inserted, error: insErr } = await db
+      .from("notifications")
+      .upsert(rows, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
+      .select("user_id");
     if (insErr) {
       log.warn({ err: insErr.message, reviewId: review.id }, "review alert insert failed");
       continue;
     }
     notified += rows.length;
+
+    const fresh = ((inserted as Array<{ user_id: string }> | null) || []).map((r) => r.user_id);
+    if (fresh.length > 0) {
+      await sendPushToUsers(fresh, {
+        title: `New ${rating}-star review`,
+        body: `${authorName} left a ${rating}-star review. Tap to reply.`,
+        data: { screen: "reviews", businessId: String(businessId) },
+      });
+    }
   }
 
   return { reviews: reviews.length, notified };
