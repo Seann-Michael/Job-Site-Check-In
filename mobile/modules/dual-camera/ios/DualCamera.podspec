@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.description    = 'Walk-through video: rear camera full frame, front camera picture-in-picture, one audio track.'
   s.author         = 'Job Site Check In'
   s.homepage       = 'https://jobsitecheckin.app'
-  s.platforms      = { :ios => '15.1' }
+  s.platforms      = { :ios => '16.4' }
   s.source         = { git: '' }
   s.static_framework = true
 

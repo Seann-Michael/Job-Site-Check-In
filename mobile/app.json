@@ -2,7 +2,7 @@
   "expo": {
     "name": "Local SEO Ranker",
     "slug": "local-seo-ranker",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "localseoranker",
@@ -64,7 +64,8 @@
       "expo-font",
       "expo-image",
       "expo-sharing",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
