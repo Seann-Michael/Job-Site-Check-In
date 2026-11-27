@@ -26,7 +26,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 
 import { Button, Card, IconTile } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
@@ -64,7 +64,7 @@ export default function ReviewQrScreen() {
   const isUnbranded = params.unbranded === '1';
 
   const [working, setWorking] = useState<'share' | 'print' | null>(null);
-  const shotRef = useRef<View>(null);
+  const shotRef = useRef<ViewShotRef>(null);
 
   if (!initializing && !user) {
     return <Redirect href="/login" />;

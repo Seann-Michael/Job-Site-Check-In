@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { PixelRatio, StyleSheet, Text, View } from 'react-native';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 
 import { getMediaPrefs, type StampPosition } from '@/lib/media-prefs';
 
@@ -100,7 +100,7 @@ function exportWidth(request: StampRequest): number {
 export function StampHost() {
   const [job, setJob] = useState<PendingJob | null>(null);
   const queue = useRef<PendingJob[]>([]);
-  const shotRef = useRef<View>(null);
+  const shotRef = useRef<ViewShotRef>(null);
 
   useEffect(() => {
     enqueueJob = (next) => {

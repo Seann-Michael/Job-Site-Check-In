@@ -5,7 +5,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, PanResponder, Platform, StyleSheet, Text, View } from 'react-native';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 
 import { Button, Card, Segmented } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
@@ -46,7 +46,7 @@ export default function LogoStickerScreen() {
   const [workspaceError, setWorkspaceError] = useState<string | null>(() => workspace.lastError());
   useEffect(() => workspace.subscribe(() => setWorkspaceError(workspace.lastError())), []);
 
-  const shotRef = useRef<View>(null);
+  const shotRef = useRef<ViewShotRef>(null);
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const panOffset = useRef({ x: 0, y: 0 });
 
