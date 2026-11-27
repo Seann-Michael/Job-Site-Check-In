@@ -13,6 +13,7 @@ import {
   Text,
   TextInput,
   View,
+  type ViewInstance,
 } from 'react-native';
 import Svg, { Ellipse, Line, Path, Polygon, Text as SvgText } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
@@ -114,7 +115,7 @@ export default function AnnotateScreen() {
   const [aspect, setAspect] = useState(FALLBACK_ASPECT);
   const [available, setAvailable] = useState(0);
 
-  const shotRef = useRef<View>(null);
+  const shotRef = useRef<ViewInstance>(null);
   // Refs so the PanResponder (created once) always sees current tool/color.
   const toolRef = useRef(tool);
   toolRef.current = tool;

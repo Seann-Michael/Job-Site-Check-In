@@ -5,7 +5,7 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 
 import { Badge, Button, Card, Segmented } from '@/components/ui/basics';
 import { DetailHeader, Screen, Section } from '@/components/ui/screen';
@@ -107,7 +107,7 @@ export default function BeforeAfterScreen() {
   const [afterId, setAfterId] = useState<string | null>(null);
   const [layout, setLayout] = useState('side');
   const [working, setWorking] = useState<'share' | 'save' | null>(null);
-  const shotRef = useRef<View>(null);
+  const shotRef = useRef<ViewShotRef>(null);
 
   const photos = (media ?? []).filter((item) => item.media_type === 'image');
 

@@ -610,7 +610,7 @@ function VideoPage({ uri, active }: { uri: string; active: boolean }) {
       style={StyleSheet.absoluteFill}
       contentFit="contain"
       nativeControls
-      allowsFullscreen
+      fullscreenOptions={{ enable: true }}
       allowsPictureInPicture={false}
     />
   );

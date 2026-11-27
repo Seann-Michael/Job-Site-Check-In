@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   big: { flex: 2, overflow: 'hidden' },
   col: { flex: 1, gap: 3 },
   small: { flex: 1, overflow: 'hidden' },
-  more: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0F172A8C', alignItems: 'center', justifyContent: 'center' },
+  more: { ...StyleSheet.absoluteFill, backgroundColor: '#0F172A8C', alignItems: 'center', justifyContent: 'center' },
   body: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 2, gap: 2 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
 });
